@@ -26,6 +26,7 @@ export default function Practice() {
           <span className="muted"> · {user.name}</span>
         </div>
         <div className="row-actions">
+          <Link className="ghost" to="/vocabulary">Vocabulary</Link>
           <Link className="ghost" to="/">Dashboard</Link>
           <button className="ghost" onClick={logout}>Sign out</button>
         </div>

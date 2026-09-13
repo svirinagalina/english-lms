@@ -33,6 +33,21 @@ export const api = {
     request(`/units/exercises/${exerciseId}/attempt`, { method: 'POST', body: { answer } }),
   unitProgress: (id) => request(`/units/${id}/progress`),
 
+  listVocabSets: () => request('/vocab'),
+  createVocabSet: (body) => request('/vocab', { method: 'POST', body }),
+  getVocabSet: (id) => request(`/vocab/${id}`),
+  deleteVocabSet: (id) => request(`/vocab/${id}`, { method: 'DELETE' }),
+  addCard: (setId, body) => request(`/vocab/${setId}/cards`, { method: 'POST', body }),
+  addCardsBulk: (setId, text) =>
+    request(`/vocab/${setId}/cards/bulk`, { method: 'POST', body: { text } }),
+  deleteCard: (setId, cardId) =>
+    request(`/vocab/${setId}/cards/${cardId}`, { method: 'DELETE' }),
+  studyVocab: (setId) => request(`/vocab/${setId}/study`),
+  reviewCard: (cardId, correct) =>
+    request(`/vocab/cards/${cardId}/review`, { method: 'POST', body: { correct } }),
+  checkCard: (cardId, answer) =>
+    request(`/vocab/cards/${cardId}/check`, { method: 'POST', body: { answer } }),
+
   listLessons: () => request('/lessons'),
   createLesson: (body) => request('/lessons', { method: 'POST', body }),
   getLesson: (id) => request(`/lessons/${id}`),

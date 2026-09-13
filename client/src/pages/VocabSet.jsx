@@ -1,0 +1,301 @@
+import { useEffect, useRef, useState } from 'react'
+import { Link, useParams } from 'react-router-dom'
+import { useAuth } from '../AuthContext'
+import { api } from '../api'
+
+function Study({ setId, onExit }) {
+  const [cards, setCards] = useState(null)
+  const [index, setIndex] = useState(0)
+  const [mode, setMode] = useState('flip')
+  const [revealed, setRevealed] = useState(false)
+  const [answer, setAnswer] = useState('')
+  const [verdict, setVerdict] = useState(null)
+  const [stats, setStats] = useState({ right: 0, wrong: 0 })
+  const inputRef = useRef(null)
+
+  useEffect(() => {
+    api.studyVocab(setId).then(({ cards }) => setCards(cards))
+  }, [setId])
+
+  useEffect(() => {
+    if (mode === 'write' && !verdict) inputRef.current?.focus()
+  }, [index, mode, verdict])
+
+  if (!cards) return <div className="centered">Loading…</div>
+
+  if (cards.length === 0) {
+    return (
+      <div className="card done-card">
+        <h2>Nothing to review</h2>
+        <p className="muted">All cards in this set are scheduled for later.</p>
+        <button onClick={onExit}>Back to the set</button>
+      </div>
+    )
+  }
+
+  const card = cards[index]
+  const finished = index >= cards.length
+
+  if (finished) {
+    return (
+      <div className="card done-card">
+        <h2>Session complete</h2>
+        <p className="muted">Knew: {stats.right} · Missed: {stats.wrong}</p>
+        <button onClick={onExit}>Back to the set</button>
+      </div>
+    )
+  }
+
+  const record = async (correct) => {
+    await api.reviewCard(card.id, correct)
+    setStats((prev) => ({
+      right: prev.right + (correct ? 1 : 0),
+      wrong: prev.wrong + (correct ? 0 : 1)
+    }))
+    setRevealed(false)
+    setVerdict(null)
+    setAnswer('')
+    setIndex((value) => value + 1)
+  }
+
+  const handleWrite = async (event) => {
+    event.preventDefault()
+    if (verdict) return
+    const result = await api.checkCard(card.id, answer)
+    setVerdict(result)
+  }
+
+  return (
+    <div className="study">
+      <div className="study-head">
+        <div className="muted">
+          {index + 1} of {cards.length} · knew {stats.right}, missed {stats.wrong}
+        </div>
+        <div className="tool-group">
+          <button
+            className={`lesson-tab ${mode === 'flip' ? 'active' : ''}`}
+            onClick={() => { setMode('flip'); setVerdict(null); setRevealed(false) }}
+          >
+            Flip
+          </button>
+          <button
+            className={`lesson-tab ${mode === 'write' ? 'active' : ''}`}
+            onClick={() => { setMode('write'); setVerdict(null); setRevealed(false) }}
+          >
+            Write
+          </button>
+          <button className="ghost" onClick={onExit}>Stop</button>
+        </div>
+      </div>
+
+      {mode === 'flip' ? (
+        <>
+          <div className="flashcard" onClick={() => setRevealed((v) => !v)}>
+            <div className="flash-term">{card.translation}</div>
+            {revealed ? (
+              <>
+                <div className="flash-answer">{card.term}</div>
+                {card.example && <div className="muted flash-example">{card.example}</div>}
+              </>
+            ) : (
+              <div className="muted">click to reveal</div>
+            )}
+          </div>
+
+          {revealed && (
+            <div className="study-actions">
+              <button className="ghost" onClick={() => record(false)}>Did not know</button>
+              <button onClick={() => record(true)}>Knew it</button>
+            </div>
+          )}
+        </>
+      ) : (
+        <>
+          <div className="flashcard">
+            <div className="flash-term">{card.translation}</div>
+          </div>
+
+          <form className="drill" onSubmit={handleWrite}>
+            <input
+              ref={inputRef}
+              className="drill-input"
+              placeholder="Write it in English…"
+              value={answer}
+              onChange={(e) => setAnswer(e.target.value)}
+              disabled={Boolean(verdict)}
+              autoComplete="off"
+              spellCheck="false"
+            />
+            {!verdict && <button type="submit" disabled={!answer.trim()}>Check</button>}
+          </form>
+
+          {verdict && (
+            <div className={`verdict ${verdict.correct ? 'right' : 'wrong'}`}>
+              <strong>{verdict.correct ? 'Correct' : 'Not quite'}</strong>
+              {!verdict.correct && <div className="expected">{verdict.term}</div>}
+              <button onClick={() => record(verdict.correct)} autoFocus>Next</button>
+            </div>
+          )}
+        </>
+      )}
+    </div>
+  )
+}
+
+export default function VocabSet() {
+  const { id } = useParams()
+  const { user } = useAuth()
+  const [set, setSet] = useState(null)
+  const [error, setError] = useState('')
+  const [studying, setStudying] = useState(false)
+  const [card, setCard] = useState({ term: '', translation: '', example: '' })
+  const [bulk, setBulk] = useState('')
+  const [showBulk, setShowBulk] = useState(false)
+  const [notice, setNotice] = useState('')
+
+  const isStaff = user.role === 'OWNER' || user.role === 'TEACHER'
+
+  const refresh = () =>
+    api.getVocabSet(id)
+      .then(({ set }) => setSet(set))
+      .catch((err) => setError(err.message))
+
+  useEffect(() => { refresh() }, [id])
+
+  const handleAddCard = async (event) => {
+    event.preventDefault()
+    setError('')
+    try {
+      await api.addCard(id, {
+        term: card.term,
+        translation: card.translation,
+        example: card.example.trim() === '' ? null : card.example
+      })
+      setCard({ term: '', translation: '', example: '' })
+      await refresh()
+    } catch (err) {
+      setError(err.message)
+    }
+  }
+
+  const handleBulk = async (event) => {
+    event.preventDefault()
+    setError('')
+    try {
+      const { added } = await api.addCardsBulk(id, bulk)
+      setNotice(`Added ${added} cards`)
+      setBulk('')
+      setShowBulk(false)
+      await refresh()
+      setTimeout(() => setNotice(''), 3000)
+    } catch (err) {
+      setError(err.message)
+    }
+  }
+
+  const handleDelete = async (cardId) => {
+    await api.deleteCard(id, cardId)
+    await refresh()
+  }
+
+  if (error && !set) {
+    return (
+      <div className="centered">
+        <div className="card">
+          <h2>Cannot open this set</h2>
+          <p className="error">{error}</p>
+          <Link className="button" to="/vocabulary">Back</Link>
+        </div>
+      </div>
+    )
+  }
+
+  if (!set) return <div className="centered">Loading…</div>
+
+  return (
+    <div className="page practice-page">
+      <header className="topbar">
+        <strong>{set.title}</strong>
+        <div className="row-actions">
+          {!studying && set.cards.length > 0 && (
+            <button onClick={() => setStudying(true)}>Study</button>
+          )}
+          <Link className="ghost" to="/vocabulary">Back</Link>
+        </div>
+      </header>
+
+      {error && <div className="error">{error}</div>}
+      {notice && <div className="notice">{notice}</div>}
+
+      {studying ? (
+        <Study setId={id} onExit={() => { setStudying(false); refresh() }} />
+      ) : (
+        <>
+          {isStaff && (
+            <section>
+              <form className="inline-form" onSubmit={handleAddCard}>
+                <input
+                  placeholder="Word in English"
+                  value={card.term}
+                  onChange={(e) => setCard({ ...card, term: e.target.value })}
+                  required
+                />
+                <input
+                  placeholder="Перевод"
+                  value={card.translation}
+                  onChange={(e) => setCard({ ...card, translation: e.target.value })}
+                  required
+                />
+                <input
+                  placeholder="Example (optional)"
+                  value={card.example}
+                  onChange={(e) => setCard({ ...card, example: e.target.value })}
+                />
+                <button type="submit">Add</button>
+              </form>
+
+              <button className="ghost" onClick={() => setShowBulk((v) => !v)}>
+                {showBulk ? 'Hide bulk paste' : 'Paste a list'}
+              </button>
+
+              {showBulk && (
+                <form className="details-form" onSubmit={handleBulk} style={{ marginTop: 12 }}>
+                  <textarea
+                    rows={8}
+                    placeholder={'One per line:\nbook — книга\nto run — бегать\nwindow — окно'}
+                    value={bulk}
+                    onChange={(e) => setBulk(e.target.value)}
+                  />
+                  <div className="editor-actions">
+                    <button type="submit" disabled={!bulk.trim()}>Add all</button>
+                    <span className="muted">
+                      Separate with a dash, tab or semicolon. A third column becomes the example.
+                    </span>
+                  </div>
+                </form>
+              )}
+            </section>
+          )}
+
+          <section>
+            <h2>{set.cards.length} cards</h2>
+            <div className="list">
+              {set.cards.map((item) => (
+                <div key={item.id} className="row">
+                  <div>
+                    <strong>{item.term}</strong>
+                    <div className="muted">{item.translation}</div>
+                    {item.example && <div className="muted flash-example">{item.example}</div>}
+                  </div>
+                  {isStaff && (
+                    <button className="ghost" onClick={() => handleDelete(item.id)}>Remove</button>
+                  )}
+                </div>
+              ))}
+            </div>
+          </section>
+        </>
+      )}
+    </div>
+  )
+}

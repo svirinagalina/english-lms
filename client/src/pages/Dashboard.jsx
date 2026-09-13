@@ -99,6 +99,7 @@ export default function Dashboard() {
         </div>
         <div className="row-actions">
           <Link className="button" to="/practice">Practice</Link>
+          <Link className="button" to="/vocabulary">Vocabulary</Link>
           <button className="ghost" onClick={logout}>Sign out</button>
         </div>
       </header>

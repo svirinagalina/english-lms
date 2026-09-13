@@ -6,6 +6,8 @@ import Dashboard from './pages/Dashboard'
 import Lesson from './pages/Lesson'
 import Practice from './pages/Practice'
 import UnitPractice from './pages/UnitPractice'
+import Vocabulary from './pages/Vocabulary'
+import VocabSet from './pages/VocabSet'
 
 function RequireAuth({ children }) {
   const { user, loading } = useAuth()
@@ -26,6 +28,8 @@ export default function App() {
       <Route path="/lesson/:id" element={<RequireAuth><Lesson /></RequireAuth>} />
       <Route path="/practice" element={<RequireAuth><Practice /></RequireAuth>} />
       <Route path="/practice/:id" element={<RequireAuth><UnitPractice /></RequireAuth>} />
+      <Route path="/vocabulary" element={<RequireAuth><Vocabulary /></RequireAuth>} />
+      <Route path="/vocabulary/:id" element={<RequireAuth><VocabSet /></RequireAuth>} />
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   )

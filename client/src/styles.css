@@ -386,3 +386,36 @@ input[type='range'] { width: 110px; padding: 0; }
 .verdict .expected { font-size: 17px; padding: 6px 0; }
 .follow-note { font-style: italic; }
 .done-card { max-width: 380px; margin: 40px auto; text-align: center; align-items: center; }
+
+.due-badge {
+  background: rgba(99, 102, 241, 0.18);
+  color: #c7d2fe;
+  font-size: 12px;
+  padding: 3px 10px;
+  border-radius: 5px;
+  white-space: nowrap;
+}
+
+.study { display: flex; flex-direction: column; gap: 16px; margin-top: 20px; }
+.study-head { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; }
+
+.flashcard {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 44px 28px;
+  text-align: center;
+  min-height: 190px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 12px;
+  cursor: pointer;
+  user-select: none;
+}
+
+.flash-term { font-size: 26px; }
+.flash-answer { font-size: 24px; color: #a5b4fc; }
+.flash-example { font-style: italic; }
+.study-actions { display: flex; gap: 10px; justify-content: center; }
+.study-actions button { min-width: 140px; }

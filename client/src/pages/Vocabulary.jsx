@@ -1,0 +1,83 @@
+import { useEffect, useState } from 'react'
+import { Link } from 'react-router-dom'
+import { useAuth } from '../AuthContext'
+import { api } from '../api'
+
+export default function Vocabulary() {
+  const { user, logout } = useAuth()
+  const [sets, setSets] = useState([])
+  const [title, setTitle] = useState('')
+  const [error, setError] = useState('')
+  const [loading, setLoading] = useState(true)
+
+  const isStaff = user.role === 'OWNER' || user.role === 'TEACHER'
+
+  const refresh = () =>
+    api.listVocabSets()
+      .then(({ sets }) => setSets(sets))
+      .catch((err) => setError(err.message))
+
+  useEffect(() => {
+    refresh().finally(() => setLoading(false))
+  }, [])
+
+  const handleCreate = async (event) => {
+    event.preventDefault()
+    setError('')
+    try {
+      await api.createVocabSet({ title })
+      setTitle('')
+      await refresh()
+    } catch (err) {
+      setError(err.message)
+    }
+  }
+
+  if (loading) return <div className="centered">Loading…</div>
+
+  return (
+    <div className="page">
+      <header className="topbar">
+        <div>
+          <strong>Vocabulary</strong>
+          <span className="muted"> · {user.name}</span>
+        </div>
+        <div className="row-actions">
+          <Link className="ghost" to="/practice">Practice</Link>
+          <Link className="ghost" to="/">Dashboard</Link>
+          <button className="ghost" onClick={logout}>Sign out</button>
+        </div>
+      </header>
+
+      {error && <div className="error">{error}</div>}
+
+      <section>
+        {isStaff && (
+          <form className="inline-form" onSubmit={handleCreate}>
+            <input
+              placeholder="New set title, e.g. Unit 3 — Food"
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              required
+            />
+            <button type="submit">Create set</button>
+          </form>
+        )}
+
+        {sets.length === 0 && <p className="muted">No sets yet.</p>}
+
+        <div className="list">
+          {sets.map((set) => (
+            <Link key={set.id} className="row unit-row" to={`/vocabulary/${set.id}`}>
+              <div className="unit-main">
+                <strong>{set.title}</strong>
+                <div className="muted">{set.total} cards</div>
+              </div>
+              {set.due > 0 && <span className="due-badge">{set.due} to review</span>}
+            </Link>
+          ))}
+        </div>
+      </section>
+    </div>
+  )
+}
