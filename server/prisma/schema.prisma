@@ -1,0 +1,94 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  OWNER
+  TEACHER
+  STUDENT
+}
+
+model School {
+  id        String   @id @default(cuid())
+  name      String
+  createdAt DateTime @default(now())
+
+  // Free-form transfer details shown only to signed-in students of this school.
+  paymentDetails String?
+
+  users   User[]
+  lessons Lesson[]
+}
+
+model User {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  passwordHash String
+  name         String
+  role         Role
+  createdAt    DateTime @default(now())
+
+  // Per-student billing. Amount is in minor units (kopeks/cents) to avoid float rounding.
+  priceAmount   Int?
+  priceCurrency String  @default("RUB")
+  paymentLink   String?
+  paidUntil     DateTime?
+
+  schoolId String
+  school   School @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+
+  taughtLessons Lesson[]     @relation("TeacherLessons")
+  enrollments   Enrollment[]
+
+  @@index([schoolId])
+}
+
+model Lesson {
+  id          String    @id @default(cuid())
+  title       String
+  scheduledAt DateTime?
+  roomId      String    @unique @default(cuid())
+  createdAt   DateTime  @default(now())
+
+  teacherId String
+  teacher   User   @relation("TeacherLessons", fields: [teacherId], references: [id], onDelete: Cascade)
+
+  schoolId String
+  school   School @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+
+  enrollments Enrollment[]
+  board       Board?
+
+  @@index([schoolId])
+  @@index([teacherId])
+}
+
+model Board {
+  id        String   @id @default(cuid())
+  updatedAt DateTime @updatedAt
+
+  // Whiteboard contents as an array of shapes. Stored as JSON so new shape
+  // types can be added without a migration.
+  elements Json @default("[]")
+
+  lessonId String @unique
+  lesson   Lesson @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+}
+
+model Enrollment {
+  id String @id @default(cuid())
+
+  lessonId String
+  lesson   Lesson @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+
+  studentId String
+  student   User   @relation(fields: [studentId], references: [id], onDelete: Cascade)
+
+  @@unique([lessonId, studentId])
+  @@index([studentId])
+}
