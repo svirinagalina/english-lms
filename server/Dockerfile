@@ -12,6 +12,8 @@ RUN npx prisma generate
 
 COPY src ./src
 COPY public ./public
+COPY scripts ./scripts
+COPY data ./data
 
 EXPOSE 4010
 
