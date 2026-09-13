@@ -8,6 +8,9 @@ import Practice from './pages/Practice'
 import UnitPractice from './pages/UnitPractice'
 import Vocabulary from './pages/Vocabulary'
 import VocabSet from './pages/VocabSet'
+import People from './pages/People'
+import Billing from './pages/Billing'
+import Join from './pages/Join'
 
 function RequireAuth({ children }) {
   const { user, loading } = useAuth()
@@ -24,12 +27,15 @@ export default function App() {
     <Routes>
       <Route path="/login" element={user ? <Navigate to="/" replace /> : <Login />} />
       <Route path="/register" element={user ? <Navigate to="/" replace /> : <Register />} />
+      <Route path="/join/:token" element={user ? <Navigate to="/" replace /> : <Join />} />
       <Route path="/" element={<RequireAuth><Dashboard /></RequireAuth>} />
       <Route path="/lesson/:id" element={<RequireAuth><Lesson /></RequireAuth>} />
       <Route path="/practice" element={<RequireAuth><Practice /></RequireAuth>} />
       <Route path="/practice/:id" element={<RequireAuth><UnitPractice /></RequireAuth>} />
       <Route path="/vocabulary" element={<RequireAuth><Vocabulary /></RequireAuth>} />
       <Route path="/vocabulary/:id" element={<RequireAuth><VocabSet /></RequireAuth>} />
+      <Route path="/people" element={<RequireAuth><People /></RequireAuth>} />
+      <Route path="/billing" element={<RequireAuth><Billing /></RequireAuth>} />
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   )

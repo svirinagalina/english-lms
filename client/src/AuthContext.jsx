@@ -26,13 +26,19 @@ export function AuthProvider({ children }) {
     setUser(user)
   }
 
+  const acceptInvite = async (token, password) => {
+    await api.acceptInvite(token, password)
+    const { user } = await api.me()
+    setUser(user)
+  }
+
   const logout = async () => {
     await api.logout()
     setUser(null)
   }
 
   return (
-    <AuthContext.Provider value={{ user, loading, login, register, logout }}>
+    <AuthContext.Provider value={{ user, loading, login, register, logout, acceptInvite }}>
       {children}
     </AuthContext.Provider>
   )

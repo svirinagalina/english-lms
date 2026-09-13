@@ -1,61 +1,105 @@
 import { Router } from 'express'
-import { randomBytes } from 'crypto'
-import { z } from 'zod'
 import { prisma } from '../db.js'
-import { hashPassword, requireAuth, requireRole } from '../auth.js'
+import { requireAuth, requireRole } from '../auth.js'
 
 export const usersRouter = Router()
 
 usersRouter.use(requireAuth)
 
-const createUserSchema = z.object({
-  name: z.string().min(2).max(100),
-  email: z.string().email(),
-  role: z.enum(['TEACHER', 'STUDENT'])
+const personView = (user) => ({
+  id: user.id,
+  name: user.name,
+  email: user.email,
+  role: user.role,
+  createdAt: user.createdAt,
+  priceAmount: user.priceAmount,
+  priceCurrency: user.priceCurrency,
+  paymentLink: user.paymentLink,
+  paidUntil: user.paidUntil,
+  teachers: user.studentLinks?.map((link) => ({ id: link.teacher.id, name: link.teacher.name })),
+  students: user.teacherLinks?.map((link) => ({ id: link.student.id, name: link.student.name }))
 })
 
-const generateTempPassword = () => randomBytes(9).toString('base64url')
+const SELECT = {
+  id: true, name: true, email: true, role: true, createdAt: true,
+  priceAmount: true, priceCurrency: true, paymentLink: true, paidUntil: true,
+  studentLinks: { include: { teacher: { select: { id: true, name: true } } } },
+  teacherLinks: { include: { student: { select: { id: true, name: true } } } }
+}
 
-usersRouter.get('/', requireRole('OWNER', 'TEACHER'), async (req, res) => {
-  const users = await prisma.user.findMany({
-    where: { schoolId: req.user.schoolId },
-    select: {
-      id: true, name: true, email: true, role: true, createdAt: true,
-      priceAmount: true, priceCurrency: true, paymentLink: true, paidUntil: true
-    },
+// Everyone sees a different slice: the owner sees the school, a teacher sees
+// their own students, a student sees their teachers.
+usersRouter.get('/', async (req, res) => {
+  if (req.user.role === 'OWNER') {
+    const users = await prisma.user.findMany({
+      where: { schoolId: req.user.schoolId },
+      select: SELECT,
+      orderBy: [{ role: 'asc' }, { createdAt: 'asc' }]
+    })
+    return res.json({ people: users.map(personView) })
+  }
+
+  if (req.user.role === 'TEACHER') {
+    const links = await prisma.teacherStudent.findMany({
+      where: { teacherId: req.user.id },
+      include: { student: { select: SELECT } }
+    })
+    return res.json({ people: links.map((link) => personView(link.student)) })
+  }
+
+  const links = await prisma.teacherStudent.findMany({
+    where: { studentId: req.user.id },
+    include: { teacher: { select: { id: true, name: true, email: true, role: true, createdAt: true } } }
+  })
+  res.json({ people: links.map((link) => personView(link.teacher)) })
+})
+
+usersRouter.get('/teachers', requireRole('OWNER'), async (req, res) => {
+  const teachers = await prisma.user.findMany({
+    where: { schoolId: req.user.schoolId, role: { in: ['OWNER', 'TEACHER'] } },
+    select: { id: true, name: true, role: true },
     orderBy: { createdAt: 'asc' }
   })
-  res.json({ users })
+  res.json({ teachers })
 })
 
-usersRouter.post('/', requireRole('OWNER', 'TEACHER'), async (req, res) => {
-  const parsed = createUserSchema.safeParse(req.body)
-  if (!parsed.success) {
-    return res.status(400).json({ error: 'Invalid data', details: parsed.error.flatten().fieldErrors })
+usersRouter.post('/links', requireRole('OWNER'), async (req, res) => {
+  const { teacherId, studentId } = req.body ?? {}
+  if (typeof teacherId !== 'string' || typeof studentId !== 'string') {
+    return res.status(400).json({ error: 'teacherId and studentId are required' })
   }
 
-  const { name, email, role } = parsed.data
+  const [teacher, student] = await Promise.all([
+    prisma.user.findFirst({
+      where: { id: teacherId, schoolId: req.user.schoolId, role: { in: ['OWNER', 'TEACHER'] } }
+    }),
+    prisma.user.findFirst({
+      where: { id: studentId, schoolId: req.user.schoolId, role: 'STUDENT' }
+    })
+  ])
 
-  if (role === 'TEACHER' && req.user.role !== 'OWNER') {
-    return res.status(403).json({ error: 'Only the school owner can add teachers' })
-  }
+  if (!teacher) return res.status(404).json({ error: 'Teacher not found' })
+  if (!student) return res.status(404).json({ error: 'Student not found' })
 
-  const existing = await prisma.user.findUnique({ where: { email } })
-  if (existing) return res.status(409).json({ error: 'Email already registered' })
-
-  const tempPassword = generateTempPassword()
-  const user = await prisma.user.create({
-    data: {
-      name,
-      email,
-      role,
-      passwordHash: await hashPassword(tempPassword),
-      schoolId: req.user.schoolId
-    },
-    select: { id: true, name: true, email: true, role: true }
+  await prisma.teacherStudent.upsert({
+    where: { teacherId_studentId: { teacherId, studentId } },
+    create: { teacherId, studentId },
+    update: {}
   })
 
-  res.status(201).json({ user, tempPassword })
+  res.status(201).json({ ok: true })
+})
+
+usersRouter.delete('/links/:teacherId/:studentId', requireRole('OWNER'), async (req, res) => {
+  const { teacherId, studentId } = req.params
+
+  const teacher = await prisma.user.findFirst({
+    where: { id: teacherId, schoolId: req.user.schoolId }
+  })
+  if (!teacher) return res.status(404).json({ error: 'Teacher not found' })
+
+  await prisma.teacherStudent.deleteMany({ where: { teacherId, studentId } })
+  res.json({ ok: true })
 })
 
 usersRouter.delete('/:id', requireRole('OWNER'), async (req, res) => {

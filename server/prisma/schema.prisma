@@ -25,6 +25,7 @@ model School {
   lessons   Lesson[]
   units     Unit[]
   vocabSets VocabSet[]
+  invites   Invite[]
 }
 
 model User {
@@ -45,9 +46,11 @@ model User {
   school   School @relation(fields: [schoolId], references: [id], onDelete: Cascade)
 
   taughtLessons Lesson[]     @relation("TeacherLessons")
-  enrollments   Enrollment[]
   attempts      Attempt[]
   cardReviews   CardReview[]
+  teacherLinks  TeacherStudent[] @relation("TeacherLinks")
+  studentLinks  TeacherStudent[] @relation("StudentLinks")
+  sentInvites   Invite[]         @relation("SentInvites")
 
   @@index([schoolId])
 }
@@ -65,7 +68,6 @@ model Lesson {
   schoolId String
   school   School @relation(fields: [schoolId], references: [id], onDelete: Cascade)
 
-  enrollments Enrollment[]
   board       Board?
 
   @@index([schoolId])
@@ -84,18 +86,6 @@ model Board {
   lesson   Lesson @relation(fields: [lessonId], references: [id], onDelete: Cascade)
 }
 
-model Enrollment {
-  id String @id @default(cuid())
-
-  lessonId String
-  lesson   Lesson @relation(fields: [lessonId], references: [id], onDelete: Cascade)
-
-  studentId String
-  student   User   @relation(fields: [studentId], references: [id], onDelete: Cascade)
-
-  @@unique([lessonId, studentId])
-  @@index([studentId])
-}
 
 enum ExerciseType {
   TRANSLATE
@@ -206,4 +196,42 @@ model CardReview {
 
   @@unique([cardId, studentId])
   @@index([studentId, dueAt])
+}
+
+// Links a student to the teacher whose lessons and materials they get.
+// A student may study with more than one teacher.
+model TeacherStudent {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+
+  teacherId String
+  teacher   User   @relation("TeacherLinks", fields: [teacherId], references: [id], onDelete: Cascade)
+
+  studentId String
+  student   User   @relation("StudentLinks", fields: [studentId], references: [id], onDelete: Cascade)
+
+  @@unique([teacherId, studentId])
+  @@index([studentId])
+}
+
+// A pending invitation. The token goes into a link the inviter passes on;
+// accepting it creates the account and, for students, the teacher link.
+model Invite {
+  id        String    @id @default(cuid())
+  token     String    @unique
+  email     String
+  name      String
+  role      Role
+  createdAt DateTime  @default(now())
+  expiresAt DateTime
+  acceptedAt DateTime?
+
+  schoolId String
+  school   School @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+
+  invitedById String
+  invitedBy   User   @relation("SentInvites", fields: [invitedById], references: [id], onDelete: Cascade)
+
+  @@index([schoolId])
+  @@index([email])
 }

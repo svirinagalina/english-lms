@@ -1,4 +1,5 @@
 import jwt from 'jsonwebtoken'
+import { prisma } from './db.js'
 import { loadAccessibleLesson } from './routes/lessons.js'
 import {
   elementSchema,
@@ -53,9 +54,11 @@ export function setupSignaling(io) {
         if (peer) peers.push({ id, name: peer.data.name })
       }
 
-      socket.data.name = lesson.teacherId === user.id
-        ? lesson.teacher.name
-        : lesson.enrollments.find((e) => e.studentId === user.id)?.student.name ?? 'Guest'
+      const profile = await prisma.user.findUnique({
+        where: { id: user.id },
+        select: { name: true }
+      })
+      socket.data.name = profile?.name ?? 'Participant'
 
       socket.to(lesson.roomId).emit('user-joined', { id: socket.id, name: socket.data.name })
       if (typeof ack === 'function') ack({ peers, roomId: lesson.roomId })

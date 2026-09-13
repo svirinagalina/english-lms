@@ -2,9 +2,10 @@ import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useAuth } from '../AuthContext'
 import { api } from '../api'
+import Nav from '../components/Nav'
 
 export default function Practice() {
-  const { user, logout } = useAuth()
+  const { user } = useAuth()
   const [units, setUnits] = useState([])
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(true)
@@ -20,17 +21,7 @@ export default function Practice() {
 
   return (
     <div className="page">
-      <header className="topbar">
-        <div>
-          <strong>Practice</strong>
-          <span className="muted"> · {user.name}</span>
-        </div>
-        <div className="row-actions">
-          <Link className="ghost" to="/vocabulary">Vocabulary</Link>
-          <Link className="ghost" to="/">Dashboard</Link>
-          <button className="ghost" onClick={logout}>Sign out</button>
-        </div>
-      </header>
+      <Nav title="Practice" />
 
       {error && <div className="error">{error}</div>}
 

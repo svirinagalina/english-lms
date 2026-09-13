@@ -17,41 +17,52 @@ const lessonView = (lesson) => ({
   title: lesson.title,
   scheduledAt: lesson.scheduledAt,
   roomId: lesson.roomId,
-  teacher: lesson.teacher ? { id: lesson.teacher.id, name: lesson.teacher.name } : undefined,
-  students: lesson.enrollments?.map((e) => ({ id: e.student.id, name: e.student.name }))
+  teacher: lesson.teacher ? { id: lesson.teacher.id, name: lesson.teacher.name } : undefined
 })
 
-async function loadAccessibleLesson(user, lessonId) {
+const INCLUDE = { teacher: { select: { id: true, name: true } } }
+
+// Teachers a student studies with; their lessons are the student's lessons.
+async function teacherIdsFor(studentId) {
+  const links = await prisma.teacherStudent.findMany({
+    where: { studentId },
+    select: { teacherId: true }
+  })
+  return links.map((link) => link.teacherId)
+}
+
+export async function loadAccessibleLesson(user, lessonId) {
   const lesson = await prisma.lesson.findFirst({
     where: { id: lessonId, schoolId: user.schoolId },
-    include: {
-      teacher: { select: { id: true, name: true } },
-      enrollments: { include: { student: { select: { id: true, name: true } } } }
-    }
+    include: INCLUDE
   })
   if (!lesson) return null
 
-  const isTeacher = lesson.teacherId === user.id
-  const isOwner = user.role === 'OWNER'
-  const isEnrolled = lesson.enrollments.some((e) => e.studentId === user.id)
+  if (user.role === 'OWNER' || lesson.teacherId === user.id) return lesson
 
-  return isTeacher || isOwner || isEnrolled ? lesson : null
+  if (user.role === 'STUDENT') {
+    const teacherIds = await teacherIdsFor(user.id)
+    if (teacherIds.includes(lesson.teacherId)) return lesson
+  }
+
+  return null
 }
 
 lessonsRouter.get('/', async (req, res) => {
-  const where =
-    req.user.role === 'STUDENT'
-      ? { schoolId: req.user.schoolId, enrollments: { some: { studentId: req.user.id } } }
-      : req.user.role === 'OWNER'
-        ? { schoolId: req.user.schoolId }
-        : { schoolId: req.user.schoolId, teacherId: req.user.id }
+  let where
+
+  if (req.user.role === 'OWNER') {
+    where = { schoolId: req.user.schoolId }
+  } else if (req.user.role === 'TEACHER') {
+    where = { schoolId: req.user.schoolId, teacherId: req.user.id }
+  } else {
+    const teacherIds = await teacherIdsFor(req.user.id)
+    where = { schoolId: req.user.schoolId, teacherId: { in: teacherIds } }
+  }
 
   const lessons = await prisma.lesson.findMany({
     where,
-    include: {
-      teacher: { select: { id: true, name: true } },
-      enrollments: { include: { student: { select: { id: true, name: true } } } }
-    },
+    include: INCLUDE,
     orderBy: { createdAt: 'desc' }
   })
 
@@ -71,10 +82,7 @@ lessonsRouter.post('/', requireRole('OWNER', 'TEACHER'), async (req, res) => {
       teacherId: req.user.id,
       schoolId: req.user.schoolId
     },
-    include: {
-      teacher: { select: { id: true, name: true } },
-      enrollments: { include: { student: { select: { id: true, name: true } } } }
-    }
+    include: INCLUDE
   })
 
   res.status(201).json({ lesson: lessonView(lesson) })
@@ -86,10 +94,7 @@ lessonsRouter.get('/:id', async (req, res) => {
   res.json({ lesson: lessonView(lesson) })
 })
 
-lessonsRouter.post('/:id/students', requireRole('OWNER', 'TEACHER'), async (req, res) => {
-  const { studentId } = req.body
-  if (typeof studentId !== 'string') return res.status(400).json({ error: 'studentId required' })
-
+lessonsRouter.delete('/:id', requireRole('OWNER', 'TEACHER'), async (req, res) => {
   const lesson = await prisma.lesson.findFirst({
     where: { id: req.params.id, schoolId: req.user.schoolId }
   })
@@ -98,34 +103,6 @@ lessonsRouter.post('/:id/students', requireRole('OWNER', 'TEACHER'), async (req,
     return res.status(403).json({ error: 'Not your lesson' })
   }
 
-  const student = await prisma.user.findFirst({
-    where: { id: studentId, schoolId: req.user.schoolId, role: 'STUDENT' }
-  })
-  if (!student) return res.status(404).json({ error: 'Student not found' })
-
-  await prisma.enrollment.upsert({
-    where: { lessonId_studentId: { lessonId: lesson.id, studentId: student.id } },
-    create: { lessonId: lesson.id, studentId: student.id },
-    update: {}
-  })
-
-  res.status(201).json({ ok: true })
-})
-
-lessonsRouter.delete('/:id/students/:studentId', requireRole('OWNER', 'TEACHER'), async (req, res) => {
-  const lesson = await prisma.lesson.findFirst({
-    where: { id: req.params.id, schoolId: req.user.schoolId }
-  })
-  if (!lesson) return res.status(404).json({ error: 'Lesson not found' })
-  if (lesson.teacherId !== req.user.id && req.user.role !== 'OWNER') {
-    return res.status(403).json({ error: 'Not your lesson' })
-  }
-
-  await prisma.enrollment.deleteMany({
-    where: { lessonId: lesson.id, studentId: req.params.studentId }
-  })
-
+  await prisma.lesson.delete({ where: { id: lesson.id } })
   res.json({ ok: true })
 })
-
-export { loadAccessibleLesson }

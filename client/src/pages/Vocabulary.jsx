@@ -2,9 +2,10 @@ import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useAuth } from '../AuthContext'
 import { api } from '../api'
+import Nav from '../components/Nav'
 
 export default function Vocabulary() {
-  const { user, logout } = useAuth()
+  const { user } = useAuth()
   const [sets, setSets] = useState([])
   const [title, setTitle] = useState('')
   const [error, setError] = useState('')
@@ -37,17 +38,7 @@ export default function Vocabulary() {
 
   return (
     <div className="page">
-      <header className="topbar">
-        <div>
-          <strong>Vocabulary</strong>
-          <span className="muted"> · {user.name}</span>
-        </div>
-        <div className="row-actions">
-          <Link className="ghost" to="/practice">Practice</Link>
-          <Link className="ghost" to="/">Dashboard</Link>
-          <button className="ghost" onClick={logout}>Sign out</button>
-        </div>
-      </header>
+      <Nav title="Vocabulary" />
 
       {error && <div className="error">{error}</div>}
 

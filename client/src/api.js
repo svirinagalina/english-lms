@@ -18,9 +18,20 @@ export const api = {
   me: () => request('/auth/me'),
   registrationStatus: () => request('/auth/registration-status'),
 
-  listUsers: () => request('/users'),
-  createUser: (body) => request('/users', { method: 'POST', body }),
+  listPeople: () => request('/users'),
+  listTeachers: () => request('/users/teachers'),
   deleteUser: (id) => request(`/users/${id}`, { method: 'DELETE' }),
+  linkStudent: (teacherId, studentId) =>
+    request('/users/links', { method: 'POST', body: { teacherId, studentId } }),
+  unlinkStudent: (teacherId, studentId) =>
+    request(`/users/links/${teacherId}/${studentId}`, { method: 'DELETE' }),
+
+  listInvites: () => request('/invites'),
+  createInvite: (body) => request('/invites', { method: 'POST', body }),
+  deleteInvite: (id) => request(`/invites/${id}`, { method: 'DELETE' }),
+  getInvite: (token) => request(`/invites/token/${token}`),
+  acceptInvite: (token, password) =>
+    request(`/invites/token/${token}/accept`, { method: 'POST', body: { password } }),
 
   myBilling: () => request('/billing/me'),
   updateStudentBilling: (id, body) => request(`/billing/students/${id}`, { method: 'PATCH', body }),
@@ -50,9 +61,6 @@ export const api = {
 
   listLessons: () => request('/lessons'),
   createLesson: (body) => request('/lessons', { method: 'POST', body }),
-  getLesson: (id) => request(`/lessons/${id}`),
-  addStudent: (lessonId, studentId) =>
-    request(`/lessons/${lessonId}/students`, { method: 'POST', body: { studentId } }),
-  removeStudent: (lessonId, studentId) =>
-    request(`/lessons/${lessonId}/students/${studentId}`, { method: 'DELETE' })
+  deleteLesson: (id) => request(`/lessons/${id}`, { method: 'DELETE' }),
+  getLesson: (id) => request(`/lessons/${id}`)
 }
