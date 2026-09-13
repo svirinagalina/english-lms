@@ -10,6 +10,7 @@ import { authRouter } from './routes/auth.js'
 import { usersRouter } from './routes/users.js'
 import { lessonsRouter } from './routes/lessons.js'
 import { billingRouter } from './routes/billing.js'
+import { unitsRouter } from './routes/units.js'
 import { setupSignaling } from './signaling.js'
 
 const app = express()
@@ -24,6 +25,7 @@ app.use('/api/auth', authRouter)
 app.use('/api/users', usersRouter)
 app.use('/api/lessons', lessonsRouter)
 app.use('/api/billing', billingRouter)
+app.use('/api/units', unitsRouter)
 
 app.get('/api/health', (req, res) => res.json({ ok: true }))
 

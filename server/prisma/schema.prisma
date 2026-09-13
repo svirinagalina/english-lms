@@ -21,8 +21,10 @@ model School {
   // Free-form transfer details shown only to signed-in students of this school.
   paymentDetails String?
 
-  users   User[]
-  lessons Lesson[]
+  users     User[]
+  lessons   Lesson[]
+  units     Unit[]
+  vocabSets VocabSet[]
 }
 
 model User {
@@ -44,6 +46,8 @@ model User {
 
   taughtLessons Lesson[]     @relation("TeacherLessons")
   enrollments   Enrollment[]
+  attempts      Attempt[]
+  cardReviews   CardReview[]
 
   @@index([schoolId])
 }
@@ -91,4 +95,115 @@ model Enrollment {
 
   @@unique([lessonId, studentId])
   @@index([studentId])
+}
+
+enum ExerciseType {
+  TRANSLATE
+  FILL_BLANK
+  CHOICE
+  WORD_ORDER
+  MATCHING
+}
+
+// A chapter of the textbook: theory plus the exercises that drill it.
+model Unit {
+  id        String   @id @default(cuid())
+  title     String
+  theory    String?
+  position  Int      @default(0)
+  createdAt DateTime @default(now())
+
+  schoolId String
+  school   School @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+
+  exercises Exercise[]
+
+  @@index([schoolId])
+}
+
+model Exercise {
+  id       String       @id @default(cuid())
+  type     ExerciseType
+  prompt   String
+  position Int          @default(0)
+
+  // Grammar topics such as "present-perfect" or "articles". When a student gets
+  // this wrong, follow-up drills are pulled from exercises sharing a tag.
+  tags String[] @default([])
+
+  // Accepted answers. The first one is shown as the reference answer;
+  // the rest are alternative phrasings that also count as correct.
+  answers String[] @default([])
+
+  // Type-specific payload: options for CHOICE, word list for WORD_ORDER,
+  // pairs for MATCHING. Kept as JSON so new types need no migration.
+  payload Json?
+
+  unitId String
+  unit   Unit   @relation(fields: [unitId], references: [id], onDelete: Cascade)
+
+  attempts Attempt[]
+
+  @@index([unitId])
+}
+
+model Attempt {
+  id        String   @id @default(cuid())
+  answer    String
+  correct   Boolean
+  createdAt DateTime @default(now())
+
+  exerciseId String
+  exercise   Exercise @relation(fields: [exerciseId], references: [id], onDelete: Cascade)
+
+  studentId String
+  student   User   @relation(fields: [studentId], references: [id], onDelete: Cascade)
+
+  @@index([studentId, createdAt])
+  @@index([exerciseId])
+}
+
+model VocabSet {
+  id        String   @id @default(cuid())
+  title     String
+  createdAt DateTime @default(now())
+
+  schoolId String
+  school   School @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+
+  cards VocabCard[]
+
+  @@index([schoolId])
+}
+
+model VocabCard {
+  id      String  @id @default(cuid())
+  term    String
+  translation String
+  example String?
+  position Int    @default(0)
+
+  setId String
+  set   VocabSet @relation(fields: [setId], references: [id], onDelete: Cascade)
+
+  reviews CardReview[]
+
+  @@index([setId])
+}
+
+// Spaced-repetition state, one row per student per card.
+model CardReview {
+  id         String   @id @default(cuid())
+  streak     Int      @default(0)
+  dueAt      DateTime @default(now())
+  lastResult Boolean?
+
+  cardId String
+  card   VocabCard @relation(fields: [cardId], references: [id], onDelete: Cascade)
+
+  studentId String
+  student   User   @relation(fields: [studentId], references: [id], onDelete: Cascade)
+
+  @@unique([cardId, studentId])
+  @@index([studentId, dueAt])
 }

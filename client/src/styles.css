@@ -322,3 +322,67 @@ textarea:focus { outline: none; border-color: var(--accent); }
 .pill.on { background: var(--accent); }
 
 input[type='range'] { width: 110px; padding: 0; }
+
+.unit-row { text-decoration: none; color: var(--text); transition: border-color .15s; }
+.unit-row:hover { border-color: var(--accent); }
+.unit-main { flex: 1; min-width: 0; }
+.unit-percent { font-size: 13px; color: var(--muted); font-variant-numeric: tabular-nums; }
+
+.progress-track {
+  height: 5px;
+  background: #23262e;
+  border-radius: 3px;
+  overflow: hidden;
+  margin-top: 8px;
+}
+
+.progress-track.slim { margin: 16px 0 6px; }
+.progress-fill { height: 100%; background: var(--accent); transition: width .25s; }
+
+.practice-page { max-width: 720px; }
+.counter { font-variant-numeric: tabular-nums; margin-bottom: 20px; }
+
+.theory {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 18px 20px;
+  margin-top: 16px;
+  white-space: pre-wrap;
+  line-height: 1.55;
+  font-size: 14px;
+  max-height: 340px;
+  overflow-y: auto;
+}
+
+.drill { display: flex; flex-direction: column; gap: 14px; }
+
+.drill-prompt {
+  font-size: 20px;
+  line-height: 1.4;
+  padding: 22px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+}
+
+.drill-input { font-size: 17px; padding: 14px 16px; }
+
+.verdict {
+  margin-top: 16px;
+  padding: 16px 18px;
+  border-radius: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  align-items: flex-start;
+}
+
+.verdict.right { background: rgba(34, 197, 94, 0.12); border: 1px solid rgba(34, 197, 94, 0.4); }
+.verdict.wrong { background: rgba(239, 68, 68, 0.10); border: 1px solid rgba(239, 68, 68, 0.35); }
+.verdict.right strong { color: #86efac; }
+.verdict.wrong strong { color: #fca5a5; }
+
+.verdict .expected { font-size: 17px; padding: 6px 0; }
+.follow-note { font-style: italic; }
+.done-card { max-width: 380px; margin: 40px auto; text-align: center; align-items: center; }

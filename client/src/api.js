@@ -27,6 +27,12 @@ export const api = {
   schoolPaymentDetails: () => request('/billing/school'),
   updateSchoolPaymentDetails: (body) => request('/billing/school', { method: 'PATCH', body }),
 
+  listUnits: () => request('/units'),
+  getUnit: (id) => request(`/units/${id}`),
+  submitAttempt: (exerciseId, answer) =>
+    request(`/units/exercises/${exerciseId}/attempt`, { method: 'POST', body: { answer } }),
+  unitProgress: (id) => request(`/units/${id}/progress`),
+
   listLessons: () => request('/lessons'),
   createLesson: (body) => request('/lessons', { method: 'POST', body }),
   getLesson: (id) => request(`/lessons/${id}`),

@@ -4,6 +4,8 @@ import Login from './pages/Login'
 import Register from './pages/Register'
 import Dashboard from './pages/Dashboard'
 import Lesson from './pages/Lesson'
+import Practice from './pages/Practice'
+import UnitPractice from './pages/UnitPractice'
 
 function RequireAuth({ children }) {
   const { user, loading } = useAuth()
@@ -22,6 +24,8 @@ export default function App() {
       <Route path="/register" element={user ? <Navigate to="/" replace /> : <Register />} />
       <Route path="/" element={<RequireAuth><Dashboard /></RequireAuth>} />
       <Route path="/lesson/:id" element={<RequireAuth><Lesson /></RequireAuth>} />
+      <Route path="/practice" element={<RequireAuth><Practice /></RequireAuth>} />
+      <Route path="/practice/:id" element={<RequireAuth><UnitPractice /></RequireAuth>} />
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   )

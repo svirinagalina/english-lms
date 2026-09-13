@@ -97,7 +97,10 @@ export default function Dashboard() {
           <strong>{user.schoolName ?? 'My school'}</strong>
           <span className="muted"> · {user.name} ({user.role.toLowerCase()})</span>
         </div>
-        <button className="ghost" onClick={logout}>Sign out</button>
+        <div className="row-actions">
+          <Link className="button" to="/practice">Practice</Link>
+          <button className="ghost" onClick={logout}>Sign out</button>
+        </div>
       </header>
 
       {error && <div className="error">{error}</div>}
