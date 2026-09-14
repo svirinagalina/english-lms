@@ -12,6 +12,10 @@ const TOOLS = [
   { id: 'eraser', label: 'Erase' }
 ]
 
+const HANDLE_PX = 9
+const MIN_SIZE = 12
+const FULL_CROP = { x: 0, y: 0, w: 1, h: 1 }
+
 const newId = () => crypto.randomUUID().slice(0, 32)
 
 // Decoded images by src, so drawElement stays synchronous. A missing entry
@@ -28,81 +32,7 @@ function imageFor(src) {
   return image
 }
 
-function drawElement(ctx, element) {
-  ctx.strokeStyle = element.color
-  ctx.fillStyle = element.color
-  ctx.lineWidth = element.width
-  ctx.lineCap = 'round'
-  ctx.lineJoin = 'round'
-
-  if (element.type === 'path') {
-    const points = element.points ?? []
-    if (points.length < 4) return
-    ctx.beginPath()
-    ctx.moveTo(points[0], points[1])
-    for (let i = 2; i < points.length; i += 2) ctx.lineTo(points[i], points[i + 1])
-    ctx.stroke()
-    return
-  }
-
-  if (element.type === 'rect') {
-    ctx.strokeRect(element.x, element.y, element.w, element.h)
-    return
-  }
-
-  if (element.type === 'ellipse') {
-    ctx.beginPath()
-    ctx.ellipse(
-      element.x + element.w / 2,
-      element.y + element.h / 2,
-      Math.abs(element.w / 2),
-      Math.abs(element.h / 2),
-      0, 0, Math.PI * 2
-    )
-    ctx.stroke()
-    return
-  }
-
-  if (element.type === 'arrow') {
-    const [x0, y0, x1, y1] = [element.x, element.y, element.x + element.w, element.y + element.h]
-    ctx.beginPath()
-    ctx.moveTo(x0, y0)
-    ctx.lineTo(x1, y1)
-    ctx.stroke()
-
-    const angle = Math.atan2(y1 - y0, x1 - x0)
-    const head = 8 + element.width * 2
-    ctx.beginPath()
-    ctx.moveTo(x1, y1)
-    ctx.lineTo(x1 - head * Math.cos(angle - Math.PI / 6), y1 - head * Math.sin(angle - Math.PI / 6))
-    ctx.moveTo(x1, y1)
-    ctx.lineTo(x1 - head * Math.cos(angle + Math.PI / 6), y1 - head * Math.sin(angle + Math.PI / 6))
-    ctx.stroke()
-    return
-  }
-
-  if (element.type === 'image') {
-    const image = imageFor(element.src)
-    if (image.complete && image.naturalWidth) {
-      ctx.drawImage(image, element.x, element.y, element.w, element.h)
-    } else {
-      ctx.strokeStyle = '#444'
-      ctx.setLineDash([6, 6])
-      ctx.strokeRect(element.x, element.y, element.w, element.h)
-      ctx.setLineDash([])
-    }
-    return
-  }
-
-  if (element.type === 'text') {
-    const size = element.fontSize ?? 20
-    ctx.font = `${size}px -apple-system, BlinkMacSystemFont, sans-serif`
-    ctx.textBaseline = 'top'
-    element.text.split('\n').forEach((line, index) => {
-      ctx.fillText(line, element.x, element.y + index * size * 1.25)
-    })
-  }
-}
+// --- Geometry -----------------------------------------------------------------
 
 function boundsOf(element) {
   if (element.type === 'path') {
@@ -113,19 +43,6 @@ function boundsOf(element) {
       minY = Math.min(minY, points[i + 1]); maxY = Math.max(maxY, points[i + 1])
     }
     return { x: minX, y: minY, w: maxX - minX, h: maxY - minY }
-  }
-
-  if (element.type === 'image') {
-    const image = imageFor(element.src)
-    if (image.complete && image.naturalWidth) {
-      ctx.drawImage(image, element.x, element.y, element.w, element.h)
-    } else {
-      ctx.strokeStyle = '#444'
-      ctx.setLineDash([6, 6])
-      ctx.strokeRect(element.x, element.y, element.w, element.h)
-      ctx.setLineDash([])
-    }
-    return
   }
 
   if (element.type === 'text') {
@@ -160,21 +77,223 @@ function moveElement(element, dx, dy) {
   return { ...element, x: element.x + dx, y: element.y + dy }
 }
 
+// Scales an element so that its bounds become the given box.
+function fitElement(element, box) {
+  const from = boundsOf(element)
+  const sx = from.w ? box.w / from.w : 1
+  const sy = from.h ? box.h / from.h : 1
+
+  if (element.type === 'path') {
+    const points = element.points.map((value, index) =>
+      index % 2 === 0 ? box.x + (value - from.x) * sx : box.y + (value - from.y) * sy
+    )
+    return { ...element, points }
+  }
+
+  if (element.type === 'text') {
+    const size = element.fontSize ?? 20
+    return { ...element, x: box.x, y: box.y, fontSize: Math.max(8, Math.min(200, size * sy)) }
+  }
+
+  return { ...element, x: box.x, y: box.y, w: box.w, h: box.h }
+}
+
+// Corners of a box, named by which edges they move.
+const CORNERS = [
+  { id: 'nw', dx: 0, dy: 0 },
+  { id: 'ne', dx: 1, dy: 0 },
+  { id: 'sw', dx: 0, dy: 1 },
+  { id: 'se', dx: 1, dy: 1 }
+]
+
+const cornerPoint = (box, corner) => ({ x: box.x + corner.dx * box.w, y: box.y + corner.dy * box.h })
+
+function cornerAt(box, point, scale) {
+  const radius = (HANDLE_PX + 4) / scale
+  return CORNERS.find((corner) => {
+    const { x, y } = cornerPoint(box, corner)
+    return Math.abs(point.x - x) <= radius && Math.abs(point.y - y) <= radius
+  })
+}
+
+// Resizes a box by dragging one corner; the opposite corner stays put.
+function resizeBox(box, corner, point, keepRatio) {
+  const anchor = cornerPoint(box, { dx: 1 - corner.dx, dy: 1 - corner.dy })
+  let w = Math.abs(point.x - anchor.x)
+  let h = Math.abs(point.y - anchor.y)
+
+  if (keepRatio && box.w && box.h) {
+    const ratio = box.w / box.h
+    if (w / h > ratio) h = w / ratio
+    else w = h * ratio
+  }
+
+  w = Math.max(MIN_SIZE, w)
+  h = Math.max(MIN_SIZE, h)
+
+  return {
+    x: corner.dx === 0 ? anchor.x - w : anchor.x,
+    y: corner.dy === 0 ? anchor.y - h : anchor.y,
+    w,
+    h
+  }
+}
+
+// The full, uncropped footprint of an image element on the board.
+function fullImageBox(element) {
+  const crop = element.crop ?? FULL_CROP
+  const fullW = element.w / crop.w
+  const fullH = element.h / crop.h
+  return { x: element.x - crop.x * fullW, y: element.y - crop.y * fullH, w: fullW, h: fullH }
+}
+
+// Converts a visible box inside the full image back into crop fractions.
+function cropFromBox(element, visible) {
+  const full = fullImageBox(element)
+  const clampedX = Math.max(full.x, Math.min(visible.x, full.x + full.w - MIN_SIZE))
+  const clampedY = Math.max(full.y, Math.min(visible.y, full.y + full.h - MIN_SIZE))
+  const clampedW = Math.max(MIN_SIZE, Math.min(visible.w, full.x + full.w - clampedX))
+  const clampedH = Math.max(MIN_SIZE, Math.min(visible.h, full.y + full.h - clampedY))
+
+  return {
+    ...element,
+    x: clampedX,
+    y: clampedY,
+    w: clampedW,
+    h: clampedH,
+    crop: {
+      x: (clampedX - full.x) / full.w,
+      y: (clampedY - full.y) / full.h,
+      w: clampedW / full.w,
+      h: clampedH / full.h
+    }
+  }
+}
+
+// --- Drawing ------------------------------------------------------------------
+
+function drawImageElement(ctx, element, alpha = 1) {
+  const image = imageFor(element.src)
+  if (!(image.complete && image.naturalWidth)) {
+    ctx.strokeStyle = '#444'
+    ctx.setLineDash([6, 6])
+    ctx.strokeRect(element.x, element.y, element.w, element.h)
+    ctx.setLineDash([])
+    return
+  }
+
+  const crop = element.crop ?? FULL_CROP
+  ctx.save()
+  ctx.globalAlpha = alpha
+  ctx.drawImage(
+    image,
+    crop.x * image.naturalWidth, crop.y * image.naturalHeight,
+    crop.w * image.naturalWidth, crop.h * image.naturalHeight,
+    element.x, element.y, element.w, element.h
+  )
+  ctx.restore()
+}
+
+function drawElement(ctx, element) {
+  ctx.strokeStyle = element.color
+  ctx.fillStyle = element.color
+  ctx.lineWidth = element.width
+  ctx.lineCap = 'round'
+  ctx.lineJoin = 'round'
+
+  if (element.type === 'image') return drawImageElement(ctx, element)
+
+  if (element.type === 'path') {
+    const points = element.points ?? []
+    if (points.length < 4) return
+    ctx.beginPath()
+    ctx.moveTo(points[0], points[1])
+    for (let i = 2; i < points.length; i += 2) ctx.lineTo(points[i], points[i + 1])
+    ctx.stroke()
+    return
+  }
+
+  if (element.type === 'rect') {
+    ctx.strokeRect(element.x, element.y, element.w, element.h)
+    return
+  }
+
+  if (element.type === 'ellipse') {
+    ctx.beginPath()
+    ctx.ellipse(
+      element.x + element.w / 2, element.y + element.h / 2,
+      Math.abs(element.w / 2), Math.abs(element.h / 2), 0, 0, Math.PI * 2
+    )
+    ctx.stroke()
+    return
+  }
+
+  if (element.type === 'arrow') {
+    const [x0, y0, x1, y1] = [element.x, element.y, element.x + element.w, element.y + element.h]
+    ctx.beginPath()
+    ctx.moveTo(x0, y0)
+    ctx.lineTo(x1, y1)
+    ctx.stroke()
+
+    const angle = Math.atan2(y1 - y0, x1 - x0)
+    const head = 8 + element.width * 2
+    ctx.beginPath()
+    ctx.moveTo(x1, y1)
+    ctx.lineTo(x1 - head * Math.cos(angle - Math.PI / 6), y1 - head * Math.sin(angle - Math.PI / 6))
+    ctx.moveTo(x1, y1)
+    ctx.lineTo(x1 - head * Math.cos(angle + Math.PI / 6), y1 - head * Math.sin(angle + Math.PI / 6))
+    ctx.stroke()
+    return
+  }
+
+  if (element.type === 'text') {
+    const size = element.fontSize ?? 20
+    ctx.font = `${size}px -apple-system, BlinkMacSystemFont, sans-serif`
+    ctx.textBaseline = 'top'
+    element.text.split('\n').forEach((line, index) => {
+      ctx.fillText(line, element.x, element.y + index * size * 1.25)
+    })
+  }
+}
+
+function drawHandles(ctx, box, scale, color = '#6366f1') {
+  ctx.save()
+  ctx.strokeStyle = color
+  ctx.lineWidth = 1.5 / scale
+  ctx.setLineDash([])
+  ctx.strokeRect(box.x, box.y, box.w, box.h)
+
+  const size = HANDLE_PX / scale
+  ctx.fillStyle = '#fff'
+  for (const corner of CORNERS) {
+    const { x, y } = cornerPoint(box, corner)
+    ctx.fillRect(x - size / 2, y - size / 2, size, size)
+    ctx.strokeRect(x - size / 2, y - size / 2, size, size)
+  }
+  ctx.restore()
+}
+
+// --- Component ----------------------------------------------------------------
+
 export default function Whiteboard({ socketRef, boardId, onUploadImage }) {
   const fileInputRef = useRef(null)
-  const wrapRef = useRef(null)
   const canvasRef = useRef(null)
   const elementsRef = useRef([])
   const draftRef = useRef(null)
   const viewRef = useRef({ x: 0, y: 0, scale: 1 })
   const pointerRef = useRef(null)
   const frameRef = useRef(null)
+  const selectedRef = useRef(null)
+  const cropRef = useRef(null)
 
   const [tool, setTool] = useState('pen')
   const [color, setColor] = useState('#e8eaed')
   const [width, setWidth] = useState(3)
   const [textInput, setTextInput] = useState(null)
   const [, forceRender] = useState(0)
+  const bump = () => forceRender((value) => value + 1)
+
+  const selectedElement = () => elementsRef.current.find((item) => item.id === selectedRef.current)
 
   const render = useCallback(() => {
     const canvas = canvasRef.current
@@ -199,9 +318,24 @@ export default function Whiteboard({ socketRef, boardId, onUploadImage }) {
     ctx.translate(view.x, view.y)
     ctx.scale(view.scale, view.scale)
 
-    for (const element of elementsRef.current) drawElement(ctx, element)
+    const cropping = cropRef.current
+    for (const element of elementsRef.current) {
+      if (cropping && element.id === cropping.id) continue
+      drawElement(ctx, element)
+    }
     if (draftRef.current) drawElement(ctx, draftRef.current)
-  }, [])
+
+    if (cropping) {
+      // Show the whole picture faded, the kept part solid, and handles on it.
+      const full = fullImageBox(cropping)
+      drawImageElement(ctx, { ...cropping, ...full, crop: FULL_CROP }, 0.35)
+      drawImageElement(ctx, cropping)
+      drawHandles(ctx, cropping, view.scale, '#eab308')
+    } else {
+      const selected = selectedElement()
+      if (selected && tool === 'select') drawHandles(ctx, boundsOf(selected), view.scale)
+    }
+  }, [tool])
 
   const scheduleRender = useCallback(() => {
     if (frameRef.current) return
@@ -212,8 +346,86 @@ export default function Whiteboard({ socketRef, boardId, onUploadImage }) {
   }, [render])
 
   useEffect(() => { requestRepaint = scheduleRender }, [scheduleRender])
+  useEffect(() => { scheduleRender() }, [tool, scheduleRender])
 
-  // Places an image at the centre of the current view, scaled to fit.
+  // --- Sync -------------------------------------------------------------------
+
+  useEffect(() => {
+    const socket = socketRef.current
+    if (!socket || !boardId) return
+
+    elementsRef.current = []
+    selectedRef.current = null
+    cropRef.current = null
+    scheduleRender()
+
+    socket.emit('board:open', boardId, (response) => {
+      elementsRef.current = response?.elements ?? []
+      scheduleRender()
+    })
+
+    const onAdd = (element) => { elementsRef.current.push(element); scheduleRender() }
+    const onUpdate = (element) => {
+      const index = elementsRef.current.findIndex((item) => item.id === element.id)
+      if (index !== -1) elementsRef.current[index] = element
+      scheduleRender()
+    }
+    const onDelete = (id) => {
+      elementsRef.current = elementsRef.current.filter((item) => item.id !== id)
+      if (selectedRef.current === id) selectedRef.current = null
+      scheduleRender()
+    }
+    const onClear = () => { elementsRef.current = []; selectedRef.current = null; scheduleRender() }
+
+    socket.on('board:add', onAdd)
+    socket.on('board:update', onUpdate)
+    socket.on('board:delete', onDelete)
+    socket.on('board:clear', onClear)
+
+    return () => {
+      socket.off('board:add', onAdd)
+      socket.off('board:update', onUpdate)
+      socket.off('board:delete', onDelete)
+      socket.off('board:clear', onClear)
+    }
+  }, [socketRef, boardId, scheduleRender])
+
+  useEffect(() => {
+    const repaint = () => scheduleRender()
+    window.addEventListener('resize', repaint)
+    document.addEventListener('visibilitychange', repaint)
+    scheduleRender()
+    return () => {
+      window.removeEventListener('resize', repaint)
+      document.removeEventListener('visibilitychange', repaint)
+    }
+  }, [scheduleRender])
+
+  const emit = (event, payload) => socketRef.current?.emit(event, payload)
+
+  const commitRef = useRef(null)
+  const commit = (element) => {
+    elementsRef.current.push(element)
+    emit('board:add', element)
+    scheduleRender()
+  }
+  commitRef.current = commit
+
+  const replace = (element) => {
+    const index = elementsRef.current.findIndex((item) => item.id === element.id)
+    if (index !== -1) elementsRef.current[index] = element
+    scheduleRender()
+  }
+
+  const remove = (id) => {
+    elementsRef.current = elementsRef.current.filter((item) => item.id !== id)
+    if (selectedRef.current === id) selectedRef.current = null
+    emit('board:delete', id)
+    scheduleRender()
+  }
+
+  // --- Images -----------------------------------------------------------------
+
   const placeImage = useCallback(async (file) => {
     if (!onUploadImage || !file || !file.type.startsWith('image/')) return
 
@@ -234,15 +446,14 @@ export default function Whiteboard({ socketRef, boardId, onUploadImage }) {
     const src = await onUploadImage(dataUrl)
     if (!src) return
 
-    const canvas = canvasRef.current
-    const rect = canvas.getBoundingClientRect()
+    const rect = canvasRef.current.getBoundingClientRect()
     const view = viewRef.current
     const maxWidth = (rect.width * 0.6) / view.scale
     const scale = Math.min(1, maxWidth / size.w)
     const w = size.w * scale
     const h = size.h * scale
 
-    commitRef.current?.({
+    const element = {
       id: newId(),
       type: 'image',
       color: '#000000',
@@ -252,12 +463,15 @@ export default function Whiteboard({ socketRef, boardId, onUploadImage }) {
       w,
       h,
       src
-    })
+    }
+    commitRef.current?.(element)
+    selectedRef.current = element.id
+    setTool('select')
   }, [onUploadImage])
 
-  // Cmd+V with a screenshot on the clipboard drops it straight onto the board.
   useEffect(() => {
     const onPaste = (event) => {
+      if (textInput) return
       const item = [...(event.clipboardData?.items ?? [])].find((i) => i.type.startsWith('image/'))
       if (!item) return
       event.preventDefault()
@@ -265,57 +479,60 @@ export default function Whiteboard({ socketRef, boardId, onUploadImage }) {
     }
     document.addEventListener('paste', onPaste)
     return () => document.removeEventListener('paste', onPaste)
-  }, [placeImage])
+  }, [placeImage, textInput])
+
+  // --- Crop -------------------------------------------------------------------
+
+  const finishCrop = () => {
+    const cropped = cropRef.current
+    if (!cropped) return
+    cropRef.current = null
+    replace(cropped)
+    emit('board:update', cropped)
+    selectedRef.current = cropped.id
+    bump()
+  }
+
+  const cancelCrop = () => {
+    cropRef.current = null
+    scheduleRender()
+    bump()
+  }
+
+  const resetCrop = () => {
+    const selected = selectedElement()
+    if (!selected || selected.type !== 'image' || !selected.crop) return
+    const full = fullImageBox(selected)
+    const restored = { ...selected, ...full }
+    delete restored.crop
+    replace(restored)
+    emit('board:update', restored)
+    bump()
+  }
+
+  // --- Keyboard ---------------------------------------------------------------
 
   useEffect(() => {
-    const socket = socketRef.current
-    if (!socket || !boardId) return
+    const onKey = (event) => {
+      if (textInput || event.target.tagName === 'INPUT' || event.target.tagName === 'TEXTAREA') return
 
-    elementsRef.current = []
-    scheduleRender()
+      if (cropRef.current) {
+        if (event.key === 'Escape') cancelCrop()
+        if (event.key === 'Enter') finishCrop()
+        return
+      }
 
-    socket.emit('board:open', boardId, (response) => {
-      elementsRef.current = response?.elements ?? []
-      scheduleRender()
-    })
-
-    const onAdd = (element) => { elementsRef.current.push(element); scheduleRender() }
-    const onUpdate = (element) => {
-      const index = elementsRef.current.findIndex((item) => item.id === element.id)
-      if (index !== -1) elementsRef.current[index] = element
-      scheduleRender()
+      if ((event.key === 'Delete' || event.key === 'Backspace') && selectedRef.current) {
+        event.preventDefault()
+        remove(selectedRef.current)
+      }
+      if (event.key === 'Escape') { selectedRef.current = null; scheduleRender() }
     }
-    const onDelete = (id) => {
-      elementsRef.current = elementsRef.current.filter((item) => item.id !== id)
-      scheduleRender()
-    }
-    const onClear = () => { elementsRef.current = []; scheduleRender() }
+    document.addEventListener('keydown', onKey)
+    return () => document.removeEventListener('keydown', onKey)
+  })
 
-    socket.on('board:add', onAdd)
-    socket.on('board:update', onUpdate)
-    socket.on('board:delete', onDelete)
-    socket.on('board:clear', onClear)
-
-    return () => {
-      socket.off('board:add', onAdd)
-      socket.off('board:update', onUpdate)
-      socket.off('board:delete', onDelete)
-      socket.off('board:clear', onClear)
-    }
-  }, [socketRef, boardId, scheduleRender])
-
-  // Browsers suspend requestAnimationFrame in hidden tabs, so anything that
-  // arrived while the tab was in the background needs a repaint on return.
-  useEffect(() => {
-    const repaint = () => scheduleRender()
-    window.addEventListener('resize', repaint)
-    document.addEventListener('visibilitychange', repaint)
-    scheduleRender()
-    return () => {
-      window.removeEventListener('resize', repaint)
-      document.removeEventListener('visibilitychange', repaint)
-    }
-  }, [scheduleRender])
+  // --- Pointer ----------------------------------------------------------------
 
   const toWorld = (event) => {
     const rect = canvasRef.current.getBoundingClientRect()
@@ -326,44 +543,70 @@ export default function Whiteboard({ socketRef, boardId, onUploadImage }) {
     }
   }
 
-  const emit = (event, payload) => socketRef.current?.emit(event, payload)
+  const handleDoubleClick = (event) => {
+    if (tool !== 'select' || cropRef.current) return
+    const point = toWorld(event)
+    const target = [...elementsRef.current].reverse().find((element) => hitTest(element, point.x, point.y))
+    if (target?.type !== 'image') return
 
-  const commitRef = useRef(null)
-  const commit = (element) => {
-    elementsRef.current.push(element)
-    emit('board:add', element)
+    cropRef.current = { ...target }
+    selectedRef.current = target.id
     scheduleRender()
+    bump()
   }
-  commitRef.current = commit
 
   const handlePointerDown = (event) => {
     if (textInput) return
     const point = toWorld(event)
+    const scale = viewRef.current.scale
 
     if (event.button === 1 || event.altKey) {
       pointerRef.current = { mode: 'pan', startX: event.clientX, startY: event.clientY, origin: { ...viewRef.current } }
       return
     }
 
+    // Crop mode: drag the crop corners, or click outside to apply.
+    if (cropRef.current) {
+      const corner = cornerAt(cropRef.current, point, scale)
+      if (corner) {
+        pointerRef.current = { mode: 'crop', corner, start: { ...cropRef.current } }
+        return
+      }
+      if (!hitTest(cropRef.current, point.x, point.y)) finishCrop()
+      return
+    }
+
     if (tool === 'eraser') {
       const target = [...elementsRef.current].reverse().find((element) => hitTest(element, point.x, point.y))
-      if (target) {
-        elementsRef.current = elementsRef.current.filter((item) => item.id !== target.id)
-        emit('board:delete', target.id)
-        scheduleRender()
-      }
+      if (target) remove(target.id)
       return
     }
 
     if (tool === 'select') {
+      // A corner handle of the selected element takes priority over what is under it.
+      const selected = selectedElement()
+      if (selected) {
+        const corner = cornerAt(boundsOf(selected), point, scale)
+        if (corner) {
+          pointerRef.current = { mode: 'resize', id: selected.id, corner, start: boundsOf(selected), original: selected }
+          return
+        }
+      }
+
       const target = [...elementsRef.current].reverse().find((element) => hitTest(element, point.x, point.y))
       if (target) {
+        selectedRef.current = target.id
         pointerRef.current = { mode: 'move', id: target.id, last: point }
       } else {
+        selectedRef.current = null
         pointerRef.current = { mode: 'pan', startX: event.clientX, startY: event.clientY, origin: { ...viewRef.current } }
       }
+      scheduleRender()
+      bump()
       return
     }
+
+    selectedRef.current = null
 
     if (tool === 'text') {
       setTextInput({ x: point.x, y: point.y, value: '' })
@@ -412,10 +655,23 @@ export default function Whiteboard({ socketRef, boardId, onUploadImage }) {
     if (pointer.mode === 'move') {
       const index = elementsRef.current.findIndex((item) => item.id === pointer.id)
       if (index === -1) return
-
-      const moved = moveElement(elementsRef.current[index], point.x - pointer.last.x, point.y - pointer.last.y)
-      elementsRef.current[index] = moved
+      elementsRef.current[index] = moveElement(elementsRef.current[index], point.x - pointer.last.x, point.y - pointer.last.y)
       pointer.last = point
+      scheduleRender()
+      return
+    }
+
+    if (pointer.mode === 'resize') {
+      // Images and text keep their proportions; hold Shift to stretch. Shapes are free.
+      const proportional = pointer.original.type === 'image' || pointer.original.type === 'text'
+      const box = resizeBox(pointer.start, pointer.corner, point, proportional !== event.shiftKey)
+      replace(fitElement(pointer.original, box))
+      return
+    }
+
+    if (pointer.mode === 'crop' && cropRef.current) {
+      const box = resizeBox(pointer.start, pointer.corner, point, false)
+      cropRef.current = cropFromBox(pointer.start, box)
       scheduleRender()
     }
   }
@@ -425,11 +681,13 @@ export default function Whiteboard({ socketRef, boardId, onUploadImage }) {
     pointerRef.current = null
     if (!pointer) return
 
-    if (pointer.mode === 'move') {
+    if (pointer.mode === 'move' || pointer.mode === 'resize') {
       const element = elementsRef.current.find((item) => item.id === pointer.id)
       if (element) emit('board:update', element)
       return
     }
+
+    if (pointer.mode === 'crop' || pointer.mode === 'pan') return
 
     const draft = draftRef.current
     draftRef.current = null
@@ -437,25 +695,24 @@ export default function Whiteboard({ socketRef, boardId, onUploadImage }) {
 
     const isEmptyShape = draft.type !== 'path' && Math.abs(draft.w) < 3 && Math.abs(draft.h) < 3
     const isEmptyStroke = draft.type === 'path' && draft.points.length < 4
+    if (isEmptyShape || isEmptyStroke) { scheduleRender(); return }
 
-    if (isEmptyShape || isEmptyStroke) {
-      scheduleRender()
-      return
+    // Boxes and circles dragged towards the top-left get normalised so the
+    // corner handles land where they look. Arrows keep direction.
+    if ((draft.type === 'rect' || draft.type === 'ellipse') && (draft.w < 0 || draft.h < 0)) {
+      Object.assign(draft, boundsOf(draft))
     }
-
     commit(draft)
   }
 
   const handleWheel = (event) => {
     const view = viewRef.current
-
     if (event.ctrlKey || event.metaKey) {
       const rect = canvasRef.current.getBoundingClientRect()
       const mouseX = event.clientX - rect.left
       const mouseY = event.clientY - rect.top
       const factor = Math.exp(-event.deltaY * 0.002)
       const scale = Math.min(5, Math.max(0.15, view.scale * factor))
-
       viewRef.current = {
         scale,
         x: mouseX - (mouseX - view.x) * (scale / view.scale),
@@ -464,7 +721,6 @@ export default function Whiteboard({ socketRef, boardId, onUploadImage }) {
     } else {
       viewRef.current = { ...view, x: view.x - event.deltaX, y: view.y - event.deltaY }
     }
-
     scheduleRender()
   }
 
@@ -472,22 +728,13 @@ export default function Whiteboard({ socketRef, boardId, onUploadImage }) {
     const draft = textInput
     setTextInput(null)
     if (!draft || draft.value.trim() === '') return
-
-    commit({
-      id: newId(),
-      type: 'text',
-      color,
-      width,
-      x: draft.x,
-      y: draft.y,
-      text: draft.value,
-      fontSize: 16 + width * 2
-    })
+    commit({ id: newId(), type: 'text', color, width, x: draft.x, y: draft.y, text: draft.value, fontSize: 16 + width * 2 })
   }
 
   const handleClear = () => {
     if (!window.confirm('Clear the board for everyone?')) return
     elementsRef.current = []
+    selectedRef.current = null
     emit('board:clear')
     scheduleRender()
   }
@@ -495,80 +742,92 @@ export default function Whiteboard({ socketRef, boardId, onUploadImage }) {
   const resetView = () => {
     viewRef.current = { x: 0, y: 0, scale: 1 }
     scheduleRender()
-    forceRender((value) => value + 1)
+    bump()
   }
 
   const view = viewRef.current
+  const cropping = Boolean(cropRef.current)
+  const selected = selectedElement()
 
   return (
     <div className="whiteboard">
       <div className="board-toolbar">
-        <div className="tool-group">
-          {TOOLS.map((item) => (
-            <button
-              key={item.id}
-              className={`tool ${tool === item.id ? 'active' : ''}`}
-              onClick={() => setTool(item.id)}
-            >
-              {item.label}
-            </button>
-          ))}
-        </div>
+        {cropping ? (
+          <div className="tool-group">
+            <span className="muted">Drag the corners to crop, then press Enter</span>
+            <button className="tool active" onClick={finishCrop}>Done</button>
+            <button className="tool" onClick={cancelCrop}>Cancel</button>
+          </div>
+        ) : (
+          <>
+            <div className="tool-group">
+              {TOOLS.map((item) => (
+                <button
+                  key={item.id}
+                  className={`tool ${tool === item.id ? 'active' : ''}`}
+                  onClick={() => { setTool(item.id); if (item.id !== 'select') selectedRef.current = null }}
+                >
+                  {item.label}
+                </button>
+              ))}
+            </div>
 
-        <div className="tool-group">
-          {COLORS.map((value) => (
-            <button
-              key={value}
-              className={`swatch ${color === value ? 'active' : ''}`}
-              style={{ background: value }}
-              onClick={() => setColor(value)}
-              title={value}
-            />
-          ))}
-        </div>
+            <div className="tool-group">
+              {COLORS.map((value) => (
+                <button
+                  key={value}
+                  className={`swatch ${color === value ? 'active' : ''}`}
+                  style={{ background: value }}
+                  onClick={() => setColor(value)}
+                  title={value}
+                />
+              ))}
+            </div>
 
-        <div className="tool-group">
-          <input
-            type="range"
-            min="1"
-            max="24"
-            value={width}
-            onChange={(e) => setWidth(Number(e.target.value))}
-            title="Thickness"
-          />
-          {onUploadImage && (
-            <>
-              <button className="tool" onClick={() => fileInputRef.current?.click()}>Image</button>
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept="image/png,image/jpeg,image/gif,image/webp"
-                hidden
-                onChange={(e) => { placeImage(e.target.files?.[0]); e.target.value = '' }}
-              />
-            </>
-          )}
-          <button className="tool" onClick={resetView}>Reset view</button>
-          <button className="tool danger" onClick={handleClear}>Clear</button>
-        </div>
+            <div className="tool-group">
+              <input type="range" min="1" max="24" value={width} onChange={(e) => setWidth(Number(e.target.value))} title="Thickness" />
+              {onUploadImage && (
+                <>
+                  <button className="tool" onClick={() => fileInputRef.current?.click()}>Image</button>
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept="image/png,image/jpeg,image/gif,image/webp"
+                    hidden
+                    onChange={(e) => { placeImage(e.target.files?.[0]); e.target.value = '' }}
+                  />
+                </>
+              )}
+              {selected?.type === 'image' && selected.crop && (
+                <button className="tool" onClick={resetCrop}>Uncrop</button>
+              )}
+              {selected && tool === 'select' && (
+                <button className="tool" onClick={() => remove(selected.id)}>Delete</button>
+              )}
+              <button className="tool" onClick={resetView}>Reset view</button>
+              <button className="tool danger" onClick={handleClear}>Clear</button>
+            </div>
+          </>
+        )}
       </div>
 
       <div className="board-canvas-wrap">
         <canvas
           ref={canvasRef}
-          className={`board-canvas tool-${tool}`}
+          className={`board-canvas tool-${cropping ? 'crop' : tool}`}
+          onPointerDown={handlePointerDown}
+          onPointerMove={handlePointerMove}
+          onPointerUp={handlePointerUp}
+          onPointerLeave={handlePointerUp}
+          onDoubleClick={handleDoubleClick}
+          onWheel={handleWheel}
+          onContextMenu={(e) => e.preventDefault()}
           onDragOver={(e) => { if (onUploadImage) e.preventDefault() }}
           onDrop={(e) => {
             if (!onUploadImage) return
             e.preventDefault()
             placeImage(e.dataTransfer.files?.[0])
           }}
-          onPointerDown={handlePointerDown}
-          onPointerMove={handlePointerMove}
-          onPointerUp={handlePointerUp}
-          onPointerLeave={handlePointerUp}
-          onWheel={handleWheel}
-          onContextMenu={(e) => e.preventDefault()}
         />
 
         {textInput && (
@@ -591,8 +850,12 @@ export default function Whiteboard({ socketRef, boardId, onUploadImage }) {
         )}
 
         <div className="board-hint">
-          Scroll to pan · {navigator.platform.includes('Mac') ? '⌘' : 'Ctrl'}+scroll to zoom · Alt+drag to pan
-          {onUploadImage && ' · paste or drop an image'}
+          {cropping
+            ? 'Enter to apply · Esc to cancel'
+            : <>
+                Scroll to pan · {navigator.platform.includes('Mac') ? '⌘' : 'Ctrl'}+scroll to zoom · Alt+drag to pan
+                {onUploadImage && ' · paste or drop an image · double-click an image to crop'}
+              </>}
         </div>
       </div>
     </div>

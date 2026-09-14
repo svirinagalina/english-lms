@@ -20,6 +20,12 @@ export const elementSchema = z.object({
   text: z.string().max(2000).optional(),
   fontSize: z.number().min(8).max(200).optional(),
   // Images reference an uploaded file, never inline data — keeps board JSON small.
+  // Visible part of an image as fractions of its natural size, so cropping
+  // never touches the stored file and can be undone.
+  crop: z.object({
+    x: z.number().min(0).max(1), y: z.number().min(0).max(1),
+    w: z.number().min(0.01).max(1), h: z.number().min(0.01).max(1)
+  }).optional(),
   src: z.string().regex(/^\/uploads\/[a-z0-9]+\/[a-z0-9]+\.(png|jpe?g|gif|webp)$/i).optional(),
   authorId: z.string().max(64).optional()
 })
