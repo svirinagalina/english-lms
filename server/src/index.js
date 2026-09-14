@@ -13,6 +13,7 @@ import { classroomsRouter } from './routes/classrooms.js'
 import { billingRouter } from './routes/billing.js'
 import { unitsRouter } from './routes/units.js'
 import { vocabRouter } from './routes/vocab.js'
+import { statsRouter } from './routes/stats.js'
 import { setupSignaling } from './signaling.js'
 
 const app = express()
@@ -30,6 +31,7 @@ app.use('/api/classrooms', classroomsRouter)
 app.use('/api/billing', billingRouter)
 app.use('/api/units', unitsRouter)
 app.use('/api/vocab', vocabRouter)
+app.use('/api/stats', statsRouter)
 
 app.get('/api/health', (req, res) => res.json({ ok: true }))
 

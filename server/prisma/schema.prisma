@@ -118,6 +118,9 @@ model Attempt {
   id        String   @id @default(cuid())
   answer    String
   correct   Boolean
+
+  // Grammar topics the mistake was classified into; empty when correct.
+  errorTopics String[] @default([])
   createdAt DateTime @default(now())
 
   exerciseId String

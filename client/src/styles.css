@@ -472,3 +472,31 @@ input[type='range'] { width: 110px; padding: 0; }
 .package-count { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
 .package-count strong { font-size: 30px; }
 .package-controls { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+
+.mistake-tags { display: flex; gap: 6px; flex-wrap: wrap; }
+.mistake-tag {
+  font-size: 12px;
+  padding: 3px 9px;
+  border-radius: 5px;
+  background: rgba(234, 179, 8, 0.15);
+  color: #fde68a;
+  border: 1px solid rgba(234, 179, 8, 0.3);
+}
+
+.paid-badge.mid { background: rgba(234, 179, 8, 0.15); color: #fde68a; }
+
+.stat-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 10px; }
+.stat-box {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.stat-box strong { font-size: 26px; }
+
+.suggestion a { color: #a5b4fc; }
+.mistake-pair { display: flex; gap: 10px; align-items: baseline; flex-wrap: wrap; margin: 4px 0; }
+.mistake-wrong { color: #fca5a5; text-decoration: line-through; text-decoration-color: rgba(252, 165, 165, 0.5); }

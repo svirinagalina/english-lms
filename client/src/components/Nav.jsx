@@ -14,7 +14,11 @@ export default function Nav({ title }) {
   const links = [{ to: '/classroom', label: 'Classroom' }]
 
   if (user.role !== 'STUDENT') {
-    links.push({ to: '/practice', label: 'Practice' }, { to: '/vocabulary', label: 'Vocabulary' })
+    links.push(
+      { to: '/practice', label: 'Practice' },
+      { to: '/vocabulary', label: 'Vocabulary' },
+      { to: '/progress', label: 'Progress' }
+    )
   } else {
     links.push(
       { to: '/practice', label: 'Practice' },
@@ -41,7 +45,7 @@ export default function Nav({ title }) {
           <Link
             key={link.to}
             to={link.to}
-            className={`nav-link ${(pathname === link.to || (link.to === '/classroom' && pathname === '/')) ? 'active' : ''}`}
+            className={`nav-link ${(pathname === link.to || pathname.startsWith(link.to + '/') || (link.to === '/classroom' && pathname === '/')) ? 'active' : ''}`}
           >
             {link.label}
           </Link>

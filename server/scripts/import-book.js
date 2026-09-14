@@ -3,6 +3,7 @@
 //   node --env-file=.env scripts/import-book.js <schoolId> [path-to-json]
 import { readFileSync } from 'fs'
 import { PrismaClient } from '@prisma/client'
+import { tagAnswer } from '../src/errorAnalysis.js'
 
 const prisma = new PrismaClient()
 
@@ -40,7 +41,9 @@ for (const unit of units) {
           type: exercise.type,
           prompt: exercise.prompt,
           answers: exercise.answers,
-          tags: exercise.tags,
+          // Chapter tag plus grammar tags derived from the reference answer, so
+          // a mistake classified as e.g. "articles" can pull drills from any chapter.
+          tags: [...new Set([...exercise.tags, ...tagAnswer(exercise.answers[0])])],
           position: exercise.position
         }))
       }

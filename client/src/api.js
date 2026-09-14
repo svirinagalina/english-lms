@@ -61,6 +61,10 @@ export const api = {
   checkCard: (cardId, answer) =>
     request(`/vocab/cards/${cardId}/check`, { method: 'POST', body: { answer } }),
 
+  statsStudents: () => request('/stats/students'),
+  statsStudent: (id) => request(`/stats/students/${id}`),
+  statsMe: () => request('/stats/me'),
+
   listClassrooms: () => request('/classrooms'),
   getClassroom: (id) => request(`/classrooms/${id}`),
   createBoard: (id, title) => request(`/classrooms/${id}/boards`, { method: 'POST', body: { title } }),

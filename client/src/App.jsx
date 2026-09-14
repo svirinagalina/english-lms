@@ -11,6 +11,7 @@ import VocabSet from './pages/VocabSet'
 import People from './pages/People'
 import Billing from './pages/Billing'
 import Join from './pages/Join'
+import Stats from './pages/Stats'
 
 function RequireAuth({ children }) {
   const { user, loading } = useAuth()
@@ -36,6 +37,8 @@ export default function App() {
       <Route path="/vocabulary" element={<RequireAuth><Vocabulary /></RequireAuth>} />
       <Route path="/vocabulary/:id" element={<RequireAuth><VocabSet /></RequireAuth>} />
       <Route path="/people" element={<RequireAuth><People /></RequireAuth>} />
+      <Route path="/progress" element={<RequireAuth><Stats /></RequireAuth>} />
+      <Route path="/progress/:id" element={<RequireAuth><Stats /></RequireAuth>} />
       <Route path="/billing" element={<RequireAuth><Billing /></RequireAuth>} />
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>

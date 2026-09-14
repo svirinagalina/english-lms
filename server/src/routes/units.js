@@ -2,7 +2,8 @@ import { Router } from 'express'
 import { z } from 'zod'
 import { prisma } from '../db.js'
 import { requireAuth, requireRole } from '../auth.js'
-import { checkAnswer, diffWords } from '../answerCheck.js'
+import { checkAnswer } from '../answerCheck.js'
+import { classifyMistake, topicLabel } from '../errorAnalysis.js'
 
 export const unitsRouter = Router()
 
@@ -98,12 +99,19 @@ unitsRouter.post('/exercises/:id/attempt', async (req, res) => {
 
   const result = checkAnswer(parsed.data.answer, exercise.answers)
 
+  // Classify against the reference answer so the follow-up drills target the
+  // actual slip (a missing article, a wrong tense) rather than the chapter.
+  const analysis = result.correct
+    ? { topics: [], missing: [], extra: [] }
+    : classifyMistake(parsed.data.answer, exercise.answers[0])
+
   await prisma.attempt.create({
     data: {
       exerciseId: exercise.id,
       studentId: req.user.id,
       answer: parsed.data.answer,
-      correct: result.correct
+      correct: result.correct,
+      errorTopics: analysis.topics
     }
   })
 
@@ -111,19 +119,22 @@ unitsRouter.post('/exercises/:id/attempt', async (req, res) => {
     return res.json({ correct: true, accepted: result.matched })
   }
 
-  // Wrong answer: pull extra drills on the same grammar topic that the student
-  // has not already got right, so the mistake gets practised immediately.
   const alreadyCorrect = await prisma.attempt.findMany({
     where: { studentId: req.user.id, correct: true },
     select: { exerciseId: true },
     distinct: ['exerciseId']
   })
+  const exclude = [exercise.id, ...alreadyCorrect.map((a) => a.exerciseId)]
 
-  const followUps = exercise.tags.length
+  // Prefer drills tagged with the mistake's grammar topic; fall back to the
+  // chapter when the topic is too generic to have tagged exercises.
+  const drillTopics = analysis.topics.filter((topic) => topic !== 'vocabulary' && topic !== 'word-order')
+
+  let followUps = drillTopics.length
     ? await prisma.exercise.findMany({
         where: {
-          id: { notIn: [exercise.id, ...alreadyCorrect.map((a) => a.exerciseId)] },
-          tags: { hasSome: exercise.tags },
+          id: { notIn: exclude },
+          tags: { hasSome: drillTopics },
           unit: { schoolId: req.user.schoolId }
         },
         take: FOLLOW_UP_COUNT,
@@ -131,11 +142,28 @@ unitsRouter.post('/exercises/:id/attempt', async (req, res) => {
       })
     : []
 
+  if (followUps.length < FOLLOW_UP_COUNT && exercise.tags.length) {
+    const more = await prisma.exercise.findMany({
+      where: {
+        id: { notIn: [...exclude, ...followUps.map((f) => f.id)] },
+        tags: { hasSome: exercise.tags },
+        unit: { schoolId: req.user.schoolId }
+      },
+      take: FOLLOW_UP_COUNT - followUps.length,
+      orderBy: { position: 'asc' }
+    })
+    followUps = [...followUps, ...more]
+  }
+
   res.json({
     correct: false,
     expected: exercise.answers[0],
     alternatives: exercise.answers.slice(1),
-    diff: diffWords(parsed.data.answer, exercise.answers[0]),
+    diff: { missing: analysis.missing, extra: analysis.extra },
+    mistake: {
+      topics: analysis.topics,
+      labels: analysis.topics.map(topicLabel)
+    },
     followUps: followUps.map(publicExercise)
   })
 })

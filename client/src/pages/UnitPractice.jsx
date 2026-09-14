@@ -152,6 +152,13 @@ export default function UnitPractice() {
                 <>
                   <strong>Not quite</strong>
                   <div className="expected">{result.expected}</div>
+                  {result.mistake?.labels?.length > 0 && (
+                    <div className="mistake-tags">
+                      {result.mistake.labels.map((label) => (
+                        <span key={label} className="mistake-tag">{label}</span>
+                      ))}
+                    </div>
+                  )}
                   {result.alternatives?.length > 0 && (
                     <div className="muted">Also accepted: {result.alternatives.join(' · ')}</div>
                   )}
@@ -160,7 +167,8 @@ export default function UnitPractice() {
                   )}
                   {result.followUps?.length > 0 && (
                     <div className="muted follow-note">
-                      Added {result.followUps.length} more sentences on this topic.
+                      Added {result.followUps.length} more sentences
+                      {result.mistake?.labels?.[0] ? ` on ${result.mistake.labels[0].toLowerCase()}` : ' on this topic'}.
                     </div>
                   )}
                 </>

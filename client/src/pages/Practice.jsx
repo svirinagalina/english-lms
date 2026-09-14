@@ -9,8 +9,10 @@ export default function Practice() {
   const [units, setUnits] = useState([])
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(true)
+  const [focus, setFocus] = useState(null)
 
   useEffect(() => {
+    api.statsMe().then(setFocus).catch(() => setFocus(null))
     api.listUnits()
       .then(({ units }) => setUnits(units))
       .catch((err) => setError(err.message))
@@ -24,6 +26,27 @@ export default function Practice() {
       <Nav title="Practice" />
 
       {error && <div className="error">{error}</div>}
+
+      {focus?.suggestions?.length > 0 && (
+        <section>
+          <h2>Worth practising</h2>
+          <div className="list">
+            {focus.suggestions.map((item) => (
+              <div key={item.topic} className="row column suggestion">
+                <strong>{item.label}</strong>
+                <div className="muted">
+                  {item.units.map((unit, index) => (
+                    <span key={unit.id}>
+                      {index > 0 && ' · '}
+                      <Link to={`/practice/${unit.id}`}>{unit.title}</Link>
+                    </span>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
 
       {units.length === 0 && !error && (
         <p className="muted" style={{ marginTop: 24 }}>
