@@ -12,6 +12,9 @@ const TOOLS = [
   { id: 'eraser', label: 'Erase' }
 ]
 
+const CLIPBOARD_MARK = 'english-lms-board/v1'
+const PASTE_OFFSET = 24
+
 const HANDLE_PX = 9
 const MIN_SIZE = 12
 const FULL_CROP = { x: 0, y: 0, w: 1, h: 1 }
@@ -319,6 +322,8 @@ export default function Whiteboard({ socketRef, boardId, onUploadImage }) {
   const selectedRef = useRef([])
   const marqueeRef = useRef(null)
   const cropRef = useRef(null)
+  const clipboardRef = useRef([])
+  const pasteCountRef = useRef(0)
 
   const [tool, setTool] = useState('pen')
   const [color, setColor] = useState('#e8eaed')
@@ -536,15 +541,76 @@ export default function Whiteboard({ socketRef, boardId, onUploadImage }) {
 
   useEffect(() => {
     const onPaste = (event) => {
-      if (textInput) return
-      const item = [...(event.clipboardData?.items ?? [])].find((i) => i.type.startsWith('image/'))
-      if (!item) return
-      event.preventDefault()
-      placeImage(item.getAsFile())
+      if (textInput || event.target.tagName === 'INPUT' || event.target.tagName === 'TEXTAREA') return
+
+      const image = [...(event.clipboardData?.items ?? [])].find((i) => i.type.startsWith('image/'))
+      if (image) {
+        event.preventDefault()
+        placeImage(image.getAsFile())
+        return
+      }
+
+      const text = event.clipboardData?.getData('text/plain') ?? ''
+      if (text.includes(CLIPBOARD_MARK)) {
+        try {
+          const parsed = JSON.parse(text)
+          if (parsed.mark === CLIPBOARD_MARK && Array.isArray(parsed.elements)) {
+            event.preventDefault()
+            pasteElements(parsed.elements)
+            return
+          }
+        } catch {
+          // not ours after all
+        }
+      }
+
+      if (clipboardRef.current.length) {
+        event.preventDefault()
+        pasteElements(clipboardRef.current)
+      }
     }
     document.addEventListener('paste', onPaste)
     return () => document.removeEventListener('paste', onPaste)
   }, [placeImage, textInput])
+
+  // --- Clipboard --------------------------------------------------------------
+
+  const copySelection = async () => {
+    const items = selectedElements()
+    if (!items.length) return false
+    clipboardRef.current = items.map((item) => structuredClone(item))
+    pasteCountRef.current = 0
+    try {
+      await navigator.clipboard.writeText(JSON.stringify({ mark: CLIPBOARD_MARK, elements: clipboardRef.current }))
+    } catch {
+      // Clipboard access can be denied; the in-memory copy still works on this board.
+    }
+    return true
+  }
+
+  // Inserts copies shifted so they do not land exactly on the originals;
+  // repeated pastes step further each time.
+  const pasteElements = (source) => {
+    if (!source?.length) return
+    pasteCountRef.current += 1
+    const shift = PASTE_OFFSET * pasteCountRef.current
+    const copies = source.map((item) => ({ ...moveElement(structuredClone(item), shift, shift), id: newId() }))
+    for (const copy of copies) {
+      elementsRef.current.push(copy)
+      emit('board:add', copy)
+    }
+    selectedRef.current = copies.map((copy) => copy.id)
+    setTool('select')
+    scheduleRender()
+    bump()
+  }
+
+  const duplicateSelection = () => {
+    const items = selectedElements()
+    if (!items.length) return
+    pasteCountRef.current = 0
+    pasteElements(items)
+  }
 
   // --- Crop -------------------------------------------------------------------
 
@@ -592,12 +658,29 @@ export default function Whiteboard({ socketRef, boardId, onUploadImage }) {
         remove(selectedRef.current)
       }
       if (event.key === 'Escape') { selectedRef.current = []; scheduleRender(); bump() }
-      if ((event.metaKey || event.ctrlKey) && event.key === 'a' && tool === 'select') {
+      const mod = event.metaKey || event.ctrlKey
+      if (mod && event.key === 'a' && tool === 'select') {
         event.preventDefault()
         selectedRef.current = elementsRef.current.map((item) => item.id)
         scheduleRender()
         bump()
       }
+      if (mod && event.key === 'c' && selectedRef.current.length) {
+        event.preventDefault()
+        copySelection()
+      }
+      if (mod && event.key === 'x') {
+        const ids = [...selectedRef.current]
+        if (ids.length) {
+          event.preventDefault()
+          copySelection().then(() => remove(ids))
+        }
+      }
+      if (mod && event.key === 'd') {
+        event.preventDefault()
+        duplicateSelection()
+      }
+      // Cmd+V is handled by the paste listener so image and object pastes share one path.
     }
     document.addEventListener('keydown', onKey)
     return () => document.removeEventListener('keydown', onKey)
@@ -911,9 +994,12 @@ export default function Whiteboard({ socketRef, boardId, onUploadImage }) {
                 <button className="tool" onClick={resetCrop}>Uncrop</button>
               )}
               {selectedCount > 0 && tool === 'select' && (
-                <button className="tool" onClick={() => remove(selectedRef.current)}>
-                  Delete{selectedCount > 1 ? ` (${selectedCount})` : ''}
-                </button>
+                <>
+                  <button className="tool" onClick={duplicateSelection} title="Duplicate (⌘D)">Duplicate</button>
+                  <button className="tool" onClick={() => remove(selectedRef.current)}>
+                    Delete{selectedCount > 1 ? ` (${selectedCount})` : ''}
+                  </button>
+                </>
               )}
               <button className="tool" onClick={resetView}>Reset view</button>
               <button className="tool danger" onClick={handleClear}>Clear</button>
@@ -965,7 +1051,7 @@ export default function Whiteboard({ socketRef, boardId, onUploadImage }) {
             ? 'Enter to apply · Esc to cancel'
             : <>
                 Scroll to pan · {navigator.platform.includes('Mac') ? '⌘' : 'Ctrl'}+scroll to zoom · Alt+drag to pan
-                {' · Shift+click or drag a box to select several'}
+                {' · Shift+click or drag a box to select several · ⌘C / ⌘V to copy and paste'}
                 {onUploadImage && ' · paste or drop an image · double-click an image to crop'}
               </>}
         </div>
