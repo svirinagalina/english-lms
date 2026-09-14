@@ -46,7 +46,7 @@ export default function Classrooms() {
         <p className="muted" style={{ marginTop: 24 }}>
           {isStudent
             ? 'You are not linked to a teacher yet.'
-            : 'No students yet. Invite one in the People section — a classroom appears automatically.'}
+            : 'No classrooms yet.'}
         </p>
       )}
 
@@ -55,14 +55,21 @@ export default function Classrooms() {
           {classrooms.map((classroom) => (
             <Link key={classroom.id} className="row unit-row" to={`/classroom/${classroom.id}`}>
               <div className="unit-main">
-                <strong>{isStudent ? classroom.teacher.name : classroom.student.name}</strong>
+                <strong>
+                  {classroom.isTestRoom
+                    ? 'My test room'
+                    : isStudent ? classroom.teacher.name : classroom.student.name}
+                </strong>
+                {classroom.isTestRoom && (
+                  <div className="muted">Try the call and whiteboard here — nothing is counted.</div>
+                )}
                 <div className="muted">
                   {classroom.boards} {classroom.boards === 1 ? 'board' : 'boards'}
                   {classroom.lastSession &&
                     ` · last lesson ${new Date(classroom.lastSession).toLocaleDateString()}`}
                 </div>
               </div>
-              {!isStudent && <PackageBadge progress={classroom.progress} />}
+              {!isStudent && classroom.progress && <PackageBadge progress={classroom.progress} />}
             </Link>
           ))}
         </div>

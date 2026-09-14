@@ -15,7 +15,7 @@ const ICE_SERVERS = [
 
 function Materials({ classroom, isStaff, onChanged, onOpenBoard }) {
   const [title, setTitle] = useState('')
-  const [paid, setPaid] = useState(classroom.progress.lessonsPaid ?? '')
+  const [paid, setPaid] = useState(classroom.progress?.lessonsPaid ?? '')
   const [error, setError] = useState('')
 
   const addBoard = async (event) => {
@@ -61,7 +61,7 @@ function Materials({ classroom, isStaff, onChanged, onOpenBoard }) {
     <div className="materials">
       {error && <div className="error">{error}</div>}
 
-      {isStaff && (
+      {isStaff && progress && (
         <section>
           <h2>Lesson package</h2>
           <div className="package-box">
@@ -146,6 +146,7 @@ function Materials({ classroom, isStaff, onChanged, onOpenBoard }) {
         </div>
       </section>
 
+      {!classroom.isTestRoom && (
       <section>
         <h2>Lessons held</h2>
         {classroom.sessions.length === 0 && <p className="muted">No lessons yet.</p>}
@@ -174,6 +175,7 @@ function Materials({ classroom, isStaff, onChanged, onOpenBoard }) {
           ))}
         </div>
       </section>
+      )}
     </div>
   )
 }
@@ -413,19 +415,22 @@ export default function Classroom() {
 
   if (!classroom) return <div className="centered">Loading…</div>
 
-  const partner = user.role === 'STUDENT' ? classroom.teacher.name : classroom.student.name
+  const partner = classroom.isTestRoom
+    ? 'My test room'
+    : user.role === 'STUDENT' ? classroom.teacher.name : classroom.student.name
 
   return (
     <div className="lesson-page">
       <header className="topbar">
         <div className="nav-identity">
           <strong>{partner}</strong>
-          {isStaff && (
+          {isStaff && classroom.progress && (
             <span className="muted">
               {' · '}{classroom.progress.held}
               {classroom.progress.lessonsPaid != null && ` / ${classroom.progress.lessonsPaid}`} lessons
             </span>
           )}
+          {classroom.isTestRoom && <span className="muted"> · nothing here is counted</span>}
         </div>
 
         <div className="lesson-tabs">

@@ -17,7 +17,17 @@ export async function ensureClassroom(teacherId, studentId, schoolId) {
   })
 }
 
+// Every teacher gets one room with no student attached, to try the call and
+// the whiteboard before inviting anyone.
+async function ensureTestRoom(teacherId, schoolId) {
+  const existing = await prisma.classroom.findFirst({
+    where: { teacherId, studentId: null }
+  })
+  return existing ?? prisma.classroom.create({ data: { teacherId, studentId: null, schoolId } })
+}
+
 function packageProgress(student, sessions) {
+  if (!student) return null
   const since = student.packageStartedAt
   const held = sessions.filter(
     (session) => session.counted && (!since || session.startedAt >= since)
@@ -43,10 +53,11 @@ export async function accessibleClassroom(user, classroomId) {
   })
   if (!classroom) return null
 
+  // A test room belongs to its teacher alone; the owner may look in too.
   const allowed =
     user.role === 'OWNER' ||
     classroom.teacherId === user.id ||
-    classroom.studentId === user.id
+    (classroom.studentId !== null && classroom.studentId === user.id)
 
   return allowed ? classroom : null
 }
@@ -74,6 +85,10 @@ classroomsRouter.get('/', async (req, res) => {
     await ensureClassroom(link.teacherId, link.studentId, link.teacher.schoolId)
   }
 
+  if (req.user.role !== 'STUDENT') {
+    await ensureTestRoom(req.user.id, req.user.schoolId)
+  }
+
   const classrooms = await prisma.classroom.findMany({
     where,
     include: {
@@ -85,16 +100,22 @@ classroomsRouter.get('/', async (req, res) => {
     orderBy: { createdAt: 'asc' }
   })
 
-  res.json({
-    classrooms: classrooms.map((classroom) => ({
-      id: classroom.id,
-      teacher: classroom.teacher,
-      student: { id: classroom.student.id, name: classroom.student.name },
-      boards: classroom._count.boards,
-      lastSession: classroom.sessions.at(-1)?.startedAt ?? null,
-      progress: packageProgress(classroom.student, classroom.sessions)
-    }))
+  const view = (classroom) => ({
+    id: classroom.id,
+    teacher: classroom.teacher,
+    student: classroom.student ? { id: classroom.student.id, name: classroom.student.name } : null,
+    isTestRoom: classroom.student === null,
+    boards: classroom._count.boards,
+    lastSession: classroom.sessions.at(-1)?.startedAt ?? null,
+    progress: packageProgress(classroom.student, classroom.sessions)
   })
+
+  // Own test room first, then real classrooms; other teachers' test rooms are
+  // noise for the owner and are left out.
+  const own = classrooms.filter((c) => c.student === null && c.teacherId === req.user.id)
+  const real = classrooms.filter((c) => c.student !== null)
+
+  res.json({ classrooms: [...own, ...real].map(view) })
 })
 
 classroomsRouter.get('/:id', async (req, res) => {
@@ -117,7 +138,8 @@ classroomsRouter.get('/:id', async (req, res) => {
     classroom: {
       id: classroom.id,
       teacher: classroom.teacher,
-      student: { id: classroom.student.id, name: classroom.student.name },
+      student: classroom.student ? { id: classroom.student.id, name: classroom.student.name } : null,
+      isTestRoom: classroom.student === null,
       progress: packageProgress(classroom.student, sessions),
       sessions: sessions.map((session) => ({
         id: session.id,
@@ -220,6 +242,8 @@ const packageSchema = z.object({
 classroomsRouter.patch('/:id/package', requireRole('OWNER', 'TEACHER'), async (req, res) => {
   const classroom = await accessibleClassroom(req.user, req.params.id)
   if (!classroom) return res.status(404).json({ error: 'Classroom not found' })
+
+  if (!classroom.studentId) return res.status(400).json({ error: 'A test room has no student' })
 
   const parsed = packageSchema.safeParse(req.body)
   if (!parsed.success) return res.status(400).json({ error: 'Invalid data' })
