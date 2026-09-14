@@ -105,3 +105,6 @@
 
 .tool:disabled { opacity: 0.35; cursor: default; }
 .tool:disabled:hover { background: #2a2e38; }
+
+.tool.assist { background: rgba(99, 102, 241, 0.2); color: #c7d2fe; }
+.tool.assist:hover:not(:disabled) { background: rgba(99, 102, 241, 0.35); }

@@ -62,6 +62,7 @@ export default function Classroom() {
   const [openBoardId, setOpenBoardId] = useState(searchParams.get('board'))
   const [title, setTitle] = useState('')
   const [starting, setStarting] = useState(false)
+  const [assistEnabled, setAssistEnabled] = useState(false)
   const socketRef = useRef(null)
 
   const isStaff = user.role === 'OWNER' || user.role === 'TEACHER'
@@ -74,6 +75,7 @@ export default function Classroom() {
   // The socket only serves the whiteboard here; nothing about it counts as a lesson.
   useEffect(() => {
     refresh().catch((err) => setError(err.message))
+    if (isStaff) api.assistStatus().then(({ enabled }) => setAssistEnabled(enabled)).catch(() => {})
 
     const socket = io({ withCredentials: true })
     socketRef.current = socket
@@ -169,6 +171,18 @@ export default function Classroom() {
                   try {
                     const { src } = await api.uploadBoardImage(id, openBoardId, dataUrl)
                     return src
+                  } catch (err) {
+                    setError(err.message)
+                    return null
+                  }
+                }
+              : undefined}
+            assistEnabled={assistEnabled}
+            onAssist={isStaff
+              ? async (mode, words) => {
+                  try {
+                    const { items } = await api.assist(mode, words)
+                    return items
                   } catch (err) {
                     setError(err.message)
                     return null

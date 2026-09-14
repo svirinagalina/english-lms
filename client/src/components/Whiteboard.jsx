@@ -311,7 +311,8 @@ function drawHandles(ctx, box, scale, color = '#6366f1') {
 
 // --- Component ----------------------------------------------------------------
 
-export default function Whiteboard({ socketRef, boardId, onUploadImage }) {
+export default function Whiteboard({ socketRef, boardId, onUploadImage, onAssist, assistEnabled }) {
+  const [assisting, setAssisting] = useState(null)
   const fileInputRef = useRef(null)
   const canvasRef = useRef(null)
   const elementsRef = useRef([])
@@ -683,6 +684,51 @@ export default function Whiteboard({ socketRef, boardId, onUploadImage }) {
     if (!items.length) return
     pasteCountRef.current = 0
     pasteElements(items)
+  }
+
+  // --- AI assist ----------------------------------------------------------------
+
+  // Splits the selected text objects into words/phrases: one per line, or comma-separated.
+  const selectedWords = () =>
+    selectedElements()
+      .filter((item) => item.type === 'text')
+      .flatMap((item) => item.text.split(/[\n,;]+/))
+      .map((w) => w.trim())
+      .filter(Boolean)
+
+  const runAssist = async (mode) => {
+    if (!onAssist || assisting) return
+    const words = selectedWords()
+    if (!words.length) return
+
+    setAssisting(mode)
+    try {
+      const items = await onAssist(mode, words)
+      if (!items?.length) return
+
+      const lines = mode === 'translate'
+        ? items.map((i) => `${i.word}  ${i.transcription}  —  ${i.translation}`)
+        : items.map((i) => i.question)
+
+      // Place the result just below the selection, matching its text size.
+      const group = unionBounds(selectedElements())
+      const sample = selectedElements().find((item) => item.type === 'text')
+      const element = {
+        id: newId(),
+        type: 'text',
+        color: mode === 'translate' ? '#a5b4fc' : '#86efac',
+        width: sample?.width ?? width,
+        x: group.x,
+        y: group.y + group.h + 24,
+        text: lines.join('\n'),
+        fontSize: sample?.fontSize ?? 16 + width * 2
+      }
+      commit(element)
+      selectedRef.current = [element.id]
+      bump()
+    } finally {
+      setAssisting(null)
+    }
   }
 
   // --- Crop -------------------------------------------------------------------
@@ -1082,6 +1128,26 @@ export default function Whiteboard({ socketRef, boardId, onUploadImage }) {
               )}
               {selected?.type === 'image' && selected.crop && (
                 <button className="tool" onClick={resetCrop}>Uncrop</button>
+              )}
+              {onAssist && tool === 'select' && selectedElements().some((i) => i.type === 'text') && (
+                <>
+                  <button
+                    className="tool assist"
+                    onClick={() => runAssist('translate')}
+                    disabled={Boolean(assisting) || !assistEnabled}
+                    title={assistEnabled ? 'Translate the selected words with transcription' : 'AI assistant is not configured'}
+                  >
+                    {assisting === 'translate' ? 'Translating…' : 'Translate'}
+                  </button>
+                  <button
+                    className="tool assist"
+                    onClick={() => runAssist('questions')}
+                    disabled={Boolean(assisting) || !assistEnabled}
+                    title={assistEnabled ? 'Make a practice question for each word' : 'AI assistant is not configured'}
+                  >
+                    {assisting === 'questions' ? 'Writing…' : 'Questions'}
+                  </button>
+                </>
               )}
               {selectedCount > 0 && tool === 'select' && (
                 <>

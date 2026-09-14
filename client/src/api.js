@@ -65,6 +65,9 @@ export const api = {
   statsStudent: (id) => request(`/stats/students/${id}`),
   statsMe: () => request('/stats/me'),
 
+  assistStatus: () => request('/assist/status'),
+  assist: (mode, words) => request('/assist', { method: 'POST', body: { mode, words } }),
+
   getCall: (token) => request(`/calls/token/${token}`),
   createCall: (body) => request('/calls', { method: 'POST', body }),
   listCalls: () => request('/calls'),
