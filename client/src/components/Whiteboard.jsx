@@ -98,6 +98,39 @@ function fitElement(element, box) {
   return { ...element, x: box.x, y: box.y, w: box.w, h: box.h }
 }
 
+// Smallest box containing every element's bounds.
+function unionBounds(elements) {
+  if (!elements.length) return null
+  let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity
+  for (const element of elements) {
+    const b = boundsOf(element)
+    minX = Math.min(minX, b.x); minY = Math.min(minY, b.y)
+    maxX = Math.max(maxX, b.x + b.w); maxY = Math.max(maxY, b.y + b.h)
+  }
+  return { x: minX, y: minY, w: maxX - minX, h: maxY - minY }
+}
+
+// Whether an element's bounds lie inside a marquee rectangle.
+function insideBox(element, box) {
+  const b = boundsOf(element)
+  return b.x >= box.x && b.y >= box.y && b.x + b.w <= box.x + box.w && b.y + b.h <= box.y + box.h
+}
+
+// Scales a group: each element keeps its relative place inside the group box.
+function fitGroup(elements, from, to) {
+  const sx = from.w ? to.w / from.w : 1
+  const sy = from.h ? to.h / from.h : 1
+  return elements.map((element) => {
+    const b = boundsOf(element)
+    return fitElement(element, {
+      x: to.x + (b.x - from.x) * sx,
+      y: to.y + (b.y - from.y) * sy,
+      w: b.w * sx,
+      h: b.h * sy
+    })
+  })
+}
+
 // Corners of a box, named by which edges they move.
 const CORNERS = [
   { id: 'nw', dx: 0, dy: 0 },
@@ -283,7 +316,8 @@ export default function Whiteboard({ socketRef, boardId, onUploadImage }) {
   const viewRef = useRef({ x: 0, y: 0, scale: 1 })
   const pointerRef = useRef(null)
   const frameRef = useRef(null)
-  const selectedRef = useRef(null)
+  const selectedRef = useRef([])
+  const marqueeRef = useRef(null)
   const cropRef = useRef(null)
 
   const [tool, setTool] = useState('pen')
@@ -293,7 +327,14 @@ export default function Whiteboard({ socketRef, boardId, onUploadImage }) {
   const [, forceRender] = useState(0)
   const bump = () => forceRender((value) => value + 1)
 
-  const selectedElement = () => elementsRef.current.find((item) => item.id === selectedRef.current)
+  const selectedElements = () => {
+    const ids = new Set(selectedRef.current)
+    return elementsRef.current.filter((item) => ids.has(item.id))
+  }
+  const selectedElement = () => {
+    const items = selectedElements()
+    return items.length === 1 ? items[0] : undefined
+  }
 
   const render = useCallback(() => {
     const canvas = canvasRef.current
@@ -331,9 +372,31 @@ export default function Whiteboard({ socketRef, boardId, onUploadImage }) {
       drawImageElement(ctx, { ...cropping, ...full, crop: FULL_CROP }, 0.35)
       drawImageElement(ctx, cropping)
       drawHandles(ctx, cropping, view.scale, '#eab308')
-    } else {
-      const selected = selectedElement()
-      if (selected && tool === 'select') drawHandles(ctx, boundsOf(selected), view.scale)
+    } else if (tool === 'select') {
+      const items = selectedElements()
+      if (items.length) {
+        // Faint outline on each member, handles on the group as a whole.
+        if (items.length > 1) {
+          ctx.save()
+          ctx.strokeStyle = 'rgba(99, 102, 241, 0.5)'
+          ctx.lineWidth = 1 / view.scale
+          for (const item of items) { const b = boundsOf(item); ctx.strokeRect(b.x, b.y, b.w, b.h) }
+          ctx.restore()
+        }
+        drawHandles(ctx, unionBounds(items), view.scale)
+      }
+
+      const marquee = marqueeRef.current
+      if (marquee) {
+        ctx.save()
+        ctx.fillStyle = 'rgba(99, 102, 241, 0.12)'
+        ctx.strokeStyle = '#6366f1'
+        ctx.lineWidth = 1 / view.scale
+        ctx.setLineDash([4 / view.scale, 4 / view.scale])
+        ctx.fillRect(marquee.x, marquee.y, marquee.w, marquee.h)
+        ctx.strokeRect(marquee.x, marquee.y, marquee.w, marquee.h)
+        ctx.restore()
+      }
     }
   }, [tool])
 
@@ -355,7 +418,7 @@ export default function Whiteboard({ socketRef, boardId, onUploadImage }) {
     if (!socket || !boardId) return
 
     elementsRef.current = []
-    selectedRef.current = null
+    selectedRef.current = []
     cropRef.current = null
     scheduleRender()
 
@@ -372,10 +435,10 @@ export default function Whiteboard({ socketRef, boardId, onUploadImage }) {
     }
     const onDelete = (id) => {
       elementsRef.current = elementsRef.current.filter((item) => item.id !== id)
-      if (selectedRef.current === id) selectedRef.current = null
+      selectedRef.current = selectedRef.current.filter((s) => s !== id)
       scheduleRender()
     }
-    const onClear = () => { elementsRef.current = []; selectedRef.current = null; scheduleRender() }
+    const onClear = () => { elementsRef.current = []; selectedRef.current = []; scheduleRender() }
 
     socket.on('board:add', onAdd)
     socket.on('board:update', onUpdate)
@@ -417,11 +480,13 @@ export default function Whiteboard({ socketRef, boardId, onUploadImage }) {
     scheduleRender()
   }
 
-  const remove = (id) => {
-    elementsRef.current = elementsRef.current.filter((item) => item.id !== id)
-    if (selectedRef.current === id) selectedRef.current = null
-    emit('board:delete', id)
+  const remove = (ids) => {
+    const gone = new Set(Array.isArray(ids) ? ids : [ids])
+    elementsRef.current = elementsRef.current.filter((item) => !gone.has(item.id))
+    selectedRef.current = selectedRef.current.filter((s) => !gone.has(s))
+    for (const id of gone) emit('board:delete', id)
     scheduleRender()
+    bump()
   }
 
   // --- Images -----------------------------------------------------------------
@@ -465,7 +530,7 @@ export default function Whiteboard({ socketRef, boardId, onUploadImage }) {
       src
     }
     commitRef.current?.(element)
-    selectedRef.current = element.id
+    selectedRef.current = [element.id]
     setTool('select')
   }, [onUploadImage])
 
@@ -489,7 +554,7 @@ export default function Whiteboard({ socketRef, boardId, onUploadImage }) {
     cropRef.current = null
     replace(cropped)
     emit('board:update', cropped)
-    selectedRef.current = cropped.id
+    selectedRef.current = [cropped.id]
     bump()
   }
 
@@ -522,11 +587,17 @@ export default function Whiteboard({ socketRef, boardId, onUploadImage }) {
         return
       }
 
-      if ((event.key === 'Delete' || event.key === 'Backspace') && selectedRef.current) {
+      if ((event.key === 'Delete' || event.key === 'Backspace') && selectedRef.current.length) {
         event.preventDefault()
         remove(selectedRef.current)
       }
-      if (event.key === 'Escape') { selectedRef.current = null; scheduleRender() }
+      if (event.key === 'Escape') { selectedRef.current = []; scheduleRender(); bump() }
+      if ((event.metaKey || event.ctrlKey) && event.key === 'a' && tool === 'select') {
+        event.preventDefault()
+        selectedRef.current = elementsRef.current.map((item) => item.id)
+        scheduleRender()
+        bump()
+      }
     }
     document.addEventListener('keydown', onKey)
     return () => document.removeEventListener('keydown', onKey)
@@ -550,7 +621,7 @@ export default function Whiteboard({ socketRef, boardId, onUploadImage }) {
     if (target?.type !== 'image') return
 
     cropRef.current = { ...target }
-    selectedRef.current = target.id
+    selectedRef.current = [target.id]
     scheduleRender()
     bump()
   }
@@ -583,30 +654,44 @@ export default function Whiteboard({ socketRef, boardId, onUploadImage }) {
     }
 
     if (tool === 'select') {
-      // A corner handle of the selected element takes priority over what is under it.
-      const selected = selectedElement()
-      if (selected) {
-        const corner = cornerAt(boundsOf(selected), point, scale)
+      const items = selectedElements()
+
+      // A corner handle of the selection takes priority over what is under it.
+      if (items.length) {
+        const group = unionBounds(items)
+        const corner = cornerAt(group, point, scale)
         if (corner) {
-          pointerRef.current = { mode: 'resize', id: selected.id, corner, start: boundsOf(selected), original: selected }
+          pointerRef.current = { mode: 'resize', ids: items.map((i) => i.id), corner, start: group, originals: items }
           return
         }
       }
 
       const target = [...elementsRef.current].reverse().find((element) => hitTest(element, point.x, point.y))
       if (target) {
-        selectedRef.current = target.id
-        pointerRef.current = { mode: 'move', id: target.id, last: point }
+        const already = selectedRef.current.includes(target.id)
+        if (event.shiftKey) {
+          // Shift toggles membership without moving anything.
+          selectedRef.current = already
+            ? selectedRef.current.filter((s) => s !== target.id)
+            : [...selectedRef.current, target.id]
+          scheduleRender()
+          bump()
+          return
+        }
+        // Clicking a member keeps the group so it can be dragged together.
+        if (!already) selectedRef.current = [target.id]
+        pointerRef.current = { mode: 'move', ids: [...selectedRef.current], last: point }
       } else {
-        selectedRef.current = null
-        pointerRef.current = { mode: 'pan', startX: event.clientX, startY: event.clientY, origin: { ...viewRef.current } }
+        if (!event.shiftKey) selectedRef.current = []
+        marqueeRef.current = { x: point.x, y: point.y, w: 0, h: 0 }
+        pointerRef.current = { mode: 'marquee', origin: point, additive: event.shiftKey, base: [...selectedRef.current] }
       }
       scheduleRender()
       bump()
       return
     }
 
-    selectedRef.current = null
+    selectedRef.current = []
 
     if (tool === 'text') {
       setTextInput({ x: point.x, y: point.y, value: '' })
@@ -653,19 +738,34 @@ export default function Whiteboard({ socketRef, boardId, onUploadImage }) {
     }
 
     if (pointer.mode === 'move') {
-      const index = elementsRef.current.findIndex((item) => item.id === pointer.id)
-      if (index === -1) return
-      elementsRef.current[index] = moveElement(elementsRef.current[index], point.x - pointer.last.x, point.y - pointer.last.y)
+      const dx = point.x - pointer.last.x
+      const dy = point.y - pointer.last.y
+      const ids = new Set(pointer.ids)
+      elementsRef.current = elementsRef.current.map((item) => (ids.has(item.id) ? moveElement(item, dx, dy) : item))
       pointer.last = point
       scheduleRender()
       return
     }
 
     if (pointer.mode === 'resize') {
-      // Images and text keep their proportions; hold Shift to stretch. Shapes are free.
-      const proportional = pointer.original.type === 'image' || pointer.original.type === 'text'
+      // Images, text and any group keep proportions; hold Shift to stretch. A lone shape is free.
+      const lone = pointer.originals.length === 1 ? pointer.originals[0] : null
+      const proportional = !lone || lone.type === 'image' || lone.type === 'text'
       const box = resizeBox(pointer.start, pointer.corner, point, proportional !== event.shiftKey)
-      replace(fitElement(pointer.original, box))
+      const updated = fitGroup(pointer.originals, pointer.start, box)
+      const byId = new Map(updated.map((item) => [item.id, item]))
+      elementsRef.current = elementsRef.current.map((item) => byId.get(item.id) ?? item)
+      scheduleRender()
+      return
+    }
+
+    if (pointer.mode === 'marquee') {
+      const o = pointer.origin
+      const box = { x: Math.min(o.x, point.x), y: Math.min(o.y, point.y), w: Math.abs(point.x - o.x), h: Math.abs(point.y - o.y) }
+      marqueeRef.current = box
+      const caught = elementsRef.current.filter((item) => insideBox(item, box)).map((item) => item.id)
+      selectedRef.current = pointer.additive ? [...new Set([...pointer.base, ...caught])] : caught
+      scheduleRender()
       return
     }
 
@@ -682,8 +782,16 @@ export default function Whiteboard({ socketRef, boardId, onUploadImage }) {
     if (!pointer) return
 
     if (pointer.mode === 'move' || pointer.mode === 'resize') {
-      const element = elementsRef.current.find((item) => item.id === pointer.id)
-      if (element) emit('board:update', element)
+      const ids = new Set(pointer.ids)
+      for (const element of elementsRef.current) if (ids.has(element.id)) emit('board:update', element)
+      bump()
+      return
+    }
+
+    if (pointer.mode === 'marquee') {
+      marqueeRef.current = null
+      scheduleRender()
+      bump()
       return
     }
 
@@ -734,7 +842,7 @@ export default function Whiteboard({ socketRef, boardId, onUploadImage }) {
   const handleClear = () => {
     if (!window.confirm('Clear the board for everyone?')) return
     elementsRef.current = []
-    selectedRef.current = null
+    selectedRef.current = []
     emit('board:clear')
     scheduleRender()
   }
@@ -748,6 +856,7 @@ export default function Whiteboard({ socketRef, boardId, onUploadImage }) {
   const view = viewRef.current
   const cropping = Boolean(cropRef.current)
   const selected = selectedElement()
+  const selectedCount = selectedRef.current.length
 
   return (
     <div className="whiteboard">
@@ -765,7 +874,7 @@ export default function Whiteboard({ socketRef, boardId, onUploadImage }) {
                 <button
                   key={item.id}
                   className={`tool ${tool === item.id ? 'active' : ''}`}
-                  onClick={() => { setTool(item.id); if (item.id !== 'select') selectedRef.current = null }}
+                  onClick={() => { setTool(item.id); if (item.id !== 'select') selectedRef.current = [] }}
                 >
                   {item.label}
                 </button>
@@ -801,8 +910,10 @@ export default function Whiteboard({ socketRef, boardId, onUploadImage }) {
               {selected?.type === 'image' && selected.crop && (
                 <button className="tool" onClick={resetCrop}>Uncrop</button>
               )}
-              {selected && tool === 'select' && (
-                <button className="tool" onClick={() => remove(selected.id)}>Delete</button>
+              {selectedCount > 0 && tool === 'select' && (
+                <button className="tool" onClick={() => remove(selectedRef.current)}>
+                  Delete{selectedCount > 1 ? ` (${selectedCount})` : ''}
+                </button>
               )}
               <button className="tool" onClick={resetView}>Reset view</button>
               <button className="tool danger" onClick={handleClear}>Clear</button>
@@ -854,6 +965,7 @@ export default function Whiteboard({ socketRef, boardId, onUploadImage }) {
             ? 'Enter to apply · Esc to cancel'
             : <>
                 Scroll to pan · {navigator.platform.includes('Mac') ? '⌘' : 'Ctrl'}+scroll to zoom · Alt+drag to pan
+                {' · Shift+click or drag a box to select several'}
                 {onUploadImage && ' · paste or drop an image · double-click an image to crop'}
               </>}
         </div>
