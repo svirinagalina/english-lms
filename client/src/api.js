@@ -61,8 +61,16 @@ export const api = {
   checkCard: (cardId, answer) =>
     request(`/vocab/cards/${cardId}/check`, { method: 'POST', body: { answer } }),
 
-  listLessons: () => request('/lessons'),
-  createLesson: (body) => request('/lessons', { method: 'POST', body }),
-  deleteLesson: (id) => request(`/lessons/${id}`, { method: 'DELETE' }),
-  getLesson: (id) => request(`/lessons/${id}`)
+  listClassrooms: () => request('/classrooms'),
+  getClassroom: (id) => request(`/classrooms/${id}`),
+  createBoard: (id, title) => request(`/classrooms/${id}/boards`, { method: 'POST', body: { title } }),
+  renameBoard: (id, boardId, title) =>
+    request(`/classrooms/${id}/boards/${boardId}`, { method: 'PATCH', body: { title } }),
+  deleteBoard: (id, boardId) =>
+    request(`/classrooms/${id}/boards/${boardId}`, { method: 'DELETE' }),
+  updateSession: (id, sessionId, body) =>
+    request(`/classrooms/${id}/sessions/${sessionId}`, { method: 'PATCH', body }),
+  deleteSession: (id, sessionId) =>
+    request(`/classrooms/${id}/sessions/${sessionId}`, { method: 'DELETE' }),
+  updatePackage: (id, body) => request(`/classrooms/${id}/package`, { method: 'PATCH', body })
 }

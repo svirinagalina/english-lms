@@ -453,3 +453,22 @@ input[type='range'] { width: 110px; padding: 0; }
   flex-direction: column;
   gap: 8px;
 }
+
+.view-pane.scrollable { overflow-y: auto; }
+.materials { padding-bottom: 40px; }
+
+.package-box {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 18px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.package-count { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
+.package-count strong { font-size: 30px; }
+.package-controls { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }

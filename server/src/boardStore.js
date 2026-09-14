@@ -25,68 +25,68 @@ export const elementSchema = z.object({
 const boards = new Map()
 const saveTimers = new Map()
 
-export async function loadBoard(lessonId) {
-  if (boards.has(lessonId)) return boards.get(lessonId)
+export async function loadBoard(boardId) {
+  if (boards.has(boardId)) return boards.get(boardId)
 
-  const record = await prisma.board.findUnique({ where: { lessonId } })
+  const record = await prisma.board.findUnique({ where: { id: boardId } })
   const elements = Array.isArray(record?.elements) ? record.elements : []
-  boards.set(lessonId, elements)
+  boards.set(boardId, elements)
   return elements
 }
 
-function scheduleSave(lessonId) {
-  clearTimeout(saveTimers.get(lessonId))
+function scheduleSave(boardId) {
+  clearTimeout(saveTimers.get(boardId))
 
   saveTimers.set(
-    lessonId,
+    boardId,
     setTimeout(async () => {
-      saveTimers.delete(lessonId)
-      const elements = boards.get(lessonId)
+      saveTimers.delete(boardId)
+      const elements = boards.get(boardId)
       if (!elements) return
 
       try {
-        await prisma.board.upsert({
-          where: { lessonId },
-          create: { lessonId, elements },
-          update: { elements }
-        })
+        await prisma.board.update({ where: { id: boardId }, data: { elements } })
       } catch (error) {
-        console.error('Failed to save board', lessonId, error)
+        console.error('Failed to save board', boardId, error.message)
       }
     }, SAVE_DELAY_MS)
   )
 }
 
-export async function addElement(lessonId, element) {
-  const elements = await loadBoard(lessonId)
+export async function addElement(boardId, element) {
+  const elements = await loadBoard(boardId)
   if (elements.length >= MAX_ELEMENTS) return false
 
   elements.push(element)
-  scheduleSave(lessonId)
+  scheduleSave(boardId)
   return true
 }
 
-export async function updateElement(lessonId, element) {
-  const elements = await loadBoard(lessonId)
+export async function updateElement(boardId, element) {
+  const elements = await loadBoard(boardId)
   const index = elements.findIndex((item) => item.id === element.id)
   if (index === -1) return false
 
   elements[index] = element
-  scheduleSave(lessonId)
+  scheduleSave(boardId)
   return true
 }
 
-export async function deleteElement(lessonId, elementId) {
-  const elements = await loadBoard(lessonId)
+export async function deleteElement(boardId, elementId) {
+  const elements = await loadBoard(boardId)
   const index = elements.findIndex((item) => item.id === elementId)
   if (index === -1) return false
 
   elements.splice(index, 1)
-  scheduleSave(lessonId)
+  scheduleSave(boardId)
   return true
 }
 
-export async function clearBoard(lessonId) {
-  boards.set(lessonId, [])
-  scheduleSave(lessonId)
+export async function clearBoard(boardId) {
+  boards.set(boardId, [])
+  scheduleSave(boardId)
+}
+
+export function forgetBoard(boardId) {
+  boards.delete(boardId)
 }

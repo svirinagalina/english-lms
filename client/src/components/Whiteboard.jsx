@@ -120,7 +120,7 @@ function moveElement(element, dx, dy) {
   return { ...element, x: element.x + dx, y: element.y + dy }
 }
 
-export default function Whiteboard({ socketRef, connected }) {
+export default function Whiteboard({ socketRef, boardId }) {
   const canvasRef = useRef(null)
   const elementsRef = useRef([])
   const draftRef = useRef(null)
@@ -171,10 +171,13 @@ export default function Whiteboard({ socketRef, connected }) {
 
   useEffect(() => {
     const socket = socketRef.current
-    if (!socket || !connected) return
+    if (!socket || !boardId) return
 
-    socket.emit('board:load', ({ elements }) => {
-      elementsRef.current = elements ?? []
+    elementsRef.current = []
+    scheduleRender()
+
+    socket.emit('board:open', boardId, (response) => {
+      elementsRef.current = response?.elements ?? []
       scheduleRender()
     })
 
@@ -201,7 +204,7 @@ export default function Whiteboard({ socketRef, connected }) {
       socket.off('board:delete', onDelete)
       socket.off('board:clear', onClear)
     }
-  }, [socketRef, connected, scheduleRender])
+  }, [socketRef, boardId, scheduleRender])
 
   // Browsers suspend requestAnimationFrame in hidden tabs, so anything that
   // arrived while the tab was in the background needs a repaint on return.

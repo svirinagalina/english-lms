@@ -11,7 +11,7 @@ export default function Nav({ title }) {
   const { user, logout } = useAuth()
   const { pathname } = useLocation()
 
-  const links = [{ to: '/', label: 'Lessons' }]
+  const links = [{ to: '/classroom', label: 'Classroom' }]
 
   if (user.role !== 'STUDENT') {
     links.push({ to: '/practice', label: 'Practice' }, { to: '/vocabulary', label: 'Vocabulary' })
@@ -41,7 +41,7 @@ export default function Nav({ title }) {
           <Link
             key={link.to}
             to={link.to}
-            className={`nav-link ${pathname === link.to ? 'active' : ''}`}
+            className={`nav-link ${(pathname === link.to || (link.to === '/classroom' && pathname === '/')) ? 'active' : ''}`}
           >
             {link.label}
           </Link>

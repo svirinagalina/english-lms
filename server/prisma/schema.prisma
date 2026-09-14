@@ -22,10 +22,10 @@ model School {
   paymentDetails String?
 
   users     User[]
-  lessons   Lesson[]
-  units     Unit[]
-  vocabSets VocabSet[]
-  invites   Invite[]
+  units      Unit[]
+  vocabSets  VocabSet[]
+  invites    Invite[]
+  classrooms Classroom[]
 }
 
 model User {
@@ -42,49 +42,26 @@ model User {
   paymentLink   String?
   paidUntil     DateTime?
 
+  // Lessons bought in the current package, and when that package started.
+  // Sessions held after packageStartedAt count against lessonsPaid.
+  lessonsPaid      Int?
+  packageStartedAt DateTime?
+
   schoolId String
   school   School @relation(fields: [schoolId], references: [id], onDelete: Cascade)
 
-  taughtLessons Lesson[]     @relation("TeacherLessons")
   attempts      Attempt[]
   cardReviews   CardReview[]
   teacherLinks  TeacherStudent[] @relation("TeacherLinks")
   studentLinks  TeacherStudent[] @relation("StudentLinks")
   sentInvites   Invite[]         @relation("SentInvites")
+  teacherClassrooms Classroom[]  @relation("TeacherClassrooms")
+  studentClassrooms Classroom[]  @relation("StudentClassrooms")
 
   @@index([schoolId])
 }
 
-model Lesson {
-  id          String    @id @default(cuid())
-  title       String
-  scheduledAt DateTime?
-  roomId      String    @unique @default(cuid())
-  createdAt   DateTime  @default(now())
 
-  teacherId String
-  teacher   User   @relation("TeacherLessons", fields: [teacherId], references: [id], onDelete: Cascade)
-
-  schoolId String
-  school   School @relation(fields: [schoolId], references: [id], onDelete: Cascade)
-
-  board       Board?
-
-  @@index([schoolId])
-  @@index([teacherId])
-}
-
-model Board {
-  id        String   @id @default(cuid())
-  updatedAt DateTime @updatedAt
-
-  // Whiteboard contents as an array of shapes. Stored as JSON so new shape
-  // types can be added without a migration.
-  elements Json @default("[]")
-
-  lessonId String @unique
-  lesson   Lesson @relation(fields: [lessonId], references: [id], onDelete: Cascade)
-}
 
 
 enum ExerciseType {
@@ -234,4 +211,57 @@ model Invite {
 
   @@index([schoolId])
   @@index([email])
+}
+
+// The shared space between one teacher and one student: the call room,
+// the boards they work on and the record of sessions held.
+model Classroom {
+  id        String   @id @default(cuid())
+  roomId    String   @unique @default(cuid())
+  createdAt DateTime @default(now())
+
+  teacherId String
+  teacher   User   @relation("TeacherClassrooms", fields: [teacherId], references: [id], onDelete: Cascade)
+
+  studentId String
+  student   User   @relation("StudentClassrooms", fields: [studentId], references: [id], onDelete: Cascade)
+
+  schoolId String
+  school   School @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+
+  sessions Session[]
+  boards   Board[]
+
+  @@unique([teacherId, studentId])
+  @@index([schoolId])
+}
+
+// One call. Left open while somebody is in the room, closed when it empties.
+model Session {
+  id        String    @id @default(cuid())
+  startedAt DateTime  @default(now())
+  endedAt   DateTime?
+  note      String?
+
+  // Lets a teacher exclude a session from the package count, e.g. a test call.
+  counted Boolean @default(true)
+
+  classroomId String
+  classroom   Classroom @relation(fields: [classroomId], references: [id], onDelete: Cascade)
+
+  @@index([classroomId, startedAt])
+}
+
+// A whiteboard kept as lesson material; a classroom accumulates many.
+model Board {
+  id        String   @id @default(cuid())
+  title     String   @default("Untitled")
+  elements  Json     @default("[]")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  classroomId String
+  classroom   Classroom @relation(fields: [classroomId], references: [id], onDelete: Cascade)
+
+  @@index([classroomId, updatedAt])
 }
