@@ -48,17 +48,30 @@ async function closeSession(classroomId) {
 }
 
 export function setupSignaling(io) {
-  io.use((socket, next) => {
+  io.use(async (socket, next) => {
     const token = readTokenCookie(socket.handshake.headers.cookie)
-    if (!token) return next(new Error('Not authenticated'))
 
-    try {
-      const payload = jwt.verify(token, process.env.JWT_SECRET)
-      socket.data.user = { id: payload.sub, role: payload.role, schoolId: payload.schoolId }
-      next()
-    } catch {
-      next(new Error('Invalid session'))
+    if (token) {
+      try {
+        const payload = jwt.verify(token, process.env.JWT_SECRET)
+        socket.data.user = { id: payload.sub, role: payload.role, schoolId: payload.schoolId }
+        return next()
+      } catch {
+        // fall through: a stale cookie should not block a guest join
+      }
     }
+
+    // Guests carry the call token and a display name instead of a session.
+    const { callToken, guestName } = socket.handshake.auth ?? {}
+    if (typeof callToken === 'string' && typeof guestName === 'string' && guestName.trim()) {
+      const call = await prisma.call.findUnique({ where: { token: callToken } })
+      if (call && !call.endedAt) {
+        socket.data.guest = { callToken, name: guestName.trim().slice(0, 60) }
+        return next()
+      }
+    }
+
+    next(new Error('Not authenticated'))
   })
 
   io.on('connection', (socket) => {
@@ -68,6 +81,10 @@ export function setupSignaling(io) {
     // or edit a board must not count as one.
     socket.on('join-classroom', async (classroomId, options, ack) => {
       if (typeof options === 'function') { ack = options; options = {} }
+      if (!user) {
+        if (typeof ack === 'function') ack({ error: 'Sign in required' })
+        return
+      }
       const classroom = await accessibleClassroom(user, classroomId)
       if (!classroom) {
         if (typeof ack === 'function') ack({ error: 'No access to this classroom' })
@@ -98,6 +115,51 @@ export function setupSignaling(io) {
       if (typeof ack === 'function') {
         ack({ peers, sessionId: session?.id ?? null, startedAt: session?.startedAt ?? null })
       }
+    })
+
+    socket.on('join-call', async (callToken, ack) => {
+      const call = await prisma.call.findUnique({
+        where: { token: callToken },
+        include: { classroom: { select: { id: true, roomId: true } } }
+      })
+      if (!call || call.endedAt) {
+        if (typeof ack === 'function') ack({ error: 'This call is not available' })
+        return
+      }
+
+      // A guest may only enter the call whose token they authenticated with.
+      if (socket.data.guest && socket.data.guest.callToken !== callToken) {
+        if (typeof ack === 'function') ack({ error: 'Not allowed' })
+        return
+      }
+
+      // Members of the school join with their real name; guests with the one they typed.
+      if (socket.data.user) {
+        const profile = await prisma.user.findUnique({ where: { id: socket.data.user.id }, select: { name: true } })
+        socket.data.name = profile?.name ?? 'Participant'
+      } else {
+        socket.data.name = socket.data.guest.name
+      }
+
+      const roomId = `call:${call.token}`
+      socket.data.roomId = roomId
+      socket.data.callId = call.id
+      socket.data.classroomId = call.classroom?.id ?? null
+      socket.data.inCall = true
+      socket.join(roomId)
+
+      // Calls tied to a student's classroom count as lessons.
+      if (call.classroom) await openSession(call.classroom.id)
+
+      const peers = []
+      for (const id of io.sockets.adapter.rooms.get(roomId) ?? []) {
+        if (id === socket.id) continue
+        const peer = io.sockets.sockets.get(id)
+        if (peer) peers.push({ id, name: peer.data.name })
+      }
+
+      socket.to(roomId).emit('user-joined', { id: socket.id, name: socket.data.name })
+      if (typeof ack === 'function') ack({ peers, name: socket.data.name })
     })
 
     socket.on('call:start', async (ack) => {
@@ -137,6 +199,7 @@ export function setupSignaling(io) {
 
     // Everyone in the classroom looks at the same board at a time.
     const boardBelongsHere = async (boardId) => {
+      if (socket.data.guest) return false
       if (!socket.data.classroomId || typeof boardId !== 'string') return false
       const board = await prisma.board.findFirst({
         where: { id: boardId, classroomId: socket.data.classroomId },
@@ -164,7 +227,7 @@ export function setupSignaling(io) {
       const parsed = elementSchema.safeParse(raw)
       if (!parsed.success) return
 
-      const element = { ...parsed.data, authorId: user.id }
+      const element = { ...parsed.data, authorId: user?.id ?? 'guest' }
       if (await addElement(boardId, element)) {
         socket.to(roomId).emit('board:add', element)
       }

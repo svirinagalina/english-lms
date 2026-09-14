@@ -500,3 +500,16 @@ input[type='range'] { width: 110px; padding: 0; }
 .suggestion a { color: #a5b4fc; }
 .mistake-pair { display: flex; gap: 10px; align-items: baseline; flex-wrap: wrap; margin: 4px 0; }
 .mistake-wrong { color: #fca5a5; text-decoration: line-through; text-decoration-color: rgba(252, 165, 165, 0.5); }
+
+.call-launch {
+  background: var(--surface);
+  border: 1px solid var(--accent);
+  border-radius: 12px;
+  padding: 20px 22px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+.call-launch button { font-size: 15px; padding: 13px 22px; }

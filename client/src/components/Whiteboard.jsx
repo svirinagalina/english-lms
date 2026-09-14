@@ -14,6 +14,20 @@ const TOOLS = [
 
 const newId = () => crypto.randomUUID().slice(0, 32)
 
+// Decoded images by src, so drawElement stays synchronous. A missing entry
+// triggers a load and a repaint once it arrives.
+const imageCache = new Map()
+let requestRepaint = () => {}
+
+function imageFor(src) {
+  if (imageCache.has(src)) return imageCache.get(src)
+  const image = new Image()
+  image.onload = () => requestRepaint()
+  image.src = src
+  imageCache.set(src, image)
+  return image
+}
+
 function drawElement(ctx, element) {
   ctx.strokeStyle = element.color
   ctx.fillStyle = element.color
@@ -67,6 +81,19 @@ function drawElement(ctx, element) {
     return
   }
 
+  if (element.type === 'image') {
+    const image = imageFor(element.src)
+    if (image.complete && image.naturalWidth) {
+      ctx.drawImage(image, element.x, element.y, element.w, element.h)
+    } else {
+      ctx.strokeStyle = '#444'
+      ctx.setLineDash([6, 6])
+      ctx.strokeRect(element.x, element.y, element.w, element.h)
+      ctx.setLineDash([])
+    }
+    return
+  }
+
   if (element.type === 'text') {
     const size = element.fontSize ?? 20
     ctx.font = `${size}px -apple-system, BlinkMacSystemFont, sans-serif`
@@ -86,6 +113,19 @@ function boundsOf(element) {
       minY = Math.min(minY, points[i + 1]); maxY = Math.max(maxY, points[i + 1])
     }
     return { x: minX, y: minY, w: maxX - minX, h: maxY - minY }
+  }
+
+  if (element.type === 'image') {
+    const image = imageFor(element.src)
+    if (image.complete && image.naturalWidth) {
+      ctx.drawImage(image, element.x, element.y, element.w, element.h)
+    } else {
+      ctx.strokeStyle = '#444'
+      ctx.setLineDash([6, 6])
+      ctx.strokeRect(element.x, element.y, element.w, element.h)
+      ctx.setLineDash([])
+    }
+    return
   }
 
   if (element.type === 'text') {
@@ -120,7 +160,9 @@ function moveElement(element, dx, dy) {
   return { ...element, x: element.x + dx, y: element.y + dy }
 }
 
-export default function Whiteboard({ socketRef, boardId }) {
+export default function Whiteboard({ socketRef, boardId, onUploadImage }) {
+  const fileInputRef = useRef(null)
+  const wrapRef = useRef(null)
   const canvasRef = useRef(null)
   const elementsRef = useRef([])
   const draftRef = useRef(null)
@@ -168,6 +210,62 @@ export default function Whiteboard({ socketRef, boardId }) {
       render()
     })
   }, [render])
+
+  useEffect(() => { requestRepaint = scheduleRender }, [scheduleRender])
+
+  // Places an image at the centre of the current view, scaled to fit.
+  const placeImage = useCallback(async (file) => {
+    if (!onUploadImage || !file || !file.type.startsWith('image/')) return
+
+    const dataUrl = await new Promise((resolve, reject) => {
+      const reader = new FileReader()
+      reader.onload = () => resolve(reader.result)
+      reader.onerror = reject
+      reader.readAsDataURL(file)
+    })
+
+    const size = await new Promise((resolve) => {
+      const probe = new Image()
+      probe.onload = () => resolve({ w: probe.naturalWidth, h: probe.naturalHeight })
+      probe.onerror = () => resolve({ w: 400, h: 300 })
+      probe.src = dataUrl
+    })
+
+    const src = await onUploadImage(dataUrl)
+    if (!src) return
+
+    const canvas = canvasRef.current
+    const rect = canvas.getBoundingClientRect()
+    const view = viewRef.current
+    const maxWidth = (rect.width * 0.6) / view.scale
+    const scale = Math.min(1, maxWidth / size.w)
+    const w = size.w * scale
+    const h = size.h * scale
+
+    commitRef.current?.({
+      id: newId(),
+      type: 'image',
+      color: '#000000',
+      width: 1,
+      x: (rect.width / 2 - view.x) / view.scale - w / 2,
+      y: (rect.height / 2 - view.y) / view.scale - h / 2,
+      w,
+      h,
+      src
+    })
+  }, [onUploadImage])
+
+  // Cmd+V with a screenshot on the clipboard drops it straight onto the board.
+  useEffect(() => {
+    const onPaste = (event) => {
+      const item = [...(event.clipboardData?.items ?? [])].find((i) => i.type.startsWith('image/'))
+      if (!item) return
+      event.preventDefault()
+      placeImage(item.getAsFile())
+    }
+    document.addEventListener('paste', onPaste)
+    return () => document.removeEventListener('paste', onPaste)
+  }, [placeImage])
 
   useEffect(() => {
     const socket = socketRef.current
@@ -230,11 +328,13 @@ export default function Whiteboard({ socketRef, boardId }) {
 
   const emit = (event, payload) => socketRef.current?.emit(event, payload)
 
+  const commitRef = useRef(null)
   const commit = (element) => {
     elementsRef.current.push(element)
     emit('board:add', element)
     scheduleRender()
   }
+  commitRef.current = commit
 
   const handlePointerDown = (event) => {
     if (textInput) return
@@ -436,6 +536,18 @@ export default function Whiteboard({ socketRef, boardId }) {
             onChange={(e) => setWidth(Number(e.target.value))}
             title="Thickness"
           />
+          {onUploadImage && (
+            <>
+              <button className="tool" onClick={() => fileInputRef.current?.click()}>Image</button>
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/png,image/jpeg,image/gif,image/webp"
+                hidden
+                onChange={(e) => { placeImage(e.target.files?.[0]); e.target.value = '' }}
+              />
+            </>
+          )}
           <button className="tool" onClick={resetView}>Reset view</button>
           <button className="tool danger" onClick={handleClear}>Clear</button>
         </div>
@@ -445,6 +557,12 @@ export default function Whiteboard({ socketRef, boardId }) {
         <canvas
           ref={canvasRef}
           className={`board-canvas tool-${tool}`}
+          onDragOver={(e) => { if (onUploadImage) e.preventDefault() }}
+          onDrop={(e) => {
+            if (!onUploadImage) return
+            e.preventDefault()
+            placeImage(e.dataTransfer.files?.[0])
+          }}
           onPointerDown={handlePointerDown}
           onPointerMove={handlePointerMove}
           onPointerUp={handlePointerUp}
@@ -474,6 +592,7 @@ export default function Whiteboard({ socketRef, boardId }) {
 
         <div className="board-hint">
           Scroll to pan · {navigator.platform.includes('Mac') ? '⌘' : 'Ctrl'}+scroll to zoom · Alt+drag to pan
+          {onUploadImage && ' · paste or drop an image'}
         </div>
       </div>
     </div>

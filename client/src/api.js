@@ -65,11 +65,18 @@ export const api = {
   statsStudent: (id) => request(`/stats/students/${id}`),
   statsMe: () => request('/stats/me'),
 
+  getCall: (token) => request(`/calls/token/${token}`),
+  createCall: (body) => request('/calls', { method: 'POST', body }),
+  listCalls: () => request('/calls'),
+  endCall: (id) => request(`/calls/${id}/end`, { method: 'POST' }),
+
   listClassrooms: () => request('/classrooms'),
   getClassroom: (id) => request(`/classrooms/${id}`),
   createBoard: (id, title) => request(`/classrooms/${id}/boards`, { method: 'POST', body: { title } }),
   renameBoard: (id, boardId, title) =>
     request(`/classrooms/${id}/boards/${boardId}`, { method: 'PATCH', body: { title } }),
+  uploadBoardImage: (id, boardId, data) =>
+    request(`/classrooms/${id}/boards/${boardId}/images`, { method: 'POST', body: { data } }),
   deleteBoard: (id, boardId) =>
     request(`/classrooms/${id}/boards/${boardId}`, { method: 'DELETE' }),
   updateSession: (id, sessionId, body) =>

@@ -8,7 +8,7 @@ const colour = z.string().regex(/^#[0-9a-fA-F]{6}$/)
 
 export const elementSchema = z.object({
   id: z.string().min(1).max(64),
-  type: z.enum(['path', 'rect', 'ellipse', 'arrow', 'text']),
+  type: z.enum(['path', 'rect', 'ellipse', 'arrow', 'text', 'image']),
   color: colour,
   width: z.number().min(1).max(64),
   // Flat [x0, y0, x1, y1, …] list; capped so one stroke cannot bloat the board.
@@ -19,6 +19,8 @@ export const elementSchema = z.object({
   h: z.number().finite().optional(),
   text: z.string().max(2000).optional(),
   fontSize: z.number().min(8).max(200).optional(),
+  // Images reference an uploaded file, never inline data — keeps board JSON small.
+  src: z.string().regex(/^\/uploads\/[a-z0-9]+\/[a-z0-9]+\.(png|jpe?g|gif|webp)$/i).optional(),
   authorId: z.string().max(64).optional()
 })
 

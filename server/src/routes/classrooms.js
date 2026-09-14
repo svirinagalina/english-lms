@@ -2,6 +2,15 @@ import { Router } from 'express'
 import { z } from 'zod'
 import { prisma } from '../db.js'
 import { requireAuth, requireRole } from '../auth.js'
+import { randomBytes } from 'crypto'
+import { mkdir, writeFile } from 'fs/promises'
+import path from 'path'
+import { fileURLToPath } from 'url'
+
+const UPLOAD_ROOT = process.env.UPLOAD_DIR
+  ?? path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../uploads')
+const MAX_IMAGE_BYTES = 5 * 1024 * 1024
+const IMAGE_TYPES = { 'image/png': 'png', 'image/jpeg': 'jpg', 'image/gif': 'gif', 'image/webp': 'webp' }
 
 export const classroomsRouter = Router()
 
@@ -15,15 +24,6 @@ export async function ensureClassroom(teacherId, studentId, schoolId) {
     create: { teacherId, studentId, schoolId },
     update: {}
   })
-}
-
-// Every teacher gets one room with no student attached, to try the call and
-// the whiteboard before inviting anyone.
-async function ensureTestRoom(teacherId, schoolId) {
-  const existing = await prisma.classroom.findFirst({
-    where: { teacherId, studentId: null }
-  })
-  return existing ?? prisma.classroom.create({ data: { teacherId, studentId: null, schoolId } })
 }
 
 function packageProgress(student, sessions) {
@@ -85,10 +85,6 @@ classroomsRouter.get('/', async (req, res) => {
     await ensureClassroom(link.teacherId, link.studentId, link.teacher.schoolId)
   }
 
-  if (req.user.role !== 'STUDENT') {
-    await ensureTestRoom(req.user.id, req.user.schoolId)
-  }
-
   const classrooms = await prisma.classroom.findMany({
     where,
     include: {
@@ -110,12 +106,7 @@ classroomsRouter.get('/', async (req, res) => {
     progress: packageProgress(classroom.student, classroom.sessions)
   })
 
-  // Own test room first, then real classrooms; other teachers' test rooms are
-  // noise for the owner and are left out.
-  const own = classrooms.filter((c) => c.student === null && c.teacherId === req.user.id)
-  const real = classrooms.filter((c) => c.student !== null)
-
-  res.json({ classrooms: [...own, ...real].map(view) })
+  res.json({ classrooms: classrooms.filter((c) => c.student !== null).map(view) })
 })
 
 classroomsRouter.get('/:id', async (req, res) => {
@@ -197,6 +188,36 @@ classroomsRouter.delete('/:id/boards/:boardId', requireRole('OWNER', 'TEACHER'),
 
   await prisma.board.deleteMany({ where: { id: req.params.boardId, classroomId: classroom.id } })
   res.json({ ok: true })
+})
+
+// Accepts a data URL, stores the file, returns a path the board element can
+// reference. Data URLs are the simplest way to get a pasted screenshot here
+// without a multipart dependency.
+classroomsRouter.post('/:id/boards/:boardId/images', requireRole('OWNER', 'TEACHER'), async (req, res) => {
+  const classroom = await accessibleClassroom(req.user, req.params.id)
+  if (!classroom) return res.status(404).json({ error: 'Classroom not found' })
+
+  const board = await prisma.board.findFirst({
+    where: { id: req.params.boardId, classroomId: classroom.id },
+    select: { id: true }
+  })
+  if (!board) return res.status(404).json({ error: 'Board not found' })
+
+  const dataUrl = typeof req.body?.data === 'string' ? req.body.data : ''
+  const match = dataUrl.match(/^data:(image\/(?:png|jpeg|gif|webp));base64,(.+)$/)
+  if (!match) return res.status(400).json({ error: 'Only PNG, JPEG, GIF or WebP images are accepted' })
+
+  const bytes = Buffer.from(match[2], 'base64')
+  if (bytes.length > MAX_IMAGE_BYTES) return res.status(413).json({ error: 'Image is larger than 5 MB' })
+
+  const extension = IMAGE_TYPES[match[1]]
+  const fileName = `${randomBytes(12).toString('hex')}.${extension}`
+  const directory = path.join(UPLOAD_ROOT, board.id.toLowerCase())
+
+  await mkdir(directory, { recursive: true })
+  await writeFile(path.join(directory, fileName), bytes)
+
+  res.status(201).json({ src: `/uploads/${board.id.toLowerCase()}/${fileName}` })
 })
 
 // --- Sessions -----------------------------------------------------------------

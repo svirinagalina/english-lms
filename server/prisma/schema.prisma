@@ -26,6 +26,7 @@ model School {
   vocabSets  VocabSet[]
   invites    Invite[]
   classrooms Classroom[]
+  calls      Call[]
 }
 
 model User {
@@ -56,6 +57,7 @@ model User {
   studentLinks  TeacherStudent[] @relation("StudentLinks")
   sentInvites   Invite[]         @relation("SentInvites")
   teacherClassrooms Classroom[]  @relation("TeacherClassrooms")
+  hostedCalls       Call[]       @relation("HostedCalls")
   studentClassrooms Classroom[]  @relation("StudentClassrooms")
 
   @@index([schoolId])
@@ -236,6 +238,7 @@ model Classroom {
 
   sessions Session[]
   boards   Board[]
+  calls    Call[]
 
   @@unique([teacherId, studentId])
   @@index([schoolId])
@@ -269,4 +272,25 @@ model Board {
   classroom   Classroom @relation(fields: [classroomId], references: [id], onDelete: Cascade)
 
   @@index([classroomId, updatedAt])
+}
+
+// A call anyone can join by link — no account needed. Optionally tied to a
+// classroom so it counts as a lesson for that student.
+model Call {
+  id        String    @id @default(cuid())
+  token     String    @unique
+  title     String?
+  createdAt DateTime  @default(now())
+  endedAt   DateTime?
+
+  hostId String
+  host   User   @relation("HostedCalls", fields: [hostId], references: [id], onDelete: Cascade)
+
+  schoolId String
+  school   School @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+
+  classroomId String?
+  classroom   Classroom? @relation(fields: [classroomId], references: [id], onDelete: SetNull)
+
+  @@index([hostId, createdAt])
 }
