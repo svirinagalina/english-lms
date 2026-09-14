@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { Link, useNavigate, useParams } from 'react-router-dom'
+import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { io } from 'socket.io-client'
 import { useAuth } from '../AuthContext'
 import { api } from '../api'
@@ -56,9 +56,10 @@ export default function Classroom() {
   const { id } = useParams()
   const { user } = useAuth()
   const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
   const [classroom, setClassroom] = useState(null)
   const [error, setError] = useState('')
-  const [openBoardId, setOpenBoardId] = useState(null)
+  const [openBoardId, setOpenBoardId] = useState(searchParams.get('board'))
   const [title, setTitle] = useState('')
   const [starting, setStarting] = useState(false)
   const socketRef = useRef(null)
@@ -143,7 +144,10 @@ export default function Classroom() {
 
   if (!classroom) return <div className="centered">Loading…</div>
 
-  const partner = user.role === 'STUDENT' ? classroom.teacher.name : classroom.student.name
+  const isPersonal = classroom.isTestRoom
+  const partner = isPersonal
+    ? 'My boards'
+    : user.role === 'STUDENT' ? classroom.teacher.name : classroom.student.name
   const openBoard = classroom.boards.find((b) => b.id === openBoardId)
 
   if (openBoard) {
@@ -190,7 +194,7 @@ export default function Classroom() {
           )}
         </div>
         <div className="row-actions">
-          {isStaff && (
+          {isStaff && !isPersonal && (
             <button onClick={startCall} disabled={starting}>
               {starting ? 'Starting…' : 'Start a call'}
             </button>
@@ -204,7 +208,9 @@ export default function Classroom() {
       <section>
         <h2>Boards</h2>
         <p className="muted" style={{ marginBottom: 10 }}>
-          Shared with {user.role === 'STUDENT' ? 'your teacher' : 'the student'}. Open any time, not just during a call.
+          {isPersonal
+            ? 'Your own boards. Open any time.'
+            : `Shared with ${user.role === 'STUDENT' ? 'your teacher' : 'the student'}. Open any time, not just during a call.`}
         </p>
 
         {isStaff && (
@@ -238,6 +244,7 @@ export default function Classroom() {
 
       {isStaff && classroom.progress && <PackagePanel classroom={classroom} onChanged={refresh} />}
 
+      {!isPersonal && (
       <section>
         <h2>Lessons held</h2>
         {classroom.sessions.length === 0 && <p className="muted">No lessons yet.</p>}
@@ -263,6 +270,7 @@ export default function Classroom() {
           ))}
         </div>
       </section>
+      )}
     </div>
   )
 }

@@ -26,6 +26,13 @@ export async function ensureClassroom(teacherId, studentId, schoolId) {
   })
 }
 
+// A teacher's own space: a classroom with no student, holding the boards they
+// keep for themselves. Never listed as a classroom; reached via /mine.
+async function ensurePersonalSpace(teacherId, schoolId) {
+  const existing = await prisma.classroom.findFirst({ where: { teacherId, studentId: null } })
+  return existing ?? prisma.classroom.create({ data: { teacherId, studentId: null, schoolId } })
+}
+
 function packageProgress(student, sessions) {
   if (!student) return null
   const since = student.packageStartedAt
@@ -107,6 +114,16 @@ classroomsRouter.get('/', async (req, res) => {
   })
 
   res.json({ classrooms: classrooms.filter((c) => c.student !== null).map(view) })
+})
+
+classroomsRouter.get('/mine', requireRole('OWNER', 'TEACHER'), async (req, res) => {
+  const space = await ensurePersonalSpace(req.user.id, req.user.schoolId)
+  const boards = await prisma.board.findMany({
+    where: { classroomId: space.id },
+    select: { id: true, title: true, createdAt: true, updatedAt: true },
+    orderBy: { updatedAt: 'desc' }
+  })
+  res.json({ classroom: { id: space.id, boards } })
 })
 
 classroomsRouter.get('/:id', async (req, res) => {

@@ -21,6 +21,8 @@ export default function Classrooms() {
   const navigate = useNavigate()
   const [classrooms, setClassrooms] = useState([])
   const [calls, setCalls] = useState([])
+  const [mine, setMine] = useState(null)
+  const [boardTitle, setBoardTitle] = useState('')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(true)
   const [starting, setStarting] = useState(false)
@@ -32,8 +34,9 @@ export default function Classrooms() {
     const { classrooms } = await api.listClassrooms()
     setClassrooms(classrooms)
     if (isStaff) {
-      const { calls } = await api.listCalls()
+      const [{ calls }, { classroom }] = await Promise.all([api.listCalls(), api.myBoards()])
       setCalls(calls)
+      setMine(classroom)
     }
   }
 
@@ -60,6 +63,23 @@ export default function Classrooms() {
     } catch {
       window.prompt('Copy this link:', call.link)
     }
+  }
+
+  const addBoard = async (event) => {
+    event.preventDefault()
+    try {
+      const { board } = await api.createBoard(mine.id, boardTitle || `Board ${new Date().toLocaleDateString()}`)
+      setBoardTitle('')
+      navigate(`/classroom/${mine.id}?board=${board.id}`)
+    } catch (err) {
+      setError(err.message)
+    }
+  }
+
+  const deleteBoard = async (board) => {
+    if (!window.confirm(`Delete "${board.title}"?`)) return
+    await api.deleteBoard(mine.id, board.id)
+    await refresh()
   }
 
   const endCall = async (call) => {
@@ -108,6 +128,40 @@ export default function Classrooms() {
               ))}
             </div>
           )}
+        </section>
+      )}
+
+      {isStaff && mine && (
+        <section>
+          <h2>My boards</h2>
+          <p className="muted" style={{ marginBottom: 10 }}>
+            Your own whiteboards — screenshots, notes, materials. Open any time; a board opened during a call is shared with everyone in it.
+          </p>
+          <form className="inline-form" onSubmit={addBoard}>
+            <input
+              placeholder="Board title"
+              value={boardTitle}
+              onChange={(e) => setBoardTitle(e.target.value)}
+            />
+            <button type="submit">New board</button>
+          </form>
+
+          {mine.boards.length === 0 && <p className="muted">No boards yet.</p>}
+
+          <div className="list">
+            {mine.boards.map((board) => (
+              <div key={board.id} className="row">
+                <div>
+                  <strong>{board.title}</strong>
+                  <div className="muted">Updated {new Date(board.updatedAt).toLocaleString()}</div>
+                </div>
+                <div className="row-actions">
+                  <Link className="button" to={`/classroom/${mine.id}?board=${board.id}`}>Open</Link>
+                  <button className="ghost" onClick={() => deleteBoard(board)}>Delete</button>
+                </div>
+              </div>
+            ))}
+          </div>
         </section>
       )}
 

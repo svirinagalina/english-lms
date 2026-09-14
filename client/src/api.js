@@ -71,6 +71,7 @@ export const api = {
   endCall: (id) => request(`/calls/${id}/end`, { method: 'POST' }),
 
   listClassrooms: () => request('/classrooms'),
+  myBoards: () => request('/classrooms/mine'),
   getClassroom: (id) => request(`/classrooms/${id}`),
   createBoard: (id, title) => request(`/classrooms/${id}/boards`, { method: 'POST', body: { title } }),
   renameBoard: (id, boardId, title) =>
