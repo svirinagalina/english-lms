@@ -29,6 +29,8 @@ export const api = {
   listInvites: () => request('/invites'),
   createInvite: (body) => request('/invites', { method: 'POST', body }),
   deleteInvite: (id) => request(`/invites/${id}`, { method: 'DELETE' }),
+  resendInvite: (id) => request(`/invites/${id}/resend`, { method: 'POST' }),
+  mailStatus: () => request('/invites/mail-status'),
   getInvite: (token) => request(`/invites/token/${token}`),
   acceptInvite: (token, password) =>
     request(`/invites/token/${token}/accept`, { method: 'POST', body: { password } }),

@@ -3,6 +3,7 @@ import { randomBytes } from 'crypto'
 import { z } from 'zod'
 import { prisma } from '../db.js'
 import { hashPassword, issueToken, requireAuth, requireRole } from '../auth.js'
+import { sendInviteEmail, mailEnabled } from '../mailer.js'
 
 export const invitesRouter = Router()
 
@@ -112,6 +113,10 @@ invitesRouter.post('/token/:token/accept', async (req, res) => {
 
 invitesRouter.use(requireAuth)
 
+invitesRouter.get('/mail-status', requireRole('OWNER', 'TEACHER'), (req, res) => {
+  res.json({ enabled: mailEnabled(), from: process.env.MAIL_FROM ?? null })
+})
+
 invitesRouter.get('/', requireRole('OWNER', 'TEACHER'), async (req, res) => {
   const invites = await prisma.invite.findMany({
     where: {
@@ -171,7 +176,48 @@ invitesRouter.post('/', requireRole('OWNER', 'TEACHER'), async (req, res) => {
     include: { invitedBy: { select: { id: true, name: true } } }
   })
 
-  res.status(201).json({ invite: inviteView(invite, originOf(req)) })
+  const view = inviteView(invite, originOf(req))
+
+  const delivery = await sendInviteEmail({
+    to: invite.email,
+    name: invite.name,
+    inviterName: invite.invitedBy.name,
+    schoolName: (await prisma.school.findUnique({
+      where: { id: invite.schoolId },
+      select: { name: true }
+    }))?.name ?? 'the school',
+    role: invite.role,
+    link: view.link
+  })
+
+  res.status(201).json({ invite: view, delivery })
+})
+
+invitesRouter.post('/:id/resend', requireRole('OWNER', 'TEACHER'), async (req, res) => {
+  const invite = await prisma.invite.findFirst({
+    where: {
+      id: req.params.id,
+      schoolId: req.user.schoolId,
+      acceptedAt: null,
+      ...(req.user.role === 'TEACHER' ? { invitedById: req.user.id } : {})
+    },
+    include: {
+      invitedBy: { select: { id: true, name: true } },
+      school: { select: { name: true } }
+    }
+  })
+  if (!invite) return res.status(404).json({ error: 'Invitation not found' })
+
+  const delivery = await sendInviteEmail({
+    to: invite.email,
+    name: invite.name,
+    inviterName: invite.invitedBy.name,
+    schoolName: invite.school.name,
+    role: invite.role,
+    link: inviteView(invite, originOf(req)).link
+  })
+
+  res.json({ delivery })
 })
 
 invitesRouter.delete('/:id', requireRole('OWNER', 'TEACHER'), async (req, res) => {

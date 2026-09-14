@@ -13,14 +13,14 @@ function InviteForm({ role, teachers, currentUserId, onInvited }) {
     setError('')
     setBusy(true)
     try {
-      const { invite } = await api.createInvite({
+      const result = await api.createInvite({
         name: form.name,
         email: form.email,
         role,
         ...(role === 'STUDENT' ? { teacherId: form.teacherId } : {})
       })
       setForm({ name: '', email: '', teacherId: currentUserId })
-      onInvited(invite)
+      onInvited(result)
     } catch (err) {
       setError(err.message)
     } finally {
@@ -73,21 +73,45 @@ export default function People() {
   const [loading, setLoading] = useState(true)
   const [copied, setCopied] = useState(null)
   const [linking, setLinking] = useState(null)
+  const [mail, setMail] = useState({ enabled: false })
+  const [delivery, setDelivery] = useState(null)
+  const [resending, setResending] = useState(null)
 
   const refresh = async () => {
-    const [peopleResult, invitesResult, teachersResult] = await Promise.all([
+    const [peopleResult, invitesResult, teachersResult, mailResult] = await Promise.all([
       api.listPeople(),
       api.listInvites(),
-      api.listTeachers()
+      api.listTeachers(),
+      api.mailStatus().catch(() => ({ enabled: false }))
     ])
     setPeople(peopleResult.people)
     setInvites(invitesResult.invites)
     setTeachers(teachersResult.teachers)
+    setMail(mailResult)
   }
 
   useEffect(() => {
     refresh().catch((err) => setError(err.message)).finally(() => setLoading(false))
   }, [])
+
+  const handleInvited = async (result) => {
+    setDelivery(result?.delivery ?? null)
+    await refresh()
+    if (result?.delivery?.sent) setTimeout(() => setDelivery(null), 5000)
+  }
+
+  const resend = async (invite) => {
+    setResending(invite.id)
+    try {
+      const { delivery } = await api.resendInvite(invite.id)
+      setDelivery({ ...delivery, email: invite.email })
+      if (delivery.sent) setTimeout(() => setDelivery(null), 5000)
+    } catch (err) {
+      setError(err.message)
+    } finally {
+      setResending(null)
+    }
+  }
 
   const copyLink = async (invite) => {
     try {
@@ -141,9 +165,23 @@ export default function People() {
 
       {error && <div className="error">{error}</div>}
 
+      {!mail.enabled && (
+        <div className="notice">
+          Email delivery is off — invitations still work, but you need to send the link yourself.
+        </div>
+      )}
+
+      {delivery && (
+        <div className={delivery.sent ? 'notice' : 'error'}>
+          {delivery.sent
+            ? 'Invitation email sent.'
+            : `Email not sent (${delivery.reason}). Copy the link below and send it yourself.`}
+        </div>
+      )}
+
       <section>
         <h2>Invite a teacher</h2>
-        <InviteForm role="TEACHER" teachers={teachers} currentUserId={user.id} onInvited={refresh} />
+        <InviteForm role="TEACHER" teachers={teachers} currentUserId={user.id} onInvited={handleInvited} />
       </section>
 
       <section>
@@ -151,14 +189,17 @@ export default function People() {
         <p className="muted" style={{ marginBottom: 10 }}>
           The student is linked to the teacher you pick and will see that teacher's lessons.
         </p>
-        <InviteForm role="STUDENT" teachers={teachers} currentUserId={user.id} onInvited={refresh} />
+        <InviteForm role="STUDENT" teachers={teachers} currentUserId={user.id} onInvited={handleInvited} />
       </section>
 
       {invites.length > 0 && (
         <section>
           <h2>Pending invitations</h2>
           <p className="muted" style={{ marginBottom: 10 }}>
-            Send the link to the person yourself — by email or messenger. It works once and expires in 14 days.
+            {mail.enabled
+              ? 'An email went out automatically. The link also works if you prefer to send it yourself.'
+              : 'Send the link to the person yourself — by email or messenger.'}{' '}
+            It works once and expires in 14 days.
           </p>
           <div className="list">
             {invites.map((invite) => (
@@ -172,6 +213,11 @@ export default function People() {
                     </div>
                   </div>
                   <div className="row-actions">
+                    {mail.enabled && (
+                      <button className="ghost" onClick={() => resend(invite)} disabled={resending === invite.id}>
+                        {resending === invite.id ? 'Sending…' : 'Resend email'}
+                      </button>
+                    )}
                     <button onClick={() => copyLink(invite)}>
                       {copied === invite.id ? 'Copied' : 'Copy link'}
                     </button>
