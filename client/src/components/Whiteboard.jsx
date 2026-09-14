@@ -324,6 +324,7 @@ export default function Whiteboard({ socketRef, boardId, onUploadImage }) {
   const cropRef = useRef(null)
   const clipboardRef = useRef([])
   const pasteCountRef = useRef(0)
+  const historyRef = useRef({ undo: [], redo: [] })
 
   const [tool, setTool] = useState('pen')
   const [color, setColor] = useState('#e8eaed')
@@ -425,6 +426,7 @@ export default function Whiteboard({ socketRef, boardId, onUploadImage }) {
     elementsRef.current = []
     selectedRef.current = []
     cropRef.current = null
+    historyRef.current = { undo: [], redo: [] }
     scheduleRender()
 
     socket.emit('board:open', boardId, (response) => {
@@ -471,27 +473,99 @@ export default function Whiteboard({ socketRef, boardId, onUploadImage }) {
 
   const emit = (event, payload) => socketRef.current?.emit(event, payload)
 
+  // --- History ----------------------------------------------------------------
+  //
+  // Only this user's own actions are recorded, so undo never touches what the
+  // other participant drew. Each entry knows how to reverse itself.
+
+  const MAX_HISTORY = 100
+
+  const record = (action) => {
+    const history = historyRef.current
+    history.undo.push(action)
+    if (history.undo.length > MAX_HISTORY) history.undo.shift()
+    history.redo = []
+    bump()
+  }
+
+  // Raw mutations: change local state and tell the server, no history.
+  const addRaw = (element) => {
+    if (!elementsRef.current.some((item) => item.id === element.id)) elementsRef.current.push(element)
+    emit('board:add', element)
+  }
+  const removeRaw = (id) => {
+    elementsRef.current = elementsRef.current.filter((item) => item.id !== id)
+    selectedRef.current = selectedRef.current.filter((s) => s !== id)
+    emit('board:delete', id)
+  }
+  const replaceRaw = (element) => {
+    const index = elementsRef.current.findIndex((item) => item.id === element.id)
+    if (index !== -1) elementsRef.current[index] = element
+    emit('board:update', element)
+  }
+
+  const applyAction = (action, direction) => {
+    const ops = action.type === 'batch' ? action.actions : [action]
+    for (const op of direction === 'undo' ? [...ops].reverse() : ops) {
+      if (op.type === 'add') direction === 'undo' ? removeRaw(op.element.id) : addRaw(op.element)
+      if (op.type === 'delete') direction === 'undo' ? addRaw(op.element) : removeRaw(op.element.id)
+      if (op.type === 'update') replaceRaw(direction === 'undo' ? op.before : op.after)
+    }
+    scheduleRender()
+    bump()
+  }
+
+  const undo = () => {
+    const action = historyRef.current.undo.pop()
+    if (!action) return
+    applyAction(action, 'undo')
+    historyRef.current.redo.push(action)
+  }
+
+  const redo = () => {
+    const action = historyRef.current.redo.pop()
+    if (!action) return
+    applyAction(action, 'redo')
+    historyRef.current.undo.push(action)
+  }
+
+  // --- Edits (recorded) -------------------------------------------------------
+
   const commitRef = useRef(null)
   const commit = (element) => {
-    elementsRef.current.push(element)
-    emit('board:add', element)
+    addRaw(element)
+    record({ type: 'add', element: structuredClone(element) })
     scheduleRender()
   }
   commitRef.current = commit
 
+  // Visual-only replace while dragging; the history entry is written on pointer up.
   const replace = (element) => {
     const index = elementsRef.current.findIndex((item) => item.id === element.id)
     if (index !== -1) elementsRef.current[index] = element
     scheduleRender()
   }
 
+  const recordUpdates = (befores) => {
+    const actions = []
+    for (const before of befores) {
+      const after = elementsRef.current.find((item) => item.id === before.id)
+      if (after && JSON.stringify(after) !== JSON.stringify(before)) {
+        actions.push({ type: 'update', before: structuredClone(before), after: structuredClone(after) })
+      }
+    }
+    if (actions.length === 1) record(actions[0])
+    else if (actions.length > 1) record({ type: 'batch', actions })
+  }
+
   const remove = (ids) => {
     const gone = new Set(Array.isArray(ids) ? ids : [ids])
-    elementsRef.current = elementsRef.current.filter((item) => !gone.has(item.id))
-    selectedRef.current = selectedRef.current.filter((s) => !gone.has(s))
-    for (const id of gone) emit('board:delete', id)
+    const removed = elementsRef.current.filter((item) => gone.has(item.id))
+    if (!removed.length) return
+    for (const item of removed) removeRaw(item.id)
+    const actions = removed.map((item) => ({ type: 'delete', element: structuredClone(item) }))
+    record(actions.length === 1 ? actions[0] : { type: 'batch', actions })
     scheduleRender()
-    bump()
   }
 
   // --- Images -----------------------------------------------------------------
@@ -595,10 +669,9 @@ export default function Whiteboard({ socketRef, boardId, onUploadImage }) {
     pasteCountRef.current += 1
     const shift = PASTE_OFFSET * pasteCountRef.current
     const copies = source.map((item) => ({ ...moveElement(structuredClone(item), shift, shift), id: newId() }))
-    for (const copy of copies) {
-      elementsRef.current.push(copy)
-      emit('board:add', copy)
-    }
+    for (const copy of copies) addRaw(copy)
+    const actions = copies.map((copy) => ({ type: 'add', element: structuredClone(copy) }))
+    record(actions.length === 1 ? actions[0] : { type: 'batch', actions })
     selectedRef.current = copies.map((copy) => copy.id)
     setTool('select')
     scheduleRender()
@@ -618,9 +691,11 @@ export default function Whiteboard({ socketRef, boardId, onUploadImage }) {
     const cropped = cropRef.current
     if (!cropped) return
     cropRef.current = null
-    replace(cropped)
-    emit('board:update', cropped)
+    const before = elementsRef.current.find((item) => item.id === cropped.id)
+    replaceRaw(cropped)
+    if (before) record({ type: 'update', before: structuredClone(before), after: structuredClone(cropped) })
     selectedRef.current = [cropped.id]
+    scheduleRender()
     bump()
   }
 
@@ -636,8 +711,9 @@ export default function Whiteboard({ socketRef, boardId, onUploadImage }) {
     const full = fullImageBox(selected)
     const restored = { ...selected, ...full }
     delete restored.crop
-    replace(restored)
-    emit('board:update', restored)
+    replaceRaw(restored)
+    record({ type: 'update', before: structuredClone(selected), after: structuredClone(restored) })
+    scheduleRender()
     bump()
   }
 
@@ -659,6 +735,12 @@ export default function Whiteboard({ socketRef, boardId, onUploadImage }) {
       }
       if (event.key === 'Escape') { selectedRef.current = []; scheduleRender(); bump() }
       const mod = event.metaKey || event.ctrlKey
+      if (mod && event.key.toLowerCase() === 'z') {
+        event.preventDefault()
+        event.shiftKey ? redo() : undo()
+        return
+      }
+      if (mod && event.key === 'y') { event.preventDefault(); redo(); return }
       if (mod && event.key === 'a' && tool === 'select') {
         event.preventDefault()
         selectedRef.current = elementsRef.current.map((item) => item.id)
@@ -763,7 +845,7 @@ export default function Whiteboard({ socketRef, boardId, onUploadImage }) {
         }
         // Clicking a member keeps the group so it can be dragged together.
         if (!already) selectedRef.current = [target.id]
-        pointerRef.current = { mode: 'move', ids: [...selectedRef.current], last: point }
+        pointerRef.current = { mode: 'move', ids: [...selectedRef.current], last: point, originals: selectedElements().map((i) => structuredClone(i)) }
       } else {
         if (!event.shiftKey) selectedRef.current = []
         marqueeRef.current = { x: point.x, y: point.y, w: 0, h: 0 }
@@ -867,6 +949,7 @@ export default function Whiteboard({ socketRef, boardId, onUploadImage }) {
     if (pointer.mode === 'move' || pointer.mode === 'resize') {
       const ids = new Set(pointer.ids)
       for (const element of elementsRef.current) if (ids.has(element.id)) emit('board:update', element)
+      recordUpdates(pointer.originals)
       bump()
       return
     }
@@ -924,9 +1007,11 @@ export default function Whiteboard({ socketRef, boardId, onUploadImage }) {
 
   const handleClear = () => {
     if (!window.confirm('Clear the board for everyone?')) return
+    const all = elementsRef.current.map((item) => structuredClone(item))
     elementsRef.current = []
     selectedRef.current = []
     emit('board:clear')
+    if (all.length) record({ type: 'batch', actions: all.map((element) => ({ type: 'delete', element })) })
     scheduleRender()
   }
 
@@ -974,6 +1059,11 @@ export default function Whiteboard({ socketRef, boardId, onUploadImage }) {
                   title={value}
                 />
               ))}
+            </div>
+
+            <div className="tool-group">
+              <button className="tool" onClick={undo} disabled={!historyRef.current.undo.length} title="Undo (⌘Z)">Undo</button>
+              <button className="tool" onClick={redo} disabled={!historyRef.current.redo.length} title="Redo (⌘⇧Z)">Redo</button>
             </div>
 
             <div className="tool-group">

@@ -102,3 +102,6 @@
 .lesson-tab.active { background: var(--accent); color: #fff; border-color: var(--accent); }
 
 .board-canvas.tool-crop { cursor: crosshair; }
+
+.tool:disabled { opacity: 0.35; cursor: default; }
+.tool:disabled:hover { background: #2a2e38; }
