@@ -64,11 +64,14 @@
 
 .board-text-input {
   position: absolute;
-  min-width: 160px;
+  min-width: 120px;
+  overflow: hidden;
+  white-space: pre;
   background: rgba(255, 255, 255, 0.95);
   border: 1px solid var(--accent);
   border-radius: 6px;
-  padding: 4px 6px;
+  padding: 0;
+  box-sizing: content-box;
   color: #111827;
   font-family: inherit;
   line-height: 1.25;
@@ -111,3 +114,6 @@
 
 .zoom-group { margin-left: auto; }
 .zoom-group .tool { min-width: 34px; }
+
+select.tool { appearance: auto; padding: 5px 8px; }
+.small-hint { font-size: 11px; }

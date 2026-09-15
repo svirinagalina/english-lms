@@ -41,6 +41,44 @@ function imageFor(src) {
   return image
 }
 
+// --- Text ---------------------------------------------------------------------
+// Text keeps a light markup: **bold** spans. Everything else is plain.
+
+const FONT_FAMILY = '-apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif'
+const LINE_HEIGHT = 1.25
+const FONT_SIZES = [12, 14, 16, 18, 20, 24, 28, 32, 40, 48, 64, 80]
+const measureCtx = document.createElement('canvas').getContext('2d')
+
+const fontFor = (size, bold) => `${bold ? '700' : '400'} ${size}px ${FONT_FAMILY}`
+
+// "a **b** c" → [{text:'a ', bold:false}, {text:'b', bold:true}, {text:' c', bold:false}]
+function textRuns(line) {
+  const runs = []
+  let bold = false
+  for (const part of line.split('**')) {
+    if (part) runs.push({ text: part, bold })
+    bold = !bold
+  }
+  return runs
+}
+
+function lineWidth(line, size) {
+  let width = 0
+  for (const run of textRuns(line)) {
+    measureCtx.font = fontFor(size, run.bold)
+    width += measureCtx.measureText(run.text).width
+  }
+  return width
+}
+
+function textSize(text, size) {
+  const lines = String(text ?? '').split('\n')
+  return {
+    w: Math.max(8, ...lines.map((line) => lineWidth(line, size))),
+    h: Math.max(1, lines.length) * size * LINE_HEIGHT
+  }
+}
+
 // --- Geometry -----------------------------------------------------------------
 
 function boundsOf(element) {
@@ -55,10 +93,8 @@ function boundsOf(element) {
   }
 
   if (element.type === 'text') {
-    const size = element.fontSize ?? 20
-    const lines = element.text.split('\n')
-    const longest = Math.max(...lines.map((line) => line.length))
-    return { x: element.x, y: element.y, w: longest * size * 0.6, h: lines.length * size * 1.25 }
+    const { w, h } = textSize(element.text, element.fontSize ?? 20)
+    return { x: element.x, y: element.y, w, h }
   }
 
   return {
@@ -290,10 +326,15 @@ function drawElement(ctx, element) {
 
   if (element.type === 'text') {
     const size = element.fontSize ?? 20
-    ctx.font = `${size}px -apple-system, BlinkMacSystemFont, sans-serif`
     ctx.textBaseline = 'top'
     element.text.split('\n').forEach((line, index) => {
-      ctx.fillText(line, element.x, element.y + index * size * 1.25)
+      let x = element.x
+      const y = element.y + index * size * LINE_HEIGHT
+      for (const run of textRuns(line)) {
+        ctx.font = fontFor(size, run.bold)
+        ctx.fillText(run.text, x, y)
+        x += ctx.measureText(run.text).width
+      }
     })
   }
 }
@@ -339,8 +380,12 @@ export default function Whiteboard({ socketRef, boardId, onUploadImage, onAssist
   const toolRef = useRef(tool)
   toolRef.current = tool
   const [color, setColor] = useState(COLORS[0])
+  const lastFontSizeRef = useRef(24)
   const [width, setWidth] = useState(3)
   const [textInput, setTextInput] = useState(null)
+  const editingTextRef = useRef(null)
+  editingTextRef.current = textInput?.id ?? null
+  const textAreaRef = useRef(null)
   const [, forceRender] = useState(0)
   const bump = () => forceRender((value) => value + 1)
 
@@ -377,8 +422,10 @@ export default function Whiteboard({ socketRef, boardId, onUploadImage, onAssist
     ctx.scale(view.scale, view.scale)
 
     const cropping = cropRef.current
+    const editingId = editingTextRef.current
     for (const element of elementsRef.current) {
       if (cropping && element.id === cropping.id) continue
+      if (editingId && element.id === editingId) continue
       drawElement(ctx, element)
     }
     if (draftRef.current) drawElement(ctx, draftRef.current)
@@ -781,6 +828,11 @@ export default function Whiteboard({ socketRef, boardId, onUploadImage, onAssist
 
   useEffect(() => {
     const onKey = (event) => {
+      if (textInput && (event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'b') {
+        event.preventDefault()
+        toggleBold()
+        return
+      }
       if (textInput || event.target.tagName === 'INPUT' || event.target.tagName === 'TEXTAREA') return
 
       if (cropRef.current) {
@@ -843,6 +895,13 @@ export default function Whiteboard({ socketRef, boardId, onUploadImage, onAssist
     if (tool !== 'select' || cropRef.current) return
     const point = toWorld(event)
     const target = [...elementsRef.current].reverse().find((element) => hitTest(element, point.x, point.y))
+    if (target?.type === 'text') {
+      // Edit in place: the element hides while the editor sits over it.
+      selectedRef.current = [target.id]
+      setTextInput({ id: target.id, x: target.x, y: target.y, value: target.text, fontSize: target.fontSize ?? 20, color: target.color, before: structuredClone(target) })
+      scheduleRender()
+      return
+    }
     if (target?.type !== 'image') return
 
     cropRef.current = { ...target }
@@ -1026,7 +1085,7 @@ export default function Whiteboard({ socketRef, boardId, onUploadImage, onAssist
     if (pointer.mode === 'crop' || pointer.mode === 'pan') return
 
     if (pointer.mode === 'text') {
-      setTextInput({ x: pointer.point.x, y: pointer.point.y, value: '' })
+      setTextInput({ x: pointer.point.x, y: pointer.point.y, value: '', fontSize: textInput?.fontSize ?? lastFontSizeRef.current, color })
       return
     }
 
@@ -1067,10 +1126,80 @@ export default function Whiteboard({ socketRef, boardId, onUploadImage, onAssist
 
   const submitText = () => {
     const draft = textInput
+    if (!draft) return
     setTextInput(null)
-    if (!draft || draft.value.trim() === '') return
-    commit({ id: newId(), type: 'text', color, width, x: draft.x, y: draft.y, text: draft.value, fontSize: 16 + width * 2 })
+    lastFontSizeRef.current = draft.fontSize
+    const text = draft.value.replace(/\s+$/, '')
+
+    if (draft.id) {
+      if (!text.trim()) { remove(draft.id); return }
+      const after = { ...draft.before, text, fontSize: draft.fontSize, color: draft.color }
+      if (JSON.stringify(after) === JSON.stringify(draft.before)) { scheduleRender(); return }
+      replaceRaw(after)
+      record({ type: 'update', before: draft.before, after: structuredClone(after) })
+      scheduleRender()
+      bump()
+      return
+    }
+
+    if (!text.trim()) { scheduleRender(); return }
+    commit({ id: newId(), type: 'text', color: draft.color, width, x: draft.x, y: draft.y, text, fontSize: draft.fontSize })
   }
+
+  const cancelText = () => {
+    setTextInput(null)
+    scheduleRender()
+  }
+
+  // Wraps the selection in ** — or unwraps it when it already is bold.
+  const toggleBold = () => {
+    const area = textAreaRef.current
+    if (!area || !textInput) return
+    const { selectionStart: start, selectionEnd: end, value } = area
+    if (start === end) return
+    const inner = value.slice(start, end)
+    let next, cursorEnd
+    if (inner.startsWith('**') && inner.endsWith('**') && inner.length >= 4) {
+      next = value.slice(0, start) + inner.slice(2, -2) + value.slice(end)
+      cursorEnd = end - 4
+    } else if (value.slice(start - 2, start) === '**' && value.slice(end, end + 2) === '**') {
+      next = value.slice(0, start - 2) + inner + value.slice(end + 2)
+      cursorEnd = end - 2
+    } else {
+      next = value.slice(0, start) + '**' + inner + '**' + value.slice(end)
+      cursorEnd = end + 4
+    }
+    setTextInput({ ...textInput, value: next })
+    requestAnimationFrame(() => { area.focus(); area.setSelectionRange(start, cursorEnd) })
+  }
+
+  // Changes the size of the text being edited, or of the selected text elements.
+  const setFontSize = (size) => {
+    if (textInput) {
+      setTextInput({ ...textInput, fontSize: size })
+      requestAnimationFrame(() => textAreaRef.current?.focus())
+      return
+    }
+    const items = selectedElements().filter((item) => item.type === 'text')
+    if (!items.length) return
+    const befores = items.map((item) => structuredClone(item))
+    for (const item of items) replaceRaw({ ...item, fontSize: size })
+    recordUpdates(befores)
+    lastFontSizeRef.current = size
+    scheduleRender()
+    bump()
+  }
+
+  // The editor grows with its text so every line stays visible.
+  const fitTextArea = () => {
+    const area = textAreaRef.current
+    if (!area || !textInput) return
+    const scale = viewRef.current.scale
+    const { w, h } = textSize(textInput.value || ' ', textInput.fontSize)
+    area.style.width = `${Math.max(120, w * scale + 2 * textInput.fontSize * scale)}px`
+    area.style.height = `${h * scale + 4}px`
+  }
+  useEffect(fitTextArea)
 
   const handleClear = () => {
     if (!window.confirm('Clear the board for everyone?')) return
@@ -1140,6 +1269,9 @@ export default function Whiteboard({ socketRef, boardId, onUploadImage, onAssist
 
   const view = viewRef.current
   const cropping = Boolean(cropRef.current)
+  // A corner-dragged text can have any size; the list shows it alongside the presets.
+  const currentFontSize = Math.round(textInput ? textInput.fontSize : (selectedElements().find((i) => i.type === 'text')?.fontSize ?? 20))
+  const fontSizeOptions = FONT_SIZES.includes(currentFontSize) ? FONT_SIZES : [...FONT_SIZES, currentFontSize].sort((a, b) => a - b)
   const selected = selectedElement()
   const selectedCount = selectedRef.current.length
 
@@ -1231,6 +1363,23 @@ export default function Whiteboard({ socketRef, boardId, onUploadImage, onAssist
               <button className="tool danger" onClick={handleClear}>Clear</button>
             </div>
 
+            {(textInput || (tool === 'select' && selectedElements().some((i) => i.type === 'text'))) && (
+              <div className="tool-group text-toolbar">
+                <select
+                  className="tool"
+                  value={currentFontSize}
+                  onChange={(e) => setFontSize(Number(e.target.value))}
+                  title="Text size"
+                >
+                  {fontSizeOptions.map((size) => <option key={size} value={size}>{size}</option>)}
+                </select>
+                {textInput && (
+                  <button className="tool" onMouseDown={(e) => e.preventDefault()} onClick={toggleBold} title="Bold the selected words (⌘B)"><b>B</b></button>
+                )}
+                {textInput && <span className="muted small-hint">⌘Enter to finish · Esc {textInput.id ? 'to cancel' : 'to finish'}</span>}
+              </div>
+            )}
+
             <div className="tool-group zoom-group">
               {onUploadImage && <button className="tool" onClick={startLesson} title="Add a dated heading below everything and start there">New lesson</button>}
               <button className="tool" onClick={() => zoomTo(view.scale / 1.25)} title="Zoom out">−</button>
@@ -1263,19 +1412,26 @@ export default function Whiteboard({ socketRef, boardId, onUploadImage, onAssist
 
         {textInput && (
           <textarea
+            ref={textAreaRef}
             className="board-text-input"
             autoFocus
             value={textInput.value}
             style={{
-              left: textInput.x * view.scale + view.x,
-              top: textInput.y * view.scale + view.y,
-              fontSize: (16 + width * 2) * view.scale
+              left: textInput.x * view.scale + view.x - 1,
+              top: textInput.y * view.scale + view.y - 1,
+              fontSize: textInput.fontSize * view.scale,
+              lineHeight: LINE_HEIGHT,
+              color: inkOf(textInput.color)
             }}
             onChange={(e) => setTextInput({ ...textInput, value: e.target.value })}
-            onBlur={submitText}
+            onBlur={(e) => {
+              // Clicking the text toolbar must not close the editor.
+              if (e.relatedTarget?.closest?.('.text-toolbar')) { requestAnimationFrame(() => e.target.focus()); return }
+              submitText()
+            }}
             onKeyDown={(e) => {
-              if (e.key === 'Escape') setTextInput(null)
-              if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); submitText() }
+              if (e.key === 'Escape') { e.preventDefault(); textInput.id ? cancelText() : submitText() }
+              if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) { e.preventDefault(); submitText() }
             }}
           />
         )}
@@ -1285,7 +1441,7 @@ export default function Whiteboard({ socketRef, boardId, onUploadImage, onAssist
             ? 'Enter to apply · Esc to cancel'
             : <>
                 Scroll to pan · pinch or {navigator.platform.includes('Mac') ? '⌘' : 'Ctrl'}+scroll to zoom · Alt+drag to pan
-                {' · Shift+click or drag a box to select several · ⌘C / ⌘V to copy and paste'}
+                {' · Shift+click or drag a box to select several · ⌘C / ⌘V to copy and paste · double-click text to edit it'}
                 {onUploadImage && ' · paste or drop an image · double-click an image to crop'}
               </>}
         </div>
