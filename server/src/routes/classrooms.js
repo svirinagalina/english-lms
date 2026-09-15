@@ -131,6 +131,13 @@ classroomsRouter.get('/:id', async (req, res) => {
   const classroom = await accessibleClassroom(req.user, req.params.id)
   if (!classroom) return res.status(404).json({ error: 'Classroom not found' })
 
+  // One board per student holds every lesson; it exists from the first visit.
+  if (classroom.student && !(await prisma.board.count({ where: { classroomId: classroom.id } }))) {
+    await prisma.board.create({
+      data: { classroomId: classroom.id, title: `${classroom.student.name} — lessons`, elements: [] }
+    })
+  }
+
   const [sessions, boards] = await Promise.all([
     prisma.session.findMany({
       where: { classroomId: classroom.id },
@@ -139,7 +146,7 @@ classroomsRouter.get('/:id', async (req, res) => {
     prisma.board.findMany({
       where: { classroomId: classroom.id },
       select: { id: true, title: true, createdAt: true, updatedAt: true },
-      orderBy: { updatedAt: 'desc' }
+      orderBy: { createdAt: 'asc' }
     })
   ])
 

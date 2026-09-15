@@ -226,11 +226,11 @@ export default function Classroom() {
       {error && <div className="error">{error}</div>}
 
       <section>
-        <h2>Boards</h2>
+        <h2>{isPersonal ? 'Boards' : 'Board'}</h2>
         <p className="muted" style={{ marginBottom: 10 }}>
           {isPersonal
             ? 'Your own boards. Open any time.'
-            : `Shared with ${user.role === 'STUDENT' ? 'your teacher' : 'the student'}. Open any time, not just during a call.`}
+            : `One board for all lessons with ${user.role === 'STUDENT' ? 'your teacher' : 'the student'}: every lesson and its materials stay here. Open any time, not just during a call.`}
         </p>
 
         {isStaff && (
@@ -240,7 +240,7 @@ export default function Classroom() {
               value={title}
               onChange={(e) => setTitle(e.target.value)}
             />
-            <button type="submit">New board</button>
+            <button type="submit" className={isPersonal ? '' : 'ghost'}>{isPersonal ? 'New board' : 'Extra board'}</button>
           </form>
         )}
 

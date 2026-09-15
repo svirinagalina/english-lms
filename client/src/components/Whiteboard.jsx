@@ -1,7 +1,13 @@
 import { useEffect, useRef, useState, useCallback } from 'react'
 import '../styles/whiteboard.css'
 
-const COLORS = ['#e8eaed', '#ef4444', '#22c55e', '#3b82f6', '#eab308', '#a855f7']
+const COLORS = ['#111827', '#ef4444', '#16a34a', '#2563eb', '#f59e0b', '#9333ea']
+// Ink drawn while the board was dark, shown dark on the white board.
+const LEGACY_INK = { '#e8eaed': '#111827', '#22c55e': '#16a34a', '#3b82f6': '#2563eb', '#eab308': '#f59e0b', '#a855f7': '#9333ea' }
+const inkOf = (color) => LEGACY_INK[color] ?? color
+
+const MIN_SCALE = 0.05
+const MAX_SCALE = 8
 const TOOLS = [
   { id: 'select', label: 'Move' },
   { id: 'pen', label: 'Pen' },
@@ -231,8 +237,8 @@ function drawImageElement(ctx, element, alpha = 1) {
 }
 
 function drawElement(ctx, element) {
-  ctx.strokeStyle = element.color
-  ctx.fillStyle = element.color
+  ctx.strokeStyle = inkOf(element.color)
+  ctx.fillStyle = inkOf(element.color)
   ctx.lineWidth = element.width
   ctx.lineCap = 'round'
   ctx.lineJoin = 'round'
@@ -328,7 +334,11 @@ export default function Whiteboard({ socketRef, boardId, onUploadImage, onAssist
   const historyRef = useRef({ undo: [], redo: [] })
 
   const [tool, setTool] = useState('pen')
-  const [color, setColor] = useState('#e8eaed')
+  // render() reads the tool through a ref so its identity never changes:
+  // the sync effect below must not re-open the board on every tool switch.
+  const toolRef = useRef(tool)
+  toolRef.current = tool
+  const [color, setColor] = useState(COLORS[0])
   const [width, setWidth] = useState(3)
   const [textInput, setTextInput] = useState(null)
   const [, forceRender] = useState(0)
@@ -379,7 +389,7 @@ export default function Whiteboard({ socketRef, boardId, onUploadImage, onAssist
       drawImageElement(ctx, { ...cropping, ...full, crop: FULL_CROP }, 0.35)
       drawImageElement(ctx, cropping)
       drawHandles(ctx, cropping, view.scale, '#eab308')
-    } else if (tool === 'select') {
+    } else if (toolRef.current === 'select') {
       const items = selectedElements()
       if (items.length) {
         // Faint outline on each member, handles on the group as a whole.
@@ -405,7 +415,7 @@ export default function Whiteboard({ socketRef, boardId, onUploadImage, onAssist
         ctx.restore()
       }
     }
-  }, [tool])
+  }, [])
 
   const scheduleRender = useCallback(() => {
     if (frameRef.current) return
@@ -432,7 +442,11 @@ export default function Whiteboard({ socketRef, boardId, onUploadImage, onAssist
 
     socket.emit('board:open', boardId, (response) => {
       elementsRef.current = response?.elements ?? []
+      // A board with content opens showing all of it; an empty one at 100%.
+      if (elementsRef.current.length) fitAll(1)
+      else viewRef.current = { x: 0, y: 0, scale: 1 }
       scheduleRender()
+      bump()
     })
 
     const onAdd = (element) => { elementsRef.current.push(element); scheduleRender() }
@@ -905,7 +919,9 @@ export default function Whiteboard({ socketRef, boardId, onUploadImage, onAssist
     selectedRef.current = []
 
     if (tool === 'text') {
-      setTextInput({ x: point.x, y: point.y, value: '' })
+      // Open the editor on release: opening it on press let the browser's own
+      // mousedown focus change blur the new textarea straight away.
+      pointerRef.current = { mode: 'text', point }
       return
     }
 
@@ -1009,6 +1025,11 @@ export default function Whiteboard({ socketRef, boardId, onUploadImage, onAssist
 
     if (pointer.mode === 'crop' || pointer.mode === 'pan') return
 
+    if (pointer.mode === 'text') {
+      setTextInput({ x: pointer.point.x, y: pointer.point.y, value: '' })
+      return
+    }
+
     const draft = draftRef.current
     draftRef.current = null
     if (!draft) return
@@ -1032,7 +1053,7 @@ export default function Whiteboard({ socketRef, boardId, onUploadImage, onAssist
       const mouseX = event.clientX - rect.left
       const mouseY = event.clientY - rect.top
       const factor = Math.exp(-event.deltaY * 0.002)
-      const scale = Math.min(5, Math.max(0.15, view.scale * factor))
+      const scale = Math.min(MAX_SCALE, Math.max(MIN_SCALE, view.scale * factor))
       viewRef.current = {
         scale,
         x: mouseX - (mouseX - view.x) * (scale / view.scale),
@@ -1061,8 +1082,58 @@ export default function Whiteboard({ socketRef, boardId, onUploadImage, onAssist
     scheduleRender()
   }
 
+  const zoomTo = (scale, aroundX, aroundY) => {
+    const canvas = canvasRef.current
+    if (!canvas) return
+    const rect = canvas.getBoundingClientRect()
+    const cx = aroundX ?? rect.width / 2
+    const cy = aroundY ?? rect.height / 2
+    const view = viewRef.current
+    const next = Math.min(MAX_SCALE, Math.max(MIN_SCALE, scale))
+    viewRef.current = {
+      scale: next,
+      x: cx - (cx - view.x) * (next / view.scale),
+      y: cy - (cy - view.y) * (next / view.scale)
+    }
+    scheduleRender()
+    bump()
+  }
+
+  // Show every element on the board, never larger than maxScale.
+  const fitAll = (maxScale = 1) => {
+    const canvas = canvasRef.current
+    if (!canvas || !elementsRef.current.length) return
+    const rect = canvas.getBoundingClientRect()
+    const box = unionBounds(elementsRef.current)
+    const pad = 60
+    const scale = Math.min(maxScale, Math.max(MIN_SCALE,
+      Math.min((rect.width - pad * 2) / Math.max(box.w, 1), (rect.height - pad * 2) / Math.max(box.h, 1))))
+    viewRef.current = {
+      scale,
+      x: (rect.width - box.w * scale) / 2 - box.x * scale,
+      y: (rect.height - box.h * scale) / 2 - box.y * scale
+    }
+    scheduleRender()
+    bump()
+  }
+
   const resetView = () => {
     viewRef.current = { x: 0, y: 0, scale: 1 }
+    scheduleRender()
+    bump()
+  }
+
+  // Everything from every lesson stays on the one board: a new lesson starts
+  // with a dated heading below all existing content, and the view goes there.
+  const startLesson = () => {
+    const items = elementsRef.current
+    const box = items.length ? unionBounds(items) : { x: 0, y: 0, w: 0, h: 0 }
+    const x = items.length ? box.x : 40
+    const y = items.length ? box.y + box.h + 120 : 40
+    const date = new Date().toLocaleDateString(undefined, { day: 'numeric', month: 'long', year: 'numeric' })
+    commit({ id: newId(), type: 'text', color: COLORS[0], width: 6, x, y, text: `— Lesson · ${date} —`, fontSize: 28 })
+    viewRef.current = { scale: 1, x: 60 - x, y: 60 - y }
+    setTool('pen')
     scheduleRender()
     bump()
   }
@@ -1157,8 +1228,15 @@ export default function Whiteboard({ socketRef, boardId, onUploadImage, onAssist
                   </button>
                 </>
               )}
-              <button className="tool" onClick={resetView}>Reset view</button>
               <button className="tool danger" onClick={handleClear}>Clear</button>
+            </div>
+
+            <div className="tool-group zoom-group">
+              {onUploadImage && <button className="tool" onClick={startLesson} title="Add a dated heading below everything and start there">New lesson</button>}
+              <button className="tool" onClick={() => zoomTo(view.scale / 1.25)} title="Zoom out">−</button>
+              <button className="tool" onClick={resetView} title="100%">{Math.round(view.scale * 100)}%</button>
+              <button className="tool" onClick={() => zoomTo(view.scale * 1.25)} title="Zoom in">+</button>
+              <button className="tool" onClick={() => fitAll(2)} title="Show everything">Fit</button>
             </div>
           </>
         )}
@@ -1206,7 +1284,7 @@ export default function Whiteboard({ socketRef, boardId, onUploadImage, onAssist
           {cropping
             ? 'Enter to apply · Esc to cancel'
             : <>
-                Scroll to pan · {navigator.platform.includes('Mac') ? '⌘' : 'Ctrl'}+scroll to zoom · Alt+drag to pan
+                Scroll to pan · pinch or {navigator.platform.includes('Mac') ? '⌘' : 'Ctrl'}+scroll to zoom · Alt+drag to pan
                 {' · Shift+click or drag a box to select several · ⌘C / ⌘V to copy and paste'}
                 {onUploadImage && ' · paste or drop an image · double-click an image to crop'}
               </>}

@@ -41,7 +41,7 @@
   padding: 0;
 }
 
-.swatch.active { border-color: #fff; }
+.swatch.active { border-color: #fff; box-shadow: 0 0 0 1px #000; }
 
 .board-canvas-wrap { position: relative; flex: 1; overflow: hidden; }
 
@@ -51,7 +51,7 @@
   display: block;
   touch-action: none;
   background:
-    radial-gradient(circle at 1px 1px, #242833 1px, transparent 0) 0 0 / 24px 24px;
+    radial-gradient(circle at 1px 1px, #d4d7de 1px, transparent 0) 0 0 / 24px 24px #ffffff;
 }
 
 .board-canvas.tool-pen,
@@ -65,11 +65,11 @@
 .board-text-input {
   position: absolute;
   min-width: 160px;
-  background: rgba(15, 17, 21, 0.95);
+  background: rgba(255, 255, 255, 0.95);
   border: 1px solid var(--accent);
   border-radius: 6px;
   padding: 4px 6px;
-  color: var(--text);
+  color: #111827;
   font-family: inherit;
   line-height: 1.25;
   resize: none;
@@ -80,8 +80,8 @@
   bottom: 10px;
   right: 12px;
   font-size: 11px;
-  color: var(--muted);
-  background: rgba(15, 17, 21, 0.8);
+  color: #e8eaed;
+  background: rgba(15, 17, 21, 0.75);
   padding: 4px 9px;
   border-radius: 5px;
   pointer-events: none;
@@ -108,3 +108,6 @@
 
 .tool.assist { background: rgba(99, 102, 241, 0.2); color: #c7d2fe; }
 .tool.assist:hover:not(:disabled) { background: rgba(99, 102, 241, 0.35); }
+
+.zoom-group { margin-left: auto; }
+.zoom-group .tool { min-width: 34px; }
