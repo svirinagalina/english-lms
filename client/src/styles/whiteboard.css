@@ -5,14 +5,77 @@
   background: #14161c;
 }
 
-.board-toolbar {
+/* Everything floats over the canvas: a name chip top-left, zoom top-right,
+   the tool dock along the bottom, like Figma. */
+.board-chip {
+  position: absolute;
+  top: 12px;
+  left: 12px;
   display: flex;
   align-items: center;
-  gap: 18px;
-  padding: 10px 14px;
-  border-bottom: 1px solid var(--border);
-  flex-wrap: wrap;
+  gap: 4px;
+  padding: 7px 8px 7px 12px;
+  background: #14161c;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.25);
+  font-size: 13px;
+  z-index: 2;
+  max-width: 40vw;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
+.chip-close {
+  background: transparent;
+  border: none;
+  color: var(--muted);
+  font-size: 18px;
+  line-height: 1;
+  padding: 0 4px 2px 8px;
+  cursor: pointer;
+}
+.chip-close:hover { color: var(--text); }
+
+.board-corner-right {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  display: flex;
+  gap: 8px;
+  z-index: 2;
+}
+
+.board-dock {
+  position: absolute;
+  bottom: 14px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 12px;
+  background: #14161c;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+  z-index: 2;
+  max-width: calc(100% - 24px);
+  flex-wrap: wrap;
+  justify-content: center;
+}
+.dock-group {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 6px;
+  background: #14161c;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+}
+.board-dock .dock-group { border: none; padding: 0; }
+.board-dock .dock-group + .dock-group { border-left: 1px solid var(--border); padding-left: 12px; border-radius: 0; }
+.board-dock input[type="range"] { width: 70px; }
 
 .tool-group { display: flex; align-items: center; gap: 6px; }
 
@@ -20,7 +83,7 @@
   background: #2a2e38;
   border: none;
   border-radius: 7px;
-  padding: 7px 12px;
+  padding: 6px 10px;
   font-size: 13px;
   font-weight: 500;
   color: var(--text);
@@ -80,8 +143,11 @@
 
 .board-hint {
   position: absolute;
-  bottom: 10px;
+  bottom: 12px;
   right: 12px;
+  max-width: 220px;
+  white-space: normal;
+  text-align: right;
   font-size: 11px;
   color: #e8eaed;
   background: rgba(15, 17, 21, 0.75);
@@ -137,3 +203,6 @@ select.tool { appearance: auto; padding: 5px 8px; }
 .swatch.small { width: 18px; height: 18px; }
 .text-toolbar .tool { padding: 5px 10px; }
 .text-toolbar .small-hint { color: var(--muted); font-size: 11px; }
+
+/* Not enough room for the hint next to the dock. */
+@media (max-width: 1300px) { .board-hint { display: none; } }

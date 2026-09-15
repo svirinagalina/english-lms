@@ -8,7 +8,7 @@ const colour = z.string().regex(/^#[0-9a-fA-F]{6}$/)
 
 export const elementSchema = z.object({
   id: z.string().min(1).max(64),
-  type: z.enum(['path', 'rect', 'ellipse', 'arrow', 'text', 'image']),
+  type: z.enum(['path', 'rect', 'ellipse', 'arrow', 'text', 'image', 'note']),
   color: colour,
   width: z.number().min(1).max(64),
   // Flat [x0, y0, x1, y1, …] list; capped so one stroke cannot bloat the board.
@@ -17,7 +17,10 @@ export const elementSchema = z.object({
   y: z.number().finite().optional(),
   w: z.number().finite().optional(),
   h: z.number().finite().optional(),
-  text: z.string().max(2000).optional(),
+  text: z.string().max(4000).optional(),
+  // Marker strokes are translucent; notes carry their own background.
+  highlight: z.boolean().optional(),
+  fill: colour.optional(),
   fontSize: z.number().min(8).max(2000).optional(),
   // Images reference an uploaded file, never inline data — keeps board JSON small.
   // Visible part of an image as fractions of its natural size, so cropping

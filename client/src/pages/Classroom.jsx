@@ -161,17 +161,13 @@ export default function Classroom() {
   if (openBoard) {
     return (
       <div className="lesson-page">
-        <header className="topbar">
-          <div className="nav-identity">
-            <strong>{openBoard.title}</strong>
-            <span className="muted"> · {partner}</span>
-          </div>
-          <button className="ghost" onClick={() => setOpenBoardId(null)}>Close board</button>
-        </header>
         <div className="view-pane">
           <Whiteboard
             socketRef={socketRef}
             boardId={openBoardId}
+            title={openBoard.title}
+            subtitle={partner}
+            onClose={() => setOpenBoardId(null)}
             onUploadImage={isStaff
               ? async (dataUrl) => {
                   try {

@@ -9,14 +9,29 @@ const inkOf = (color) => LEGACY_INK[color] ?? color
 const MIN_SCALE = 0.05
 const MAX_SCALE = 8
 const TOOLS = [
-  { id: 'select', label: 'Move' },
-  { id: 'pen', label: 'Pen' },
-  { id: 'rect', label: 'Box' },
-  { id: 'ellipse', label: 'Circle' },
-  { id: 'arrow', label: 'Arrow' },
-  { id: 'text', label: 'Text' },
-  { id: 'eraser', label: 'Erase' }
+  { id: 'select', label: 'Move', key: 'V' },
+  { id: 'pen', label: 'Pen', key: 'P' },
+  { id: 'marker', label: 'Marker', key: 'M' },
+  { id: 'rect', label: 'Box', key: 'R' },
+  { id: 'ellipse', label: 'Circle', key: 'O' },
+  { id: 'arrow', label: 'Arrow', key: 'A' },
+  { id: 'text', label: 'Text', key: 'T' },
+  { id: 'note', label: 'Note', key: 'N' },
+  { id: 'eraser', label: 'Erase', key: 'E' }
 ]
+
+// Sticky-note fills, one per ink colour (black ink → yellow note).
+const NOTE_FILLS = ['#fef08a', '#fecaca', '#bbf7d0', '#bfdbfe', '#fed7aa', '#e9d5ff']
+const NOTE_PAD = 14
+const NOTE_SIZE = 220
+// Marker strokes: translucent, wide, multiplied so text underneath stays readable.
+const MARKER_ALPHA = 0.55
+const markerWidth = (width) => Math.max(14, width * 6)
+// Highlighter shades, one per ink colour: black ink → classic yellow.
+const MARKER_INKS = ['#fde047', '#f9a8d4', '#86efac', '#93c5fd', '#fdba74', '#d8b4fe']
+const markerInk = (color) => MARKER_INKS[Math.max(0, COLORS.indexOf(color))]
+const swatchFor = (tool, color, index) =>
+  tool === 'note' ? NOTE_FILLS[index] : tool === 'marker' ? MARKER_INKS[index] : color
 
 const CLIPBOARD_MARK = 'english-lms-board/v1'
 const PASTE_OFFSET = 24
@@ -169,6 +184,12 @@ function boundsOf(element) {
     return { x: element.x, y: element.y, w, h }
   }
 
+  // A note grows downwards to fit its text, never shrinks below its box.
+  if (element.type === 'note') {
+    const { h } = textSize(element.text || ' ', element.fontSize ?? 18, Math.max(20, element.w - 2 * NOTE_PAD))
+    return { x: element.x, y: element.y, w: element.w, h: Math.max(element.h, h + 2 * NOTE_PAD) }
+  }
+
   return {
     x: Math.min(element.x, element.x + element.w),
     y: Math.min(element.y, element.y + element.h),
@@ -205,6 +226,10 @@ function fitElement(element, box) {
       index % 2 === 0 ? box.x + (value - from.x) * sx : box.y + (value - from.y) * sy
     )
     return { ...element, points }
+  }
+
+  if (element.type === 'note') {
+    return { ...element, x: box.x, y: box.y, w: Math.max(60, box.w), h: Math.max(60, box.h) }
   }
 
   if (element.type === 'text') {
@@ -407,10 +432,43 @@ function drawElement(ctx, element) {
   if (element.type === 'path') {
     const points = element.points ?? []
     if (points.length < 4) return
+    ctx.save()
+    if (element.highlight) {
+      ctx.globalAlpha = MARKER_ALPHA
+      ctx.globalCompositeOperation = 'multiply'
+      ctx.strokeStyle = markerInk(element.color)
+    }
     ctx.beginPath()
     ctx.moveTo(points[0], points[1])
     for (let i = 2; i < points.length; i += 2) ctx.lineTo(points[i], points[i + 1])
     ctx.stroke()
+    ctx.restore()
+    return
+  }
+
+  if (element.type === 'note') {
+    const box = boundsOf(element)
+    const size = element.fontSize ?? 18
+    ctx.save()
+    ctx.shadowColor = 'rgba(0, 0, 0, 0.18)'
+    ctx.shadowBlur = 10
+    ctx.shadowOffsetY = 3
+    ctx.fillStyle = element.fill ?? NOTE_FILLS[0]
+    ctx.beginPath()
+    ctx.roundRect(box.x, box.y, box.w, box.h, 6)
+    ctx.fill()
+    ctx.restore()
+    ctx.textBaseline = 'top'
+    textLines({ text: element.text, fontSize: size, w: Math.max(20, box.w - 2 * NOTE_PAD) }).forEach((runs, index) => {
+      let x = box.x + NOTE_PAD
+      const y = box.y + NOTE_PAD + index * size * LINE_HEIGHT
+      for (const run of runs) {
+        ctx.font = fontFor(size, run.bold, run.italic)
+        ctx.fillStyle = inkOf(run.color ?? element.color)
+        ctx.fillText(run.text, x, y)
+        x += measureWidth(run.text, size, run.bold, run.italic)
+      }
+    })
     return
   }
 
@@ -488,7 +546,7 @@ function drawHandles(ctx, box, scale, color = '#6366f1') {
 
 // --- Component ----------------------------------------------------------------
 
-export default function Whiteboard({ socketRef, boardId, onUploadImage, onAssist, assistEnabled }) {
+export default function Whiteboard({ socketRef, boardId, title, subtitle, onClose, onUploadImage, onAssist, assistEnabled }) {
   const [assisting, setAssisting] = useState(null)
   const fileInputRef = useRef(null)
   const canvasRef = useRef(null)
@@ -559,7 +617,10 @@ export default function Whiteboard({ socketRef, boardId, onUploadImage, onAssist
     const editingId = editingTextRef.current
     for (const element of elementsRef.current) {
       if (cropping && element.id === cropping.id) continue
-      if (editingId && element.id === editingId) continue
+      if (editingId && element.id === editingId) {
+        if (element.type === 'note') drawElement(ctx, { ...element, text: '' })
+        continue
+      }
       drawElement(ctx, element)
     }
     if (draftRef.current) drawElement(ctx, draftRef.current)
@@ -986,6 +1047,10 @@ export default function Whiteboard({ socketRef, boardId, onUploadImage, onAssist
       }
       if (event.key === 'Escape') { selectedRef.current = []; scheduleRender(); bump() }
       const mod = event.metaKey || event.ctrlKey
+      if (!mod && !event.altKey) {
+        const shortcut = TOOLS.find((item) => item.key.toLowerCase() === event.key.toLowerCase())
+        if (shortcut) { setTool(shortcut.id); if (shortcut.id !== 'select') selectedRef.current = []; scheduleRender(); bump(); return }
+      }
       if (mod && event.key.toLowerCase() === 'z') {
         event.preventDefault()
         event.shiftKey ? redo() : undo()
@@ -1030,15 +1095,31 @@ export default function Whiteboard({ socketRef, boardId, onUploadImage, onAssist
     }
   }
 
+  // Edit a text (or a note's text) in place: the text hides while the
+  // editor sits over it. A note's editor sits inside its padding.
+  const openEditor = (target) => {
+    const note = target.type === 'note'
+    selectedRef.current = [target.id]
+    setTextInput({
+      id: target.id,
+      note,
+      x: target.x + (note ? NOTE_PAD : 0),
+      y: target.y + (note ? NOTE_PAD : 0),
+      w: note ? Math.max(20, target.w - 2 * NOTE_PAD) : target.w,
+      value: target.text ?? '',
+      fontSize: target.fontSize ?? (note ? 18 : 20),
+      color: target.color,
+      before: structuredClone(target)
+    })
+    scheduleRender()
+  }
+
   const handleDoubleClick = (event) => {
     if (tool !== 'select' || cropRef.current) return
     const point = toWorld(event)
     const target = [...elementsRef.current].reverse().find((element) => hitTest(element, point.x, point.y))
-    if (target?.type === 'text') {
-      // Edit in place: the element hides while the editor sits over it.
-      selectedRef.current = [target.id]
-      setTextInput({ id: target.id, x: target.x, y: target.y, w: target.w, value: target.text, fontSize: target.fontSize ?? 20, color: target.color, before: structuredClone(target) })
-      scheduleRender()
+    if (target?.type === 'text' || target?.type === 'note') {
+      openEditor(target)
       return
     }
     if (target?.type !== 'image') return
@@ -1117,10 +1198,13 @@ export default function Whiteboard({ socketRef, boardId, onUploadImage, onAssist
       return
     }
 
-    // Pressing on existing text (or, with the text tool, on anything) selects
-    // it and switches to Move — a new text field only ever opens on empty board.
-    const under = [...elementsRef.current].reverse().find((element) => hitTest(element, point.x, point.y))
-    if (under && (tool === 'text' || under.type === 'text')) {
+    // With the text or note tool, pressing on anything selects it and switches
+    // to Move — a new text or note only ever opens on empty board. Pens and
+    // markers still draw over text, which is what a marker is for.
+    const under = (tool === 'text' || tool === 'note')
+      ? [...elementsRef.current].reverse().find((element) => hitTest(element, point.x, point.y))
+      : null
+    if (under) {
       setTool('select')
       selectedRef.current = [under.id]
       pointerRef.current = { mode: 'move', ids: [under.id], last: point, originals: [structuredClone(under)] }
@@ -1138,9 +1222,23 @@ export default function Whiteboard({ socketRef, boardId, onUploadImage, onAssist
       return
     }
 
-    if (tool === 'pen') {
-      draftRef.current = { id: newId(), type: 'path', color, width, points: [point.x, point.y] }
+    if (tool === 'pen' || tool === 'marker') {
+      const marker = tool === 'marker'
+      draftRef.current = {
+        id: newId(), type: 'path', color, width: marker ? markerWidth(width) : width,
+        points: [point.x, point.y], ...(marker ? { highlight: true } : {})
+      }
       pointerRef.current = { mode: 'draw' }
+      return
+    }
+
+    if (tool === 'note') {
+      // A fresh note opens for typing straight away.
+      const fill = NOTE_FILLS[Math.max(0, COLORS.indexOf(color))]
+      const note = { id: newId(), type: 'note', color: COLORS[0], width, x: point.x, y: point.y, w: NOTE_SIZE, h: NOTE_SIZE, fill, text: '', fontSize: 18 }
+      commit(note)
+      setTool('select')
+      pointerRef.current = { mode: 'open-editor', element: note }
       return
     }
 
@@ -1267,6 +1365,10 @@ export default function Whiteboard({ socketRef, boardId, onUploadImage, onAssist
       setTextInput({ x: pointer.point.x, y: pointer.point.y, value: '', fontSize: textInput?.fontSize ?? lastFontSizeRef.current, color })
       return
     }
+    if (pointer.mode === 'open-editor') {
+      openEditor(pointer.element)
+      return
+    }
 
     const draft = draftRef.current
     draftRef.current = null
@@ -1388,7 +1490,7 @@ export default function Whiteboard({ socketRef, boardId, onUploadImage, onAssist
     const text = draft.value.replace(/\s+$/, '')
 
     if (draft.id) {
-      if (!text.trim()) { remove(draft.id); return }
+      if (!text.trim() && !draft.note) { remove(draft.id); return }
       const after = { ...draft.before, text, fontSize: draft.fontSize, color: draft.color }
       if (JSON.stringify(after) === JSON.stringify(draft.before)) { scheduleRender(); return }
       replaceRaw(after)
@@ -1445,7 +1547,14 @@ export default function Whiteboard({ socketRef, boardId, onUploadImage, onAssist
     if (!area || !textInput) return
     const { selectionStart: start, selectionEnd: end, value: text } = area
     if (start === end) {
-      setTextInput({ ...textInput, color: value })
+      if (textInput.note) {
+        // Nothing selected in a note: recolour the note itself.
+        const fill = NOTE_FILLS[Math.max(0, COLORS.indexOf(value))]
+        setTextInput({ ...textInput, before: { ...textInput.before, fill } })
+        replace({ ...textInput.before, fill })
+      } else {
+        setTextInput({ ...textInput, color: value })
+      }
       requestAnimationFrame(() => area.focus())
       return
     }
@@ -1459,7 +1568,7 @@ export default function Whiteboard({ socketRef, boardId, onUploadImage, onAssist
 
   // Styles applied to selected (not edited) text elements as a whole.
   const wrapSelectedTexts = (open, close) => {
-    const items = selectedElements().filter((item) => item.type === 'text')
+    const items = selectedElements().filter((item) => (item.type === 'text' || item.type === 'note') && item.text)
     if (!items.length) return
     const befores = items.map((item) => structuredClone(item))
     const allWrapped = items.every((item) => item.text.startsWith(open) && item.text.endsWith(close))
@@ -1474,10 +1583,11 @@ export default function Whiteboard({ socketRef, boardId, onUploadImage, onAssist
     bump()
   }
   const colorSelectedTexts = (value) => {
-    const items = selectedElements().filter((item) => item.type === 'text')
+    const items = selectedElements().filter((item) => item.type === 'text' || item.type === 'note')
     if (!items.length) return
     const befores = items.map((item) => structuredClone(item))
-    for (const item of items) replaceRaw({ ...item, color: value })
+    const fill = NOTE_FILLS[Math.max(0, COLORS.indexOf(value))]
+    for (const item of items) replaceRaw(item.type === 'note' ? { ...item, fill } : { ...item, color: value })
     recordUpdates(befores)
     scheduleRender()
     bump()
@@ -1490,7 +1600,7 @@ export default function Whiteboard({ socketRef, boardId, onUploadImage, onAssist
       requestAnimationFrame(() => textAreaRef.current?.focus())
       return
     }
-    const items = selectedElements().filter((item) => item.type === 'text')
+    const items = selectedElements().filter((item) => item.type === 'text' || item.type === 'note')
     if (!items.length) return
     const befores = items.map((item) => structuredClone(item))
     for (const item of items) replaceRaw({ ...item, fontSize: size })
@@ -1591,119 +1701,25 @@ export default function Whiteboard({ socketRef, boardId, onUploadImage, onAssist
       box = { x: textInput.x, y: textInput.y }
       barColor = textInput.color
     } else if (tool === 'select') {
-      const texts = selectedElements().filter((i) => i.type === 'text')
-      if (!texts.length) return null
-      box = unionBounds(texts)
-      barColor = texts[0].color
+      const items = selectedElements()
+      if (!items.length) return null
+      box = unionBounds(items)
+      const first = items.find((i) => i.type === 'text' || i.type === 'note')
+      barColor = first?.color ?? null
     } else return null
     return { x: Math.max(8, box.x * view.scale + view.x), y: Math.max(8, box.y * view.scale + view.y - 52), color: barColor }
   })()
+  const textLike = textInput ? [] : selectedElements().filter((i) => i.type === 'text' || i.type === 'note')
+  const showTextControls = Boolean(textInput) || textLike.length > 0
 
   // A corner-dragged text can have any size; the list shows it alongside the presets.
-  const currentFontSize = Math.round(textInput ? textInput.fontSize : (selectedElements().find((i) => i.type === 'text')?.fontSize ?? 20))
+  const currentFontSize = Math.round(textInput ? textInput.fontSize : (textLike[0]?.fontSize ?? 20))
   const fontSizeOptions = FONT_SIZES.includes(currentFontSize) ? FONT_SIZES : [...FONT_SIZES, currentFontSize].sort((a, b) => a - b)
   const selected = selectedElement()
   const selectedCount = selectedRef.current.length
 
   return (
     <div className="whiteboard">
-      <div className="board-toolbar">
-        {cropping ? (
-          <div className="tool-group">
-            <span className="muted">Drag the corners to crop, then press Enter</span>
-            <button className="tool active" onClick={finishCrop}>Done</button>
-            <button className="tool" onClick={cancelCrop}>Cancel</button>
-          </div>
-        ) : (
-          <>
-            <div className="tool-group">
-              {TOOLS.map((item) => (
-                <button
-                  key={item.id}
-                  className={`tool ${tool === item.id ? 'active' : ''}`}
-                  onClick={() => { setTool(item.id); if (item.id !== 'select') selectedRef.current = [] }}
-                >
-                  {item.label}
-                </button>
-              ))}
-            </div>
-
-            <div className="tool-group">
-              {COLORS.map((value) => (
-                <button
-                  key={value}
-                  className={`swatch ${color === value ? 'active' : ''}`}
-                  style={{ background: value }}
-                  onClick={() => setColor(value)}
-                  title={value}
-                />
-              ))}
-            </div>
-
-            <div className="tool-group">
-              <button className="tool" onClick={undo} disabled={!historyRef.current.undo.length} title="Undo (⌘Z)">Undo</button>
-              <button className="tool" onClick={redo} disabled={!historyRef.current.redo.length} title="Redo (⌘⇧Z)">Redo</button>
-            </div>
-
-            <div className="tool-group">
-              <input type="range" min="1" max="24" value={width} onChange={(e) => setWidth(Number(e.target.value))} title="Thickness" />
-              {onUploadImage && (
-                <>
-                  <button className="tool" onClick={() => fileInputRef.current?.click()}>Image</button>
-                  <input
-                    ref={fileInputRef}
-                    type="file"
-                    accept="image/png,image/jpeg,image/gif,image/webp"
-                    hidden
-                    onChange={(e) => { placeImage(e.target.files?.[0]); e.target.value = '' }}
-                  />
-                </>
-              )}
-              {selected?.type === 'image' && selected.crop && (
-                <button className="tool" onClick={resetCrop}>Uncrop</button>
-              )}
-              {onAssist && tool === 'select' && selectedElements().some((i) => i.type === 'text') && (
-                <>
-                  <button
-                    className="tool assist"
-                    onClick={() => runAssist('translate')}
-                    disabled={Boolean(assisting) || !assistEnabled}
-                    title={assistEnabled ? 'Translate the selected words with transcription' : 'AI assistant is not configured'}
-                  >
-                    {assisting === 'translate' ? 'Translating…' : 'Translate'}
-                  </button>
-                  <button
-                    className="tool assist"
-                    onClick={() => runAssist('questions')}
-                    disabled={Boolean(assisting) || !assistEnabled}
-                    title={assistEnabled ? 'Make a practice question for each word' : 'AI assistant is not configured'}
-                  >
-                    {assisting === 'questions' ? 'Writing…' : 'Questions'}
-                  </button>
-                </>
-              )}
-              {selectedCount > 0 && tool === 'select' && (
-                <>
-                  <button className="tool" onClick={duplicateSelection} title="Duplicate (⌘D)">Duplicate</button>
-                  <button className="tool" onClick={() => remove(selectedRef.current)}>
-                    Delete{selectedCount > 1 ? ` (${selectedCount})` : ''}
-                  </button>
-                </>
-              )}
-              <button className="tool danger" onClick={handleClear}>Clear</button>
-            </div>
-
-            <div className="tool-group zoom-group">
-              {onUploadImage && <button className="tool" onClick={startLesson} title="Add a dated heading below everything and start there">New lesson</button>}
-              <button className="tool" onClick={() => zoomTo(view.scale / 1.25)} title="Zoom out">−</button>
-              <button className="tool" onClick={resetView} title="100%">{Math.round(view.scale * 100)}%</button>
-              <button className="tool" onClick={() => zoomTo(view.scale * 1.25)} title="Zoom in">+</button>
-              <button className="tool" onClick={() => fitAll(2)} title="Show everything">Fit</button>
-            </div>
-          </>
-        )}
-      </div>
-
       <div className="board-canvas-wrap">
         <canvas
           ref={canvasRef}
@@ -1723,6 +1739,150 @@ export default function Whiteboard({ socketRef, boardId, onUploadImage, onAssist
             placeImage(e.dataTransfer.files?.[0])
           }}
         />
+
+        {/* Corner chip with the board's name, like a Figma file tab. */}
+        <div className="board-chip">
+          <strong>{title ?? 'Board'}</strong>
+          {subtitle && <span className="muted"> · {subtitle}</span>}
+          {onClose && <button className="chip-close" onClick={onClose} title="Close board">×</button>}
+        </div>
+
+        <div className="board-corner-right">
+          <div className="dock-group">
+            <button className="tool" onClick={undo} disabled={!historyRef.current.undo.length} title="Undo (⌘Z)">↶</button>
+            <button className="tool" onClick={redo} disabled={!historyRef.current.redo.length} title="Redo (⌘⇧Z)">↷</button>
+          </div>
+          <div className="dock-group">
+            <button className="tool" onClick={() => zoomTo(view.scale / 1.25)} title="Zoom out">−</button>
+            <button className="tool" onClick={resetView} title="100%">{Math.round(view.scale * 100)}%</button>
+            <button className="tool" onClick={() => zoomTo(view.scale * 1.25)} title="Zoom in">+</button>
+            <button className="tool" onClick={() => fitAll(2)} title="Show everything">Fit</button>
+          </div>
+        </div>
+
+        {cropping ? (
+          <div className="board-dock">
+            <span className="muted">Drag the corners to crop, then press Enter</span>
+            <button className="tool active" onClick={finishCrop}>Done</button>
+            <button className="tool" onClick={cancelCrop}>Cancel</button>
+          </div>
+        ) : (
+          <div className="board-dock">
+            <div className="dock-group">
+              {TOOLS.map((item) => (
+                <button
+                  key={item.id}
+                  className={`tool ${tool === item.id ? 'active' : ''}`}
+                  onClick={() => { setTool(item.id); if (item.id !== 'select') selectedRef.current = [] }}
+                  title={`${item.label} (${item.key})`}
+                >
+                  {item.label}
+                </button>
+              ))}
+              {onUploadImage && (
+                <>
+                  <button className="tool" onClick={() => fileInputRef.current?.click()} title="Add an image">Image</button>
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept="image/png,image/jpeg,image/gif,image/webp"
+                    hidden
+                    onChange={(e) => { placeImage(e.target.files?.[0]); e.target.value = '' }}
+                  />
+                </>
+              )}
+            </div>
+
+            <div className="dock-group">
+              {COLORS.map((value, index) => (
+                <button
+                  key={value}
+                  className={`swatch ${color === value ? 'active' : ''}`}
+                  style={{ background: swatchFor(tool, value, index) }}
+                  onClick={() => setColor(value)}
+                  title={value}
+                />
+              ))}
+              <input type="range" min="1" max="24" value={width} onChange={(e) => setWidth(Number(e.target.value))} title="Thickness" />
+            </div>
+
+            <div className="dock-group">
+              {onUploadImage && <button className="tool" onClick={startLesson} title="Add a dated heading below everything and start there">New lesson</button>}
+              <button className="tool danger" onClick={handleClear}>Clear</button>
+            </div>
+          </div>
+        )}
+
+        {/* Floating bar above the selection: text styling, and actions for whatever is selected. */}
+        {textBar && (
+          <div
+            className="text-toolbar"
+            style={{ left: textBar.x, top: textBar.y }}
+            onMouseDown={(e) => { if (e.target.tagName !== 'SELECT') e.preventDefault() }}
+          >
+            {showTextControls && (
+              <>
+                <div className="text-toolbar-group">
+                  {COLORS.map((value, index) => (
+                    <button
+                      key={value}
+                      className={`swatch small ${textBar.color === value ? 'active' : ''}`}
+                      style={{ background: (textInput?.note || (!textInput && textLike.every((i) => i.type === 'note'))) ? NOTE_FILLS[index] : value }}
+                      onClick={() => (textInput ? colorSelection(value) : colorSelectedTexts(value))}
+                      title="Colour the selected words, or the whole text"
+                    />
+                  ))}
+                </div>
+                <div className="text-toolbar-group">
+                  <select
+                    className="tool"
+                    value={currentFontSize}
+                    onChange={(e) => setFontSize(Number(e.target.value))}
+                    title="Text size"
+                  >
+                    {fontSizeOptions.map((size) => <option key={size} value={size}>{size}</option>)}
+                  </select>
+                </div>
+                <div className="text-toolbar-group">
+                  <button className="tool" onClick={() => (textInput ? toggleBold() : wrapSelectedTexts('**', '**'))} title="Bold (⌘B)"><b>B</b></button>
+                  <button className="tool" onClick={() => (textInput ? toggleItalic() : wrapSelectedTexts('__', '__'))} title="Italic (⌘I)"><i>I</i></button>
+                </div>
+              </>
+            )}
+            {!textInput && onAssist && textLike.length > 0 && (
+              <div className="text-toolbar-group">
+                <button
+                  className="tool assist"
+                  onClick={() => runAssist('translate')}
+                  disabled={Boolean(assisting) || !assistEnabled}
+                  title={assistEnabled ? 'Translate the selected words with transcription' : 'AI assistant is not configured'}
+                >
+                  {assisting === 'translate' ? 'Translating…' : 'Translate'}
+                </button>
+                <button
+                  className="tool assist"
+                  onClick={() => runAssist('questions')}
+                  disabled={Boolean(assisting) || !assistEnabled}
+                  title={assistEnabled ? 'Make a practice question for each word' : 'AI assistant is not configured'}
+                >
+                  {assisting === 'questions' ? 'Writing…' : 'Questions'}
+                </button>
+              </div>
+            )}
+            {!textInput && (
+              <div className="text-toolbar-group">
+                {selected?.type === 'image' && selected.crop && (
+                  <button className="tool" onClick={resetCrop}>Uncrop</button>
+                )}
+                <button className="tool" onClick={duplicateSelection} title="Duplicate (⌘D)">Duplicate</button>
+                <button className="tool" onClick={() => remove(selectedRef.current)} title="Delete">
+                  Delete{selectedCount > 1 ? ` (${selectedCount})` : ''}
+                </button>
+              </div>
+            )}
+            {textInput && <span className="small-hint">⌘Enter to finish · Esc {textInput.id ? 'to cancel' : 'to finish'}</span>}
+          </div>
+        )}
 
         {textInput && (
           <textarea
