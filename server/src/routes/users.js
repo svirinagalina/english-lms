@@ -102,6 +102,24 @@ usersRouter.delete('/links/:teacherId/:studentId', requireRole('OWNER'), async (
   res.json({ ok: true })
 })
 
+// The owner can turn an account into a teacher, a student or a partner.
+// Takes effect on the person's next request — no re-login needed.
+const ASSIGNABLE_ROLES = ['TEACHER', 'STUDENT', 'PARTNER']
+
+usersRouter.patch('/:id/role', requireRole('OWNER'), async (req, res) => {
+  const { role } = req.body ?? {}
+  if (!ASSIGNABLE_ROLES.includes(role)) return res.status(400).json({ error: 'Invalid role' })
+
+  const target = await prisma.user.findFirst({
+    where: { id: req.params.id, schoolId: req.user.schoolId }
+  })
+  if (!target) return res.status(404).json({ error: 'User not found' })
+  if (target.id === req.user.id) return res.status(400).json({ error: 'Cannot change your own role' })
+
+  await prisma.user.update({ where: { id: target.id }, data: { role } })
+  res.json({ ok: true })
+})
+
 usersRouter.delete('/:id', requireRole('OWNER'), async (req, res) => {
   const target = await prisma.user.findFirst({
     where: { id: req.params.id, schoolId: req.user.schoolId }

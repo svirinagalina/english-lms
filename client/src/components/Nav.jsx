@@ -4,16 +4,20 @@ import { useAuth } from '../AuthContext'
 const ROLE_LABEL = {
   OWNER: 'administrator',
   TEACHER: 'teacher',
-  STUDENT: 'student'
+  STUDENT: 'student',
+  PARTNER: 'partner'
 }
 
 export default function Nav({ title }) {
   const { user, logout } = useAuth()
   const { pathname } = useLocation()
 
-  const links = [{ to: '/classroom', label: 'Classroom' }]
+  // A partner works only on content and sees nothing else.
+  const links = user.role === 'PARTNER' ? [] : [{ to: '/classroom', label: 'Classroom' }]
 
-  if (user.role !== 'STUDENT') {
+  if (user.role === 'PARTNER') {
+    links.push({ to: '/content', label: 'Content' })
+  } else if (user.role !== 'STUDENT') {
     links.push(
       { to: '/practice', label: 'Practice' },
       { to: '/vocabulary', label: 'Vocabulary' },
@@ -30,7 +34,7 @@ export default function Nav({ title }) {
   if (user.role === 'TEACHER') links.push({ to: '/billing', label: 'Payments' })
 
   if (user.role === 'OWNER') {
-    links.push({ to: '/people', label: 'People' }, { to: '/billing', label: 'Payments' })
+    links.push({ to: '/people', label: 'People' }, { to: '/billing', label: 'Payments' }, { to: '/content', label: 'Content' })
   }
 
   return (

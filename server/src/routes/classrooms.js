@@ -70,7 +70,7 @@ export async function accessibleClassroom(user, classroomId) {
   return allowed ? classroom : null
 }
 
-classroomsRouter.get('/', async (req, res) => {
+classroomsRouter.get('/', requireRole('OWNER', 'TEACHER', 'STUDENT'), async (req, res) => {
   const where =
     req.user.role === 'OWNER'
       ? { schoolId: req.user.schoolId }

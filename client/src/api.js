@@ -21,6 +21,7 @@ export const api = {
   listPeople: () => request('/users'),
   listTeachers: () => request('/users/teachers'),
   deleteUser: (id) => request(`/users/${id}`, { method: 'DELETE' }),
+  setUserRole: (id, role) => request(`/users/${id}/role`, { method: 'PATCH', body: { role } }),
   linkStudent: (teacherId, studentId) =>
     request('/users/links', { method: 'POST', body: { teacherId, studentId } }),
   unlinkStudent: (teacherId, studentId) =>
@@ -89,5 +90,29 @@ export const api = {
     request(`/classrooms/${id}/sessions/${sessionId}`, { method: 'PATCH', body }),
   deleteSession: (id, sessionId) =>
     request(`/classrooms/${id}/sessions/${sessionId}`, { method: 'DELETE' }),
-  updatePackage: (id, body) => request(`/classrooms/${id}/package`, { method: 'PATCH', body })
+  updatePackage: (id, body) => request(`/classrooms/${id}/package`, { method: 'PATCH', body }),
+
+  // Content pipeline (owner and partner)
+  listContent: (stage) => request(`/content/items${stage ? `?stage=${stage}` : ''}`),
+  createContent: (body) => request('/content/items', { method: 'POST', body }),
+  updateContent: (id, body) => request(`/content/items/${id}`, { method: 'PATCH', body }),
+  deleteContent: (id) => request(`/content/items/${id}`, { method: 'DELETE' }),
+  deleteContentFile: (id, fileId) => request(`/content/items/${id}/files/${fileId}`, { method: 'DELETE' }),
+  uploadContentFile: async (id, file) => {
+    const response = await fetch(`/api/content/items/${id}/files`, {
+      method: 'POST',
+      credentials: 'include',
+      headers: {
+        'Content-Type': file.type || 'application/octet-stream',
+        'X-File-Name': encodeURIComponent(file.name)
+      },
+      body: file
+    })
+    const data = await response.json().catch(() => ({}))
+    if (!response.ok) throw new Error(data.error ?? 'Upload failed')
+    return data
+  },
+  listApiTokens: () => request('/content/tokens'),
+  createApiToken: (name) => request('/content/tokens', { method: 'POST', body: { name } }),
+  deleteApiToken: (id) => request(`/content/tokens/${id}`, { method: 'DELETE' })
 }

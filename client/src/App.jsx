@@ -13,11 +13,16 @@ import Billing from './pages/Billing'
 import Join from './pages/Join'
 import Stats from './pages/Stats'
 import Call from './pages/Call'
+import Content from './pages/Content'
 
-function RequireAuth({ children }) {
+function RequireAuth({ children, roles }) {
   const { user, loading } = useAuth()
   if (loading) return <div className="centered">Loading…</div>
-  return user ? children : <Navigate to="/login" replace />
+  if (!user) return <Navigate to="/login" replace />
+  // A partner has one section; everyone else has no business in it.
+  if (user.role === 'PARTNER' && !roles?.includes('PARTNER')) return <Navigate to="/content" replace />
+  if (roles && !roles.includes(user.role)) return <Navigate to="/" replace />
+  return children
 }
 
 // After signing in, a call link (/login?next=/call/…) leads straight to the call.
@@ -51,6 +56,7 @@ export default function App() {
       <Route path="/progress" element={<RequireAuth><Stats /></RequireAuth>} />
       <Route path="/progress/:id" element={<RequireAuth><Stats /></RequireAuth>} />
       <Route path="/billing" element={<RequireAuth><Billing /></RequireAuth>} />
+      <Route path="/content" element={<RequireAuth roles={['OWNER', 'PARTNER']}><Content /></RequireAuth>} />
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   )

@@ -11,6 +11,8 @@ enum Role {
   OWNER
   TEACHER
   STUDENT
+  // Works on the school's marketing content; sees only the Content section.
+  PARTNER
 }
 
 model School {
@@ -27,6 +29,8 @@ model School {
   invites    Invite[]
   classrooms Classroom[]
   calls      Call[]
+  contentItems ContentItem[]
+  apiTokens    ApiToken[]
 }
 
 model User {
@@ -59,6 +63,8 @@ model User {
   teacherClassrooms Classroom[]  @relation("TeacherClassrooms")
   hostedCalls       Call[]       @relation("HostedCalls")
   studentClassrooms Classroom[]  @relation("StudentClassrooms")
+  contentItems      ContentItem[]
+  apiTokens         ApiToken[]
 
   @@index([schoolId])
 }
@@ -293,4 +299,72 @@ model Call {
   classroom   Classroom? @relation(fields: [classroomId], references: [id], onDelete: SetNull)
 
   @@index([hostId, createdAt])
+}
+
+// --- Content pipeline: sources → editing → ready to publish ------------------
+
+enum ContentStage {
+  SOURCE
+  EDITING
+  READY
+}
+
+model ContentItem {
+  id        String       @id @default(cuid())
+  stage     ContentStage @default(SOURCE)
+  title     String
+  body      String?
+  // Where it is meant for: "instagram", "telegram"… and "post", "story", "reel"…
+  network   String?
+  format    String?
+  createdAt DateTime     @default(now())
+  updatedAt DateTime     @updatedAt
+
+  schoolId String
+  school   School @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+
+  authorId String
+  author   User   @relation(fields: [authorId], references: [id], onDelete: Cascade)
+
+  // An edited or ready piece points back at the source it came from.
+  sourceId String?
+  source   ContentItem?  @relation("DerivedFrom", fields: [sourceId], references: [id], onDelete: SetNull)
+  derived  ContentItem[] @relation("DerivedFrom")
+
+  files ContentFile[]
+
+  @@index([schoolId, stage, updatedAt])
+}
+
+model ContentFile {
+  id        String   @id @default(cuid())
+  name      String
+  path      String
+  mime      String
+  size      Int
+  createdAt DateTime @default(now())
+
+  itemId String
+  item   ContentItem @relation(fields: [itemId], references: [id], onDelete: Cascade)
+
+  @@index([itemId])
+}
+
+// Personal token for the content API. Only the hash is stored; the token
+// itself is shown once, when it is created.
+model ApiToken {
+  id         String    @id @default(cuid())
+  name       String
+  tokenHash  String    @unique
+  prefix     String
+  createdAt  DateTime  @default(now())
+  lastUsedAt DateTime?
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  schoolId String
+  school   School @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
 }

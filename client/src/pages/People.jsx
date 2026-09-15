@@ -144,6 +144,19 @@ export default function People() {
     await refresh()
   }
 
+  const changeRole = async (person, role) => {
+    if (role === person.role) return
+    const label = { TEACHER: 'a teacher', STUDENT: 'a student', PARTNER: 'a partner (content only)' }[role]
+    if (!window.confirm(`Make ${person.name} ${label}?`)) return
+    setError('')
+    try {
+      await api.setUserRole(person.id, role)
+      await refresh()
+    } catch (err) {
+      setError(err.message)
+    }
+  }
+
   const removePerson = async (id, name) => {
     if (!window.confirm(`Remove ${name}? This deletes their account and progress.`)) return
     try {
@@ -158,6 +171,18 @@ export default function People() {
 
   const staff = people.filter((p) => p.role !== 'STUDENT')
   const students = people.filter((p) => p.role === 'STUDENT')
+
+  const roleSelect = (person) => (
+    <select
+      value={person.role}
+      onChange={(e) => changeRole(person, e.target.value)}
+      title="Change role"
+    >
+      <option value="TEACHER">Teacher</option>
+      <option value="STUDENT">Student</option>
+      <option value="PARTNER">Partner</option>
+    </select>
+  )
 
   return (
     <div className="page">
@@ -232,21 +257,27 @@ export default function People() {
       )}
 
       <section>
-        <h2>Teachers</h2>
+        <h2>Team</h2>
+        <p className="muted" style={{ marginBottom: 10 }}>
+          A partner sees only the Content section. Roles can be changed at any time.
+        </p>
         <div className="list">
           {staff.map((person) => (
             <div key={person.id} className="row">
               <div>
                 <strong>{person.name}</strong>
                 <div className="muted">
-                  {person.email} · {person.role.toLowerCase()}
+                  {person.email} · {person.role === 'OWNER' ? 'administrator' : person.role.toLowerCase()}
                   {person.students?.length > 0 && ` · ${person.students.length} students`}
                 </div>
               </div>
               {person.id !== user.id && (
-                <button className="ghost" onClick={() => removePerson(person.id, person.name)}>
-                  Remove
-                </button>
+                <div className="row-actions">
+                  {roleSelect(person)}
+                  <button className="ghost" onClick={() => removePerson(person.id, person.name)}>
+                    Remove
+                  </button>
+                </div>
               )}
             </div>
           ))}
@@ -271,6 +302,7 @@ export default function People() {
                   </div>
                 </div>
                 <div className="row-actions">
+                  {roleSelect(person)}
                   <button
                     className="ghost"
                     onClick={() => setLinking(linking === person.id ? null : person.id)}
