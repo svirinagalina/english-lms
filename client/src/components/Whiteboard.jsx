@@ -88,7 +88,9 @@ function wrapLine(line, size, maxWidth) {
   let currentWidth = 0
   for (const word of words) {
     const w = widthOf(word)
-    if (!word.space && current.length && currentWidth + w > maxWidth) {
+    // A hair of tolerance keeps a word that exactly fills the width on its
+    // line through the rounding of repeated scaling.
+    if (!word.space && current.length && currentWidth + w > maxWidth * 1.001) {
       // Drop trailing spaces before breaking.
       while (current.length && current[current.length - 1].space) current.pop()
       lines.push(current)
@@ -187,10 +189,12 @@ function fitElement(element, box) {
   if (element.type === 'text') {
     const size = element.fontSize ?? 20
     const uniform = Math.abs(sx - sy) < 0.05
-    const next = { ...element, x: box.x, y: box.y, fontSize: Math.max(8, Math.min(200, size * sy)) }
+    const fontSize = Math.max(8, Math.min(200, size * sy))
+    const next = { ...element, x: box.x, y: box.y, fontSize }
     // A pure width change sets how wide the text may run before wrapping;
-    // a uniform scale keeps the wrap width in proportion so no line moves.
-    if (uniform) { if (element.w) next.w = element.w * sy }
+    // a uniform scale keeps the wrap width in exact proportion to the font
+    // (including where the font size hits its limit) so no line moves.
+    if (uniform) { if (element.w) next.w = element.w * (fontSize / size) }
     else if (Math.abs(sy - 1) < 0.01) next.w = Math.max(MIN_SIZE * 2, box.w)
     else next.w = Math.max(MIN_SIZE * 2, box.w)
     return next
