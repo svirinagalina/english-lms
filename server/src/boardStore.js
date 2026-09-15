@@ -18,7 +18,7 @@ export const elementSchema = z.object({
   w: z.number().finite().optional(),
   h: z.number().finite().optional(),
   text: z.string().max(2000).optional(),
-  fontSize: z.number().min(8).max(200).optional(),
+  fontSize: z.number().min(8).max(2000).optional(),
   // Images reference an uploaded file, never inline data — keeps board JSON small.
   // Visible part of an image as fractions of its natural size, so cropping
   // never touches the stored file and can be undone.

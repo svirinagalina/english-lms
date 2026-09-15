@@ -46,6 +46,8 @@ function imageFor(src) {
 
 const FONT_FAMILY = '-apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif'
 const LINE_HEIGHT = 1.25
+// Big enough for a heading read from far out on a zoomed-out board.
+const MAX_FONT_SIZE = 2000
 const FONT_SIZES = [12, 14, 16, 18, 20, 24, 28, 32, 40, 48, 64, 80]
 // Measured on the visible canvas once it exists, so the font resolves exactly
 // as it is drawn (an offscreen canvas can fall back to a different face).
@@ -189,7 +191,7 @@ function fitElement(element, box) {
   if (element.type === 'text') {
     const size = element.fontSize ?? 20
     const uniform = Math.abs(sx - sy) < 0.05
-    const fontSize = Math.max(8, Math.min(200, size * sy))
+    const fontSize = Math.max(8, Math.min(MAX_FONT_SIZE, size * sy))
     const next = { ...element, x: box.x, y: box.y, fontSize }
     // A pure width change sets how wide the text may run before wrapping;
     // a uniform scale keeps the wrap width in exact proportion to the font
