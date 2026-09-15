@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { Link, useParams } from 'react-router-dom'
+import { Link, Navigate, useParams } from 'react-router-dom'
 import { io } from 'socket.io-client'
 import { useAuth } from '../AuthContext'
 import { api } from '../api'
@@ -12,42 +12,11 @@ const ICE_SERVERS = [
   { urls: 'stun:stun1.l.google.com:19302' }
 ]
 
-function GuestGate({ call, onJoin }) {
-  const [name, setName] = useState('')
-
-  return (
-    <div className="auth-page">
-      <form
-        className="card"
-        onSubmit={(event) => {
-          event.preventDefault()
-          if (name.trim()) onJoin(name.trim())
-        }}
-      >
-        <h1>{call.title ?? 'Video call'}</h1>
-        <p className="muted">
-          {call.host} from {call.schoolName} invited you. Enter your name to join — no account needed.
-        </p>
-        <input
-          placeholder="Your name"
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-          autoFocus
-          required
-          maxLength={60}
-        />
-        <button type="submit" disabled={!name.trim()}>Join call</button>
-      </form>
-    </div>
-  )
-}
-
 export default function Call() {
   const { token } = useParams()
   const { user, loading: authLoading } = useAuth()
   const [call, setCall] = useState(null)
   const [error, setError] = useState('')
-  const [guestName, setGuestName] = useState(null)
   const [status, setStatus] = useState('idle')
   const [mediaWarning, setMediaWarning] = useState('')
   const [peers, setPeers] = useState({})
@@ -66,12 +35,13 @@ export default function Call() {
   const animationRef = useRef(null)
 
   useEffect(() => {
+    if (!user) return
     api.getCall(token)
       .then(({ call }) => setCall(call))
       .catch((err) => setError(err.message))
-  }, [token])
+  }, [token, user])
 
-  const canJoin = !authLoading && call && (user || guestName)
+  const canJoin = Boolean(user && call)
 
   useEffect(() => {
     if (!canJoin) return
@@ -108,9 +78,7 @@ export default function Call() {
       if (disposed) return
       setStatus('connecting')
 
-      const socket = user
-        ? io({ withCredentials: true })
-        : io({ auth: { callToken: token, guestName } })
+      const socket = io({ withCredentials: true })
       socketRef.current = socket
 
       socket.on('connect_error', (err) => setError(err.message))
@@ -245,14 +213,16 @@ export default function Call() {
         <div className="card">
           <h2>Cannot join</h2>
           <p className="error">{error}</p>
-          {user && <Link className="button" to="/classroom">Back</Link>}
+          <Link className="button" to="/classroom">Back</Link>
         </div>
       </div>
     )
   }
 
-  if (authLoading || !call) return <div className="centered">Loading…</div>
-  if (!user && !guestName) return <GuestGate call={call} onJoin={setGuestName} />
+  if (authLoading) return <div className="centered">Loading…</div>
+  // Calls are for people on the platform: sign in first, then come back here.
+  if (!user) return <Navigate to={`/login?next=${encodeURIComponent(`/call/${token}`)}`} replace />
+  if (!call) return <div className="centered">Loading…</div>
 
   return (
     <div className="lesson-page">
@@ -263,9 +233,7 @@ export default function Call() {
         </div>
         <div className="row-actions">
           <button className="ghost" onClick={copyLink}>{copied ? 'Link copied' : 'Copy invite link'}</button>
-          {user
-            ? <Link className="ghost" to="/classroom">Leave</Link>
-            : <a className="ghost" href="/">Leave</a>}
+          <Link className="ghost" to="/classroom">Leave</Link>
         </div>
       </header>
 

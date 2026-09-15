@@ -1,4 +1,4 @@
-import { Routes, Route, Navigate } from 'react-router-dom'
+import { Routes, Route, Navigate, useSearchParams } from 'react-router-dom'
 import { useAuth } from './AuthContext'
 import Login from './pages/Login'
 import Register from './pages/Register'
@@ -20,6 +20,15 @@ function RequireAuth({ children }) {
   return user ? children : <Navigate to="/login" replace />
 }
 
+// After signing in, a call link (/login?next=/call/…) leads straight to the call.
+function LoginRoute() {
+  const { user } = useAuth()
+  const [params] = useSearchParams()
+  const next = params.get('next')
+  const safeNext = next && next.startsWith('/') && !next.startsWith('//') ? next : '/'
+  return user ? <Navigate to={safeNext} replace /> : <Login />
+}
+
 export default function App() {
   const { user, loading } = useAuth()
 
@@ -27,7 +36,7 @@ export default function App() {
 
   return (
     <Routes>
-      <Route path="/login" element={user ? <Navigate to="/" replace /> : <Login />} />
+      <Route path="/login" element={<LoginRoute />} />
       <Route path="/register" element={user ? <Navigate to="/" replace /> : <Register />} />
       <Route path="/join/:token" element={user ? <Navigate to="/" replace /> : <Join />} />
       <Route path="/call/:token" element={<Call />} />

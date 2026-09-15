@@ -96,7 +96,7 @@ export default function Classrooms() {
             <div>
               <h2 style={{ marginBottom: 4 }}>Video call</h2>
               <p className="muted">
-                Starts a call and gives you a link. Anyone with the link can join — they do not need an account.
+                Starts a call and gives you a link to send to a student or a colleague. Only people with an account on the platform can join.
               </p>
             </div>
             <button onClick={startCall} disabled={starting}>

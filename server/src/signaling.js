@@ -51,23 +51,14 @@ export function setupSignaling(io) {
   io.use(async (socket, next) => {
     const token = readTokenCookie(socket.handshake.headers.cookie)
 
+    // Only members of the platform connect — calls, boards, everything.
     if (token) {
       try {
         const payload = jwt.verify(token, process.env.JWT_SECRET)
         socket.data.user = { id: payload.sub, role: payload.role, schoolId: payload.schoolId }
         return next()
       } catch {
-        // fall through: a stale cookie should not block a guest join
-      }
-    }
-
-    // Guests carry the call token and a display name instead of a session.
-    const { callToken, guestName } = socket.handshake.auth ?? {}
-    if (typeof callToken === 'string' && typeof guestName === 'string' && guestName.trim()) {
-      const call = await prisma.call.findUnique({ where: { token: callToken } })
-      if (call && !call.endedAt) {
-        socket.data.guest = { callToken, name: guestName.trim().slice(0, 60) }
-        return next()
+        // stale or forged cookie: rejected below
       }
     }
 
@@ -127,19 +118,14 @@ export function setupSignaling(io) {
         return
       }
 
-      // A guest may only enter the call whose token they authenticated with.
-      if (socket.data.guest && socket.data.guest.callToken !== callToken) {
-        if (typeof ack === 'function') ack({ error: 'Not allowed' })
+      // A call is open to the teachers and students of the school that made it.
+      if (call.schoolId !== user.schoolId) {
+        if (typeof ack === 'function') ack({ error: 'This call is not available' })
         return
       }
 
-      // Members of the school join with their real name; guests with the one they typed.
-      if (socket.data.user) {
-        const profile = await prisma.user.findUnique({ where: { id: socket.data.user.id }, select: { name: true } })
-        socket.data.name = profile?.name ?? 'Participant'
-      } else {
-        socket.data.name = socket.data.guest.name
-      }
+      const profile = await prisma.user.findUnique({ where: { id: user.id }, select: { name: true } })
+      socket.data.name = profile?.name ?? 'Participant'
 
       const roomId = `call:${call.token}`
       socket.data.roomId = roomId
@@ -199,7 +185,6 @@ export function setupSignaling(io) {
 
     // Everyone in the classroom looks at the same board at a time.
     const boardBelongsHere = async (boardId) => {
-      if (socket.data.guest) return false
       if (!socket.data.classroomId || typeof boardId !== 'string') return false
       const board = await prisma.board.findFirst({
         where: { id: boardId, classroomId: socket.data.classroomId },
@@ -227,7 +212,7 @@ export function setupSignaling(io) {
       const parsed = elementSchema.safeParse(raw)
       if (!parsed.success) return
 
-      const element = { ...parsed.data, authorId: user?.id ?? 'guest' }
+      const element = { ...parsed.data, authorId: user.id }
       if (await addElement(boardId, element)) {
         socket.to(roomId).emit('board:add', element)
       }

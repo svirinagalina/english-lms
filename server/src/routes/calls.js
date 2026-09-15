@@ -20,10 +20,13 @@ const callView = (call, origin) => ({
   classroomId: call.classroomId
 })
 
-// Public: what a guest sees before joining.
+callsRouter.use(requireAuth)
+
+// What a participant sees before joining. Only members of the school that
+// made the call can look it up — a link alone is not an invitation.
 callsRouter.get('/token/:token', async (req, res) => {
-  const call = await prisma.call.findUnique({
-    where: { token: req.params.token },
+  const call = await prisma.call.findFirst({
+    where: { token: req.params.token, schoolId: req.user.schoolId },
     include: { host: { select: { name: true } }, school: { select: { name: true } } }
   })
   if (!call) return res.status(404).json({ error: 'Call not found' })
@@ -37,8 +40,6 @@ callsRouter.get('/token/:token', async (req, res) => {
     }
   })
 })
-
-callsRouter.use(requireAuth)
 
 const createSchema = z.object({
   title: z.string().max(200).optional(),
