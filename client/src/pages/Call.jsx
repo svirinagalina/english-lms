@@ -24,6 +24,8 @@ export default function Call() {
   const [isBlurEnabled, setIsBlurEnabled] = useState(false)
   const [blurAmount, setBlurAmount] = useState(12)
   const [copied, setCopied] = useState(false)
+  const [joined, setJoined] = useState(false)
+  const [noiseSuppression, setNoiseSuppression] = useState(true)
 
   const socketRef = useRef(null)
   const localStreamRef = useRef(null)
@@ -41,7 +43,9 @@ export default function Call() {
       .catch((err) => setError(err.message))
   }, [token, user])
 
-  const canJoin = Boolean(user && call)
+  // Joining follows a click: browsers only play the other side's sound after
+  // a gesture on the page, and it lets people settle the camera first.
+  const canJoin = Boolean(user && call && joined)
 
   useEffect(() => {
     if (!canJoin) return
@@ -182,6 +186,18 @@ export default function Call() {
     localStreamRef.current?.getTracks().filter((t) => t.kind === kind).forEach((t) => { t.enabled = !t.enabled })
   }
 
+  const toggleNoiseSuppression = async () => {
+    const next = !noiseSuppression
+    setNoiseSuppression(next)
+    for (const track of localStreamRef.current?.getAudioTracks() ?? []) {
+      try {
+        await track.applyConstraints({ noiseSuppression: next, echoCancellation: true, autoGainControl: next })
+      } catch (err) {
+        console.error('Noise suppression not supported:', err)
+      }
+    }
+  }
+
   const shareScreen = async () => {
     try {
       const stream = await navigator.mediaDevices.getDisplayMedia({ video: true, audio: false })
@@ -224,6 +240,20 @@ export default function Call() {
   if (!user) return <Navigate to={`/login?next=${encodeURIComponent(`/call/${token}`)}`} replace />
   if (!call) return <div className="centered">Loading…</div>
 
+  if (!joined) {
+    return (
+      <div className="auth-page">
+        <div className="card">
+          <h1>{call.title ?? 'Video call'}</h1>
+          <p className="muted">{call.host} · {call.schoolName}</p>
+          <p className="muted">Your camera and microphone switch on when you join.</p>
+          <button onClick={() => setJoined(true)} autoFocus>Join call</button>
+          <Link className="ghost button" to="/classroom">Back</Link>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className="lesson-page">
       <header className="topbar">
@@ -264,6 +294,8 @@ export default function Call() {
         onBlurToggle={() => setIsBlurEnabled((v) => !v)}
         blurAmount={blurAmount}
         onBlurChange={setBlurAmount}
+        noiseSuppression={noiseSuppression}
+        onNoiseToggle={toggleNoiseSuppression}
       />
     </div>
   )

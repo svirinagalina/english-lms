@@ -11,7 +11,8 @@ class VideoProcessor {
     if (this.initialized) return
 
     this.segmentation = new SelfieSegmentation.SelfieSegmentation({
-      locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/selfie_segmentation/${file}`
+      // Pinned to the bundled package version: model and runtime must match.
+      locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/selfie_segmentation@0.1.1675465747/${file}`
     })
 
     this.segmentation.setOptions({ modelSelection: 1 })

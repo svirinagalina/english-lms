@@ -8,7 +8,9 @@ export default function Controls({
   isBlurEnabled,
   onBlurToggle,
   blurAmount,
-  onBlurChange
+  onBlurChange,
+  noiseSuppression,
+  onNoiseToggle
 }) {
   const [cameraOn, setCameraOn] = useState(true)
   const [micOn, setMicOn] = useState(true)
@@ -37,6 +39,14 @@ export default function Controls({
         title="Share your screen"
       >
         Screen
+      </button>
+
+      <button
+        className={`pill ${noiseSuppression ? 'on' : ''}`}
+        onClick={onNoiseToggle}
+        title="Filter out background noise from your microphone"
+      >
+        {noiseSuppression ? 'Noise filter on' : 'Noise filter off'}
       </button>
 
       <div className="blur-control">

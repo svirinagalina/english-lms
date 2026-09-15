@@ -1,11 +1,16 @@
-import { useRef } from 'react'
+import { useEffect, useRef } from 'react'
 
 function PeerVideo({ stream, name }) {
   const ref = useRef(null)
 
-  if (ref.current && ref.current.srcObject !== stream) {
-    ref.current.srcObject = stream
-  }
+  // Attach after mount, not during render: a peer whose stream is already
+  // known when its tile first appears would otherwise never get it.
+  useEffect(() => {
+    const video = ref.current
+    if (!video) return
+    if (video.srcObject !== stream) video.srcObject = stream
+    if (stream) video.play().catch(() => { /* autoplay policy: retried on the next click */ })
+  }, [stream])
 
   return (
     <div className="video-tile">
