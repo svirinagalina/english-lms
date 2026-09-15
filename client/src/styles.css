@@ -547,3 +547,18 @@ input[type='range'] { width: 110px; padding: 0; }
 .content-file.add { justify-content: center; }
 button.small { padding: 2px 8px; }
 .api-doc { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; margin-top: 12px; padding: 14px; background: var(--surface); border: 1px solid var(--border); border-radius: 10px; overflow-x: auto; white-space: pre; }
+
+.label-rows { display: flex; flex-direction: column; gap: 6px; }
+.label-picker { display: flex; flex-wrap: wrap; gap: 6px; }
+.label-chip {
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--muted);
+  border-radius: 999px;
+  padding: 4px 12px;
+  font-size: 13px;
+  cursor: pointer;
+}
+.label-chip:hover { border-color: var(--muted); color: var(--text); }
+.label-chip.on { background: rgba(99, 102, 241, 0.2); border-color: var(--accent); color: #c7d2fe; }
+.mistake-tag.format { background: rgba(99, 102, 241, 0.15); color: #c7d2fe; border-color: rgba(99, 102, 241, 0.35); }

@@ -20,12 +20,13 @@ const MAX_FILE = 200 * 1024 * 1024
 const ALLOWED_MIME = /^(image\/(png|jpeg|gif|webp|heic|heif)|video\/(mp4|quicktime|webm)|audio\/(mpeg|mp4|m4a|x-m4a|wav)|application\/pdf|text\/plain)$/
 
 const STAGES = ['SOURCE', 'EDITING', 'READY']
+const unique = (list) => [...new Set(list ?? [])]
 
 const itemSchema = z.object({
   title: z.string().trim().min(1).max(200),
   body: z.string().max(20000).nullable().optional(),
-  network: z.string().trim().max(40).nullable().optional(),
-  format: z.string().trim().max(40).nullable().optional(),
+  networks: z.array(z.string().trim().min(1).max(40)).max(20).optional(),
+  formats: z.array(z.string().trim().min(1).max(40)).max(20).optional(),
   stage: z.enum(STAGES).optional(),
   sourceId: z.string().nullable().optional()
 })
@@ -50,8 +51,8 @@ const itemView = (item) => ({
   stage: item.stage,
   title: item.title,
   body: item.body,
-  network: item.network,
-  format: item.format,
+  networks: item.networks,
+  formats: item.formats,
   author: item.author,
   source: item.source,
   files: item.files.map(fileView),
@@ -99,8 +100,8 @@ contentRouter.post('/items', async (req, res) => {
     data: {
       title: parsed.data.title,
       body: parsed.data.body ?? null,
-      network: parsed.data.network || null,
-      format: parsed.data.format || null,
+      networks: unique(parsed.data.networks),
+      formats: unique(parsed.data.formats),
       stage: parsed.data.stage ?? 'SOURCE',
       sourceId,
       schoolId: req.user.schoolId,
@@ -125,8 +126,8 @@ contentRouter.patch('/items/:id', async (req, res) => {
     if (sourceId === undefined) return res.status(404).json({ error: 'Source not found' })
     data.sourceId = sourceId
   }
-  if ('network' in data) data.network = data.network || null
-  if ('format' in data) data.format = data.format || null
+  if ('networks' in data) data.networks = unique(data.networks)
+  if ('formats' in data) data.formats = unique(data.formats)
 
   const item = await prisma.contentItem.update({ where: { id: existing.id }, data, include: INCLUDE })
   res.json({ item: itemView(item) })

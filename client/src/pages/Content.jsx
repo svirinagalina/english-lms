@@ -18,18 +18,32 @@ const FORMATS = ['Post', 'Story', 'Reel', 'Video', 'Text', 'Other']
 const formatSize = (bytes) =>
   bytes >= 1024 * 1024 ? `${(bytes / 1024 / 1024).toFixed(1)} MB` : `${Math.max(1, Math.round(bytes / 1024))} KB`
 
+// One text often goes to several places: every label is a toggle.
+function LabelPicker({ options, selected, onChange }) {
+  const toggle = (label) =>
+    onChange(selected.includes(label) ? selected.filter((l) => l !== label) : [...selected, label])
+  return (
+    <div className="label-picker">
+      {options.map((label) => (
+        <button
+          key={label}
+          type="button"
+          className={`label-chip ${selected.includes(label) ? 'on' : ''}`}
+          onClick={() => toggle(label)}
+        >
+          {label}
+        </button>
+      ))}
+    </div>
+  )
+}
+
 function TargetFields({ value, onChange }) {
   return (
-    <>
-      <select value={value.network ?? ''} onChange={(e) => onChange({ ...value, network: e.target.value })}>
-        <option value="">Network…</option>
-        {NETWORKS.map((n) => <option key={n} value={n}>{n}</option>)}
-      </select>
-      <select value={value.format ?? ''} onChange={(e) => onChange({ ...value, format: e.target.value })}>
-        <option value="">Format…</option>
-        {FORMATS.map((f) => <option key={f} value={f}>{f}</option>)}
-      </select>
-    </>
+    <div className="label-rows">
+      <LabelPicker options={NETWORKS} selected={value.networks ?? []} onChange={(networks) => onChange({ ...value, networks })} />
+      <LabelPicker options={FORMATS} selected={value.formats ?? []} onChange={(formats) => onChange({ ...value, formats })} />
+    </div>
   )
 }
 
@@ -103,7 +117,7 @@ function ItemCard({ item, stage, sources, onChanged }) {
   const [error, setError] = useState('')
 
   const startEdit = () => {
-    setDraft({ title: item.title, body: item.body ?? '', network: item.network ?? '', format: item.format ?? '', sourceId: item.sourceId ?? item.source?.id ?? '' })
+    setDraft({ title: item.title, body: item.body ?? '', networks: item.networks ?? [], formats: item.formats ?? [], sourceId: item.source?.id ?? '' })
     setEditing(true)
   }
 
@@ -138,8 +152,8 @@ function ItemCard({ item, stage, sources, onChanged }) {
       await api.createContent({
         title: item.title,
         body: item.body ?? '',
-        network: item.network,
-        format: item.format,
+        networks: item.networks,
+        formats: item.formats,
         stage: 'EDITING',
         sourceId: item.id
       })
@@ -160,15 +174,13 @@ function ItemCard({ item, stage, sources, onChanged }) {
       {editing ? (
         <div className="details-form">
           <input value={draft.title} onChange={(e) => setDraft({ ...draft, title: e.target.value })} placeholder="Title" />
-          <div className="row-actions">
-            <TargetFields value={draft} onChange={setDraft} />
-            {stage !== 'SOURCE' && (
-              <select value={draft.sourceId} onChange={(e) => setDraft({ ...draft, sourceId: e.target.value })}>
-                <option value="">No source</option>
-                {sources.map((s) => <option key={s.id} value={s.id}>{s.title}</option>)}
-              </select>
-            )}
-          </div>
+          <TargetFields value={draft} onChange={setDraft} />
+          {stage !== 'SOURCE' && (
+            <select value={draft.sourceId} onChange={(e) => setDraft({ ...draft, sourceId: e.target.value })}>
+              <option value="">No source</option>
+              {sources.map((s) => <option key={s.id} value={s.id}>{s.title}</option>)}
+            </select>
+          )}
           <textarea rows={8} value={draft.body} onChange={(e) => setDraft({ ...draft, body: e.target.value })} placeholder="Text" />
           {error && <div className="error">{error}</div>}
           <div className="editor-actions">
@@ -182,8 +194,8 @@ function ItemCard({ item, stage, sources, onChanged }) {
             <div>
               <strong>{item.title}</strong>
               <div className="mistake-tags content-tags">
-                {item.network && <span className="mistake-tag">{item.network}</span>}
-                {item.format && <span className="mistake-tag">{item.format}</span>}
+                {item.networks.map((n) => <span key={n} className="mistake-tag">{n}</span>)}
+                {item.formats.map((f) => <span key={f} className="mistake-tag format">{f}</span>)}
               </div>
               <div className="muted">
                 {item.author.name} · {new Date(item.updatedAt).toLocaleString()}
@@ -207,7 +219,7 @@ function ItemCard({ item, stage, sources, onChanged }) {
 }
 
 function NewItemForm({ stage, onCreated }) {
-  const [draft, setDraft] = useState({ title: '', body: '', network: '', format: '' })
+  const [draft, setDraft] = useState({ title: '', body: '', networks: [], formats: [] })
   const [files, setFiles] = useState([])
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
@@ -221,7 +233,7 @@ function NewItemForm({ stage, onCreated }) {
       for (const file of files) {
         try { await api.uploadContentFile(item.id, file) } catch (err) { setError(`${file.name}: ${err.message}`) }
       }
-      setDraft({ title: '', body: '', network: '', format: '' })
+      setDraft({ title: '', body: '', networks: [], formats: [] })
       setFiles([])
       await onCreated()
     } catch (err) {
@@ -233,16 +245,13 @@ function NewItemForm({ stage, onCreated }) {
 
   return (
     <form className="details-form content-new" onSubmit={submit}>
-      <div className="row-actions">
-        <input
-          style={{ flex: 1 }}
-          placeholder="Title"
-          value={draft.title}
-          onChange={(e) => setDraft({ ...draft, title: e.target.value })}
-          required
-        />
-        <TargetFields value={draft} onChange={setDraft} />
-      </div>
+      <input
+        placeholder="Title"
+        value={draft.title}
+        onChange={(e) => setDraft({ ...draft, title: e.target.value })}
+        required
+      />
+      <TargetFields value={draft} onChange={setDraft} />
       <textarea
         rows={4}
         placeholder="Text for the post (optional)"
@@ -329,7 +338,8 @@ Header:   Authorization: Bearer <token>
 
 GET    /items?stage=SOURCE|EDITING|READY   list items (all stages if omitted)
 GET    /items/:id                          one item with its files
-POST   /items                              create — JSON: { title, body, network, format, stage, sourceId }
+POST   /items                              create — JSON: { title, body, networks, formats, stage, sourceId }
+                                             networks / formats are arrays: ["Instagram","Telegram"], ["Post","Story"]
 PATCH  /items/:id                          update any of those fields (stage moves the item)
 DELETE /items/:id
 POST   /items/:id/files                    upload — body is the file, headers:
@@ -342,7 +352,7 @@ Examples:
 curl -H "Authorization: Bearer $TOKEN" "${origin}/api/content/items?stage=SOURCE"
 
 curl -X POST -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \\
-  -d '{"title":"Present Perfect reel","body":"Edited text…","network":"Instagram","format":"Reel","stage":"EDITING","sourceId":"<source id>"}' \\
+  -d '{"title":"Present Perfect reel","body":"Edited text…","networks":["Instagram","Telegram"],"formats":["Reel"],"stage":"EDITING","sourceId":"<source id>"}' \\
   ${origin}/api/content/items
 
 curl -X POST -H "Authorization: Bearer $TOKEN" -H "Content-Type: video/mp4" -H "X-File-Name: reel.mp4" \\

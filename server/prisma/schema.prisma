@@ -314,9 +314,10 @@ model ContentItem {
   stage     ContentStage @default(SOURCE)
   title     String
   body      String?
-  // Where it is meant for: "instagram", "telegram"… and "post", "story", "reel"…
-  network   String?
-  format    String?
+  // Where it is meant for — one text often serves several places at once:
+  // networks like "Instagram", "Telegram"; formats like "Post", "Story", "Reel".
+  networks  String[]     @default([])
+  formats   String[]     @default([])
   createdAt DateTime     @default(now())
   updatedAt DateTime     @updatedAt
 
