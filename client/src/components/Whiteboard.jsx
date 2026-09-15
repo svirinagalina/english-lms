@@ -1443,18 +1443,23 @@ export default function Whiteboard({ socketRef, boardId, title, subtitle, onClos
   }
 
   // Safari on a Mac reports trackpad pinches as gesture events, not ctrl+wheel.
+  // Registered once: the scale at gesture start lives in a ref, so re-renders
+  // during the pinch cannot reset it.
+  const gestureRef = useRef({ base: null })
+  const zoomAroundRef = useRef(null)
+  zoomAroundRef.current = zoomAround
   useEffect(() => {
     const canvas = canvasRef.current
     if (!canvas) return
-    let base = 1
-    const onStart = (event) => { event.preventDefault(); base = viewRef.current.scale }
+    const onStart = (event) => { event.preventDefault(); gestureRef.current.base = viewRef.current.scale }
     const onChange = (event) => {
       event.preventDefault()
+      const base = gestureRef.current.base ?? viewRef.current.scale
       const rect = canvas.getBoundingClientRect()
       const target = Math.min(MAX_SCALE, Math.max(MIN_SCALE, base * event.scale))
-      zoomAround(target / viewRef.current.scale, event.clientX - rect.left, event.clientY - rect.top)
+      zoomAroundRef.current(target / viewRef.current.scale, event.clientX - rect.left, event.clientY - rect.top)
     }
-    const onEnd = (event) => event.preventDefault()
+    const onEnd = (event) => { event.preventDefault(); gestureRef.current.base = null }
     // React's wheel listener is passive, so the page would zoom too.
     const blockPageZoom = (event) => event.preventDefault()
     canvas.addEventListener('wheel', blockPageZoom, { passive: false })
@@ -1467,12 +1472,14 @@ export default function Whiteboard({ socketRef, boardId, title, subtitle, onClos
       canvas.removeEventListener('gesturechange', onChange)
       canvas.removeEventListener('gestureend', onEnd)
     }
-  })
+  }, [])
 
   const handleWheel = (event) => {
     const view = viewRef.current
     if (event.ctrlKey || event.metaKey) {
-      // Trackpad pinches arrive as ctrl+wheel in Chrome and Firefox.
+      // Trackpad pinches arrive as ctrl+wheel in Chrome and Firefox. Safari
+      // sends both; while its gesture is running, the gesture handler zooms.
+      if (gestureRef.current.base !== null) return
       const rect = canvasRef.current.getBoundingClientRect()
       zoomAround(Math.exp(-event.deltaY * 0.002), event.clientX - rect.left, event.clientY - rect.top)
       return
