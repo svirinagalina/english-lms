@@ -38,7 +38,8 @@ export const TOPICS = {
   'third-person-s': { label: 'Present Simple: -s ending', words: [] },
   plural: { label: 'Singular and plural', words: [] },
   'word-order': { label: 'Word order', words: [] },
-  vocabulary: { label: 'Vocabulary', words: [] }
+  vocabulary: { label: 'Vocabulary', words: [] },
+  spelling: { label: 'Spelling', words: [] }
 }
 
 const WORD_TO_TOPIC = new Map()
@@ -117,6 +118,33 @@ const looksLikeIng = (word) => word.endsWith('ing') && word.length >= 5 && !NOT_
 
 const stem = (word) => BASE_OF.get(word) ?? word.replace(/(ies|es|s|ed|ing|d)$/, '')
 
+const editDistance = (a, b) => {
+  const row = Array.from({ length: b.length + 1 }, (_, i) => i)
+  for (let i = 1; i <= a.length; i++) {
+    let previous = row[0]
+    row[0] = i
+    for (let j = 1; j <= b.length; j++) {
+      const current = row[j]
+      row[j] = Math.min(row[j] + 1, row[j - 1] + 1, previous + (a[i - 1] === b[j - 1] ? 0 : 1))
+      previous = current
+    }
+  }
+  return row[b.length]
+}
+
+// "happend" for "happened" is a slip of the pen, not a tense problem — but
+// "work" for "works" is a real form difference and stays out of this.
+const isFormPair = (a, b) => {
+  const [short, long] = a.length <= b.length ? [a, b] : [b, a]
+  return long.startsWith(short) && /^(s|es|ed|d|ing)$/.test(long.slice(short.length))
+}
+const isMisspelling = (a, b) => {
+  if (a === b || isFormPair(a, b) || WORD_TO_TOPIC.has(a) || WORD_TO_TOPIC.has(b)) return false
+  const shortest = Math.min(a.length, b.length)
+  const allowed = shortest >= 7 ? 2 : shortest >= 4 ? 1 : 0
+  return allowed > 0 && editDistance(a, b) <= allowed
+}
+
 // --- Tagging an exercise by its reference answer -----------------------------
 
 export function tagAnswer(answer) {
@@ -192,6 +220,30 @@ export function classifyMistake(given, expected) {
     return { topics: ['word-order'], missing, extra }
   }
 
+  // Pull misspelled pairs out before grammar analysis so a typo in a verb
+  // does not read as a tense mistake.
+  const misspelled = new Set()
+  for (const lost of missing) {
+    const got = extra.find((word) => !misspelled.has(word) && isMisspelling(lost, word))
+    if (got) { misspelled.add(lost); misspelled.add(got) }
+  }
+  if (misspelled.size) {
+    topics.add('spelling')
+    const rest = (list) => list.filter((word) => !misspelled.has(word))
+    const remaining = classifyRest(rest(missing), rest(extra), expectedWords)
+    for (const topic of remaining) topics.add(topic)
+    if (topics.size > 1) topics.delete('spelling')
+    return { topics: [...topics], missing, extra }
+  }
+
+  for (const topic of classifyRest(missing, extra, expectedWords)) topics.add(topic)
+  return { topics: [...topics], missing, extra }
+}
+
+// Grammar classification of the words that differ.
+function classifyRest(missing, extra, expectedWords) {
+  const topics = new Set()
+  if (!missing.length && !extra.length) return []
   const differing = [...missing, ...extra]
 
   for (const word of differing) {
@@ -244,6 +296,12 @@ export function classifyMistake(given, expected) {
   )
   if (expectsPassive && missing.some((w) => looksLikeParticiple(w))) topics.add('passive')
 
+  // "There is two books": the verb form is the there-is/are rule at work.
+  if (topics.has('verb-to-be') && expectedWords[0] === 'there') {
+    topics.delete('verb-to-be')
+    topics.add('there-is-are')
+  }
+
   if (!topics.size) topics.add('vocabulary')
 
   // Prepositions and pronouns are a weak signal: drop them if something more
@@ -253,7 +311,7 @@ export function classifyMistake(given, expected) {
     if (topics.size > 1) topics.delete('vocabulary')
   }
 
-  return { topics: [...topics], missing, extra }
+  return [...topics]
 }
 
 export const topicLabel = (topic) => TOPICS[topic]?.label ?? topic

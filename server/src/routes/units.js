@@ -10,6 +10,7 @@ export const unitsRouter = Router()
 unitsRouter.use(requireAuth)
 
 const FOLLOW_UP_COUNT = 3
+const NO_DRILL_TOPICS = new Set(['vocabulary', 'word-order', 'spelling'])
 
 // Students must never receive the answers with the exercise list.
 const publicExercise = (exercise) => ({
@@ -93,7 +94,8 @@ unitsRouter.post('/exercises/:id/attempt', async (req, res) => {
   if (!parsed.success) return res.status(400).json({ error: 'Invalid data' })
 
   const exercise = await prisma.exercise.findFirst({
-    where: { id: req.params.id, unit: { schoolId: req.user.schoolId } }
+    where: { id: req.params.id, unit: { schoolId: req.user.schoolId } },
+    include: { unit: { select: { position: true } } }
   })
   if (!exercise) return res.status(404).json({ error: 'Exercise not found' })
 
@@ -126,33 +128,26 @@ unitsRouter.post('/exercises/:id/attempt', async (req, res) => {
   })
   const exclude = [exercise.id, ...alreadyCorrect.map((a) => a.exerciseId)]
 
-  // Prefer drills tagged with the mistake's grammar topic; fall back to the
-  // chapter when the topic is too generic to have tagged exercises.
-  const drillTopics = analysis.topics.filter((topic) => topic !== 'vocabulary' && topic !== 'word-order')
+  // Drills target the grammar behind the slip. A typo, a different word or
+  // a word-order slip gets no extra sentences: there is nothing to drill.
+  // Sentences come only from chapters up to the current one, nearest first,
+  // so a beginner in chapter 1 is never handed conditionals.
+  const drillTopics = analysis.topics.filter((topic) => !NO_DRILL_TOPICS.has(topic))
 
-  let followUps = drillTopics.length
-    ? await prisma.exercise.findMany({
-        where: {
-          id: { notIn: exclude },
-          tags: { hasSome: drillTopics },
-          unit: { schoolId: req.user.schoolId }
-        },
-        take: FOLLOW_UP_COUNT,
-        orderBy: { position: 'asc' }
-      })
-    : []
-
-  if (followUps.length < FOLLOW_UP_COUNT && exercise.tags.length) {
-    const more = await prisma.exercise.findMany({
-      where: {
-        id: { notIn: [...exclude, ...followUps.map((f) => f.id)] },
-        tags: { hasSome: exercise.tags },
-        unit: { schoolId: req.user.schoolId }
-      },
-      take: FOLLOW_UP_COUNT - followUps.length,
-      orderBy: { position: 'asc' }
+  const reachable = { schoolId: req.user.schoolId, position: { lte: exercise.unit.position } }
+  const pickDrills = (tags, notIn) =>
+    prisma.exercise.findMany({
+      where: { id: { notIn }, tags: { hasSome: tags }, unit: reachable },
+      take: FOLLOW_UP_COUNT,
+      orderBy: [{ unit: { position: 'desc' } }, { position: 'asc' }]
     })
-    followUps = [...followUps, ...more]
+
+  let followUps = drillTopics.length ? await pickDrills(drillTopics, exclude) : []
+
+  // No tagged sentences for that topic yet (early chapters): drill the
+  // chapter's own topic instead.
+  if (drillTopics.length && !followUps.length && exercise.tags.length) {
+    followUps = await pickDrills(exercise.tags, exclude)
   }
 
   res.json({

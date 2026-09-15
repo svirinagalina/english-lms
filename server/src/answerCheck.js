@@ -25,12 +25,35 @@ const CONTRACTIONS = [
   [/\bshe is\b/g, "she's"]
 ]
 
+// Spellings and short forms that mean the same word. Each entry maps a
+// variant to the form used for comparison; the reference and the student's
+// answer both go through it, so either spelling passes.
+const VARIANTS = new Map(Object.entries({
+  tv: 'television', telly: 'television', phone: 'telephone', photo: 'photograph',
+  fridge: 'refrigerator', bike: 'bicycle', maths: 'mathematics', math: 'mathematics',
+  ok: 'okay', plane: 'airplane', aeroplane: 'airplane', mum: 'mother', mom: 'mother',
+  dad: 'father', 'e-mail': 'email', 'ice-cream': 'ice cream', "o'clock": 'oclock',
+  // British / American spelling
+  colour: 'color', colours: 'colors', favourite: 'favorite', centre: 'center', theatre: 'theater',
+  travelling: 'traveling', travelled: 'traveled', realise: 'realize', realised: 'realized',
+  neighbour: 'neighbor', neighbours: 'neighbors', programme: 'program', grey: 'gray',
+  practise: 'practice', practised: 'practiced', honour: 'honor', labour: 'labor',
+  organise: 'organize', organised: 'organized', apologise: 'apologize', apologised: 'apologized',
+  recognise: 'recognize', recognised: 'recognized', metre: 'meter', litre: 'liter',
+  behaviour: 'behavior', humour: 'humor', jewellery: 'jewelry', cheque: 'check',
+  pyjamas: 'pajamas', tyre: 'tire', storey: 'story', kilometre: 'kilometer',
+  cancelled: 'canceled', modelling: 'modeling', catalogue: 'catalog', dialogue: 'dialog',
+  learnt: 'learned', dreamt: 'dreamed', spelt: 'spelled', burnt: 'burned', smelt: 'smelled'
+}))
+
 export function normalise(value) {
   let text = String(value ?? '')
     .toLowerCase()
     .replace(/[‘’ʼ]/g, "'")
-    .replace(/[“”]/g, '"')
-    .replace(/[.!?;,]+\s*$/g, '')
+    // Punctuation does not make a translation wrong: a dash before a reply,
+    // a comma, a missing full stop or question mark.
+    .replace(/[“”"„«».!?;:,()—–]/g, ' ')
+    .replace(/(^|\s)-+(\s|$)/g, ' ')
     .replace(/\s+/g, ' ')
     .trim()
 
@@ -40,6 +63,9 @@ export function normalise(value) {
   }
 
   return text
+    .split(' ')
+    .map((word) => VARIANTS.get(word) ?? word)
+    .join(' ')
 }
 
 export function checkAnswer(given, accepted) {

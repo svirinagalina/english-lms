@@ -38,18 +38,22 @@ export default function UnitPractice() {
 
     setBusy(true)
     try {
+      const isDrill = Boolean(current.isFollowUp)
       const data = await api.submitAttempt(current.id, answer)
-      setResult(data)
+      setResult(isDrill ? { ...data, followUps: [] } : data)
       setStats((prev) => ({
         right: prev.right + (data.correct ? 1 : 0),
         wrong: prev.wrong + (data.correct ? 0 : 1)
       }))
 
-      // Drills for the mistake go straight after the current exercise.
-      if (!data.correct && data.followUps?.length) {
+      // Drills for the mistake go straight after the current exercise. A
+      // mistake in a drill adds nothing more, so the lesson cannot snowball.
+      if (!data.correct && data.followUps?.length && !isDrill) {
         setQueue((prev) => [
           ...prev.slice(0, index + 1),
-          ...data.followUps.filter((f) => !prev.some((q) => q.id === f.id)),
+          ...data.followUps
+            .filter((f) => !prev.some((q) => q.id === f.id))
+            .map((f) => ({ ...f, isFollowUp: true })),
           ...prev.slice(index + 1)
         ])
       }
