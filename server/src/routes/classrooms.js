@@ -2,6 +2,7 @@ import { Router } from 'express'
 import { z } from 'zod'
 import { prisma } from '../db.js'
 import { requireAuth, requireRole } from '../auth.js'
+import { forgetBoard } from '../boardStore.js'
 import { randomBytes } from 'crypto'
 import { mkdir, writeFile } from 'fs/promises'
 import path from 'path'
@@ -197,6 +198,47 @@ classroomsRouter.patch('/:id/boards/:boardId', requireRole('OWNER', 'TEACHER'), 
   if (!updated.count) return res.status(404).json({ error: 'Board not found' })
 
   res.json({ ok: true })
+})
+
+const assignSchema = z.object({
+  targetClassroomId: z.string(),
+  mode: z.enum(['copy', 'move'])
+})
+
+// Copies or moves a board into another classroom the teacher can access —
+// typically from their own boards into a student's space. Images keep their
+// stored paths, so no files are duplicated.
+classroomsRouter.post('/:id/boards/:boardId/assign', requireRole('OWNER', 'TEACHER'), async (req, res) => {
+  const parsed = assignSchema.safeParse(req.body)
+  if (!parsed.success) return res.status(400).json({ error: 'Invalid data' })
+
+  const source = await accessibleClassroom(req.user, req.params.id)
+  if (!source) return res.status(404).json({ error: 'Classroom not found' })
+
+  const target = await accessibleClassroom(req.user, parsed.data.targetClassroomId)
+  if (!target) return res.status(404).json({ error: 'Target classroom not found' })
+  if (target.id === source.id) return res.status(400).json({ error: 'Board is already there' })
+
+  const board = await prisma.board.findFirst({
+    where: { id: req.params.boardId, classroomId: source.id }
+  })
+  if (!board) return res.status(404).json({ error: 'Board not found' })
+
+  if (parsed.data.mode === 'move') {
+    const moved = await prisma.board.update({
+      where: { id: board.id },
+      data: { classroomId: target.id },
+      select: { id: true, title: true }
+    })
+    forgetBoard(board.id)
+    return res.json({ board: moved, mode: 'move' })
+  }
+
+  const copy = await prisma.board.create({
+    data: { classroomId: target.id, title: board.title, elements: board.elements },
+    select: { id: true, title: true }
+  })
+  res.status(201).json({ board: copy, mode: 'copy' })
 })
 
 classroomsRouter.delete('/:id/boards/:boardId', requireRole('OWNER', 'TEACHER'), async (req, res) => {

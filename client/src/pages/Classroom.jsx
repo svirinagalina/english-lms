@@ -4,6 +4,7 @@ import { io } from 'socket.io-client'
 import { useAuth } from '../AuthContext'
 import { api } from '../api'
 import Whiteboard from '../components/Whiteboard'
+import BoardRow from '../components/BoardRow'
 
 function PackagePanel({ classroom, onChanged }) {
   const [paid, setPaid] = useState(classroom.progress?.lessonsPaid ?? '')
@@ -63,6 +64,7 @@ export default function Classroom() {
   const [title, setTitle] = useState('')
   const [starting, setStarting] = useState(false)
   const [assistEnabled, setAssistEnabled] = useState(false)
+  const [targets, setTargets] = useState([])
   const socketRef = useRef(null)
 
   const isStaff = user.role === 'OWNER' || user.role === 'TEACHER'
@@ -75,7 +77,18 @@ export default function Classroom() {
   // The socket only serves the whiteboard here; nothing about it counts as a lesson.
   useEffect(() => {
     refresh().catch((err) => setError(err.message))
-    if (isStaff) api.assistStatus().then(({ enabled }) => setAssistEnabled(enabled)).catch(() => {})
+    if (isStaff) {
+      api.assistStatus().then(({ enabled }) => setAssistEnabled(enabled)).catch(() => {})
+      // Where a board from here can go: my own boards, or another student.
+      Promise.all([api.myBoards(), api.listClassrooms()])
+        .then(([{ classroom: mine }, { classrooms }]) =>
+          setTargets([
+            { id: mine.id, label: 'My boards' },
+            ...classrooms.map((c) => ({ id: c.id, label: c.student.name }))
+          ].filter((t) => t.id !== id))
+        )
+        .catch(() => {})
+    }
 
     const socket = io({ withCredentials: true })
     socketRef.current = socket
@@ -112,13 +125,6 @@ export default function Classroom() {
     } catch (err) {
       setError(err.message)
     }
-  }
-
-  const deleteBoard = async (board) => {
-    if (!window.confirm(`Delete "${board.title}"?`)) return
-    await api.deleteBoard(id, board.id)
-    if (openBoardId === board.id) setOpenBoardId(null)
-    await refresh()
   }
 
   const toggleCounted = async (session) => {
@@ -242,16 +248,18 @@ export default function Classroom() {
 
         <div className="list">
           {classroom.boards.map((board) => (
-            <div key={board.id} className="row">
-              <div>
-                <strong>{board.title}</strong>
-                <div className="muted">Updated {new Date(board.updatedAt).toLocaleString()}</div>
-              </div>
-              <div className="row-actions">
-                <button onClick={() => setOpenBoardId(board.id)}>Open</button>
-                {isStaff && <button className="ghost" onClick={() => deleteBoard(board)}>Delete</button>}
-              </div>
-            </div>
+            <BoardRow
+              key={board.id}
+              board={board}
+              classroomId={id}
+              canEdit={isStaff}
+              targets={targets}
+              onOpen={() => setOpenBoardId(board.id)}
+              onChanged={async () => {
+                await refresh()
+                if (openBoardId === board.id) setOpenBoardId(null)
+              }}
+            />
           ))}
         </div>
       </section>

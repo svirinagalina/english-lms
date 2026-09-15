@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '../AuthContext'
 import { api } from '../api'
 import Nav from '../components/Nav'
+import BoardRow from '../components/BoardRow'
 
 function PackageBadge({ progress }) {
   if (progress.lessonsPaid == null) {
@@ -76,12 +77,6 @@ export default function Classrooms() {
     }
   }
 
-  const deleteBoard = async (board) => {
-    if (!window.confirm(`Delete "${board.title}"?`)) return
-    await api.deleteBoard(mine.id, board.id)
-    await refresh()
-  }
-
   const endCall = async (call) => {
     await api.endCall(call.id)
     await refresh()
@@ -150,16 +145,15 @@ export default function Classrooms() {
 
           <div className="list">
             {mine.boards.map((board) => (
-              <div key={board.id} className="row">
-                <div>
-                  <strong>{board.title}</strong>
-                  <div className="muted">Updated {new Date(board.updatedAt).toLocaleString()}</div>
-                </div>
-                <div className="row-actions">
-                  <Link className="button" to={`/classroom/${mine.id}?board=${board.id}`}>Open</Link>
-                  <button className="ghost" onClick={() => deleteBoard(board)}>Delete</button>
-                </div>
-              </div>
+              <BoardRow
+                key={board.id}
+                board={board}
+                classroomId={mine.id}
+                canEdit
+                targets={classrooms.map((c) => ({ id: c.id, label: c.student.name }))}
+                onOpen={() => navigate(`/classroom/${mine.id}?board=${board.id}`)}
+                onChanged={refresh}
+              />
             ))}
           </div>
         </section>

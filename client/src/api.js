@@ -81,6 +81,8 @@ export const api = {
     request(`/classrooms/${id}/boards/${boardId}`, { method: 'PATCH', body: { title } }),
   uploadBoardImage: (id, boardId, data) =>
     request(`/classrooms/${id}/boards/${boardId}/images`, { method: 'POST', body: { data } }),
+  assignBoard: (id, boardId, targetClassroomId, mode) =>
+    request(`/classrooms/${id}/boards/${boardId}/assign`, { method: 'POST', body: { targetClassroomId, mode } }),
   deleteBoard: (id, boardId) =>
     request(`/classrooms/${id}/boards/${boardId}`, { method: 'DELETE' }),
   updateSession: (id, sessionId, body) =>
