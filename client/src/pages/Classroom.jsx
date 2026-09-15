@@ -4,6 +4,7 @@ import { io } from 'socket.io-client'
 import { useAuth } from '../AuthContext'
 import { api } from '../api'
 import Whiteboard from '../components/Whiteboard'
+import Nav from '../components/Nav'
 import BoardRow from '../components/BoardRow'
 
 function PackagePanel({ classroom, onChanged }) {
@@ -199,25 +200,24 @@ export default function Classroom() {
 
   return (
     <div className="page">
-      <header className="topbar">
-        <div className="nav-identity">
-          <strong>{partner}</strong>
+      <Nav title={partner} />
+
+      <div className="row-main subheader">
+        <div className="row-actions">
+          <Link className="ghost back-link" to="/classroom">← Back</Link>
           {isStaff && classroom.progress && (
             <span className="muted">
-              {' · '}{classroom.progress.held}
+              {classroom.progress.held}
               {classroom.progress.lessonsPaid != null && ` / ${classroom.progress.lessonsPaid}`} lessons
             </span>
           )}
         </div>
-        <div className="row-actions">
-          {isStaff && !isPersonal && (
-            <button onClick={startCall} disabled={starting}>
-              {starting ? 'Starting…' : 'Start a call'}
-            </button>
-          )}
-          <Link className="ghost" to="/classroom">Back</Link>
-        </div>
-      </header>
+        {isStaff && !isPersonal && (
+          <button onClick={startCall} disabled={starting}>
+            {starting ? 'Starting…' : 'Start a call'}
+          </button>
+        )}
+      </div>
 
       {error && <div className="error">{error}</div>}
 

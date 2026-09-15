@@ -562,3 +562,6 @@ button.small { padding: 2px 8px; }
 .label-chip:hover { border-color: var(--muted); color: var(--text); }
 .label-chip.on { background: rgba(99, 102, 241, 0.2); border-color: var(--accent); color: #c7d2fe; }
 .mistake-tag.format { background: rgba(99, 102, 241, 0.15); color: #c7d2fe; border-color: rgba(99, 102, 241, 0.35); }
+
+.subheader { margin-top: 18px; }
+.back-link { font-weight: 600; }
