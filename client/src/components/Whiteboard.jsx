@@ -47,7 +47,9 @@ function imageFor(src) {
 const FONT_FAMILY = '-apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif'
 const LINE_HEIGHT = 1.25
 const FONT_SIZES = [12, 14, 16, 18, 20, 24, 28, 32, 40, 48, 64, 80]
-const measureCtx = document.createElement('canvas').getContext('2d')
+// Measured on the visible canvas once it exists, so the font resolves exactly
+// as it is drawn (an offscreen canvas can fall back to a different face).
+let measureCtx = document.createElement('canvas').getContext('2d')
 
 const fontFor = (size, bold) => `${bold ? '700' : '400'} ${size}px ${FONT_FAMILY}`
 
@@ -71,10 +73,50 @@ function lineWidth(line, size) {
   return width
 }
 
-function textSize(text, size) {
-  const lines = String(text ?? '').split('\n')
+// Word-wraps one paragraph to maxWidth, keeping bold flags per word. Each
+// returned line is a list of runs ready to draw.
+function wrapLine(line, size, maxWidth) {
+  const words = []
+  for (const run of textRuns(line)) {
+    const parts = run.text.split(/(\s+)/).filter(Boolean)
+    for (const part of parts) words.push({ text: part, bold: run.bold, space: /^\s+$/.test(part) })
+  }
+  const widthOf = (word) => { measureCtx.font = fontFor(size, word.bold); return measureCtx.measureText(word.text).width }
+
+  const lines = []
+  let current = []
+  let currentWidth = 0
+  for (const word of words) {
+    const w = widthOf(word)
+    if (!word.space && current.length && currentWidth + w > maxWidth) {
+      // Drop trailing spaces before breaking.
+      while (current.length && current[current.length - 1].space) current.pop()
+      lines.push(current)
+      current = []
+      currentWidth = 0
+      if (word.space) continue
+    }
+    if (!current.length && word.space) continue
+    current.push(word)
+    currentWidth += w
+  }
+  lines.push(current)
+  return lines.map((ws) => ws.map((w) => ({ text: w.text, bold: w.bold })))
+}
+
+// Lines of runs for a text element: wrapped to element.w when it has a width.
+function textLines(element) {
+  const size = element.fontSize ?? 20
+  const paragraphs = String(element.text ?? '').split('\n')
+  if (!element.w) return paragraphs.map((line) => textRuns(line))
+  return paragraphs.flatMap((line) => wrapLine(line, size, element.w))
+}
+
+function textSize(text, size, maxWidth) {
+  const lines = textLines({ text, fontSize: size, w: maxWidth })
+  const widths = lines.map((runs) => runs.reduce((sum, run) => { measureCtx.font = fontFor(size, run.bold); return sum + measureCtx.measureText(run.text).width }, 0))
   return {
-    w: Math.max(8, ...lines.map((line) => lineWidth(line, size))),
+    w: maxWidth ?? Math.max(8, ...widths),
     h: Math.max(1, lines.length) * size * LINE_HEIGHT
   }
 }
@@ -93,7 +135,7 @@ function boundsOf(element) {
   }
 
   if (element.type === 'text') {
-    const { w, h } = textSize(element.text, element.fontSize ?? 20)
+    const { w, h } = textSize(element.text, element.fontSize ?? 20, element.w)
     return { x: element.x, y: element.y, w, h }
   }
 
@@ -137,7 +179,13 @@ function fitElement(element, box) {
 
   if (element.type === 'text') {
     const size = element.fontSize ?? 20
-    return { ...element, x: box.x, y: box.y, fontSize: Math.max(8, Math.min(200, size * sy)) }
+    const uniform = Math.abs(sx - sy) < 0.01
+    const next = { ...element, x: box.x, y: box.y, fontSize: Math.max(8, Math.min(200, size * sy)) }
+    // A pure width change sets how wide the text may run before wrapping;
+    // a uniform scale keeps a wrap width in proportion.
+    if (uniform) { if (element.w) next.w = element.w * sx }
+    else if (Math.abs(sy - 1) < 0.01) next.w = Math.max(MIN_SIZE * 2, box.w)
+    return next
   }
 
   return { ...element, x: box.x, y: box.y, w: box.w, h: box.h }
@@ -186,6 +234,42 @@ const CORNERS = [
 
 const cornerPoint = (box, corner) => ({ x: box.x + corner.dx * box.w, y: box.y + corner.dy * box.h })
 
+// Middle of each side; dragging one changes only that dimension.
+const EDGES = [
+  { id: 'n', dx: 0.5, dy: 0 },
+  { id: 's', dx: 0.5, dy: 1 },
+  { id: 'w', dx: 0, dy: 0.5 },
+  { id: 'e', dx: 1, dy: 0.5 }
+]
+
+// The nearest handle within reach — corners and sides compete, so a thin
+// box (one line of text) still offers its side handles.
+function handleAt(box, point, scale) {
+  const radius = (HANDLE_PX + 4) / scale
+  let best = null
+  let bestDistance = Infinity
+  for (const handle of [...CORNERS, ...EDGES]) {
+    const { x, y } = cornerPoint(box, handle)
+    const distance = Math.hypot(point.x - x, point.y - y)
+    if (distance <= radius * 1.4 && distance < bestDistance) { best = handle; bestDistance = distance }
+  }
+  return best
+}
+const isCorner = (handle) => handle && handle.id.length === 2
+
+// Resizes a box by dragging one side; the opposite side stays put.
+function resizeBoxEdge(box, edge, point) {
+  const right = box.x + box.w
+  const bottom = box.y + box.h
+  if (edge.id === 'e') return { ...box, w: Math.max(MIN_SIZE, point.x - box.x) }
+  if (edge.id === 's') return { ...box, h: Math.max(MIN_SIZE, point.y - box.y) }
+  if (edge.id === 'w') { const x = Math.min(point.x, right - MIN_SIZE); return { ...box, x, w: right - x } }
+  const y = Math.min(point.y, bottom - MIN_SIZE)
+  return { ...box, y, h: bottom - y }
+}
+
+const CURSOR_FOR = { nw: 'nwse-resize', se: 'nwse-resize', ne: 'nesw-resize', sw: 'nesw-resize', n: 'ns-resize', s: 'ns-resize', e: 'ew-resize', w: 'ew-resize' }
+
 function cornerAt(box, point, scale) {
   const radius = (HANDLE_PX + 4) / scale
   return CORNERS.find((corner) => {
@@ -201,9 +285,15 @@ function resizeBox(box, corner, point, keepRatio) {
   let h = Math.abs(point.y - anchor.y)
 
   if (keepRatio && box.w && box.h) {
-    const ratio = box.w / box.h
-    if (w / h > ratio) h = w / ratio
-    else w = h * ratio
+    // Follow the pointer along the box diagonal, so the scale responds to
+    // both directions of the drag and never jumps past the pointer.
+    const start = cornerPoint(box, corner)
+    const dx = start.x - anchor.x
+    const dy = start.y - anchor.y
+    const along = ((point.x - anchor.x) * dx + (point.y - anchor.y) * dy) / (dx * dx + dy * dy)
+    const scale = Math.max(MIN_SIZE / Math.max(box.w, box.h), along)
+    w = box.w * scale
+    h = box.h * scale
   }
 
   w = Math.max(MIN_SIZE, w)
@@ -327,10 +417,10 @@ function drawElement(ctx, element) {
   if (element.type === 'text') {
     const size = element.fontSize ?? 20
     ctx.textBaseline = 'top'
-    element.text.split('\n').forEach((line, index) => {
+    textLines(element).forEach((runs, index) => {
       let x = element.x
       const y = element.y + index * size * LINE_HEIGHT
-      for (const run of textRuns(line)) {
+      for (const run of runs) {
         ctx.font = fontFor(size, run.bold)
         ctx.fillText(run.text, x, y)
         x += ctx.measureText(run.text).width
@@ -352,6 +442,12 @@ function drawHandles(ctx, box, scale, color = '#6366f1') {
     const { x, y } = cornerPoint(box, corner)
     ctx.fillRect(x - size / 2, y - size / 2, size, size)
     ctx.strokeRect(x - size / 2, y - size / 2, size, size)
+  }
+  const small = size * 0.7
+  for (const edge of EDGES) {
+    const { x, y } = cornerPoint(box, edge)
+    ctx.fillRect(x - small / 2, y - small / 2, small, small)
+    ctx.strokeRect(x - small / 2, y - small / 2, small, small)
   }
   ctx.restore()
 }
@@ -403,6 +499,7 @@ export default function Whiteboard({ socketRef, boardId, onUploadImage, onAssist
     if (!canvas) return
 
     const ctx = canvas.getContext('2d')
+    measureCtx = ctx
     const ratio = window.devicePixelRatio || 1
     const { width: cssWidth, height: cssHeight } = canvas.getBoundingClientRect()
     if (cssWidth === 0 || cssHeight === 0) return
@@ -898,7 +995,7 @@ export default function Whiteboard({ socketRef, boardId, onUploadImage, onAssist
     if (target?.type === 'text') {
       // Edit in place: the element hides while the editor sits over it.
       selectedRef.current = [target.id]
-      setTextInput({ id: target.id, x: target.x, y: target.y, value: target.text, fontSize: target.fontSize ?? 20, color: target.color, before: structuredClone(target) })
+      setTextInput({ id: target.id, x: target.x, y: target.y, w: target.w, value: target.text, fontSize: target.fontSize ?? 20, color: target.color, before: structuredClone(target) })
       scheduleRender()
       return
     }
@@ -943,9 +1040,11 @@ export default function Whiteboard({ socketRef, boardId, onUploadImage, onAssist
       // A corner handle of the selection takes priority over what is under it.
       if (items.length) {
         const group = unionBounds(items)
-        const corner = cornerAt(group, point, scale)
-        if (corner) {
-          pointerRef.current = { mode: 'resize', ids: items.map((i) => i.id), corner, start: group, originals: items }
+        const handle = handleAt(group, point, scale)
+        if (handle) {
+          pointerRef.current = isCorner(handle)
+            ? { mode: 'resize', ids: items.map((i) => i.id), corner: handle, start: group, originals: items }
+            : { mode: 'resize', ids: items.map((i) => i.id), edge: handle, start: group, originals: items }
           return
         }
       }
@@ -994,9 +1093,26 @@ export default function Whiteboard({ socketRef, boardId, onUploadImage, onAssist
     pointerRef.current = { mode: 'shape' }
   }
 
+  // Cursor tells what a press would do: resize at a handle, move over an element.
+  const updateHoverCursor = (event) => {
+    const canvas = canvasRef.current
+    if (!canvas) return
+    if (tool !== 'select' || cropRef.current) { canvas.style.cursor = ''; return }
+    const point = toWorld(event)
+    const scale = viewRef.current.scale
+    const items = selectedElements()
+    if (items.length) {
+      const group = unionBounds(items)
+      const handle = handleAt(group, point, scale)
+      if (handle) { canvas.style.cursor = CURSOR_FOR[handle.id]; return }
+    }
+    const over = elementsRef.current.some((element) => hitTest(element, point.x, point.y))
+    canvas.style.cursor = over ? 'move' : ''
+  }
+
   const handlePointerMove = (event) => {
     const pointer = pointerRef.current
-    if (!pointer) return
+    if (!pointer) { updateHoverCursor(event); return }
 
     if (pointer.mode === 'pan') {
       viewRef.current = {
@@ -1037,7 +1153,9 @@ export default function Whiteboard({ socketRef, boardId, onUploadImage, onAssist
       // Images, text and any group keep proportions; hold Shift to stretch. A lone shape is free.
       const lone = pointer.originals.length === 1 ? pointer.originals[0] : null
       const proportional = !lone || lone.type === 'image' || lone.type === 'text'
-      const box = resizeBox(pointer.start, pointer.corner, point, proportional !== event.shiftKey)
+      const box = pointer.edge
+        ? resizeBoxEdge(pointer.start, pointer.edge, point)
+        : resizeBox(pointer.start, pointer.corner, point, proportional !== event.shiftKey)
       const updated = fitGroup(pointer.originals, pointer.start, box)
       const byId = new Map(updated.map((item) => [item.id, item]))
       elementsRef.current = elementsRef.current.map((item) => byId.get(item.id) ?? item)
@@ -1195,8 +1313,11 @@ export default function Whiteboard({ socketRef, boardId, onUploadImage, onAssist
     const area = textAreaRef.current
     if (!area || !textInput) return
     const scale = viewRef.current.scale
-    const { w, h } = textSize(textInput.value || ' ', textInput.fontSize)
-    area.style.width = `${Math.max(120, w * scale + 2 * textInput.fontSize * scale)}px`
+    const { w, h } = textSize(textInput.value || ' ', textInput.fontSize, textInput.w)
+    area.style.whiteSpace = textInput.w ? 'pre-wrap' : 'pre'
+    area.style.width = textInput.w
+      ? `${textInput.w * scale + 2}px`
+      : `${Math.max(120, w * scale + 2 * textInput.fontSize * scale)}px`
     area.style.height = `${h * scale + 4}px`
   }
   useEffect(fitTextArea)
