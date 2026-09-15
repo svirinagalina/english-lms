@@ -1088,6 +1088,18 @@ export default function Whiteboard({ socketRef, boardId, onUploadImage, onAssist
       return
     }
 
+    // Pressing on existing text (or, with the text tool, on anything) selects
+    // it and switches to Move — a new text field only ever opens on empty board.
+    const under = [...elementsRef.current].reverse().find((element) => hitTest(element, point.x, point.y))
+    if (under && (tool === 'text' || under.type === 'text')) {
+      setTool('select')
+      selectedRef.current = [under.id]
+      pointerRef.current = { mode: 'move', ids: [under.id], last: point, originals: [structuredClone(under)] }
+      scheduleRender()
+      bump()
+      return
+    }
+
     selectedRef.current = []
 
     if (tool === 'text') {
@@ -1559,6 +1571,14 @@ export default function Whiteboard({ socketRef, boardId, onUploadImage, onAssist
               color: inkOf(textInput.color)
             }}
             onChange={(e) => setTextInput({ ...textInput, value: e.target.value })}
+            onClick={(e) => {
+              // One click takes the line under the cursor, a double click the whole text.
+              if (e.detail >= 2) { e.target.select(); return }
+              const { value, selectionStart } = e.target
+              const start = value.lastIndexOf('\n', selectionStart - 1) + 1
+              const end = value.indexOf('\n', selectionStart)
+              e.target.setSelectionRange(start, end === -1 ? value.length : end)
+            }}
             onBlur={(e) => {
               // Clicking the text toolbar must not close the editor.
               if (e.relatedTarget?.closest?.('.text-toolbar')) { requestAnimationFrame(() => e.target.focus()); return }
