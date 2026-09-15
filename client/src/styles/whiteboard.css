@@ -117,3 +117,23 @@
 
 select.tool { appearance: auto; padding: 5px 8px; }
 .small-hint { font-size: 11px; }
+
+/* Floating text bar above the text being edited or selected. */
+.text-toolbar {
+  position: absolute;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 10px;
+  background: #14161c;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.35);
+  z-index: 3;
+  white-space: nowrap;
+}
+.text-toolbar-group { display: flex; align-items: center; gap: 5px; }
+.text-toolbar-group + .text-toolbar-group { border-left: 1px solid var(--border); padding-left: 10px; }
+.swatch.small { width: 18px; height: 18px; }
+.text-toolbar .tool { padding: 5px 10px; }
+.text-toolbar .small-hint { color: var(--muted); font-size: 11px; }

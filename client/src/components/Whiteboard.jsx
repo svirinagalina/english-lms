@@ -53,26 +53,45 @@ const FONT_SIZES = [12, 14, 16, 18, 20, 24, 28, 32, 40, 48, 64, 80]
 // as it is drawn (an offscreen canvas can fall back to a different face).
 let measureCtx = document.createElement('canvas').getContext('2d')
 
-const fontFor = (size, bold) => `${bold ? '700' : '400'} ${size}px ${FONT_FAMILY}`
+const fontFor = (size, bold, italic) => `${italic ? 'italic ' : ''}${bold ? '700' : '400'} ${size}px ${FONT_FAMILY}`
 
 // Widths are measured at one reference size and scaled, so a line breaks
 // at the same word whatever the font size — scaling text never rewraps it.
 const REFERENCE_SIZE = 100
-function measureWidth(text, size, bold) {
-  measureCtx.font = fontFor(REFERENCE_SIZE, bold)
+function measureWidth(text, size, bold, italic) {
+  measureCtx.font = fontFor(REFERENCE_SIZE, bold, italic)
   return (measureCtx.measureText(text).width * size) / REFERENCE_SIZE
 }
 
 // "a **b** c" → [{text:'a ', bold:false}, {text:'b', bold:true}, {text:' c', bold:false}]
+// Markup: **bold**, __italic__ and {{#rrggbb:coloured}} spans, nestable.
+const COLOR_OPEN = /^\{\{(#[0-9a-fA-F]{6}):/
 function textRuns(line) {
   const runs = []
   let bold = false
-  for (const part of line.split('**')) {
-    if (part) runs.push({ text: part, bold })
-    bold = !bold
+  let italic = false
+  const colors = []
+  let buffer = ''
+  const flush = () => {
+    if (buffer) runs.push({ text: buffer, bold, italic, color: colors[colors.length - 1] })
+    buffer = ''
   }
+  let i = 0
+  while (i < line.length) {
+    if (line.startsWith('**', i)) { flush(); bold = !bold; i += 2; continue }
+    if (line.startsWith('__', i)) { flush(); italic = !italic; i += 2; continue }
+    const open = line.slice(i).match(COLOR_OPEN)
+    if (open) { flush(); colors.push(open[1]); i += open[0].length; continue }
+    if (colors.length && line.startsWith('}}', i)) { flush(); colors.pop(); i += 2; continue }
+    buffer += line[i]
+    i += 1
+  }
+  flush()
   return runs
 }
+
+const sameStyle = (a, b) => a.bold === b.bold && a.italic === b.italic && a.color === b.color
+const styleOf = (run) => ({ bold: run.bold, italic: run.italic, color: run.color })
 
 
 // Word-wraps one paragraph to maxWidth, keeping bold flags per word. Each
@@ -81,9 +100,9 @@ function wrapLine(line, size, maxWidth) {
   const words = []
   for (const run of textRuns(line)) {
     const parts = run.text.split(/(\s+)/).filter(Boolean)
-    for (const part of parts) words.push({ text: part, bold: run.bold, space: /^\s+$/.test(part) })
+    for (const part of parts) words.push({ text: part, ...styleOf(run), space: /^\s+$/.test(part) })
   }
-  const widthOf = (word) => measureWidth(word.text, size, word.bold)
+  const widthOf = (word) => measureWidth(word.text, size, word.bold, word.italic)
 
   const lines = []
   let current = []
@@ -109,8 +128,8 @@ function wrapLine(line, size, maxWidth) {
   // spaces them exactly as it would in a single string.
   return lines.map((ws) => ws.reduce((runs, w) => {
     const last = runs[runs.length - 1]
-    if (last && last.bold === w.bold) last.text += w.text
-    else runs.push({ text: w.text, bold: w.bold })
+    if (last && sameStyle(last, w)) last.text += w.text
+    else runs.push({ text: w.text, ...styleOf(w) })
     return runs
   }, []))
 }
@@ -125,7 +144,7 @@ function textLines(element) {
 
 function textSize(text, size, maxWidth) {
   const lines = textLines({ text, fontSize: size, w: maxWidth })
-  const widths = lines.map((runs) => runs.reduce((sum, run) => sum + measureWidth(run.text, size, run.bold), 0))
+  const widths = lines.map((runs) => runs.reduce((sum, run) => sum + measureWidth(run.text, size, run.bold, run.italic), 0))
   return {
     w: maxWidth ?? Math.max(8, ...widths),
     h: Math.max(1, lines.length) * size * LINE_HEIGHT
@@ -435,9 +454,10 @@ function drawElement(ctx, element) {
       let x = element.x
       const y = element.y + index * size * LINE_HEIGHT
       for (const run of runs) {
-        ctx.font = fontFor(size, run.bold)
+        ctx.font = fontFor(size, run.bold, run.italic)
+        ctx.fillStyle = inkOf(run.color ?? element.color)
         ctx.fillText(run.text, x, y)
-        x += measureWidth(run.text, size, run.bold)
+        x += measureWidth(run.text, size, run.bold, run.italic)
       }
     })
   }
@@ -947,6 +967,11 @@ export default function Whiteboard({ socketRef, boardId, onUploadImage, onAssist
         toggleBold()
         return
       }
+      if (textInput && (event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'i') {
+        event.preventDefault()
+        toggleItalic()
+        return
+      }
       if (textInput || event.target.tagName === 'INPUT' || event.target.tagName === 'TEXTAREA') return
 
       if (cropRef.current) {
@@ -1382,26 +1407,80 @@ export default function Whiteboard({ socketRef, boardId, onUploadImage, onAssist
     scheduleRender()
   }
 
-  // Wraps the selection in ** — or unwraps it when it already is bold.
-  const toggleBold = () => {
+  // Current selection in the editor; with nothing selected, the whole text.
+  const editorSelection = () => {
     const area = textAreaRef.current
-    if (!area || !textInput) return
+    if (!area) return null
     const { selectionStart: start, selectionEnd: end, value } = area
-    if (start === end) return
+    return start === end ? { start: 0, end: value.length, value } : { start, end, value }
+  }
+
+  // Wraps the selection in open…close, or unwraps it when it already is.
+  const toggleSpan = (open, close) => {
+    const area = textAreaRef.current
+    const sel = editorSelection()
+    if (!area || !textInput || !sel) return
+    const { start, end, value } = sel
     const inner = value.slice(start, end)
     let next, cursorEnd
-    if (inner.startsWith('**') && inner.endsWith('**') && inner.length >= 4) {
-      next = value.slice(0, start) + inner.slice(2, -2) + value.slice(end)
-      cursorEnd = end - 4
-    } else if (value.slice(start - 2, start) === '**' && value.slice(end, end + 2) === '**') {
-      next = value.slice(0, start - 2) + inner + value.slice(end + 2)
-      cursorEnd = end - 2
+    if (inner.startsWith(open) && inner.endsWith(close) && inner.length >= open.length + close.length) {
+      next = value.slice(0, start) + inner.slice(open.length, inner.length - close.length) + value.slice(end)
+      cursorEnd = end - open.length - close.length
+    } else if (value.slice(start - open.length, start) === open && value.slice(end, end + close.length) === close) {
+      next = value.slice(0, start - open.length) + inner + value.slice(end + close.length)
+      cursorEnd = end - open.length
     } else {
-      next = value.slice(0, start) + '**' + inner + '**' + value.slice(end)
-      cursorEnd = end + 4
+      next = value.slice(0, start) + open + inner + close + value.slice(end)
+      cursorEnd = end + open.length + close.length
     }
     setTextInput({ ...textInput, value: next })
     requestAnimationFrame(() => { area.focus(); area.setSelectionRange(start, cursorEnd) })
+  }
+  const toggleBold = () => toggleSpan('**', '**')
+  const toggleItalic = () => toggleSpan('__', '__')
+
+  // Colours the selection; with nothing selected, recolours the whole text.
+  const colorSelection = (value) => {
+    const area = textAreaRef.current
+    if (!area || !textInput) return
+    const { selectionStart: start, selectionEnd: end, value: text } = area
+    if (start === end) {
+      setTextInput({ ...textInput, color: value })
+      requestAnimationFrame(() => area.focus())
+      return
+    }
+    // Strip colour marks inside the selection so colours do not pile up.
+    const inner = text.slice(start, end).replace(/\{\{#[0-9a-fA-F]{6}:/g, '').replace(/\}\}/g, '')
+    const wrapped = `{{${value}:${inner}}}`
+    const next = text.slice(0, start) + wrapped + text.slice(end)
+    setTextInput({ ...textInput, value: next })
+    requestAnimationFrame(() => { area.focus(); area.setSelectionRange(start, start + wrapped.length) })
+  }
+
+  // Styles applied to selected (not edited) text elements as a whole.
+  const wrapSelectedTexts = (open, close) => {
+    const items = selectedElements().filter((item) => item.type === 'text')
+    if (!items.length) return
+    const befores = items.map((item) => structuredClone(item))
+    const allWrapped = items.every((item) => item.text.startsWith(open) && item.text.endsWith(close))
+    for (const item of items) {
+      const text = allWrapped
+        ? item.text.slice(open.length, item.text.length - close.length)
+        : open + item.text + close
+      replaceRaw({ ...item, text })
+    }
+    recordUpdates(befores)
+    scheduleRender()
+    bump()
+  }
+  const colorSelectedTexts = (value) => {
+    const items = selectedElements().filter((item) => item.type === 'text')
+    if (!items.length) return
+    const befores = items.map((item) => structuredClone(item))
+    for (const item of items) replaceRaw({ ...item, color: value })
+    recordUpdates(befores)
+    scheduleRender()
+    bump()
   }
 
   // Changes the size of the text being edited, or of the selected text elements.
@@ -1503,6 +1582,23 @@ export default function Whiteboard({ socketRef, boardId, onUploadImage, onAssist
 
   const view = viewRef.current
   const cropping = Boolean(cropRef.current)
+  // Floating text bar: above the text being edited, or the selected text.
+  const textBar = (() => {
+    if (cropping) return null
+    let box = null
+    let barColor = null
+    if (textInput) {
+      box = { x: textInput.x, y: textInput.y }
+      barColor = textInput.color
+    } else if (tool === 'select') {
+      const texts = selectedElements().filter((i) => i.type === 'text')
+      if (!texts.length) return null
+      box = unionBounds(texts)
+      barColor = texts[0].color
+    } else return null
+    return { x: Math.max(8, box.x * view.scale + view.x), y: Math.max(8, box.y * view.scale + view.y - 52), color: barColor }
+  })()
+
   // A corner-dragged text can have any size; the list shows it alongside the presets.
   const currentFontSize = Math.round(textInput ? textInput.fontSize : (selectedElements().find((i) => i.type === 'text')?.fontSize ?? 20))
   const fontSizeOptions = FONT_SIZES.includes(currentFontSize) ? FONT_SIZES : [...FONT_SIZES, currentFontSize].sort((a, b) => a - b)
@@ -1597,23 +1693,6 @@ export default function Whiteboard({ socketRef, boardId, onUploadImage, onAssist
               <button className="tool danger" onClick={handleClear}>Clear</button>
             </div>
 
-            {(textInput || (tool === 'select' && selectedElements().some((i) => i.type === 'text'))) && (
-              <div className="tool-group text-toolbar">
-                <select
-                  className="tool"
-                  value={currentFontSize}
-                  onChange={(e) => setFontSize(Number(e.target.value))}
-                  title="Text size"
-                >
-                  {fontSizeOptions.map((size) => <option key={size} value={size}>{size}</option>)}
-                </select>
-                {textInput && (
-                  <button className="tool" onMouseDown={(e) => e.preventDefault()} onClick={toggleBold} title="Bold the selected words (⌘B)"><b>B</b></button>
-                )}
-                {textInput && <span className="muted small-hint">⌘Enter to finish · Esc {textInput.id ? 'to cancel' : 'to finish'}</span>}
-              </div>
-            )}
-
             <div className="tool-group zoom-group">
               {onUploadImage && <button className="tool" onClick={startLesson} title="Add a dated heading below everything and start there">New lesson</button>}
               <button className="tool" onClick={() => zoomTo(view.scale / 1.25)} title="Zoom out">−</button>
@@ -1677,6 +1756,41 @@ export default function Whiteboard({ socketRef, boardId, onUploadImage, onAssist
               if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) { e.preventDefault(); submitText() }
             }}
           />
+        )}
+
+        {textBar && (
+          <div
+            className="text-toolbar"
+            style={{ left: textBar.x, top: textBar.y }}
+            onMouseDown={(e) => { if (e.target.tagName !== 'SELECT') e.preventDefault() }}
+          >
+            <div className="text-toolbar-group">
+              {COLORS.map((value) => (
+                <button
+                  key={value}
+                  className={`swatch small ${textBar.color === value ? 'active' : ''}`}
+                  style={{ background: value }}
+                  onClick={() => (textInput ? colorSelection(value) : colorSelectedTexts(value))}
+                  title="Colour the selected words, or the whole text"
+                />
+              ))}
+            </div>
+            <div className="text-toolbar-group">
+              <select
+                className="tool"
+                value={currentFontSize}
+                onChange={(e) => setFontSize(Number(e.target.value))}
+                title="Text size"
+              >
+                {fontSizeOptions.map((size) => <option key={size} value={size}>{size}</option>)}
+              </select>
+            </div>
+            <div className="text-toolbar-group">
+              <button className="tool" onClick={() => (textInput ? toggleBold() : wrapSelectedTexts('**', '**'))} title="Bold (⌘B)"><b>B</b></button>
+              <button className="tool" onClick={() => (textInput ? toggleItalic() : wrapSelectedTexts('__', '__'))} title="Italic (⌘I)"><i>I</i></button>
+            </div>
+            {textInput && <span className="small-hint">⌘Enter to finish · Esc {textInput.id ? 'to cancel' : 'to finish'}</span>}
+          </div>
         )}
 
         <div className="board-hint">
