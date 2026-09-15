@@ -17,14 +17,14 @@ export default function Billing() {
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(true)
 
-  const isStaff = user.role === 'OWNER' || user.role === 'TEACHER'
+  const isStaff = user.role !== 'STUDENT'
 
   const refresh = async () => {
     if (!isStaff) return
     const { people } = await api.listPeople()
     setStudents(people.filter((person) => person.role === 'STUDENT'))
 
-    if (user.role === 'OWNER') {
+    if (user.role === 'OWNER' || user.role === 'PARTNER') {
       const { paymentDetails } = await api.schoolPaymentDetails()
       setDetails(paymentDetails ?? '')
     }
@@ -115,7 +115,7 @@ export default function Billing() {
         </div>
       </section>
 
-      {user.role === 'OWNER' && (
+      {(user.role === 'OWNER' || user.role === 'PARTNER') && (
         <section>
           <h2>Bank transfer details</h2>
           <p className="muted">Shown only to signed-in students of your school.</p>

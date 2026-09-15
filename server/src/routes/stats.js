@@ -1,6 +1,6 @@
 import { Router } from 'express'
 import { prisma } from '../db.js'
-import { requireAuth, requireRole } from '../auth.js'
+import { requireAuth, requireRole, isAdmin } from '../auth.js'
 import { topicLabel } from '../errorAnalysis.js'
 
 export const statsRouter = Router()
@@ -12,7 +12,7 @@ const RECENT_DAYS = 30
 // Which students a teacher may look at: all of the school for the owner, only
 // linked students for a teacher.
 async function visibleStudentIds(user) {
-  if (user.role === 'OWNER') {
+  if (isAdmin(user)) {
     const students = await prisma.user.findMany({
       where: { schoolId: user.schoolId, role: 'STUDENT' },
       select: { id: true }

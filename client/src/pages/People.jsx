@@ -146,7 +146,7 @@ export default function People() {
 
   const changeRole = async (person, role) => {
     if (role === person.role) return
-    const label = { TEACHER: 'a teacher', STUDENT: 'a student', PARTNER: 'a partner (content only)' }[role]
+    const label = { TEACHER: 'a teacher', STUDENT: 'a student', PARTNER: 'a partner (same access as you, cannot change roles)' }[role]
     if (!window.confirm(`Make ${person.name} ${label}?`)) return
     setError('')
     try {
@@ -172,7 +172,8 @@ export default function People() {
   const staff = people.filter((p) => p.role !== 'STUDENT')
   const students = people.filter((p) => p.role === 'STUDENT')
 
-  const roleSelect = (person) => (
+  // Only the administrator hands out roles.
+  const roleSelect = (person) => user.role === 'OWNER' && (
     <select
       value={person.role}
       onChange={(e) => changeRole(person, e.target.value)}
@@ -259,7 +260,7 @@ export default function People() {
       <section>
         <h2>Team</h2>
         <p className="muted" style={{ marginBottom: 10 }}>
-          A partner sees only the Content section. Roles can be changed at any time.
+          A partner has the same access as the administrator, except for changing roles.
         </p>
         <div className="list">
           {staff.map((person) => (
@@ -271,7 +272,7 @@ export default function People() {
                   {person.students?.length > 0 && ` · ${person.students.length} students`}
                 </div>
               </div>
-              {person.id !== user.id && (
+              {person.id !== user.id && (user.role === 'OWNER' || person.role === 'TEACHER') && (
                 <div className="row-actions">
                   {roleSelect(person)}
                   <button className="ghost" onClick={() => removePerson(person.id, person.name)}>

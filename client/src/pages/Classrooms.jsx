@@ -29,7 +29,7 @@ export default function Classrooms() {
   const [starting, setStarting] = useState(false)
   const [copied, setCopied] = useState(null)
 
-  const isStaff = user.role === 'OWNER' || user.role === 'TEACHER'
+  const isStaff = user.role !== 'STUDENT'
 
   const refresh = async () => {
     const { classrooms } = await api.listClassrooms()

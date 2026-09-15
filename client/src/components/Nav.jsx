@@ -12,12 +12,10 @@ export default function Nav({ title }) {
   const { user, logout } = useAuth()
   const { pathname } = useLocation()
 
-  // A partner works only on content and sees nothing else.
-  const links = user.role === 'PARTNER' ? [] : [{ to: '/classroom', label: 'Classroom' }]
+  const admin = user.role === 'OWNER' || user.role === 'PARTNER'
+  const links = [{ to: '/classroom', label: 'Classroom' }]
 
-  if (user.role === 'PARTNER') {
-    links.push({ to: '/content', label: 'Content' })
-  } else if (user.role !== 'STUDENT') {
+  if (user.role !== 'STUDENT') {
     links.push(
       { to: '/practice', label: 'Practice' },
       { to: '/vocabulary', label: 'Vocabulary' },
@@ -33,7 +31,7 @@ export default function Nav({ title }) {
 
   if (user.role === 'TEACHER') links.push({ to: '/billing', label: 'Payments' })
 
-  if (user.role === 'OWNER') {
+  if (admin) {
     links.push({ to: '/people', label: 'People' }, { to: '/billing', label: 'Payments' }, { to: '/content', label: 'Content' })
   }
 

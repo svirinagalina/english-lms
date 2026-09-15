@@ -1,7 +1,7 @@
 import { Router } from 'express'
 import { z } from 'zod'
 import { prisma } from '../db.js'
-import { requireAuth, requireRole } from '../auth.js'
+import { requireAuth, requireRole, isAdmin } from '../auth.js'
 import { forgetBoard } from '../boardStore.js'
 import { randomBytes } from 'crypto'
 import { mkdir, writeFile } from 'fs/promises'
@@ -63,16 +63,16 @@ export async function accessibleClassroom(user, classroomId) {
 
   // A test room belongs to its teacher alone; the owner may look in too.
   const allowed =
-    user.role === 'OWNER' ||
+    isAdmin(user) ||
     classroom.teacherId === user.id ||
     (classroom.studentId !== null && classroom.studentId === user.id)
 
   return allowed ? classroom : null
 }
 
-classroomsRouter.get('/', requireRole('OWNER', 'TEACHER', 'STUDENT'), async (req, res) => {
+classroomsRouter.get('/', async (req, res) => {
   const where =
-    req.user.role === 'OWNER'
+    isAdmin(req.user)
       ? { schoolId: req.user.schoolId }
       : req.user.role === 'TEACHER'
         ? { teacherId: req.user.id }

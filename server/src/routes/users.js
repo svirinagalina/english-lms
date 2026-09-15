@@ -1,6 +1,6 @@
 import { Router } from 'express'
 import { prisma } from '../db.js'
-import { requireAuth, requireRole } from '../auth.js'
+import { requireAuth, requireRole, isAdmin } from '../auth.js'
 
 export const usersRouter = Router()
 
@@ -30,7 +30,7 @@ const SELECT = {
 // Everyone sees a different slice: the owner sees the school, a teacher sees
 // their own students, a student sees their teachers.
 usersRouter.get('/', async (req, res) => {
-  if (req.user.role === 'OWNER') {
+  if (isAdmin(req.user)) {
     const users = await prisma.user.findMany({
       where: { schoolId: req.user.schoolId },
       select: SELECT,
@@ -56,7 +56,7 @@ usersRouter.get('/', async (req, res) => {
 
 usersRouter.get('/teachers', requireRole('OWNER'), async (req, res) => {
   const teachers = await prisma.user.findMany({
-    where: { schoolId: req.user.schoolId, role: { in: ['OWNER', 'TEACHER'] } },
+    where: { schoolId: req.user.schoolId, role: { in: ['OWNER', 'PARTNER', 'TEACHER'] } },
     select: { id: true, name: true, role: true },
     orderBy: { createdAt: 'asc' }
   })
@@ -71,7 +71,7 @@ usersRouter.post('/links', requireRole('OWNER'), async (req, res) => {
 
   const [teacher, student] = await Promise.all([
     prisma.user.findFirst({
-      where: { id: teacherId, schoolId: req.user.schoolId, role: { in: ['OWNER', 'TEACHER'] } }
+      where: { id: teacherId, schoolId: req.user.schoolId, role: { in: ['OWNER', 'PARTNER', 'TEACHER'] } }
     }),
     prisma.user.findFirst({
       where: { id: studentId, schoolId: req.user.schoolId, role: 'STUDENT' }
@@ -102,11 +102,12 @@ usersRouter.delete('/links/:teacherId/:studentId', requireRole('OWNER'), async (
   res.json({ ok: true })
 })
 
-// The owner can turn an account into a teacher, a student or a partner.
+// Only the owner hands out roles; a partner cannot promote or demote anyone.
 // Takes effect on the person's next request — no re-login needed.
 const ASSIGNABLE_ROLES = ['TEACHER', 'STUDENT', 'PARTNER']
 
-usersRouter.patch('/:id/role', requireRole('OWNER'), async (req, res) => {
+usersRouter.patch('/:id/role', async (req, res) => {
+  if (req.user.role !== 'OWNER') return res.status(403).json({ error: 'Only the administrator can change roles' })
   const { role } = req.body ?? {}
   if (!ASSIGNABLE_ROLES.includes(role)) return res.status(400).json({ error: 'Invalid role' })
 
@@ -126,6 +127,9 @@ usersRouter.delete('/:id', requireRole('OWNER'), async (req, res) => {
   })
   if (!target) return res.status(404).json({ error: 'User not found' })
   if (target.id === req.user.id) return res.status(400).json({ error: 'Cannot remove yourself' })
+  if (req.user.role !== 'OWNER' && isAdmin(target)) {
+    return res.status(403).json({ error: 'Only the administrator can remove an administrator or partner' })
+  }
 
   await prisma.user.delete({ where: { id: target.id } })
   res.json({ ok: true })

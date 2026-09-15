@@ -67,7 +67,7 @@ export default function Classroom() {
   const [targets, setTargets] = useState([])
   const socketRef = useRef(null)
 
-  const isStaff = user.role === 'OWNER' || user.role === 'TEACHER'
+  const isStaff = user.role !== 'STUDENT'
 
   const refresh = async () => {
     const { classroom } = await api.getClassroom(id)

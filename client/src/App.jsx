@@ -19,8 +19,6 @@ function RequireAuth({ children, roles }) {
   const { user, loading } = useAuth()
   if (loading) return <div className="centered">Loading…</div>
   if (!user) return <Navigate to="/login" replace />
-  // A partner has one section; everyone else has no business in it.
-  if (user.role === 'PARTNER' && !roles?.includes('PARTNER')) return <Navigate to="/content" replace />
   if (roles && !roles.includes(user.role)) return <Navigate to="/" replace />
   return children
 }

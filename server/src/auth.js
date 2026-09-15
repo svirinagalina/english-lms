@@ -83,9 +83,13 @@ export async function requireAuthOrToken(req, res, next) {
   next()
 }
 
+// A partner has the owner's access everywhere except role management.
+export const isAdmin = (user) => user.role === 'OWNER' || user.role === 'PARTNER'
+
 export function requireRole(...roles) {
   return (req, res, next) => {
-    if (!roles.includes(req.user.role)) {
+    const allowed = roles.includes(req.user.role) || (roles.includes('OWNER') && req.user.role === 'PARTNER')
+    if (!allowed) {
       return res.status(403).json({ error: 'Not allowed' })
     }
     next()

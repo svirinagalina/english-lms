@@ -2,7 +2,7 @@ import { Router } from 'express'
 import { randomBytes } from 'crypto'
 import { z } from 'zod'
 import { prisma } from '../db.js'
-import { hashPassword, issueToken, requireAuth, requireRole } from '../auth.js'
+import { hashPassword, issueToken, requireAuth, requireRole, isAdmin } from '../auth.js'
 import { sendInviteEmail, mailEnabled } from '../mailer.js'
 
 export const invitesRouter = Router()
@@ -141,7 +141,7 @@ invitesRouter.post('/', requireRole('OWNER', 'TEACHER'), async (req, res) => {
 
   const { name, email, role, teacherId } = parsed.data
 
-  if (role === 'TEACHER' && req.user.role !== 'OWNER') {
+  if (role === 'TEACHER' && !isAdmin(req.user)) {
     return res.status(403).json({ error: 'Only the school owner can invite teachers' })
   }
 
@@ -150,9 +150,9 @@ invitesRouter.post('/', requireRole('OWNER', 'TEACHER'), async (req, res) => {
 
   // The owner may invite a student on behalf of another teacher.
   let inviterId = req.user.id
-  if (role === 'STUDENT' && teacherId && req.user.role === 'OWNER') {
+  if (role === 'STUDENT' && teacherId && isAdmin(req.user)) {
     const teacher = await prisma.user.findFirst({
-      where: { id: teacherId, schoolId: req.user.schoolId, role: { in: ['OWNER', 'TEACHER'] } }
+      where: { id: teacherId, schoolId: req.user.schoolId, role: { in: ['OWNER', 'PARTNER', 'TEACHER'] } }
     })
     if (!teacher) return res.status(404).json({ error: 'Teacher not found' })
     inviterId = teacher.id

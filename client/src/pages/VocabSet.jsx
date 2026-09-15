@@ -153,7 +153,7 @@ export default function VocabSet() {
   const [showBulk, setShowBulk] = useState(false)
   const [notice, setNotice] = useState('')
 
-  const isStaff = user.role === 'OWNER' || user.role === 'TEACHER'
+  const isStaff = user.role !== 'STUDENT'
 
   const refresh = () =>
     api.getVocabSet(id)

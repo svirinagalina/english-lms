@@ -11,7 +11,7 @@ export default function Vocabulary() {
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(true)
 
-  const isStaff = user.role === 'OWNER' || user.role === 'TEACHER'
+  const isStaff = user.role !== 'STUDENT'
 
   const refresh = () =>
     api.listVocabSets()
