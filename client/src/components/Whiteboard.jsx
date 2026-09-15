@@ -53,6 +53,14 @@ let measureCtx = document.createElement('canvas').getContext('2d')
 
 const fontFor = (size, bold) => `${bold ? '700' : '400'} ${size}px ${FONT_FAMILY}`
 
+// Widths are measured at one reference size and scaled, so a line breaks
+// at the same word whatever the font size — scaling text never rewraps it.
+const REFERENCE_SIZE = 100
+function measureWidth(text, size, bold) {
+  measureCtx.font = fontFor(REFERENCE_SIZE, bold)
+  return (measureCtx.measureText(text).width * size) / REFERENCE_SIZE
+}
+
 // "a **b** c" → [{text:'a ', bold:false}, {text:'b', bold:true}, {text:' c', bold:false}]
 function textRuns(line) {
   const runs = []
@@ -64,14 +72,6 @@ function textRuns(line) {
   return runs
 }
 
-function lineWidth(line, size) {
-  let width = 0
-  for (const run of textRuns(line)) {
-    measureCtx.font = fontFor(size, run.bold)
-    width += measureCtx.measureText(run.text).width
-  }
-  return width
-}
 
 // Word-wraps one paragraph to maxWidth, keeping bold flags per word. Each
 // returned line is a list of runs ready to draw.
@@ -81,7 +81,7 @@ function wrapLine(line, size, maxWidth) {
     const parts = run.text.split(/(\s+)/).filter(Boolean)
     for (const part of parts) words.push({ text: part, bold: run.bold, space: /^\s+$/.test(part) })
   }
-  const widthOf = (word) => { measureCtx.font = fontFor(size, word.bold); return measureCtx.measureText(word.text).width }
+  const widthOf = (word) => measureWidth(word.text, size, word.bold)
 
   const lines = []
   let current = []
@@ -101,7 +101,14 @@ function wrapLine(line, size, maxWidth) {
     currentWidth += w
   }
   lines.push(current)
-  return lines.map((ws) => ws.map((w) => ({ text: w.text, bold: w.bold })))
+  // Neighbouring words with the same weight draw as one run, so the browser
+  // spaces them exactly as it would in a single string.
+  return lines.map((ws) => ws.reduce((runs, w) => {
+    const last = runs[runs.length - 1]
+    if (last && last.bold === w.bold) last.text += w.text
+    else runs.push({ text: w.text, bold: w.bold })
+    return runs
+  }, []))
 }
 
 // Lines of runs for a text element: wrapped to element.w when it has a width.
@@ -114,7 +121,7 @@ function textLines(element) {
 
 function textSize(text, size, maxWidth) {
   const lines = textLines({ text, fontSize: size, w: maxWidth })
-  const widths = lines.map((runs) => runs.reduce((sum, run) => { measureCtx.font = fontFor(size, run.bold); return sum + measureCtx.measureText(run.text).width }, 0))
+  const widths = lines.map((runs) => runs.reduce((sum, run) => sum + measureWidth(run.text, size, run.bold), 0))
   return {
     w: maxWidth ?? Math.max(8, ...widths),
     h: Math.max(1, lines.length) * size * LINE_HEIGHT
@@ -179,12 +186,13 @@ function fitElement(element, box) {
 
   if (element.type === 'text') {
     const size = element.fontSize ?? 20
-    const uniform = Math.abs(sx - sy) < 0.01
+    const uniform = Math.abs(sx - sy) < 0.05
     const next = { ...element, x: box.x, y: box.y, fontSize: Math.max(8, Math.min(200, size * sy)) }
     // A pure width change sets how wide the text may run before wrapping;
-    // a uniform scale keeps a wrap width in proportion.
-    if (uniform) { if (element.w) next.w = element.w * sx }
+    // a uniform scale keeps the wrap width in proportion so no line moves.
+    if (uniform) { if (element.w) next.w = element.w * sy }
     else if (Math.abs(sy - 1) < 0.01) next.w = Math.max(MIN_SIZE * 2, box.w)
+    else next.w = Math.max(MIN_SIZE * 2, box.w)
     return next
   }
 
@@ -423,7 +431,7 @@ function drawElement(ctx, element) {
       for (const run of runs) {
         ctx.font = fontFor(size, run.bold)
         ctx.fillText(run.text, x, y)
-        x += ctx.measureText(run.text).width
+        x += measureWidth(run.text, size, run.bold)
       }
     })
   }
