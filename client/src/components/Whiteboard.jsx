@@ -493,6 +493,9 @@ export default function Whiteboard({ socketRef, boardId, onUploadImage, onAssist
   const lastFontSizeRef = useRef(24)
   const [width, setWidth] = useState(3)
   const [textInput, setTextInput] = useState(null)
+  // Fingers currently on the canvas (touch screens): two of them pinch-zoom.
+  const touchesRef = useRef(new Map())
+  const pinchRef = useRef(null)
   const editingTextRef = useRef(null)
   editingTextRef.current = textInput?.id ?? null
   const textAreaRef = useRef(null)
@@ -1022,6 +1025,7 @@ export default function Whiteboard({ socketRef, boardId, onUploadImage, onAssist
   }
 
   const handlePointerDown = (event) => {
+    if (trackTouch(event)) return
     if (textInput) return
     const point = toWorld(event)
     const scale = viewRef.current.scale
@@ -1137,6 +1141,11 @@ export default function Whiteboard({ socketRef, boardId, onUploadImage, onAssist
   }
 
   const handlePointerMove = (event) => {
+    if (event.pointerType === 'touch' && touchesRef.current.has(event.pointerId)) {
+      const rect = canvasRef.current.getBoundingClientRect()
+      touchesRef.current.set(event.pointerId, { x: event.clientX - rect.left, y: event.clientY - rect.top })
+      if (pinchRef.current) { movePinch(); return }
+    }
     const pointer = pointerRef.current
     if (!pointer) { updateHoverCursor(event); return }
 
@@ -1206,7 +1215,8 @@ export default function Whiteboard({ socketRef, boardId, onUploadImage, onAssist
     }
   }
 
-  const handlePointerUp = () => {
+  const handlePointerUp = (event) => {
+    if (event) releaseTouch(event)
     const pointer = pointerRef.current
     pointerRef.current = null
     if (!pointer) return
@@ -1249,19 +1259,96 @@ export default function Whiteboard({ socketRef, boardId, onUploadImage, onAssist
     commit(draft)
   }
 
+  // Zoom by a factor around a point given in canvas pixels.
+  const zoomAround = (factor, canvasX, canvasY) => {
+    const view = viewRef.current
+    const scale = Math.min(MAX_SCALE, Math.max(MIN_SCALE, view.scale * factor))
+    viewRef.current = {
+      scale,
+      x: canvasX - (canvasX - view.x) * (scale / view.scale),
+      y: canvasY - (canvasY - view.y) * (scale / view.scale)
+    }
+    scheduleRender()
+    bump()
+  }
+
+  // Two fingers on a touch screen: spread to zoom in, pinch to zoom out,
+  // and the board follows the fingers.
+  const pinchGeometry = () => {
+    const [a, b] = [...touchesRef.current.values()]
+    return { distance: Math.hypot(b.x - a.x, b.y - a.y), x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 }
+  }
+
+  const trackTouch = (event) => {
+    if (event.pointerType !== 'touch') return false
+    const rect = canvasRef.current.getBoundingClientRect()
+    touchesRef.current.set(event.pointerId, { x: event.clientX - rect.left, y: event.clientY - rect.top })
+    if (touchesRef.current.size === 2 && !pinchRef.current) {
+      // A second finger cancels whatever the first one started.
+      draftRef.current = null
+      pointerRef.current = null
+      marqueeRef.current = null
+      pinchRef.current = { ...pinchGeometry(), view: { ...viewRef.current } }
+      scheduleRender()
+    }
+    return touchesRef.current.size >= 2
+  }
+
+  const movePinch = () => {
+    const start = pinchRef.current
+    if (!start || touchesRef.current.size < 2) return
+    const now = pinchGeometry()
+    const scale = Math.min(MAX_SCALE, Math.max(MIN_SCALE, start.view.scale * (now.distance / Math.max(1, start.distance))))
+    // Keep the world point that was under the fingers' midpoint under it still.
+    const worldX = (start.x - start.view.x) / start.view.scale
+    const worldY = (start.y - start.view.y) / start.view.scale
+    viewRef.current = { scale, x: now.x - worldX * scale, y: now.y - worldY * scale }
+    scheduleRender()
+  }
+
+  const releaseTouch = (event) => {
+    if (event.pointerType !== 'touch') return
+    touchesRef.current.delete(event.pointerId)
+    if (touchesRef.current.size < 2 && pinchRef.current) {
+      pinchRef.current = null
+      bump()
+    }
+  }
+
+  // Safari on a Mac reports trackpad pinches as gesture events, not ctrl+wheel.
+  useEffect(() => {
+    const canvas = canvasRef.current
+    if (!canvas) return
+    let base = 1
+    const onStart = (event) => { event.preventDefault(); base = viewRef.current.scale }
+    const onChange = (event) => {
+      event.preventDefault()
+      const rect = canvas.getBoundingClientRect()
+      const target = Math.min(MAX_SCALE, Math.max(MIN_SCALE, base * event.scale))
+      zoomAround(target / viewRef.current.scale, event.clientX - rect.left, event.clientY - rect.top)
+    }
+    const onEnd = (event) => event.preventDefault()
+    // React's wheel listener is passive, so the page would zoom too.
+    const blockPageZoom = (event) => event.preventDefault()
+    canvas.addEventListener('wheel', blockPageZoom, { passive: false })
+    canvas.addEventListener('gesturestart', onStart)
+    canvas.addEventListener('gesturechange', onChange)
+    canvas.addEventListener('gestureend', onEnd)
+    return () => {
+      canvas.removeEventListener('wheel', blockPageZoom)
+      canvas.removeEventListener('gesturestart', onStart)
+      canvas.removeEventListener('gesturechange', onChange)
+      canvas.removeEventListener('gestureend', onEnd)
+    }
+  })
+
   const handleWheel = (event) => {
     const view = viewRef.current
     if (event.ctrlKey || event.metaKey) {
+      // Trackpad pinches arrive as ctrl+wheel in Chrome and Firefox.
       const rect = canvasRef.current.getBoundingClientRect()
-      const mouseX = event.clientX - rect.left
-      const mouseY = event.clientY - rect.top
-      const factor = Math.exp(-event.deltaY * 0.002)
-      const scale = Math.min(MAX_SCALE, Math.max(MIN_SCALE, view.scale * factor))
-      viewRef.current = {
-        scale,
-        x: mouseX - (mouseX - view.x) * (scale / view.scale),
-        y: mouseY - (mouseY - view.y) * (scale / view.scale)
-      }
+      zoomAround(Math.exp(-event.deltaY * 0.002), event.clientX - rect.left, event.clientY - rect.top)
+      return
     } else {
       viewRef.current = { ...view, x: view.x - event.deltaX, y: view.y - event.deltaY }
     }
@@ -1546,6 +1633,7 @@ export default function Whiteboard({ socketRef, boardId, onUploadImage, onAssist
           onPointerMove={handlePointerMove}
           onPointerUp={handlePointerUp}
           onPointerLeave={handlePointerUp}
+          onPointerCancel={handlePointerUp}
           onDoubleClick={handleDoubleClick}
           onWheel={handleWheel}
           onContextMenu={(e) => e.preventDefault()}
