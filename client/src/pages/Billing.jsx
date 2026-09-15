@@ -52,7 +52,7 @@ export default function Billing() {
 
   if (!isStaff) {
     return (
-      <div className="page practice-page">
+      <div className="page">
         <Nav title="Payment" />
         <StudentPayment />
       </div>

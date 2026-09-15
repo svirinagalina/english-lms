@@ -11,6 +11,10 @@
 
 * { margin: 0; padding: 0; box-sizing: border-box; }
 
+/* Keep the scrollbar's space reserved so pages with and without one line
+   up exactly and the layout does not jump when switching sections. */
+html { scrollbar-gutter: stable; }
+
 body {
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   background: var(--bg);
