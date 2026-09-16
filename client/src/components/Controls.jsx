@@ -78,8 +78,8 @@ export default function Controls({
         {isBlurEnabled && (
           <input
             type="range"
-            min="2"
-            max="30"
+            min="6"
+            max="70"
             value={blurAmount}
             onChange={(e) => onBlurChange(Number(e.target.value))}
           />

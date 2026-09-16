@@ -32,7 +32,7 @@ export default function Call() {
   const [peers, setPeers] = useState({})
   const [screenStream, setScreenStream] = useState(null)
   const [isBlurEnabled, setIsBlurEnabled] = useState(false)
-  const [blurAmount, setBlurAmount] = useState(12)
+  const [blurAmount, setBlurAmount] = useState(28)
   const [copied, setCopied] = useState(false)
   const [joined, setJoined] = useState(false)
   const [noiseSuppression, setNoiseSuppression] = useState(false)

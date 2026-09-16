@@ -118,7 +118,7 @@ export default function VideoGrid({
           <canvas
             ref={backgroundCanvasRef}
             className={isBlurEnabled ? 'blur-layer' : 'blur-layer hidden'}
-            style={{ filter: `blur(${blurAmount}px)`, transform: 'scale(1.06)' }}
+            style={{ filter: `blur(${blurAmount}px)`, transform: 'scale(1.12)' }}
           />
           <canvas
             ref={processingCanvasRef}
