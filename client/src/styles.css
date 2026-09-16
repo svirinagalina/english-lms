@@ -237,7 +237,7 @@ textarea:focus { outline: none; border-color: var(--accent); }
   color: #fde68a;
 }
 
-.stage { flex: 1; display: flex; gap: 12px; padding: 12px; overflow: hidden; }
+.stage { flex: 1; display: flex; gap: 8px; padding: 8px; overflow: hidden; }
 
 .screen-area {
   flex: 1;
@@ -266,7 +266,7 @@ textarea:focus { outline: none; border-color: var(--accent); }
   overflow-y: auto;
 }
 
-.stage.with-screen .tiles { flex: 0 0 260px; grid-template-columns: 1fr; }
+.stage.with-screen .tiles { flex: 0 0 200px; grid-template-columns: 1fr; }
 
 .video-tile {
   position: relative;

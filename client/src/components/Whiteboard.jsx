@@ -73,9 +73,19 @@ const fontFor = (size, bold, italic) => `${italic ? 'italic ' : ''}${bold ? '700
 // Widths are measured at one reference size and scaled, so a line breaks
 // at the same word whatever the font size — scaling text never rewraps it.
 const REFERENCE_SIZE = 100
+// Measured widths are cached: a zoom or pan redraws every text on the
+// board, and measureText is the slow part of that.
+const widthCache = new Map()
 function measureWidth(text, size, bold, italic) {
-  measureCtx.font = fontFor(REFERENCE_SIZE, bold, italic)
-  return (measureCtx.measureText(text).width * size) / REFERENCE_SIZE
+  const key = `${bold ? 'b' : ''}${italic ? 'i' : ''}\u0000${text}`
+  let base = widthCache.get(key)
+  if (base === undefined) {
+    measureCtx.font = fontFor(REFERENCE_SIZE, bold, italic)
+    base = measureCtx.measureText(text).width
+    if (widthCache.size > 20000) widthCache.clear()
+    widthCache.set(key, base)
+  }
+  return (base * size) / REFERENCE_SIZE
 }
 
 // "a **b** c" → [{text:'a ', bold:false}, {text:'b', bold:true}, {text:' c', bold:false}]
@@ -150,11 +160,19 @@ function wrapLine(line, size, maxWidth) {
 }
 
 // Lines of runs for a text element: wrapped to element.w when it has a width.
+const layoutCache = new Map()
 function textLines(element) {
   const size = element.fontSize ?? 20
+  const key = `${size}\u0000${element.w ?? ''}\u0000${element.text ?? ''}`
+  const cached = layoutCache.get(key)
+  if (cached) return cached
   const paragraphs = String(element.text ?? '').split('\n')
-  if (!element.w) return paragraphs.map((line) => textRuns(line))
-  return paragraphs.flatMap((line) => wrapLine(line, size, element.w))
+  const lines = element.w
+    ? paragraphs.flatMap((line) => wrapLine(line, size, element.w))
+    : paragraphs.map((line) => textRuns(line))
+  if (layoutCache.size > 2000) layoutCache.clear()
+  layoutCache.set(key, lines)
+  return lines
 }
 
 function textSize(text, size, maxWidth) {
@@ -658,6 +676,13 @@ export default function Whiteboard({ socketRef, boardId, title, subtitle, onClos
   const textAreaRef = useRef(null)
   const [, forceRender] = useState(0)
   const bump = () => forceRender((value) => value + 1)
+  // For zoom and pan: refresh the toolbar at most once per frame, not per event.
+  const bumpPending = useRef(false)
+  const bumpSoon = () => {
+    if (bumpPending.current) return
+    bumpPending.current = true
+    requestAnimationFrame(() => { bumpPending.current = false; bump() })
+  }
 
   const selectedElements = () => {
     const ids = new Set(selectedRef.current)
@@ -1475,7 +1500,7 @@ export default function Whiteboard({ socketRef, boardId, title, subtitle, onClos
       y: canvasY - (canvasY - view.y) * (scale / view.scale)
     }
     scheduleRender()
-    bump()
+    bumpSoon()
   }
 
   // Two fingers on a touch screen: spread to zoom in, pinch to zoom out,
@@ -1510,6 +1535,7 @@ export default function Whiteboard({ socketRef, boardId, title, subtitle, onClos
     const worldY = (start.y - start.view.y) / start.view.scale
     viewRef.current = { scale, x: now.x - worldX * scale, y: now.y - worldY * scale }
     scheduleRender()
+    bumpSoon()
   }
 
   const releaseTouch = (event) => {
@@ -1560,7 +1586,8 @@ export default function Whiteboard({ socketRef, boardId, title, subtitle, onClos
       // sends both; while its gesture is running, the gesture handler zooms.
       if (gestureRef.current.base !== null) return
       const rect = canvasRef.current.getBoundingClientRect()
-      zoomAround(Math.exp(-event.deltaY * 0.002), event.clientX - rect.left, event.clientY - rect.top)
+      // Pinches report small deltas; this rate feels like Figma's.
+      zoomAround(Math.exp(-event.deltaY * 0.006), event.clientX - rect.left, event.clientY - rect.top)
       return
     } else {
       viewRef.current = { ...view, x: view.x - event.deltaX, y: view.y - event.deltaY }
