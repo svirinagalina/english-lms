@@ -107,7 +107,7 @@ export default function VideoGrid({
   }
 
   return (
-    <div className={`stage ${screenStream || board ? 'with-screen' : ''}`}>
+    <div className={`stage ${board ? 'board-mode' : screenStream ? 'with-screen' : ''}`}>
       {board && <div className="board-area">{board}</div>}
       {screenStream && !board && (
         <div className="screen-area">

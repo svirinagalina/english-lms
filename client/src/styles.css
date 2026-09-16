@@ -599,3 +599,41 @@ select.pill { padding: 0 16px; color: var(--text); border: none; }
   background: rgba(239, 68, 68, 0.9);
   color: #fff;
 }
+
+/* Board inside a call: the board is the whole window, everything else
+   floats over it — videos down the right edge, call controls top centre. */
+.lesson-page.board-mode { position: relative; }
+.lesson-page.board-mode .topbar { display: none; }
+.lesson-page.board-mode .banner { position: absolute; top: 70px; left: 50%; transform: translateX(-50%); z-index: 5; border-radius: 8px; max-width: 70vw; }
+.stage.board-mode { padding: 0; gap: 0; position: relative; }
+.stage.board-mode .board-area { position: absolute; inset: 0; border: none; border-radius: 0; }
+.stage.board-mode .tiles {
+  position: absolute;
+  top: 60px;
+  right: 12px;
+  width: 200px;
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  overflow: visible;
+  z-index: 3;
+}
+.stage.board-mode .video-tile { box-shadow: 0 6px 20px rgba(0, 0, 0, 0.35); }
+.lesson-page.board-mode .controls {
+  position: absolute;
+  top: 8px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 4;
+  padding: 6px 10px;
+  gap: 8px;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: rgba(20, 22, 28, 0.92);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.35);
+  flex-wrap: nowrap;
+}
+.lesson-page.board-mode .round { min-width: 52px; height: 36px; font-size: 13px; }
+.lesson-page.board-mode .pill { height: 36px; font-size: 13px; }
+.pill.leave { border: 1px solid rgba(239, 68, 68, 0.5); color: #fca5a5; background: transparent; }

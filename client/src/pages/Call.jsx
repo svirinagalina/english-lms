@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { Link, Navigate, useParams } from 'react-router-dom'
+import { Link, Navigate, useNavigate, useParams } from 'react-router-dom'
 import { io } from 'socket.io-client'
 import { useAuth } from '../AuthContext'
 import { api } from '../api'
@@ -28,6 +28,7 @@ const ICE_SERVERS = [
 export default function Call() {
   const { token } = useParams()
   const { user, loading: authLoading } = useAuth()
+  const navigate = useNavigate()
   const [call, setCall] = useState(null)
   const [error, setError] = useState('')
   const [status, setStatus] = useState('idle')
@@ -367,7 +368,7 @@ export default function Call() {
   }
 
   return (
-    <div className="lesson-page">
+    <div className={`lesson-page ${boardId && classroom ? 'board-mode' : ''}`}>
       <header className="topbar">
         <div className="nav-identity">
           <strong>{call.title ?? 'Video call'}</strong>
@@ -426,6 +427,7 @@ export default function Call() {
         onToggleMicrophone={toggleTrack('audio')}
         cameraOn={cameraOn}
         micOn={micOn}
+        onLeave={boardId && classroom ? () => navigate('/classroom') : undefined}
         onShareScreen={shareScreen}
         hasScreenStream={Boolean(screenStream)}
         boards={classroom?.boards ?? []}

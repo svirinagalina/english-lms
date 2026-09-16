@@ -14,7 +14,8 @@ export default function Controls({
   boards = [],
   boardId,
   onOpenBoard,
-  onCloseBoard
+  onCloseBoard,
+  onLeave
 }) {
   return (
     <div className="controls">
@@ -65,12 +66,16 @@ export default function Controls({
         onClick={onNoiseToggle}
         title="Filter out background noise from your microphone"
       >
-        {noiseSuppression ? 'Noise reduction on' : 'Add noise reduction'}
+        {noiseSuppression ? (onLeave ? 'Noise on' : 'Noise reduction on') : (onLeave ? 'Noise' : 'Add noise reduction')}
       </button>
+
+      {onLeave && (
+        <button className="pill leave" onClick={onLeave} title="Leave the call">Leave</button>
+      )}
 
       <div className="blur-control">
         <button className={`pill ${isBlurEnabled ? 'on' : ''}`} onClick={onBlurToggle}>
-          {isBlurEnabled ? 'Blur on' : 'Add blur'}
+          {isBlurEnabled ? 'Blur on' : (onLeave ? 'Blur' : 'Add blur')}
         </button>
         {isBlurEnabled && (
           <input
