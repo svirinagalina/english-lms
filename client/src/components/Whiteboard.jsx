@@ -544,10 +544,89 @@ function drawHandles(ctx, box, scale, color = '#6366f1') {
   ctx.restore()
 }
 
+// --- PDF export ---------------------------------------------------------------
+
+const waitForImages = (elements) =>
+  Promise.all(
+    elements.filter((e) => e.type === 'image').map((e) => new Promise((resolve) => {
+      const image = imageFor(e.src)
+      if (image.complete) return resolve()
+      image.addEventListener('load', resolve, { once: true })
+      image.addEventListener('error', resolve, { once: true })
+    }))
+  )
+
+// Draws a board region onto a fresh canvas, white background, at `scale`.
+function renderRegion(elements, box, scale) {
+  const canvas = document.createElement('canvas')
+  canvas.width = Math.max(1, Math.round(box.w * scale))
+  canvas.height = Math.max(1, Math.round(box.h * scale))
+  const ctx = canvas.getContext('2d')
+  ctx.fillStyle = '#ffffff'
+  ctx.fillRect(0, 0, canvas.width, canvas.height)
+  ctx.scale(scale, scale)
+  ctx.translate(-box.x, -box.y)
+  const previous = measureCtx
+  measureCtx = ctx
+  for (const element of elements) drawElement(ctx, element)
+  measureCtx = previous
+  return canvas
+}
+
+const isLessonHeading = (e) => e.type === 'text' && /^— Lesson · /.test(e.text ?? '')
+
+// Every lesson on the board becomes a section; sections are cut into A4
+// pages top to bottom. A board without headings is one section.
+export async function exportBoardPdf(elements, title = 'Board') {
+  const { jsPDF } = await import('jspdf')
+  await waitForImages(elements)
+
+  const all = unionBounds(elements)
+  if (!all) return
+  const pad = 40
+  const headings = elements.filter(isLessonHeading).map((e) => e.y - pad / 2).sort((a, b) => a - b)
+  const cuts = [all.y - pad, ...headings.filter((y) => y > all.y), all.y + all.h + pad]
+  // Only sections that actually contain something make pages: a heading at
+  // the very top would otherwise leave a blank page above itself.
+  const sections = []
+  for (let i = 0; i < cuts.length - 1; i++) {
+    const y = cuts[i]
+    const h = cuts[i + 1] - cuts[i]
+    const populated = elements.some((e) => { const b = boundsOf(e); return b.y + b.h > y && b.y < y + h })
+    if (h > 1 && populated) sections.push({ y, h })
+  }
+
+  const pageW = 210
+  const pageH = 297
+  const margin = 10
+  const innerW = pageW - 2 * margin
+  const innerH = pageH - 2 * margin
+  const boxX = all.x - pad
+  const boxW = all.w + 2 * pad
+  // World units per mm, so the board's full width fits the page width.
+  const unitsPerMm = boxW / innerW
+  const sliceH = innerH * unitsPerMm
+  const scale = 4 / unitsPerMm // ≈ 4 px per mm ≈ 100 dpi
+
+  const pdf = new jsPDF({ unit: 'mm', format: 'a4' })
+  let first = true
+  for (const section of sections) {
+    for (let y = section.y; y < section.y + section.h; y += sliceH) {
+      const h = Math.min(sliceH, section.y + section.h - y)
+      const canvas = renderRegion(elements, { x: boxX, y, w: boxW, h }, Math.min(scale, 3))
+      if (!first) pdf.addPage()
+      first = false
+      pdf.addImage(canvas.toDataURL('image/jpeg', 0.85), 'JPEG', margin, margin, innerW, h / unitsPerMm)
+    }
+  }
+  pdf.save(`${title.replace(/[\\/:*?"<>|]+/g, '-')}.pdf`)
+}
+
 // --- Component ----------------------------------------------------------------
 
 export default function Whiteboard({ socketRef, boardId, title, subtitle, onClose, onUploadImage, onAssist, assistEnabled }) {
   const [assisting, setAssisting] = useState(null)
+  const [exporting, setExporting] = useState(false)
   const fileInputRef = useRef(null)
   const canvasRef = useRef(null)
   const elementsRef = useRef([])
@@ -1815,6 +1894,17 @@ export default function Whiteboard({ socketRef, boardId, title, subtitle, onClos
 
             <div className="dock-group">
               {onUploadImage && <button className="tool" onClick={startLesson} title="Add a dated heading below everything and start there">New lesson</button>}
+              <button
+                className="tool"
+                disabled={exporting}
+                onClick={async () => {
+                  setExporting(true)
+                  try { await exportBoardPdf(elementsRef.current, title ?? 'Board') } finally { setExporting(false) }
+                }}
+                title="Save the whole board as a PDF, one section per lesson"
+              >
+                {exporting ? 'Exporting…' : 'PDF'}
+              </button>
               <button className="tool danger" onClick={handleClear}>Clear</button>
             </div>
           </div>
