@@ -16,6 +16,7 @@ export const api = {
   login: (body) => request('/auth/login', { method: 'POST', body }),
   logout: () => request('/auth/logout', { method: 'POST' }),
   me: () => request('/auth/me'),
+  version: () => request('/version'),
   registrationStatus: () => request('/auth/registration-status'),
 
   listPeople: () => request('/users'),

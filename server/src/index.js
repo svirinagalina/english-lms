@@ -41,6 +41,10 @@ app.use('/api/content', contentRouter)
 
 app.get('/api/health', (req, res) => res.json({ ok: true }))
 
+// Changes with every deploy; the client reloads itself when it sees a new one.
+const BUILD_ID = process.env.BUILD_ID ?? String(Date.now())
+app.get('/api/version', (req, res) => res.json({ build: BUILD_ID }))
+
 const uploadDir = process.env.UPLOAD_DIR
   ?? path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../uploads')
 app.use('/uploads', express.static(uploadDir, { maxAge: '30d', immutable: true }))
@@ -54,8 +58,13 @@ if (process.env.NODE_ENV === 'production') {
   // Hashed assets and the blur model/runtime never change under one name.
   app.use('/assets', express.static(path.join(clientDist, 'assets'), { maxAge: '365d', immutable: true }))
   app.use('/mediapipe', express.static(path.join(clientDist, 'mediapipe'), { maxAge: '30d' }))
-  app.use(express.static(clientDist))
-  app.get('*', (req, res) => res.sendFile(path.join(clientDist, 'index.html')))
+  // The page itself must never be cached, or a browser keeps running an
+  // old bundle after a deploy.
+  app.use(express.static(clientDist, { index: false }))
+  app.get('*', (req, res) => {
+    res.set('Cache-Control', 'no-store')
+    res.sendFile(path.join(clientDist, 'index.html'))
+  })
 }
 
 const io = new Server(httpServer, {

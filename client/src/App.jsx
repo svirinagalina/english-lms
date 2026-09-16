@@ -1,4 +1,6 @@
-import { Routes, Route, Navigate, useSearchParams } from 'react-router-dom'
+import { useEffect, useRef } from 'react'
+import { Routes, Route, Navigate, useSearchParams, useLocation } from 'react-router-dom'
+import { api } from './api'
 import { useAuth } from './AuthContext'
 import Login from './pages/Login'
 import Register from './pages/Register'
@@ -32,8 +34,22 @@ function LoginRoute() {
   return user ? <Navigate to={safeNext} replace /> : <Login />
 }
 
+// A tab left open across a deploy keeps running the old bundle; on the next
+// page change it notices the new build and reloads.
+function useFreshBuild() {
+  const { pathname } = useLocation()
+  const known = useRef(null)
+  useEffect(() => {
+    api.version().then(({ build }) => {
+      if (known.current === null) known.current = build
+      else if (known.current !== build) window.location.reload()
+    }).catch(() => {})
+  }, [pathname])
+}
+
 export default function App() {
   const { user, loading } = useAuth()
+  useFreshBuild()
 
   if (loading) return <div className="centered">Loading…</div>
 
