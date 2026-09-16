@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Routes, Route, Navigate, useSearchParams, useLocation } from 'react-router-dom'
 import { api } from './api'
 import { useAuth } from './AuthContext'
@@ -39,21 +39,37 @@ function LoginRoute() {
 function useFreshBuild() {
   const { pathname } = useLocation()
   const known = useRef(null)
+  const [stale, setStale] = useState(false)
+  const check = (reloadIfNew) => api.version().then(({ build }) => {
+    if (known.current === null) known.current = build
+    else if (known.current !== build) {
+      if (reloadIfNew) window.location.reload()
+      else setStale(true)
+    }
+  }).catch(() => {})
+  // On a page change a new build reloads at once; while the user stays on
+  // one page (a call, a board) it is only offered, every minute.
+  useEffect(() => { check(true) }, [pathname])
   useEffect(() => {
-    api.version().then(({ build }) => {
-      if (known.current === null) known.current = build
-      else if (known.current !== build) window.location.reload()
-    }).catch(() => {})
-  }, [pathname])
+    const timer = setInterval(() => check(false), 60000)
+    return () => clearInterval(timer)
+  }, [])
+  return stale
 }
 
 export default function App() {
   const { user, loading } = useAuth()
-  useFreshBuild()
+  const stale = useFreshBuild()
 
   if (loading) return <div className="centered">Loading…</div>
 
   return (
+    <>
+    {stale && (
+      <div className="update-toast">
+        A new version is ready. <button onClick={() => window.location.reload()}>Reload</button>
+      </div>
+    )}
     <Routes>
       <Route path="/login" element={<LoginRoute />} />
       <Route path="/register" element={user ? <Navigate to="/" replace /> : <Register />} />
@@ -73,5 +89,6 @@ export default function App() {
       <Route path="/content" element={<RequireAuth roles={['OWNER', 'PARTNER']}><Content /></RequireAuth>} />
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
+    </>
   )
 }

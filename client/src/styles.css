@@ -639,3 +639,20 @@ select.pill { padding: 0 16px; color: var(--text); border: none; }
 .lesson-page.board-mode .blur-control { flex-wrap: nowrap; }
 .lesson-page.board-mode .blur-control input[type="range"] { width: 80px; }
 .pill.leave { border: 1px solid rgba(239, 68, 68, 0.5); color: #fca5a5; background: transparent; }
+
+.update-toast {
+  position: fixed;
+  bottom: 16px;
+  left: 16px;
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  background: #14161c;
+  border: 1px solid var(--accent);
+  border-radius: 10px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+  font-size: 13px;
+}
+.update-toast button { padding: 6px 12px; font-size: 13px; }
