@@ -99,7 +99,7 @@ unitsRouter.post('/exercises/:id/attempt', async (req, res) => {
   })
   if (!exercise) return res.status(404).json({ error: 'Exercise not found' })
 
-  const result = checkAnswer(parsed.data.answer, exercise.answers)
+  const result = checkAnswer(parsed.data.answer, exercise.answers, { prompt: exercise.prompt })
 
   // Classify against the reference answer so the follow-up drills target the
   // actual slip (a missing article, a wrong tense) rather than the chapter.

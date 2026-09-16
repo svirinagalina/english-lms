@@ -34,9 +34,9 @@ function fixPrompt(prompt, answer) {
   })
 
   // "по- пал" is a line break inside a word; "два- три" is a real hyphen.
-  text = text.replace(/([а-яё])- ([а-яё])/g, (match, a, b) => {
-    const left = text.slice(0, text.indexOf(match) + 1).match(/[а-яё]+$/)?.[0] ?? ''
-    return /^(два|три|один|одна|пять|десять|сорок)$/.test(left) ? `${a}-${b}` : a + b
+  text = text.replace(/([а-яё])- ([а-яё])/g, (match, a, b, offset) => {
+    const before = text.slice(0, offset + 2)
+    return keepsHyphen(before, text.slice(offset + 3)) ? `${a}-${b}` : a + b
   })
 
   // English prompts (fill-in exercises) suffer the same drop-cap split.
@@ -75,12 +75,52 @@ function fixAnswer(answer) {
     .trim()
 }
 
+// A hyphen at a line end is usually a break inside a word, but "по-\nанглийски"
+// and "кто-\nто" are real hyphens.
+const HYPHEN_PREFIX = /(^|\s)(по|кто|что|как|где|когда|куда|какой|какая|какие|каком|кого|чем|чему|чей|чья|чьи|откуда|отчего|почему|сколько|два|три|один|одна|пять|десять|сорок)-$/i
+const keepsHyphen = (before, after) => HYPHEN_PREFIX.test(before) || /^(то|нибудь|либо)\b/.test(after)
+
+// Theory came out of the PDF as hard-wrapped lines with hyphenated breaks.
+// Rebuild paragraphs: join the lines, mend "изу-\nчении", and start a new
+// paragraph where a sentence ends on a visibly short line.
+function reflowTheory(text) {
+  if (!text) return text
+  const lines = text.split('\n').map((line) => line.trim())
+  const lengths = lines.map((l) => l.length).filter((n) => n > 20).sort((a, b) => a - b)
+  const fullLine = lengths[Math.floor(lengths.length * 0.9)] ?? 60
+  const paragraphs = []
+  let current = ''
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i]
+    if (!line) { if (current) { paragraphs.push(current); current = '' } continue }
+    const next = lines[i + 1] ?? ''
+    if (current.endsWith('-') && /^[а-яёa-z]/.test(line)) {
+      current = keepsHyphen(current, line) ? current + line : current.slice(0, -1) + line
+    }
+    else current = current ? `${current} ${line}` : line
+    const endsSentence = /[.!?:»)]$/.test(line)
+    const short = line.length < fullLine * 0.8
+    const nextStartsFresh = /^([А-ЯЁA-Z!«]|\d)/.test(next)
+    if (endsSentence && (short || /^!/.test(next)) && nextStartsFresh) { paragraphs.push(current); current = '' }
+  }
+  if (current) paragraphs.push(current)
+  return paragraphs
+    .map((p) => fixAnswer(p.replace(/(^|[\s(«"])Т ([а-яё]+)/g, (m, lead, rest) => {
+      const glued = 'Т' + rest
+      const word = T_WORDS.find((w) => glued.startsWith(w))
+      return word ? lead + word + (glued.slice(word.length) ? ' ' + glued.slice(word.length) : '') : m
+    })).replace(/([а-яё])- ([а-яё])/g, (m, a, b, offset, whole) => keepsHyphen(whole.slice(0, offset + 2), whole.slice(offset + 3)) ? `${a}-${b}` : a + b))
+    .join('\n\n')
+}
+
 const MANUAL_PROMPTS = {
   'Тыдолжен посмотреть этотфильм, он тебе понравится.': 'Ты должен посмотреть этот фильм, он тебе понравится.',
   'Can I have __ slice of pizza? I have __ slice of pizza?': 'Can I have __ slice of pizza?'
 }
 
 for (const unit of book) {
+  // Hyphenated line breaks mark text still hard-wrapped from the PDF.
+  if (unit.theory && /-\n[а-яё]/.test(unit.theory)) unit.theory = reflowTheory(unit.theory)
   for (const exercise of unit.exercises) {
     exercise.prompt = MANUAL_PROMPTS[exercise.prompt] ?? fixPrompt(exercise.prompt, exercise.answers[0])
 

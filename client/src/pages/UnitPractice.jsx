@@ -2,6 +2,29 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { api } from '../api'
 
+// Theory text: paragraphs, "!" notes as callouts, English examples set apart.
+const ENGLISH_RUN = /((?:[A-Za-z][A-Za-z'’]*[,.!?;:]?\s?){2,}|\b[A-Za-z][A-Za-z'’]{2,}\b)/g
+
+function Theory({ text }) {
+  const paragraphs = text.split(/\n\n+/).map((p) => p.trim()).filter(Boolean)
+  return (
+    <div className="theory">
+      {paragraphs.map((paragraph, index) => {
+        const note = paragraph.startsWith('!')
+        const body = note ? paragraph.replace(/^!\s*/, '') : paragraph
+        const parts = body.split(ENGLISH_RUN)
+        return (
+          <p key={index} className={note ? 'theory-note' : undefined}>
+            {parts.map((part, i) =>
+              i % 2 === 1 ? <span key={i} className="theory-en">{part}</span> : part
+            )}
+          </p>
+        )
+      })}
+    </div>
+  )
+}
+
 export default function UnitPractice() {
   const { id } = useParams()
   const [unit, setUnit] = useState(null)
@@ -105,9 +128,7 @@ export default function UnitPractice() {
         </div>
       </header>
 
-      {showTheory && unit.theory && (
-        <div className="theory">{unit.theory}</div>
-      )}
+      {showTheory && unit.theory && <Theory text={unit.theory} />}
 
       {finished ? (
         <div className="card done-card">

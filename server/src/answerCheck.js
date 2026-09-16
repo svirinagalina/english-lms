@@ -43,8 +43,24 @@ const VARIANTS = new Map(Object.entries({
   behaviour: 'behavior', humour: 'humor', jewellery: 'jewelry', cheque: 'check',
   pyjamas: 'pajamas', tyre: 'tire', storey: 'story', kilometre: 'kilometer',
   cancelled: 'canceled', modelling: 'modeling', catalogue: 'catalog', dialogue: 'dialog',
-  learnt: 'learned', dreamt: 'dreamed', spelt: 'spelled', burnt: 'burned', smelt: 'smelled'
+  learnt: 'learned', dreamt: 'dreamed', spelt: 'spelled', burnt: 'burned', smelt: 'smelled',
+  // Everyday synonyms the book uses one of, students the other
+  cabinet: 'cupboard', bookshelf: 'bookcase', couch: 'sofa', apartment: 'flat', movie: 'film',
+  movies: 'films', store: 'shop', vacation: 'holiday', fall: 'autumn', elevator: 'lift',
+  subway: 'underground', metro: 'underground', tube: 'underground', cab: 'taxi', yard: 'garden',
+  trousers: 'pants', sneakers: 'trainers', sweets: 'candy', biscuits: 'cookies', biscuit: 'cookie',
+  chips: 'fries', motorway: 'highway', lorry: 'truck', petrol: 'gas', rubbish: 'garbage',
+  trash: 'garbage', queue: 'line', timetable: 'schedule', toilet: 'bathroom', restroom: 'bathroom',
+  cinema: 'movies', kids: 'children', kid: 'child', big: 'large', little: 'small',
+  begin: 'start', begins: 'starts', began: 'started', begun: 'started', beginning: 'starting',
+  maybe: 'perhaps', 'ice-box': 'fridge', 'air-conditioner': 'conditioner', 'air-conditioning': 'conditioner'
 }))
+
+// "this bookcase" for the key's "the bookcase" when the Russian says «этом»:
+// both render the demonstrative, so they compare as equal.
+// (\b is ASCII-only in JS, hence the explicit Cyrillic boundaries.)
+const DEMONSTRATIVE_RU = /(^|[^а-яё])эт(от|а|о|и|ом|ой|их|ого|ому|у|им|ими)(?=[^а-яё]|$)/i
+const DEMONSTRATIVES = new Set(['this', 'that', 'these', 'those'])
 
 export function normalise(value) {
   let text = String(value ?? '')
@@ -68,12 +84,44 @@ export function normalise(value) {
     .join(' ')
 }
 
-export function checkAnswer(given, accepted) {
-  const candidate = normalise(given)
-  if (!candidate) return { correct: false, matched: null }
+const foldDemonstratives = (text) =>
+  text.split(' ').map((word) => (DEMONSTRATIVES.has(word) ? 'the' : word)).join(' ')
 
-  for (const answer of accepted) {
-    if (normalise(answer) === candidate) {
+// An alternative in the key is often a phrase, not a full sentence:
+// "there isn't anyone" next to "There is no one in the kitchen". The
+// student's answer passes when it is the main answer with that phrase
+// swapped in — a prefix of the main answer, the phrase, a suffix of it.
+function matchesWithPhrase(candidate, main, phrase) {
+  const at = candidate.indexOf(phrase)
+  if (at === -1) return false
+  const head = candidate.slice(0, at).trim()
+  const tail = candidate.slice(at + phrase.length).trim()
+  const mainWords = main.split(' ')
+  const headWords = head ? head.split(' ') : []
+  const tailWords = tail ? tail.split(' ') : []
+  if (headWords.length + tailWords.length >= mainWords.length) return false
+  const startsWith = headWords.every((word, i) => mainWords[i] === word)
+  const endsWith = tailWords.every((word, i) => mainWords[mainWords.length - tailWords.length + i] === word)
+  return startsWith && endsWith
+}
+
+export function checkAnswer(given, accepted, { prompt = '' } = {}) {
+  const raw = normalise(given)
+  if (!raw) return { correct: false, matched: null }
+
+  const flexible = DEMONSTRATIVE_RU.test(prompt)
+  const fold = (text) => (flexible ? foldDemonstratives(text) : text)
+  const candidate = fold(raw)
+  const answers = accepted.map((answer) => ({ answer, norm: fold(normalise(answer)) }))
+
+  for (const { answer, norm } of answers) {
+    if (norm === candidate) return { correct: true, matched: answer }
+  }
+
+  // Phrase alternatives, swapped into the full first answer.
+  const main = answers[0]?.norm ?? ''
+  for (const { answer, norm } of answers.slice(1)) {
+    if (norm.split(' ').length < main.split(' ').length && matchesWithPhrase(candidate, main, norm)) {
       return { correct: true, matched: answer }
     }
   }
