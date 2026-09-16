@@ -51,6 +51,9 @@ if (process.env.NODE_ENV === 'production') {
     '../public'
   )
 
+  // Hashed assets and the blur model/runtime never change under one name.
+  app.use('/assets', express.static(path.join(clientDist, 'assets'), { maxAge: '365d', immutable: true }))
+  app.use('/mediapipe', express.static(path.join(clientDist, 'mediapipe'), { maxAge: '30d' }))
   app.use(express.static(clientDist))
   app.get('*', (req, res) => res.sendFile(path.join(clientDist, 'index.html')))
 }

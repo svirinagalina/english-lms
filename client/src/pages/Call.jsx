@@ -35,6 +35,7 @@ export default function Call() {
   const [copied, setCopied] = useState(false)
   const [joined, setJoined] = useState(false)
   const [noiseSuppression, setNoiseSuppression] = useState(false)
+  const [blurStatus, setBlurStatus] = useState('')
 
   const socketRef = useRef(null)
   const localStreamRef = useRef(null)
@@ -195,7 +196,10 @@ export default function Call() {
       const video = localVideoRef.current
       if (video && video.readyState >= 2) {
         try {
-          if (await videoProcessor.send(video)) frames += 1
+          if (await videoProcessor.send(video)) {
+            frames += 1
+            if (frames === 1) setMediaWarning((w) => (w.startsWith('Blur') ? '' : w))
+          }
         } catch (err) {
           fail('process a frame', err)
           return
@@ -203,21 +207,31 @@ export default function Call() {
       }
       if (!cancelled) animationRef.current = requestAnimationFrame(loop)
     }
-    // Nothing drawn after a few seconds means frames are silently rejected.
-    const watchdog = setTimeout(() => {
-      if (!cancelled && frames === 0) fail('start', new Error('no frames were processed — the camera may not be ready or WebGL is unavailable'))
-    }, 6000)
-
+    // The runtime and model are a few megabytes: say so while they load,
+    // and only once they are in, treat "no frames" as a failure.
+    let watchdog = null
     if (!hasWebGL()) {
       fail('start', new Error('WebGL is disabled in this browser; the blur needs it'))
     } else {
+      if (!videoProcessor.initialized) setBlurStatus('Loading the blur model…')
       videoProcessor.initialize()
-        .then(() => { if (!cancelled) loop() })
+        .then(() => {
+          if (cancelled) return
+          setBlurStatus('')
+          loop()
+          watchdog = setTimeout(() => {
+            if (!cancelled && frames === 0) {
+              const video = localVideoRef.current
+              fail('start', new Error(`no frames were processed (camera ${video?.videoWidth ?? 0}×${video?.videoHeight ?? 0}, ready ${video?.readyState ?? '?'})`))
+            }
+          }, 8000)
+        })
         .catch((err) => fail('start', err))
     }
     return () => {
       cancelled = true
-      clearTimeout(watchdog)
+      if (watchdog) clearTimeout(watchdog)
+      setBlurStatus('')
       videoProcessor.onFrame = null
       if (animationRef.current) cancelAnimationFrame(animationRef.current)
     }
@@ -312,6 +326,7 @@ export default function Call() {
         <div className="banner">Waiting for camera and microphone access — please allow it in the browser prompt.</div>
       )}
       {status !== 'requesting-media' && mediaWarning && <div className="banner warning">{mediaWarning}</div>}
+      {blurStatus && <div className="banner">{blurStatus}</div>}
 
       <div className="view-pane">
         <VideoGrid
