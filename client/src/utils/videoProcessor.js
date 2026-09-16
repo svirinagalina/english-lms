@@ -36,7 +36,7 @@ class VideoProcessor {
   // Runs one frame and hands back { image, segmentationMask } — the mask is a
   // canvas whose alpha is the person's confidence, ready for 'source-in'.
   async send(video) {
-    if (!this.initialized || this.busy || !video.videoWidth) return
+    if (!this.initialized || this.busy || !video.videoWidth) return false
     this.busy = true
     try {
       const scale = ANALYSIS_WIDTH / video.videoWidth
@@ -60,6 +60,7 @@ class VideoProcessor {
       }
       result.close?.()
       if (this.onFrame) this.onFrame({ image: video, segmentationMask: this.mask })
+      return true
     } finally {
       this.busy = false
     }

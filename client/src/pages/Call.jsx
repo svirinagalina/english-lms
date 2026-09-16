@@ -7,6 +7,15 @@ import VideoGrid from '../components/VideoGrid'
 import Controls from '../components/Controls'
 import { videoProcessor } from '../utils/videoProcessor'
 
+const hasWebGL = () => {
+  try {
+    const canvas = document.createElement('canvas')
+    return Boolean(canvas.getContext('webgl2') || canvas.getContext('webgl'))
+  } catch {
+    return false
+  }
+}
+
 const ICE_SERVERS = [
   { urls: 'stun:stun.l.google.com:19302' },
   { urls: 'stun:stun1.l.google.com:19302' }
@@ -172,23 +181,43 @@ export default function Call() {
       ctx.drawImage(results.image, 0, 0, width, height)
       ctx.restore()
     }
+    // A frame that fails stops the blur and says why, instead of leaving the
+    // toggle on with nothing happening.
+    let frames = 0
+    const fail = (stage, err) => {
+      console.error(`Blur ${stage}:`, err)
+      cancelled = true
+      setMediaWarning(`Blur could not ${stage}: ${err?.message ?? String(err)}`)
+      setIsBlurEnabled(false)
+    }
     const loop = async () => {
       if (cancelled) return
       const video = localVideoRef.current
       if (video && video.readyState >= 2) {
-        try { await videoProcessor.send(video) } catch (err) { console.error('Segmentation error:', err) }
+        try {
+          if (await videoProcessor.send(video)) frames += 1
+        } catch (err) {
+          fail('process a frame', err)
+          return
+        }
       }
       if (!cancelled) animationRef.current = requestAnimationFrame(loop)
     }
-    videoProcessor.initialize()
-      .then(() => { if (!cancelled) loop() })
-      .catch((err) => {
-        console.error(err)
-        setMediaWarning(`Blur could not start: ${err?.message ?? err}`)
-        setIsBlurEnabled(false)
-      })
+    // Nothing drawn after a few seconds means frames are silently rejected.
+    const watchdog = setTimeout(() => {
+      if (!cancelled && frames === 0) fail('start', new Error('no frames were processed — the camera may not be ready or WebGL is unavailable'))
+    }, 6000)
+
+    if (!hasWebGL()) {
+      fail('start', new Error('WebGL is disabled in this browser; the blur needs it'))
+    } else {
+      videoProcessor.initialize()
+        .then(() => { if (!cancelled) loop() })
+        .catch((err) => fail('start', err))
+    }
     return () => {
       cancelled = true
+      clearTimeout(watchdog)
       videoProcessor.onFrame = null
       if (animationRef.current) cancelAnimationFrame(animationRef.current)
     }
