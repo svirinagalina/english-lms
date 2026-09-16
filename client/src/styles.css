@@ -322,7 +322,7 @@ textarea:focus { outline: none; border-color: var(--accent); }
 
 .blur-control { display: flex; align-items: center; gap: 10px; }
 
-.pill { background: #2a2e38; border-radius: 21px; height: 42px; font-size: 13px; }
+.pill { background: #2a2e38; border-radius: 21px; height: 42px; font-size: 13px; white-space: nowrap; }
 .pill.on { background: var(--accent); }
 
 input[type='range'] { width: 110px; padding: 0; }
@@ -635,5 +635,7 @@ select.pill { padding: 0 16px; color: var(--text); border: none; }
   flex-wrap: nowrap;
 }
 .lesson-page.board-mode .round { min-width: 52px; height: 36px; font-size: 13px; }
-.lesson-page.board-mode .pill { height: 36px; font-size: 13px; }
+.lesson-page.board-mode .pill { height: 36px; font-size: 13px; white-space: nowrap; padding: 0 14px; }
+.lesson-page.board-mode .blur-control { flex-wrap: nowrap; }
+.lesson-page.board-mode .blur-control input[type="range"] { width: 80px; }
 .pill.leave { border: 1px solid rgba(239, 68, 68, 0.5); color: #fca5a5; background: transparent; }
