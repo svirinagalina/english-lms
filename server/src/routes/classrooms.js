@@ -140,7 +140,7 @@ classroomsRouter.get('/boards', async (req, res) => {
     include: {
       student: { select: { id: true, name: true } },
       teacher: { select: { id: true, name: true } },
-      boards: { select: { id: true, title: true, updatedAt: true }, orderBy: { createdAt: 'asc' } }
+      boards: { select: { id: true, title: true, updatedAt: true }, orderBy: { updatedAt: 'desc' } }
     }
   })
   const boards = classrooms.flatMap((classroom) =>

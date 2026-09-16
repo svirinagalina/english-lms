@@ -352,6 +352,8 @@ export default function Call() {
       if (board) add(board.classroomId, board.student)
     }
     if (!isStaff) for (const b of boards) if (b.studentId === user.id) add(b.classroomId, 'My writing')
+    // Nothing contextual (no student here yet): offer every student's writing.
+    if (!seen.size && isStaff) for (const b of boards) if (b.studentId) add(b.classroomId, b.student)
     return [...seen].map(([id, label]) => ({ id, label }))
   })()
   const openWriting = (id) => setWritingId(id)
