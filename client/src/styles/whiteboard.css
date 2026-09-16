@@ -206,3 +206,15 @@ select.tool { appearance: auto; padding: 5px 8px; }
 
 /* Not enough room for the hint next to the dock. */
 @media (max-width: 1300px) { .board-hint { display: none; } }
+
+.chip-call {
+  margin-left: 10px;
+  background: var(--accent);
+  color: #fff;
+  border: none;
+  border-radius: 7px;
+  padding: 5px 10px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}

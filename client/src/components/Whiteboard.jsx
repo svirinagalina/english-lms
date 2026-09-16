@@ -642,7 +642,7 @@ export async function exportBoardPdf(elements, title = 'Board') {
 
 // --- Component ----------------------------------------------------------------
 
-export default function Whiteboard({ socketRef, boardId, title, subtitle, onClose, onUploadImage, onAssist, assistEnabled }) {
+export default function Whiteboard({ socketRef, boardId, title, subtitle, onClose, onStartCall, onUploadImage, onAssist, assistEnabled }) {
   const [assisting, setAssisting] = useState(null)
   const [exporting, setExporting] = useState(false)
   const fileInputRef = useRef(null)
@@ -1859,6 +1859,11 @@ export default function Whiteboard({ socketRef, boardId, title, subtitle, onClos
         <div className="board-chip">
           <strong>{title ?? 'Board'}</strong>
           {subtitle && <span className="muted"> · {subtitle}</span>}
+          {onStartCall && (
+            <button className="chip-call" onClick={onStartCall} title="Start a call on this board and get a link to send">
+              Start call
+            </button>
+          )}
           {onClose && <button className="chip-close" onClick={onClose} title="Close board">×</button>}
         </div>
 

@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { Link, Navigate, useNavigate, useParams } from 'react-router-dom'
+import { Link, Navigate, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { io } from 'socket.io-client'
 import { useAuth } from '../AuthContext'
 import { api } from '../api'
@@ -28,6 +28,9 @@ const ICE_SERVERS = [
 
 export default function Call() {
   const { token } = useParams()
+  const [searchParams] = useSearchParams()
+  // A call started from a board opens on that board.
+  const requestedBoard = searchParams.get('board')
   const { user, loading: authLoading } = useAuth()
   const navigate = useNavigate()
   const [call, setCall] = useState(null)
@@ -333,12 +336,14 @@ export default function Call() {
   // as the teacher is in; the student follows through board:switched.
   const autoOpened = useRef(false)
   useEffect(() => {
-    if (status !== 'live' || !isStaff || !call?.classroomId || autoOpened.current) return
-    const first = boards.find((b) => b.classroomId === call.classroomId)
-    if (!first) return
+    if (status !== 'live' || !isStaff || autoOpened.current) return
+    const wanted = requestedBoard
+      ? boards.find((b) => b.id === requestedBoard)
+      : call?.classroomId ? boards.find((b) => b.classroomId === call.classroomId) : null
+    if (!wanted) return
     autoOpened.current = true
-    setBoardId((current) => current ?? first.id)
-  }, [status, isStaff, call, boards])
+    setBoardId((current) => current ?? wanted.id)
+  }, [status, isStaff, call, boards, requestedBoard])
 
   // Classrooms whose writing can be opened here: the call's own, else the
   // one behind the open board, else those of the students present.
@@ -480,6 +485,8 @@ export default function Call() {
         cameraOn={cameraOn}
         micOn={micOn}
         onLeave={boardId || writingId ? () => navigate('/classroom') : undefined}
+        onCopyLink={boardId || writingId ? copyLink : undefined}
+        copied={copied}
         writingChoices={writingChoices}
         writingId={writingId}
         onOpenWriting={openWriting}

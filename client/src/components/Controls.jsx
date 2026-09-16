@@ -16,6 +16,8 @@ export default function Controls({
   onOpenBoard,
   onCloseBoard,
   onLeave,
+  onCopyLink,
+  copied,
   writingChoices = [],
   writingId,
   onOpenWriting,
@@ -95,6 +97,11 @@ export default function Controls({
         )
       )}
 
+      {onCopyLink && (
+        <button className="pill" onClick={onCopyLink} title="Copy the link to send to the student">
+          {copied ? 'Link copied' : 'Copy link'}
+        </button>
+      )}
       {onLeave && (
         <button className="pill leave" onClick={onLeave} title="Leave the call">Leave</button>
       )}

@@ -104,6 +104,20 @@ export default function Classroom() {
     return () => socket.disconnect()
   }, [id])
 
+  // A call that opens straight on this board; the link in the call is what
+  // you send to the student.
+  const startCallOnBoard = async (boardId) => {
+    try {
+      const { call } = await api.createCall({
+        ...(isPersonal ? {} : { classroomId: id }),
+        title: isPersonal ? openBoard.title : `Lesson with ${classroom.student.name}`
+      })
+      navigate(`/call/${call.token}?board=${boardId}`)
+    } catch (err) {
+      setError(err.message)
+    }
+  }
+
   const startCall = async () => {
     setStarting(true)
     try {
@@ -188,6 +202,7 @@ export default function Classroom() {
             title={openBoard.title}
             subtitle={partner}
             onClose={() => setOpenBoardId(null)}
+            onStartCall={isStaff ? () => startCallOnBoard(openBoard.id) : undefined}
             onUploadImage={isStaff
               ? async (dataUrl) => {
                   try {
