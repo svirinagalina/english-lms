@@ -56,7 +56,11 @@ export default function Controls({
             title="Open a board for everyone in the call"
           >
             <option value="">Board…</option>
-            {boards.map((board) => <option key={board.id} value={board.id}>{board.title}</option>)}
+            {boards.map((board) => (
+              <option key={board.id} value={board.id}>
+                {board.student ? `${board.student} — ${board.title}` : board.title}
+              </option>
+            ))}
           </select>
         )
       )}

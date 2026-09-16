@@ -45,9 +45,13 @@ export default function Call() {
   const [noiseSuppression, setNoiseSuppression] = useState(false)
   const [blurStatus, setBlurStatus] = useState('')
   // The student's board, shown inside the call for everyone in it.
-  const [classroom, setClassroom] = useState(null)
+  // Boards this person may show in the call (students' boards, own boards).
+  const [boards, setBoards] = useState([])
   const [boardId, setBoardId] = useState(null)
   const isStaff = user && user.role !== 'STUDENT'
+  const isStaffRef = useRef(isStaff)
+  isStaffRef.current = isStaff
+  const boardsRef = useRef([])
 
   const socketRef = useRef(null)
   const localStreamRef = useRef(null)
@@ -64,7 +68,7 @@ export default function Call() {
     api.getCall(token)
       .then(({ call }) => {
         setCall(call)
-        if (call.classroomId) api.getClassroom(call.classroomId).then(({ classroom }) => setClassroom(classroom)).catch(() => {})
+        api.allBoards().then(({ boards }) => setBoards(boards)).catch(() => {})
       })
       .catch((err) => setError(err.message))
   }, [token, user])
@@ -129,8 +133,12 @@ export default function Call() {
           try { await pc.addIceCandidate(new RTCIceCandidate(candidate)) } catch (err) { console.error('ICE error:', err) }
         }
       })
-      socket.on('user-joined', ({ id: peerId, name }) => {
-        setPeers((prev) => ({ ...prev, [peerId]: { name, stream: null, muted: false } }))
+      socket.on('user-joined', ({ id: peerId, name, userId }) => {
+        setPeers((prev) => ({ ...prev, [peerId]: { name, stream: null, muted: false, userId } }))
+        // A student arriving in a call with no board yet brings their board up.
+        if (isStaffRef.current && userId) {
+          setBoardId((current) => current ?? boardsRef.current.find((b) => b.studentId === userId)?.id ?? null)
+        }
         // The newcomer needs to know whether I am muted.
         socket.emit('mic:state', { muted: !micOnRef.current })
       })
@@ -157,6 +165,7 @@ export default function Call() {
 
       socket.emit('join-call', token, async (response) => {
         if (response?.error) { setError(response.error); return }
+        if (response.boardId) setBoardId(response.boardId)
         for (const peer of response.peers) {
           setPeers((prev) => ({ ...prev, [peer.id]: { name: peer.name, stream: prev[peer.id]?.stream ?? null, muted: Boolean(peer.muted) } }))
           const pc = createConnection(peer.id, peer.name)
@@ -311,14 +320,19 @@ export default function Call() {
     }
   }
 
-  // A lesson opens on the student's board as soon as the teacher is in;
-  // the student follows through board:switched.
+  boardsRef.current = boards
+  const currentBoard = boards.find((b) => b.id === boardId) ?? null
+
+  // A call started from a student's page opens that student's board as soon
+  // as the teacher is in; the student follows through board:switched.
   const autoOpened = useRef(false)
   useEffect(() => {
-    if (status !== 'live' || !isStaff || !classroom?.boards?.[0] || autoOpened.current) return
+    if (status !== 'live' || !isStaff || !call?.classroomId || autoOpened.current) return
+    const first = boards.find((b) => b.classroomId === call.classroomId)
+    if (!first) return
     autoOpened.current = true
-    setBoardId((current) => current ?? classroom.boards[0].id)
-  }, [status, isStaff, classroom])
+    setBoardId((current) => current ?? first.id)
+  }, [status, isStaff, call, boards])
 
   const openBoard = (id) => setBoardId(id)
   const closeBoard = () => {
@@ -368,7 +382,7 @@ export default function Call() {
   }
 
   return (
-    <div className={`lesson-page ${boardId && classroom ? 'board-mode' : ''}`}>
+    <div className={`lesson-page ${boardId ? 'board-mode' : ''}`}>
       <header className="topbar">
         <div className="nav-identity">
           <strong>{call.title ?? 'Video call'}</strong>
@@ -390,17 +404,17 @@ export default function Call() {
         <VideoGrid
           peers={peers}
           micOn={micOn}
-          board={boardId && classroom ? (
+          board={boardId ? (
             <Whiteboard
               socketRef={socketRef}
               boardId={boardId}
-              title={classroom.boards.find((b) => b.id === boardId)?.title ?? 'Board'}
-              subtitle={classroom.student?.name}
+              title={currentBoard?.title ?? 'Board'}
+              subtitle={currentBoard?.student ?? currentBoard?.owner ?? undefined}
               onClose={closeBoard}
-              onUploadImage={isStaff
+              onUploadImage={isStaff && currentBoard
                 ? async (dataUrl) => {
                     try {
-                      const { src } = await api.uploadBoardImage(classroom.id, boardId, dataUrl)
+                      const { src } = await api.uploadBoardImage(currentBoard.classroomId, boardId, dataUrl)
                       return src
                     } catch (err) {
                       setError(err.message)
@@ -427,10 +441,10 @@ export default function Call() {
         onToggleMicrophone={toggleTrack('audio')}
         cameraOn={cameraOn}
         micOn={micOn}
-        onLeave={boardId && classroom ? () => navigate('/classroom') : undefined}
+        onLeave={boardId ? () => navigate('/classroom') : undefined}
         onShareScreen={shareScreen}
         hasScreenStream={Boolean(screenStream)}
-        boards={classroom?.boards ?? []}
+        boards={boards}
         boardId={boardId}
         onOpenBoard={openBoard}
         onCloseBoard={closeBoard}

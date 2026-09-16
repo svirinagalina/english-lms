@@ -47,6 +47,10 @@ async function closeSession(classroomId) {
   }
 }
 
+// Board shown in each call room: once someone with access opens it there,
+// everyone in the room may follow, whatever classroom they belong to.
+const roomBoards = new Map()
+
 export function setupSignaling(io) {
   io.use(async (socket, next) => {
     const token = readTokenCookie(socket.handshake.headers.cookie)
@@ -141,11 +145,11 @@ export function setupSignaling(io) {
       for (const id of io.sockets.adapter.rooms.get(roomId) ?? []) {
         if (id === socket.id) continue
         const peer = io.sockets.sockets.get(id)
-        if (peer) peers.push({ id, name: peer.data.name, muted: Boolean(peer.data.micMuted) })
+        if (peer) peers.push({ id, name: peer.data.name, userId: peer.data.user?.id, muted: Boolean(peer.data.micMuted) })
       }
 
-      socket.to(roomId).emit('user-joined', { id: socket.id, name: socket.data.name })
-      if (typeof ack === 'function') ack({ peers, name: socket.data.name })
+      socket.to(roomId).emit('user-joined', { id: socket.id, name: socket.data.name, userId: user.id })
+      if (typeof ack === 'function') ack({ peers, name: socket.data.name, boardId: roomBoards.get(roomId) ?? null })
     })
 
     socket.on('call:start', async (ack) => {
@@ -191,14 +195,20 @@ export function setupSignaling(io) {
 
     // --- Whiteboards ---------------------------------------------------------
 
-    // Everyone in the classroom looks at the same board at a time.
+    // Everyone in the room looks at the same board at a time. A board may be
+    // opened here when it belongs to this classroom, when this person has
+    // access to its classroom, or when it is already the room's board.
     const boardBelongsHere = async (boardId) => {
-      if (!socket.data.classroomId || typeof boardId !== 'string') return false
-      const board = await prisma.board.findFirst({
-        where: { id: boardId, classroomId: socket.data.classroomId },
-        select: { id: true }
-      })
-      return Boolean(board)
+      if (typeof boardId !== 'string') return false
+      const board = await prisma.board.findUnique({ where: { id: boardId }, select: { classroomId: true } })
+      if (!board) return false
+      const { roomId, classroomId } = socket.data
+      if (board.classroomId === classroomId) return true
+      if (roomId && roomBoards.get(roomId) === boardId) return true
+      const classroom = await accessibleClassroom(user, board.classroomId)
+      if (!classroom) return false
+      if (roomId) roomBoards.set(roomId, boardId)
+      return true
     }
 
     socket.on('board:open', async (boardId, ack) => {
@@ -208,6 +218,7 @@ export function setupSignaling(io) {
       }
 
       socket.data.boardId = boardId
+      if (socket.data.callId) roomBoards.set(socket.data.roomId, boardId)
       const elements = await loadBoard(boardId)
       socket.to(socket.data.roomId).emit('board:switched', boardId)
       if (typeof ack === 'function') ack({ elements })

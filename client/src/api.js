@@ -78,6 +78,7 @@ export const api = {
   listClassrooms: () => request('/classrooms'),
   myBoards: () => request('/classrooms/mine'),
   getClassroom: (id) => request(`/classrooms/${id}`),
+  allBoards: () => request('/classrooms/boards'),
   createBoard: (id, title) => request(`/classrooms/${id}/boards`, { method: 'POST', body: { title } }),
   renameBoard: (id, boardId, title) =>
     request(`/classrooms/${id}/boards/${boardId}`, { method: 'PATCH', body: { title } }),

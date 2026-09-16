@@ -127,6 +127,35 @@ classroomsRouter.get('/mine', requireRole('OWNER', 'TEACHER'), async (req, res) 
   res.json({ classroom: { id: space.id, boards } })
 })
 
+// Every board this person can open in a call: their students' boards
+// (all of them for an admin) and their own. Used by the call's board picker.
+classroomsRouter.get('/boards', async (req, res) => {
+  const where = isAdmin(req.user)
+    ? { schoolId: req.user.schoolId }
+    : req.user.role === 'TEACHER'
+      ? { teacherId: req.user.id }
+      : { studentId: req.user.id }
+  const classrooms = await prisma.classroom.findMany({
+    where,
+    include: {
+      student: { select: { id: true, name: true } },
+      teacher: { select: { id: true, name: true } },
+      boards: { select: { id: true, title: true, updatedAt: true }, orderBy: { createdAt: 'asc' } }
+    }
+  })
+  const boards = classrooms.flatMap((classroom) =>
+    classroom.boards.map((board) => ({
+      id: board.id,
+      title: board.title,
+      classroomId: classroom.id,
+      studentId: classroom.student?.id ?? null,
+      student: classroom.student?.name ?? null,
+      owner: classroom.student ? null : classroom.teacher.name
+    }))
+  )
+  res.json({ boards })
+})
+
 classroomsRouter.get('/:id', async (req, res) => {
   const classroom = await accessibleClassroom(req.user, req.params.id)
   if (!classroom) return res.status(404).json({ error: 'Classroom not found' })
