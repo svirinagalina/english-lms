@@ -1302,11 +1302,13 @@ export default function Whiteboard({ socketRef, boardId, title, subtitle, onClos
       return
     }
 
-    // With the text or note tool, pressing on anything selects it and switches
-    // to Move — a new text or note only ever opens on empty board. Pens and
-    // markers still draw over text, which is what a marker is for.
+    // With the text or note tool, pressing on existing text (or a note)
+    // selects it and switches to Move, so no text ever lands on top of other
+    // text. Anything else — an image above all — takes a new text on top of
+    // it. Pens and markers still draw over everything.
     const under = (tool === 'text' || tool === 'note')
-      ? [...elementsRef.current].reverse().find((element) => hitTest(element, point.x, point.y))
+      ? [...elementsRef.current].reverse().find((element) =>
+          (element.type === 'text' || element.type === 'note') && hitTest(element, point.x, point.y))
       : null
     if (under) {
       setTool('select')
