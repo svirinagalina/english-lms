@@ -39,6 +39,9 @@ function fixPrompt(prompt, answer) {
     return /^(два|три|один|одна|пять|десять|сорок)$/.test(left) ? `${a}-${b}` : a + b
   })
 
+  // English prompts (fill-in exercises) suffer the same drop-cap split.
+  if (!/[а-яё]/i.test(text)) text = fixAnswer(text)
+
   text = text
     .replace(/,([А-Яа-яё])/g, ', $1')
     .replace(/\?—/g, '? —')
@@ -119,6 +122,62 @@ for (const exercise of chapter(2).exercises) {
   }
   for (const e of unit.exercises) {
     e.answers = e.answers.map((a) => a.replace('He mihgt', 'He might').replace('brough ', 'brought ').replace('pronounciation', 'pronunciation').replace('Your sun', 'Your son'))
+  }
+}
+
+// Ch. 1, 7, 32: slips in the printed key — a wrong word, or a line from
+// another exercise where this one's answer should be.
+const KEY_FIXES = {
+  'На полу игрушки.': ['There are toys on the floor'],
+  'Я гулял в парке три часа.': ['I was walking in the park for 3 hours', 'I was walking in the park for three hours'],
+  'На полке есть несколько книг.': ['There are some books on the shelf', 'There are several books on the shelf'],
+  'Мы долго думали, куда пойти, и в конце концов решили поужинать дома.': ['We thought for a long time about where to go and in the end decided to have dinner at home', 'We were thinking for a long time where to go and in the end we decided to have dinner at home']
+}
+for (const unit of book) {
+  for (const exercise of unit.exercises) {
+    if (KEY_FIXES[exercise.prompt]) exercise.answers = KEY_FIXES[exercise.prompt]
+  }
+}
+
+// Ch. 11: a stray key line at #50 pushed the answers of #50–79 down by one,
+// and the answer of #80 ("Is it raining now?") fell off the end of the run.
+{
+  const unit = chapter(11)
+  const at = unit.exercises.findIndex((e) => e.prompt.startsWith('Какой любимый цветок'))
+  if (at !== -1 && unit.exercises[at].answers[0].startsWith('Who do these gloves')) {
+    for (let i = at; i < at + 30; i++) unit.exercises[i].answers = unit.exercises[i + 1].answers
+    unit.exercises[at + 30].answers = ['Is it raining now?']
+  }
+}
+
+// Ch. 31, #192–200: the key split one two-sentence answer over two lines,
+// lost two answers and gained a stray line, so this run is rebuilt by hand.
+{
+  const unit = chapter(31)
+  const at = unit.exercises.findIndex((e) => e.prompt.startsWith('Май — пятый месяц'))
+  if (at !== -1 && unit.exercises[at + 1].answers[0].startsWith('Saturday is')) {
+    const ex = unit.exercises
+    const old = ex.map((e) => e.answers)
+    ex[at].answers = ['May is the fifth month in a year. Saturday is the sixth day in a week']
+    ex[at + 1].answers = old[at + 2]   // What is the day today? It is the ninth of May
+    ex[at + 2].answers = old[at + 3]   // The third lesson today is English
+    ex[at + 3].answers = old[at + 4]   // After school I usually go home
+    ex[at + 4].answers = ['I usually come home at a quarter to five', 'I usually get home at a quarter to five']
+    ex[at + 6].answers = ['I get up early in the morning, go to the bathroom, turn on the water and wash my face']
+    ex[at + 7].answers = old[at + 6]   // I have lunch after the third lesson
+    ex[at + 8].answers = old[at + 7]   // There is a new school on the corner of the street
+  }
+}
+
+// Ch. 34, #15–40: the key printed this block rotated — the answers of
+// #15–24 sit at #31–40 and those of #25–40 at #15–30.
+{
+  const unit = chapter(34)
+  const at = unit.exercises.findIndex((e) => e.prompt.startsWith('Это женщина, чей сын'))
+  if (at !== -1 && unit.exercises[at].answers[0].startsWith('She likes people')) {
+    const old = unit.exercises.map((e) => e.answers)
+    for (let i = at; i < at + 10; i++) unit.exercises[i].answers = old[i + 16]
+    for (let i = at + 10; i < at + 26; i++) unit.exercises[i].answers = old[i - 10]
   }
 }
 

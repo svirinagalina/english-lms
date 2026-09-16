@@ -120,7 +120,7 @@
         "type": "TRANSLATE",
         "prompt": "На полу игрушки.",
         "answers": [
-          "There are toys in the room"
+          "There are toys on the floor"
         ],
         "tags": [
           "there-is-are"
@@ -578,7 +578,7 @@
       },
       {
         "type": "FILL_BLANK",
-        "prompt": "Is he __ T omyou told me about?",
+        "prompt": "Is he __ Tom you told me about?",
         "answers": [
           "the"
         ],
@@ -4480,7 +4480,8 @@
         "type": "TRANSLATE",
         "prompt": "Я гулял в парке три часа.",
         "answers": [
-          "I was walking in the part for 3 hours"
+          "I was walking in the park for 3 hours",
+          "I was walking in the park for three hours"
         ],
         "tags": [
           "past-continuous"
@@ -6644,7 +6645,7 @@
         "type": "TRANSLATE",
         "prompt": "Какой любимый цветок твоей мамы?",
         "answers": [
-          "Who do these gloves belong to?"
+          "What is your mother’s favorite flower?"
         ],
         "tags": [
           "present-simple-i-present-continuous"
@@ -6655,7 +6656,7 @@
         "type": "TRANSLATE",
         "prompt": "Что ты сейчас читаешь?",
         "answers": [
-          "What is your mother’s favorite flower?"
+          "What are you reading now?"
         ],
         "tags": [
           "present-simple-i-present-continuous"
@@ -6666,7 +6667,7 @@
         "type": "TRANSLATE",
         "prompt": "Сколько лет ее детям?",
         "answers": [
-          "What are you reading now?"
+          "How old are her children?"
         ],
         "tags": [
           "present-simple-i-present-continuous"
@@ -6677,7 +6678,8 @@
         "type": "TRANSLATE",
         "prompt": "Какой предмет в университете тебе нравится больше всего?",
         "answers": [
-          "How old are her children?"
+          "What subject at university do you like best?",
+          "most of all"
         ],
         "tags": [
           "present-simple-i-present-continuous"
@@ -6688,8 +6690,7 @@
         "type": "TRANSLATE",
         "prompt": "Что это за материал?",
         "answers": [
-          "What subject at university do you like best?",
-          "most of all"
+          "What is this material?"
         ],
         "tags": [
           "present-simple-i-present-continuous"
@@ -6700,7 +6701,7 @@
         "type": "TRANSLATE",
         "prompt": "Какой язык ты изучаешь?",
         "answers": [
-          "What is this material?"
+          "What language are you studying?"
         ],
         "tags": [
           "present-simple-i-present-continuous"
@@ -6711,7 +6712,7 @@
         "type": "TRANSLATE",
         "prompt": "Сколько стоит позвонить в Москву?",
         "answers": [
-          "What language are you studying?"
+          "How much does it cost to call to Moscow?"
         ],
         "tags": [
           "present-simple-i-present-continuous"
@@ -6722,7 +6723,7 @@
         "type": "TRANSLATE",
         "prompt": "Чем занимается твой брат? Он сейчас работает?",
         "answers": [
-          "How much does it cost to call to Moscow?"
+          "What does your brother do? Is he working now?"
         ],
         "tags": [
           "present-simple-i-present-continuous"
@@ -6733,7 +6734,7 @@
         "type": "TRANSLATE",
         "prompt": "Сколько кроватей в этом номере?",
         "answers": [
-          "What does your brother do? Is he working now?"
+          "How many beds are there in this room?"
         ],
         "tags": [
           "present-simple-i-present-continuous"
@@ -6744,7 +6745,7 @@
         "type": "TRANSLATE",
         "prompt": "В этом номере есть кондиционер?",
         "answers": [
-          "How many beds are there in this room?"
+          "Is there a conditioner in the room?"
         ],
         "tags": [
           "present-simple-i-present-continuous"
@@ -6755,7 +6756,7 @@
         "type": "TRANSLATE",
         "prompt": "Я сейчас обедаю, перезвони, пожалуйста, позже.",
         "answers": [
-          "Is there a conditioner in the room?"
+          "I am having lunch now, call me later."
         ],
         "tags": [
           "present-simple-i-present-continuous"
@@ -6766,7 +6767,7 @@
         "type": "TRANSLATE",
         "prompt": "Когда вы закрываетесь?",
         "answers": [
-          "I am having lunch now, call me later."
+          "When do you close?"
         ],
         "tags": [
           "present-simple-i-present-continuous"
@@ -6777,7 +6778,7 @@
         "type": "TRANSLATE",
         "prompt": "Я думаю о том, чтобы продать свою машину.",
         "answers": [
-          "When do you close?"
+          "I am thinking about selling my car."
         ],
         "tags": [
           "present-simple-i-present-continuous"
@@ -6788,7 +6789,8 @@
         "type": "TRANSLATE",
         "prompt": "Когда твой отец заканчивает работу?",
         "answers": [
-          "I am thinking about selling my car."
+          "When does your father finish his work?",
+          "his job"
         ],
         "tags": [
           "present-simple-i-present-continuous"
@@ -6799,8 +6801,7 @@
         "type": "TRANSLATE",
         "prompt": "Почему бы нам не пойти прогуляться?",
         "answers": [
-          "When does your father finish his work?",
-          "his job"
+          "Why don’t we go for a walk?"
         ],
         "tags": [
           "present-simple-i-present-continuous"
@@ -6811,7 +6812,7 @@
         "type": "TRANSLATE",
         "prompt": "Какого цвета глаза у этой кошки?",
         "answers": [
-          "Why don’t we go for a walk?"
+          "What color are this cat’s eyes?"
         ],
         "tags": [
           "present-simple-i-present-continuous"
@@ -6822,7 +6823,7 @@
         "type": "TRANSLATE",
         "prompt": "Когда у тебя день рождения?",
         "answers": [
-          "What color are this cat’s eyes?"
+          "When is it your birthday?"
         ],
         "tags": [
           "present-simple-i-present-continuous"
@@ -6833,7 +6834,7 @@
         "type": "TRANSLATE",
         "prompt": "Как хорошо он знает историю?",
         "answers": [
-          "When is it your birthday?"
+          "How well does he know history?"
         ],
         "tags": [
           "present-simple-i-present-continuous"
@@ -6844,7 +6845,7 @@
         "type": "TRANSLATE",
         "prompt": "Кому принадлежат эти книги?",
         "answers": [
-          "How well does he know history?"
+          "Who do these books belong to?"
         ],
         "tags": [
           "present-simple-i-present-continuous"
@@ -6855,7 +6856,8 @@
         "type": "TRANSLATE",
         "prompt": "Здесь кто-нибудь сидит?",
         "answers": [
-          "Who do these books belong to?"
+          "Is anyone sitting here?",
+          "anybody"
         ],
         "tags": [
           "present-simple-i-present-continuous"
@@ -6866,8 +6868,7 @@
         "type": "TRANSLATE",
         "prompt": "С кем ты разговариваешь?",
         "answers": [
-          "Is anyone sitting here?",
-          "anybody"
+          "Who are you talking with?"
         ],
         "tags": [
           "present-simple-i-present-continuous"
@@ -6878,7 +6879,7 @@
         "type": "TRANSLATE",
         "prompt": "Что ты ешь на завтрак?",
         "answers": [
-          "Who are you talking with?"
+          "What do you eat for breakfast?"
         ],
         "tags": [
           "present-simple-i-present-continuous"
@@ -6889,7 +6890,7 @@
         "type": "TRANSLATE",
         "prompt": "В этой комнате есть стол?",
         "answers": [
-          "What do you eat for breakfast?"
+          "Is there a table in this room?"
         ],
         "tags": [
           "present-simple-i-present-continuous"
@@ -6900,7 +6901,7 @@
         "type": "TRANSLATE",
         "prompt": "Здесь есть хорошие рестораны поблизости?",
         "answers": [
-          "Is there a table in this room?"
+          "Are there good restaurants nearby?"
         ],
         "tags": [
           "present-simple-i-present-continuous"
@@ -6911,7 +6912,7 @@
         "type": "TRANSLATE",
         "prompt": "Сколько у тебя есть времени?",
         "answers": [
-          "Are there good restaurants nearby?"
+          "How much time do you have?"
         ],
         "tags": [
           "present-simple-i-present-continuous"
@@ -6922,7 +6923,7 @@
         "type": "TRANSLATE",
         "prompt": "Как я могу добраться до Оксфорда?",
         "answers": [
-          "How much time do you have?"
+          "How can I get to Oxford?"
         ],
         "tags": [
           "present-simple-i-present-continuous"
@@ -6933,7 +6934,7 @@
         "type": "TRANSLATE",
         "prompt": "Есть ли какие-то автобусы отсюда до Оксфорда?",
         "answers": [
-          "How can I get to Oxford?"
+          "Are there any buses from here to Oxford?"
         ],
         "tags": [
           "present-simple-i-present-continuous"
@@ -6944,7 +6945,8 @@
         "type": "TRANSLATE",
         "prompt": "Какие фильмы ты любишь смотреть?",
         "answers": [
-          "Are there any buses from here to Oxford?"
+          "What films do you like to watch?",
+          "What kind of movies do you like watching?"
         ],
         "tags": [
           "present-simple-i-present-continuous"
@@ -6955,8 +6957,7 @@
         "type": "TRANSLATE",
         "prompt": "Почему холодильник пустой?",
         "answers": [
-          "What films do you like to watch?",
-          "What kind of movies do you like watching?"
+          "Why is the fridge empty?"
         ],
         "tags": [
           "present-simple-i-present-continuous"
@@ -6967,7 +6968,7 @@
         "type": "TRANSLATE",
         "prompt": "Здесь часто идет снег?",
         "answers": [
-          "Why is the fridge empty?"
+          "How often does it snow here?"
         ],
         "tags": [
           "present-simple-i-present-continuous"
@@ -6978,7 +6979,7 @@
         "type": "TRANSLATE",
         "prompt": "Сейчас идет дождь?",
         "answers": [
-          "How often does it snow here?"
+          "Is it raining now?"
         ],
         "tags": [
           "present-simple-i-present-continuous"
@@ -22227,7 +22228,7 @@
         "type": "TRANSLATE",
         "prompt": "Май — пятый месяц в году. Суббота — шестой день в неделе.",
         "answers": [
-          "May is the fifth month in a year"
+          "May is the fifth month in a year. Saturday is the sixth day in a week"
         ],
         "tags": [
           "articles"
@@ -22238,7 +22239,7 @@
         "type": "TRANSLATE",
         "prompt": "Какой сегодня день? — Сегодня девятое мая.",
         "answers": [
-          "Saturday is the sixth day in a week"
+          "What is the day today? It is the ninth of May"
         ],
         "tags": [
           "articles"
@@ -22249,7 +22250,7 @@
         "type": "TRANSLATE",
         "prompt": "Третий урок сегодня — английский.",
         "answers": [
-          "What is the day today? It is the ninth of May"
+          "The third lesson today is English"
         ],
         "tags": [
           "articles"
@@ -22260,7 +22261,7 @@
         "type": "TRANSLATE",
         "prompt": "После школы я обычно иду домой.",
         "answers": [
-          "The third lesson today is English"
+          "After school I usually go home"
         ],
         "tags": [
           "articles"
@@ -22271,7 +22272,8 @@
         "type": "TRANSLATE",
         "prompt": "Я прихожу домой обычно без пятнадцати пять.",
         "answers": [
-          "After school I usually go home"
+          "I usually come home at a quarter to five",
+          "I usually get home at a quarter to five"
         ],
         "tags": [
           "articles"
@@ -22293,7 +22295,7 @@
         "type": "TRANSLATE",
         "prompt": "Я встаю рано утром, иду в ванную, включаю воду и умываюсь.",
         "answers": [
-          "I have lunch after the third lesson."
+          "I get up early in the morning, go to the bathroom, turn on the water and wash my face"
         ],
         "tags": [
           "articles"
@@ -22304,7 +22306,7 @@
         "type": "TRANSLATE",
         "prompt": "Я обедаю после третьего урока.",
         "answers": [
-          "There is a new school on the corner of the street."
+          "I have lunch after the third lesson."
         ],
         "tags": [
           "articles"
@@ -22315,7 +22317,7 @@
         "type": "TRANSLATE",
         "prompt": "На углу улицы теперь новая школа.",
         "answers": [
-          "A colleague told me that there will be a big meeting on the 10th of February"
+          "There is a new school on the corner of the street."
         ],
         "tags": [
           "articles"
@@ -23226,7 +23228,8 @@
         "type": "TRANSLATE",
         "prompt": "На полке есть несколько книг.",
         "answers": [
-          "They crashed at the crossroads"
+          "There are some books on the shelf",
+          "There are several books on the shelf"
         ],
         "tags": [
           "predlogi"
@@ -23667,7 +23670,8 @@
         "type": "TRANSLATE",
         "prompt": "Мы долго думали, куда пойти, и в конце концов решили поужинать дома.",
         "answers": [
-          "You will be able to ask your question at the end of the meeting"
+          "We thought for a long time about where to go and in the end decided to have dinner at home",
+          "We were thinking for a long time where to go and in the end we decided to have dinner at home"
         ],
         "tags": [
           "predlogi"
@@ -25486,7 +25490,7 @@
         "type": "TRANSLATE",
         "prompt": "Это женщина, чей сын попал в тюрьму.",
         "answers": [
-          "She likes people who are fun to be with"
+          "This is the woman whose son was put to jail"
         ],
         "tags": [
           "relative-clauses-pridatochnye-predlozhen"
@@ -25497,7 +25501,7 @@
         "type": "TRANSLATE",
         "prompt": "Если у вас есть вопросы, спросите девушку, которая стоит у входа.",
         "answers": [
-          "My friend Andrew, who is Scottish, plays a bagpipe"
+          "If you have questions, ask the girl standing next to the door"
         ],
         "tags": [
           "relative-clauses-pridatochnye-predlozhen"
@@ -25508,7 +25512,7 @@
         "type": "TRANSLATE",
         "prompt": "Это кресло, которое плотник починил вчера.",
         "answers": [
-          "The politicians telling lies are disgusting"
+          "This is the chair which was repaired by the carpenter yesterday"
         ],
         "tags": [
           "relative-clauses-pridatochnye-predlozhen"
@@ -25519,7 +25523,7 @@
         "type": "TRANSLATE",
         "prompt": "Это бассейн, куда я раньше ходил плавать.",
         "answers": [
-          "Politicians, each of whom tells lies, are disgusting"
+          "This is the swimming pool where I used to go swimming"
         ],
         "tags": [
           "relative-clauses-pridatochnye-predlozhen"
@@ -25530,7 +25534,7 @@
         "type": "TRANSLATE",
         "prompt": "Это человек, чья жена — известная актриса.",
         "answers": [
-          "My favorite building in Colone is the church which was being built for 800 years"
+          "This is the man whose wife is a famous actress"
         ],
         "tags": [
           "relative-clauses-pridatochnye-predlozhen"
@@ -25541,7 +25545,7 @@
         "type": "TRANSLATE",
         "prompt": "Это женщина, машина которой была украдена.",
         "answers": [
-          "Did you like the present I gave you?"
+          "This is the woman whose car was stolen"
         ],
         "tags": [
           "relative-clauses-pridatochnye-predlozhen"
@@ -25552,7 +25556,7 @@
         "type": "TRANSLATE",
         "prompt": "Ресторан, куда я ходил на прошлой неделе, был очень дорогим.",
         "answers": [
-          "Who was the person who you were speaking with?"
+          "The restaurant where I went last week was very expensive"
         ],
         "tags": [
           "relative-clauses-pridatochnye-predlozhen"
@@ -25563,7 +25567,7 @@
         "type": "TRANSLATE",
         "prompt": "Фильм, который я посмотрел вчера вечером, не был интересным.",
         "answers": [
-          "What I especially like in Dave is his sense of humor"
+          "The film I watched yesterday evening was not interesting"
         ],
         "tags": [
           "relative-clauses-pridatochnye-predlozhen"
@@ -25574,7 +25578,7 @@
         "type": "TRANSLATE",
         "prompt": "Майкл, чей отец — судья, работает полицейским.",
         "answers": [
-          "I met with a person who work in advertising"
+          "Michael, whose father is a judge, works as a police officer"
         ],
         "tags": [
           "relative-clauses-pridatochnye-predlozhen"
@@ -25585,7 +25589,7 @@
         "type": "TRANSLATE",
         "prompt": "Собака, которую мне подарили, очень дружелюбная.",
         "answers": [
-          "I will give you a book which has changed my life"
+          "The dog I was given is very friendly"
         ],
         "tags": [
           "relative-clauses-pridatochnye-predlozhen"
@@ -25596,7 +25600,7 @@
         "type": "TRANSLATE",
         "prompt": "Она любит людей, с которыми весело.",
         "answers": [
-          "This is the funniest film that I have ever seen"
+          "She likes people who are fun to be with"
         ],
         "tags": [
           "relative-clauses-pridatochnye-predlozhen"
@@ -25607,7 +25611,7 @@
         "type": "TRANSLATE",
         "prompt": "Мой друг Андрю, шотландец, играет на волынке.",
         "answers": [
-          "Come in and meet the people I work with"
+          "My friend Andrew, who is Scottish, plays a bagpipe"
         ],
         "tags": [
           "relative-clauses-pridatochnye-predlozhen"
@@ -25618,7 +25622,7 @@
         "type": "TRANSLATE",
         "prompt": "Политики, говорящие ложь, отвратительны.",
         "answers": [
-          "This is the book I told you about"
+          "The politicians telling lies are disgusting"
         ],
         "tags": [
           "relative-clauses-pridatochnye-predlozhen"
@@ -25629,7 +25633,7 @@
         "type": "TRANSLATE",
         "prompt": "Политики, каждый из которых лгун, отвратительны.",
         "answers": [
-          "She is a friend you can always rely on"
+          "Politicians, each of whom tells lies, are disgusting"
         ],
         "tags": [
           "relative-clauses-pridatochnye-predlozhen"
@@ -25640,7 +25644,7 @@
         "type": "TRANSLATE",
         "prompt": "Мое любимое здание в Кельне — церковь, которую строили в течение 800 лет.",
         "answers": [
-          "Paul, who has written many books, addressed the audience"
+          "My favorite building in Colone is the church which was being built for 800 years"
         ],
         "tags": [
           "relative-clauses-pridatochnye-predlozhen"
@@ -25651,7 +25655,7 @@
         "type": "TRANSLATE",
         "prompt": "Тебе понравился подарок, который я тебе дал?",
         "answers": [
-          "His last book, which received many praises, has become a success"
+          "Did you like the present I gave you?"
         ],
         "tags": [
           "relative-clauses-pridatochnye-predlozhen"
@@ -25662,7 +25666,7 @@
         "type": "TRANSLATE",
         "prompt": "Кто был тот человек, с которым ты разговаривал?",
         "answers": [
-          "This is the woman whose son was put to jail"
+          "Who was the person who you were speaking with?"
         ],
         "tags": [
           "relative-clauses-pridatochnye-predlozhen"
@@ -25673,7 +25677,7 @@
         "type": "TRANSLATE",
         "prompt": "Что мне особенно нравится в Дейве, так это чувство юмора.",
         "answers": [
-          "If you have questions, ask the girl standing next to the door"
+          "What I especially like in Dave is his sense of humor"
         ],
         "tags": [
           "relative-clauses-pridatochnye-predlozhen"
@@ -25684,7 +25688,7 @@
         "type": "TRANSLATE",
         "prompt": "Я познакомился с человеком, который работает в рекламе.",
         "answers": [
-          "This is the chair which was repaired by the carpenter yesterday"
+          "I met with a person who work in advertising"
         ],
         "tags": [
           "relative-clauses-pridatochnye-predlozhen"
@@ -25695,7 +25699,7 @@
         "type": "TRANSLATE",
         "prompt": "Я дам тебе почитать книгу, которая изменила мою жизнь.",
         "answers": [
-          "This is the swimming pool where I used to go swimming"
+          "I will give you a book which has changed my life"
         ],
         "tags": [
           "relative-clauses-pridatochnye-predlozhen"
@@ -25706,7 +25710,7 @@
         "type": "TRANSLATE",
         "prompt": "Это самый смешной фильм, который я когда-либо видел.",
         "answers": [
-          "This is the man whose wife is a famous actress"
+          "This is the funniest film that I have ever seen"
         ],
         "tags": [
           "relative-clauses-pridatochnye-predlozhen"
@@ -25717,7 +25721,7 @@
         "type": "TRANSLATE",
         "prompt": "Заходи и познакомься с людьми, с которыми я работаю.",
         "answers": [
-          "This is the woman whose car was stolen"
+          "Come in and meet the people I work with"
         ],
         "tags": [
           "relative-clauses-pridatochnye-predlozhen"
@@ -25728,7 +25732,7 @@
         "type": "TRANSLATE",
         "prompt": "Это книга, о которой я тебе говорил.",
         "answers": [
-          "The restaurant where I went last week was very expensive"
+          "This is the book I told you about"
         ],
         "tags": [
           "relative-clauses-pridatochnye-predlozhen"
@@ -25739,7 +25743,7 @@
         "type": "TRANSLATE",
         "prompt": "Она друг, на которого всегда можно положиться.",
         "answers": [
-          "The film I watched yesterday evening was not interesting"
+          "She is a friend you can always rely on"
         ],
         "tags": [
           "relative-clauses-pridatochnye-predlozhen"
@@ -25750,7 +25754,7 @@
         "type": "TRANSLATE",
         "prompt": "Пол, который написал несколько книг, обратился к собранию.",
         "answers": [
-          "Michael, whose father is a judge, works as a police officer"
+          "Paul, who has written many books, addressed the audience"
         ],
         "tags": [
           "relative-clauses-pridatochnye-predlozhen"
@@ -25761,7 +25765,7 @@
         "type": "TRANSLATE",
         "prompt": "Его последняя книга, которая получила много похвал, стала большим успехом.",
         "answers": [
-          "The dog I was given is very friendly"
+          "His last book, which received many praises, has become a success"
         ],
         "tags": [
           "relative-clauses-pridatochnye-predlozhen"
