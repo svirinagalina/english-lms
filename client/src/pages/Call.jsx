@@ -5,6 +5,7 @@ import { useAuth } from '../AuthContext'
 import { api } from '../api'
 import VideoGrid from '../components/VideoGrid'
 import Controls from '../components/Controls'
+import Whiteboard from '../components/Whiteboard'
 import { videoProcessor } from '../utils/videoProcessor'
 
 const hasWebGL = () => {
@@ -36,6 +37,10 @@ export default function Call() {
   const [joined, setJoined] = useState(false)
   const [noiseSuppression, setNoiseSuppression] = useState(false)
   const [blurStatus, setBlurStatus] = useState('')
+  // The student's board, shown inside the call for everyone in it.
+  const [classroom, setClassroom] = useState(null)
+  const [boardId, setBoardId] = useState(null)
+  const isStaff = user && user.role !== 'STUDENT'
 
   const socketRef = useRef(null)
   const localStreamRef = useRef(null)
@@ -50,7 +55,10 @@ export default function Call() {
   useEffect(() => {
     if (!user) return
     api.getCall(token)
-      .then(({ call }) => setCall(call))
+      .then(({ call }) => {
+        setCall(call)
+        if (call.classroomId) api.getClassroom(call.classroomId).then(({ classroom }) => setClassroom(classroom)).catch(() => {})
+      })
       .catch((err) => setError(err.message))
   }, [token, user])
 
@@ -122,6 +130,9 @@ export default function Call() {
         delete connectionsRef.current[peerId]
         setPeers((prev) => { const next = { ...prev }; delete next[peerId]; return next })
       })
+      // Follow the other side's board: opening or closing it there does it here too.
+      socket.on('board:switched', (id) => setBoardId(id))
+      socket.on('board:closed', () => setBoardId(null))
       socket.on('drawing', ({ x0, y0, x1, y1, color }) => {
         const canvas = drawingCanvasRef.current
         if (!canvas) return
@@ -268,6 +279,12 @@ export default function Call() {
     }
   }
 
+  const openBoard = (id) => setBoardId(id)
+  const closeBoard = () => {
+    setBoardId(null)
+    socketRef.current?.emit('board:close')
+  }
+
   const copyLink = async () => {
     try {
       await navigator.clipboard.writeText(window.location.href)
@@ -331,6 +348,26 @@ export default function Call() {
       <div className="view-pane">
         <VideoGrid
           peers={peers}
+          board={boardId && classroom ? (
+            <Whiteboard
+              socketRef={socketRef}
+              boardId={boardId}
+              title={classroom.boards.find((b) => b.id === boardId)?.title ?? 'Board'}
+              subtitle={classroom.student?.name}
+              onClose={closeBoard}
+              onUploadImage={isStaff
+                ? async (dataUrl) => {
+                    try {
+                      const { src } = await api.uploadBoardImage(classroom.id, boardId, dataUrl)
+                      return src
+                    } catch (err) {
+                      setError(err.message)
+                      return null
+                    }
+                  }
+                : undefined}
+            />
+          ) : null}
           screenStream={screenStream}
           localVideoRef={localVideoRef}
           screenVideoRef={screenVideoRef}
@@ -348,6 +385,10 @@ export default function Call() {
         onToggleMicrophone={toggleTrack('audio')}
         onShareScreen={shareScreen}
         hasScreenStream={Boolean(screenStream)}
+        boards={classroom?.boards ?? []}
+        boardId={boardId}
+        onOpenBoard={openBoard}
+        onCloseBoard={closeBoard}
         isBlurEnabled={isBlurEnabled}
         onBlurToggle={() => setIsBlurEnabled((v) => !v)}
         blurAmount={blurAmount}

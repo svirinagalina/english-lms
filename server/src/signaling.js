@@ -239,6 +239,14 @@ export function setupSignaling(io) {
       }
     })
 
+    // Whoever closes the board in a call closes it for everyone there.
+    socket.on('board:close', () => {
+      const { roomId } = socket.data
+      if (!roomId) return
+      socket.data.boardId = null
+      socket.to(roomId).emit('board:closed')
+    })
+
     socket.on('board:clear', async () => {
       const { boardId, roomId } = socket.data
       if (!boardId) return

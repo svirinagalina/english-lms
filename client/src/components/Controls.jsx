@@ -10,7 +10,11 @@ export default function Controls({
   blurAmount,
   onBlurChange,
   noiseSuppression,
-  onNoiseToggle
+  onNoiseToggle,
+  boards = [],
+  boardId,
+  onOpenBoard,
+  onCloseBoard
 }) {
   const [cameraOn, setCameraOn] = useState(true)
   const [micOn, setMicOn] = useState(true)
@@ -40,6 +44,24 @@ export default function Controls({
       >
         Screen
       </button>
+
+      {boards.length > 0 && (
+        boardId ? (
+          <button className="round on" onClick={onCloseBoard} title="Close the board for everyone">Board</button>
+        ) : boards.length === 1 ? (
+          <button className="round" onClick={() => onOpenBoard(boards[0].id)} title="Open the student's board for everyone in the call">Board</button>
+        ) : (
+          <select
+            className="pill"
+            value=""
+            onChange={(e) => { if (e.target.value) onOpenBoard(e.target.value) }}
+            title="Open a board for everyone in the call"
+          >
+            <option value="">Board…</option>
+            {boards.map((board) => <option key={board.id} value={board.id}>{board.title}</option>)}
+          </select>
+        )
+      )}
 
       <button
         className={`pill ${noiseSuppression ? 'on' : ''}`}

@@ -22,6 +22,7 @@ function PeerVideo({ stream, name }) {
 
 export default function VideoGrid({
   peers,
+  board,
   screenStream,
   localVideoRef,
   screenVideoRef,
@@ -89,8 +90,9 @@ export default function VideoGrid({
   }
 
   return (
-    <div className={`stage ${screenStream ? 'with-screen' : ''}`}>
-      {screenStream && (
+    <div className={`stage ${screenStream || board ? 'with-screen' : ''}`}>
+      {board && <div className="board-area">{board}</div>}
+      {screenStream && !board && (
         <div className="screen-area">
           <video
             ref={screenVideoRef}

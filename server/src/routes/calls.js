@@ -36,7 +36,9 @@ callsRouter.get('/token/:token', async (req, res) => {
     call: {
       title: call.title,
       host: call.host.name,
-      schoolName: call.school.name
+      schoolName: call.school.name,
+      // The student's board can be opened inside the call.
+      classroomId: call.classroomId
     }
   })
 })

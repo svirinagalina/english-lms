@@ -573,3 +573,15 @@ button.small { padding: 2px 8px; }
 
 .subheader { margin-top: 18px; }
 .back-link { font-weight: 600; }
+
+/* The student's board inside a call takes the stage; videos shrink to a column. */
+.board-area {
+  flex: 1;
+  position: relative;
+  min-width: 0;
+  border-radius: 10px;
+  overflow: hidden;
+  border: 1px solid var(--border);
+}
+.board-area .whiteboard { height: 100%; }
+select.pill { padding: 0 16px; color: var(--text); border: none; }
