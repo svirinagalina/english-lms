@@ -8,6 +8,9 @@ import Controls from '../components/Controls'
 import Whiteboard from '../components/Whiteboard'
 import { videoProcessor } from '../utils/videoProcessor'
 
+// Older Safari cannot blur inside a canvas; there the layer is blurred by CSS.
+const CANVAS_FILTER = typeof CanvasRenderingContext2D !== 'undefined' && 'filter' in CanvasRenderingContext2D.prototype
+
 const hasWebGL = () => {
   try {
     const canvas = document.createElement('canvas')
@@ -32,7 +35,7 @@ export default function Call() {
   const [peers, setPeers] = useState({})
   const [screenStream, setScreenStream] = useState(null)
   const [isBlurEnabled, setIsBlurEnabled] = useState(false)
-  const [blurAmount, setBlurAmount] = useState(28)
+  const [blurAmount, setBlurAmount] = useState(20)
   const [copied, setCopied] = useState(false)
   const [joined, setJoined] = useState(false)
   const [noiseSuppression, setNoiseSuppression] = useState(false)
@@ -180,9 +183,20 @@ export default function Call() {
       if (canvas.width !== width || canvas.height !== height) { canvas.width = width; canvas.height = height }
       if (background.width !== width || background.height !== height) { background.width = width; background.height = height }
 
-      // The whole frame goes on a canvas blurred by CSS (Safari has no
-      // canvas filter); the person, cut out by the mask, is drawn on top.
-      background.getContext('2d').drawImage(results.image, 0, 0, width, height)
+      // The blurred frame goes on its own canvas, the person (cut out by the
+      // mask) on top. Blurring happens at the video's own resolution, and the
+      // frame is drawn a little past the edges so the blur has no transparent
+      // rim that would let the sharp video underneath show through.
+      const bg = background.getContext('2d')
+      const margin = blurAmount * 2
+      if (CANVAS_FILTER) {
+        bg.save()
+        bg.filter = `blur(${blurAmount}px)`
+        bg.drawImage(results.image, -margin, -margin, width + 2 * margin, height + 2 * margin)
+        bg.restore()
+      } else {
+        bg.drawImage(results.image, 0, 0, width, height)
+      }
 
       const ctx = canvas.getContext('2d')
       ctx.save()
@@ -279,6 +293,15 @@ export default function Call() {
     }
   }
 
+  // A lesson opens on the student's board as soon as the teacher is in;
+  // the student follows through board:switched.
+  const autoOpened = useRef(false)
+  useEffect(() => {
+    if (status !== 'live' || !isStaff || !classroom?.boards?.[0] || autoOpened.current) return
+    autoOpened.current = true
+    setBoardId((current) => current ?? classroom.boards[0].id)
+  }, [status, isStaff, classroom])
+
   const openBoard = (id) => setBoardId(id)
   const closeBoard = () => {
     setBoardId(null)
@@ -374,7 +397,7 @@ export default function Call() {
           drawingCanvasRef={drawingCanvasRef}
           processingCanvasRef={processingCanvasRef}
           backgroundCanvasRef={backgroundCanvasRef}
-          blurAmount={blurAmount}
+          cssBlur={CANVAS_FILTER ? 0 : blurAmount}
           isBlurEnabled={isBlurEnabled}
           socketRef={socketRef}
         />
