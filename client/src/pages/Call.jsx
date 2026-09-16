@@ -6,6 +6,7 @@ import { api } from '../api'
 import VideoGrid from '../components/VideoGrid'
 import Controls from '../components/Controls'
 import Whiteboard from '../components/Whiteboard'
+import Writing from '../components/Writing'
 import { videoProcessor } from '../utils/videoProcessor'
 
 // Older Safari cannot blur inside a canvas; there the layer is blurred by CSS.
@@ -47,6 +48,8 @@ export default function Call() {
   // The student's board, shown inside the call for everyone in it.
   // Boards this person may show in the call (students' boards, own boards).
   const [boards, setBoards] = useState([])
+  // Writing document open in the call, by classroom id; it covers the board.
+  const [writingId, setWritingId] = useState(null)
   const [boardId, setBoardId] = useState(null)
   const isStaff = user && user.role !== 'STUDENT'
   const isStaffRef = useRef(isStaff)
@@ -153,6 +156,8 @@ export default function Call() {
       // Follow the other side's board: opening or closing it there does it here too.
       socket.on('board:switched', (id) => setBoardId(id))
       socket.on('board:closed', () => setBoardId(null))
+      socket.on('doc:switched', (id) => setWritingId(id))
+      socket.on('doc:closed', () => setWritingId(null))
       socket.on('drawing', ({ x0, y0, x1, y1, color }) => {
         const canvas = drawingCanvasRef.current
         if (!canvas) return
@@ -166,6 +171,7 @@ export default function Call() {
       socket.emit('join-call', token, async (response) => {
         if (response?.error) { setError(response.error); return }
         if (response.boardId) setBoardId(response.boardId)
+        if (response.docId) setWritingId(response.docId)
         for (const peer of response.peers) {
           setPeers((prev) => ({ ...prev, [peer.id]: { name: peer.name, stream: prev[peer.id]?.stream ?? null, muted: Boolean(peer.muted) } }))
           const pc = createConnection(peer.id, peer.name)
@@ -334,6 +340,26 @@ export default function Call() {
     setBoardId((current) => current ?? first.id)
   }, [status, isStaff, call, boards])
 
+  // Classrooms whose writing can be opened here: the call's own, else the
+  // one behind the open board, else those of the students present.
+  const writingChoices = (() => {
+    const seen = new Map()
+    const add = (classroomId, label) => { if (classroomId && !seen.has(classroomId)) seen.set(classroomId, label) }
+    if (call?.classroomId) add(call.classroomId, boards.find((b) => b.classroomId === call.classroomId)?.student ?? 'Student')
+    if (currentBoard?.studentId) add(currentBoard.classroomId, currentBoard.student)
+    for (const peer of Object.values(peers)) {
+      const board = boards.find((b) => b.studentId && b.studentId === peer.userId)
+      if (board) add(board.classroomId, board.student)
+    }
+    if (!isStaff) for (const b of boards) if (b.studentId === user.id) add(b.classroomId, 'My writing')
+    return [...seen].map(([id, label]) => ({ id, label }))
+  })()
+  const openWriting = (id) => setWritingId(id)
+  const closeWriting = () => {
+    setWritingId(null)
+    socketRef.current?.emit('doc:close')
+  }
+
   const openBoard = (id) => setBoardId(id)
   const closeBoard = () => {
     setBoardId(null)
@@ -382,7 +408,7 @@ export default function Call() {
   }
 
   return (
-    <div className={`lesson-page ${boardId ? 'board-mode' : ''}`}>
+    <div className={`lesson-page ${boardId || writingId ? 'board-mode' : ''}`}>
       <header className="topbar">
         <div className="nav-identity">
           <strong>{call.title ?? 'Video call'}</strong>
@@ -404,7 +430,17 @@ export default function Call() {
         <VideoGrid
           peers={peers}
           micOn={micOn}
-          board={boardId ? (
+          board={writingId ? (
+            <Writing
+              socketRef={socketRef}
+              classroomId={writingId}
+              user={user}
+              title="Writing"
+              subtitle={writingChoices.find((c) => c.id === writingId)?.label ?? boards.find((b) => b.classroomId === writingId)?.student}
+              onClose={closeWriting}
+              embedded
+            />
+          ) : boardId ? (
             <Whiteboard
               socketRef={socketRef}
               boardId={boardId}
@@ -441,7 +477,11 @@ export default function Call() {
         onToggleMicrophone={toggleTrack('audio')}
         cameraOn={cameraOn}
         micOn={micOn}
-        onLeave={boardId ? () => navigate('/classroom') : undefined}
+        onLeave={boardId || writingId ? () => navigate('/classroom') : undefined}
+        writingChoices={writingChoices}
+        writingId={writingId}
+        onOpenWriting={openWriting}
+        onCloseWriting={closeWriting}
         onShareScreen={shareScreen}
         hasScreenStream={Boolean(screenStream)}
         boards={boards}

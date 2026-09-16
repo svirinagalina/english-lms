@@ -4,6 +4,7 @@ import { io } from 'socket.io-client'
 import { useAuth } from '../AuthContext'
 import { api } from '../api'
 import Whiteboard from '../components/Whiteboard'
+import Writing from '../components/Writing'
 import Nav from '../components/Nav'
 import BoardRow from '../components/BoardRow'
 
@@ -62,6 +63,7 @@ export default function Classroom() {
   const [classroom, setClassroom] = useState(null)
   const [error, setError] = useState('')
   const [openBoardId, setOpenBoardId] = useState(searchParams.get('board'))
+  const [writingOpen, setWritingOpen] = useState(searchParams.get('writing') === '1')
   const [title, setTitle] = useState('')
   const [starting, setStarting] = useState(false)
   const [assistEnabled, setAssistEnabled] = useState(false)
@@ -158,6 +160,23 @@ export default function Classroom() {
     ? 'My boards'
     : user.role === 'STUDENT' ? classroom.teacher.name : classroom.student.name
   const openBoard = classroom.boards.find((b) => b.id === openBoardId)
+
+  if (writingOpen && !isPersonal) {
+    return (
+      <div className="lesson-page">
+        <div className="view-pane">
+          <Writing
+            socketRef={socketRef}
+            classroomId={id}
+            user={user}
+            title="Writing"
+            subtitle={partner}
+            onClose={() => setWritingOpen(false)}
+          />
+        </div>
+      </div>
+    )
+  }
 
   if (openBoard) {
     return (
@@ -259,6 +278,18 @@ export default function Classroom() {
           ))}
         </div>
       </section>
+
+      {!isPersonal && (
+        <section>
+          <h2>Writing</h2>
+          <p className="muted" style={{ marginBottom: 10 }}>
+            {user.role === 'STUDENT'
+              ? 'Write your essays and texts here; your teacher corrects them with tracked changes you can accept or reject.'
+              : 'The student writes here; your corrections show as tracked changes, like suggestions in Google Docs. Also opens inside a call.'}
+          </p>
+          <button onClick={() => setWritingOpen(true)}>Open writing</button>
+        </section>
+      )}
 
       {isStaff && classroom.progress && <PackagePanel classroom={classroom} onChanged={refresh} />}
 

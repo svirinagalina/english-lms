@@ -9,6 +9,7 @@ import {
   deleteElement,
   clearBoard
 } from './boardStore.js'
+import { loadDocument, replaceDocument, runsSchema } from './docStore.js'
 
 // A call that resumes within this window continues the previous session rather
 // than counting as a second lesson — reconnects should not inflate the count.
@@ -50,6 +51,8 @@ async function closeSession(classroomId) {
 // Board shown in each call room: once someone with access opens it there,
 // everyone in the room may follow, whatever classroom they belong to.
 const roomBoards = new Map()
+// Likewise for the writing document shown in a call (by classroom id).
+const roomDocs = new Map()
 
 export function setupSignaling(io) {
   io.use(async (socket, next) => {
@@ -149,7 +152,7 @@ export function setupSignaling(io) {
       }
 
       socket.to(roomId).emit('user-joined', { id: socket.id, name: socket.data.name, userId: user.id })
-      if (typeof ack === 'function') ack({ peers, name: socket.data.name, boardId: roomBoards.get(roomId) ?? null })
+      if (typeof ack === 'function') ack({ peers, name: socket.data.name, boardId: roomBoards.get(roomId) ?? null, docId: roomDocs.get(roomId) ?? null })
     })
 
     socket.on('call:start', async (ack) => {
@@ -264,6 +267,53 @@ export function setupSignaling(io) {
       if (!roomId) return
       socket.data.boardId = null
       socket.to(roomId).emit('board:closed')
+    })
+
+    // --- Writing documents ---------------------------------------------------
+    // One per classroom. Opened in a call, it is shared with everyone there;
+    // otherwise only the classroom's own teacher and student may open it.
+
+    const docAllowed = async (classroomId) => {
+      if (typeof classroomId !== 'string') return false
+      const { roomId } = socket.data
+      if (socket.data.classroomId === classroomId) return true
+      if (roomId && roomDocs.get(roomId) === classroomId) return true
+      const classroom = await accessibleClassroom(user, classroomId)
+      return Boolean(classroom)
+    }
+
+    socket.on('doc:open', async (classroomId, ack) => {
+      if (!(await docAllowed(classroomId))) {
+        if (typeof ack === 'function') ack({ error: 'Document not found' })
+        return
+      }
+      socket.data.docId = classroomId
+      if (socket.data.callId) roomDocs.set(socket.data.roomId, classroomId)
+      let runs
+      try {
+        runs = await loadDocument(classroomId)
+      } catch (error) {
+        console.error('Document load failed:', error.message)
+        if (typeof ack === 'function') ack({ error: 'Could not load the document' })
+        return
+      }
+      socket.to(socket.data.roomId).emit('doc:switched', classroomId)
+      if (typeof ack === 'function') ack({ runs })
+    })
+
+    socket.on('doc:update', async (raw) => {
+      const { docId, roomId } = socket.data
+      if (!docId) return
+      const parsed = runsSchema.safeParse(raw)
+      if (!parsed.success) return
+      replaceDocument(docId, parsed.data)
+      socket.to(roomId).emit('doc:update', { classroomId: docId, runs: parsed.data, from: socket.id })
+    })
+
+    socket.on('doc:close', () => {
+      const { roomId } = socket.data
+      socket.data.docId = null
+      if (roomId) socket.to(roomId).emit('doc:closed')
     })
 
     socket.on('board:clear', async () => {

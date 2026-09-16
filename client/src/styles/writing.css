@@ -1,0 +1,76 @@
+.writing {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  background: #e9ebef;
+  color: #111827;
+}
+
+.writing-bar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 16px;
+  background: #14161c;
+  color: var(--text);
+  border-bottom: 1px solid var(--border);
+  flex-wrap: wrap;
+}
+.writing-title { min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.writing-stats { font-size: 12px; }
+
+.writing-page-wrap {
+  position: relative;
+  flex: 1;
+  overflow-y: auto;
+  padding: 28px 16px 60px;
+}
+
+.writing-page {
+  max-width: 820px;
+  min-height: 60vh;
+  margin: 0 auto;
+  background: #fff;
+  border-radius: 6px;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.12);
+  padding: 56px 64px;
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 17px;
+  line-height: 1.7;
+  white-space: pre-wrap;
+  word-break: break-word;
+  outline: none;
+  caret-color: #111827;
+}
+.writing-page:empty::before { content: attr(data-placeholder); color: #9ca3af; }
+
+.run.ins { color: #15803d; background: rgba(34, 197, 94, 0.14); text-decoration: underline; text-decoration-color: #15803d; }
+.run.del { color: #b91c1c; background: rgba(239, 68, 68, 0.12); text-decoration: line-through; text-decoration-color: #b91c1c; }
+.run.ins, .run.del { cursor: pointer; border-radius: 2px; }
+
+.writing-popover {
+  position: absolute;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  background: #14161c;
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.3);
+  z-index: 5;
+  font-size: 13px;
+  white-space: nowrap;
+}
+
+.writing-hint {
+  padding: 8px 16px;
+  background: #14161c;
+  border-top: 1px solid var(--border);
+  font-size: 12px;
+}
+
+/* Inside a call the writing view replaces the board in the same slot. */
+.writing.embedded { border-radius: 0; }

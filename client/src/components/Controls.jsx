@@ -15,7 +15,11 @@ export default function Controls({
   boardId,
   onOpenBoard,
   onCloseBoard,
-  onLeave
+  onLeave,
+  writingChoices = [],
+  writingId,
+  onOpenWriting,
+  onCloseWriting
 }) {
   return (
     <div className="controls">
@@ -72,6 +76,24 @@ export default function Controls({
       >
         {noiseSuppression ? (onLeave ? 'Noise on' : 'Noise reduction on') : (onLeave ? 'Noise' : 'Add noise reduction')}
       </button>
+
+      {writingChoices.length > 0 && (
+        writingId ? (
+          <button className="round on" onClick={onCloseWriting} title="Back to the board">Writing</button>
+        ) : writingChoices.length === 1 ? (
+          <button className="round" onClick={() => onOpenWriting(writingChoices[0].id)} title="Open the student's writing for everyone in the call">Writing</button>
+        ) : (
+          <select
+            className="pill"
+            value=""
+            onChange={(e) => { if (e.target.value) onOpenWriting(e.target.value) }}
+            title="Open a student's writing for everyone in the call"
+          >
+            <option value="">Writing…</option>
+            {writingChoices.map((c) => <option key={c.id} value={c.id}>{c.label}</option>)}
+          </select>
+        )
+      )}
 
       {onLeave && (
         <button className="pill leave" onClick={onLeave} title="Leave the call">Leave</button>

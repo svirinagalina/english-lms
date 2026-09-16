@@ -243,6 +243,7 @@ model Classroom {
   school   School @relation(fields: [schoolId], references: [id], onDelete: Cascade)
 
   sessions Session[]
+  document Document?
   boards   Board[]
   calls    Call[]
 
@@ -267,6 +268,17 @@ model Session {
 }
 
 // A whiteboard kept as lesson material; a classroom accumulates many.
+// One writing document per classroom: the student's text with the
+// teacher's corrections kept as tracked changes (runs of base / ins / del).
+model Document {
+  id        String   @id @default(cuid())
+  runs      Json     @default("[]")
+  updatedAt DateTime @updatedAt
+
+  classroomId String    @unique
+  classroom   Classroom @relation(fields: [classroomId], references: [id], onDelete: Cascade)
+}
+
 model Board {
   id        String   @id @default(cuid())
   title     String   @default("Untitled")
