@@ -1,6 +1,21 @@
 import { useEffect, useRef } from 'react'
 
-function PeerVideo({ stream, name }) {
+// A crossed-out microphone, shown on a tile whose owner is muted.
+function MutedIcon() {
+  return (
+    <span className="tile-muted" title="Microphone is off">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M12 3a3 3 0 0 0-3 3v5a3 3 0 0 0 .4 1.5" />
+        <path d="M15 9.3V6a3 3 0 0 0-5.5-1.7" />
+        <path d="M19 11a7 7 0 0 1-9.8 6.4M5 11a7 7 0 0 0 1.2 3.9" />
+        <path d="M12 18v3M8 21h8" />
+        <path d="M3 3l18 18" />
+      </svg>
+    </span>
+  )
+}
+
+function PeerVideo({ stream, name, muted }) {
   const ref = useRef(null)
 
   // Attach after mount, not during render: a peer whose stream is already
@@ -16,12 +31,14 @@ function PeerVideo({ stream, name }) {
     <div className="video-tile">
       <video ref={ref} autoPlay playsInline />
       <span className="tile-label">{name ?? 'Participant'}</span>
+      {muted && <MutedIcon />}
     </div>
   )
 }
 
 export default function VideoGrid({
   peers,
+  micOn = true,
   board,
   screenStream,
   localVideoRef,
@@ -125,10 +142,11 @@ export default function VideoGrid({
             className={isBlurEnabled ? 'blur-layer' : 'blur-layer hidden'}
           />
           <span className="tile-label">You</span>
+          {!micOn && <MutedIcon />}
         </div>
 
         {Object.entries(peers).map(([peerId, peer]) => (
-          <PeerVideo key={peerId} stream={peer.stream} name={peer.name} />
+          <PeerVideo key={peerId} stream={peer.stream} name={peer.name} muted={peer.muted} />
         ))}
       </div>
     </div>

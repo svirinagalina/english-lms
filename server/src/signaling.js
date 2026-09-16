@@ -141,7 +141,7 @@ export function setupSignaling(io) {
       for (const id of io.sockets.adapter.rooms.get(roomId) ?? []) {
         if (id === socket.id) continue
         const peer = io.sockets.sockets.get(id)
-        if (peer) peers.push({ id, name: peer.data.name })
+        if (peer) peers.push({ id, name: peer.data.name, muted: Boolean(peer.data.micMuted) })
       }
 
       socket.to(roomId).emit('user-joined', { id: socket.id, name: socket.data.name })
@@ -170,6 +170,14 @@ export function setupSignaling(io) {
     socket.on('offer', relayToPeer('offer'))
     socket.on('answer', relayToPeer('answer'))
     socket.on('ice-candidate', relayToPeer('ice-candidate'))
+
+    // A muted microphone shows on everyone's tile for that person.
+    socket.on('mic:state', (state) => {
+      const room = socket.data.roomId
+      if (!room) return
+      socket.data.micMuted = Boolean(state?.muted)
+      socket.to(room).emit('mic:state', { from: socket.id, muted: socket.data.micMuted })
+    })
 
     socket.on('screen-share-start', () => {
       const room = socket.data.roomId

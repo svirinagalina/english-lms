@@ -585,3 +585,17 @@ button.small { padding: 2px 8px; }
 }
 .board-area .whiteboard { height: 100%; }
 select.pill { padding: 0 16px; color: var(--text); border: none; }
+
+.tile-muted {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: rgba(239, 68, 68, 0.9);
+  color: #fff;
+}

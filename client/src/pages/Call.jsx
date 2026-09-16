@@ -37,6 +37,9 @@ export default function Call() {
   const [isBlurEnabled, setIsBlurEnabled] = useState(false)
   const [blurAmount, setBlurAmount] = useState(20)
   const [copied, setCopied] = useState(false)
+  const [micOn, setMicOn] = useState(true)
+  const [cameraOn, setCameraOn] = useState(true)
+  const micOnRef = useRef(true)
   const [joined, setJoined] = useState(false)
   const [noiseSuppression, setNoiseSuppression] = useState(false)
   const [blurStatus, setBlurStatus] = useState('')
@@ -79,7 +82,7 @@ export default function Call() {
       if (stream) stream.getTracks().forEach((track) => pc.addTrack(track, stream))
 
       pc.ontrack = (event) => {
-        setPeers((prev) => ({ ...prev, [peerId]: { name: peerName, stream: event.streams[0] } }))
+        setPeers((prev) => ({ ...prev, [peerId]: { ...(prev[peerId] ?? { name: peerName }), stream: event.streams[0] } }))
       }
       pc.onicecandidate = (event) => {
         if (event.candidate) socketRef.current.emit('ice-candidate', { to: peerId, candidate: event.candidate })
@@ -126,7 +129,12 @@ export default function Call() {
         }
       })
       socket.on('user-joined', ({ id: peerId, name }) => {
-        setPeers((prev) => ({ ...prev, [peerId]: { name, stream: null } }))
+        setPeers((prev) => ({ ...prev, [peerId]: { name, stream: null, muted: false } }))
+        // The newcomer needs to know whether I am muted.
+        socket.emit('mic:state', { muted: !micOnRef.current })
+      })
+      socket.on('mic:state', ({ from, muted }) => {
+        setPeers((prev) => (prev[from] ? { ...prev, [from]: { ...prev[from], muted } } : prev))
       })
       socket.on('user-left', (peerId) => {
         connectionsRef.current[peerId]?.close()
@@ -149,6 +157,7 @@ export default function Call() {
       socket.emit('join-call', token, async (response) => {
         if (response?.error) { setError(response.error); return }
         for (const peer of response.peers) {
+          setPeers((prev) => ({ ...prev, [peer.id]: { name: peer.name, stream: prev[peer.id]?.stream ?? null, muted: Boolean(peer.muted) } }))
           const pc = createConnection(peer.id, peer.name)
           const offer = await pc.createOffer()
           await pc.setLocalDescription(offer)
@@ -264,6 +273,14 @@ export default function Call() {
 
   const toggleTrack = (kind) => () => {
     localStreamRef.current?.getTracks().filter((t) => t.kind === kind).forEach((t) => { t.enabled = !t.enabled })
+    if (kind === 'audio') {
+      const next = !micOnRef.current
+      micOnRef.current = next
+      setMicOn(next)
+      socketRef.current?.emit('mic:state', { muted: !next })
+    } else {
+      setCameraOn((v) => !v)
+    }
   }
 
   const toggleNoiseSuppression = async () => {
@@ -371,6 +388,7 @@ export default function Call() {
       <div className="view-pane">
         <VideoGrid
           peers={peers}
+          micOn={micOn}
           board={boardId && classroom ? (
             <Whiteboard
               socketRef={socketRef}
@@ -406,6 +424,8 @@ export default function Call() {
       <Controls
         onToggleCamera={toggleTrack('video')}
         onToggleMicrophone={toggleTrack('audio')}
+        cameraOn={cameraOn}
+        micOn={micOn}
         onShareScreen={shareScreen}
         hasScreenStream={Boolean(screenStream)}
         boards={classroom?.boards ?? []}

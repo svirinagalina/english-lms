@@ -1,8 +1,8 @@
-import { useState } from 'react'
-
 export default function Controls({
   onToggleCamera,
   onToggleMicrophone,
+  cameraOn,
+  micOn,
   onShareScreen,
   hasScreenStream,
   isBlurEnabled,
@@ -16,14 +16,11 @@ export default function Controls({
   onOpenBoard,
   onCloseBoard
 }) {
-  const [cameraOn, setCameraOn] = useState(true)
-  const [micOn, setMicOn] = useState(true)
-
   return (
     <div className="controls">
       <button
         className={`round ${cameraOn ? 'on' : 'off'}`}
-        onClick={() => { onToggleCamera(); setCameraOn((v) => !v) }}
+        onClick={onToggleCamera}
         title={cameraOn ? 'Turn camera off' : 'Turn camera on'}
       >
         Cam
@@ -31,7 +28,7 @@ export default function Controls({
 
       <button
         className={`round ${micOn ? 'on' : 'off'}`}
-        onClick={() => { onToggleMicrophone(); setMicOn((v) => !v) }}
+        onClick={onToggleMicrophone}
         title={micOn ? 'Mute microphone' : 'Unmute microphone'}
       >
         Mic
