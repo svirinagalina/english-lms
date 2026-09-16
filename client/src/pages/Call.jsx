@@ -166,6 +166,7 @@ export default function Call() {
       const ctx = canvas.getContext('2d')
       ctx.save()
       ctx.clearRect(0, 0, width, height)
+      ctx.imageSmoothingEnabled = true
       ctx.drawImage(results.segmentationMask, 0, 0, width, height)
       ctx.globalCompositeOperation = 'source-in'
       ctx.drawImage(results.image, 0, 0, width, height)

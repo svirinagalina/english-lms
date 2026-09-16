@@ -7,4 +7,4 @@ dist/
 .DS_Store
 .vite/
 uploads/
-client/public/mediapipe/
+client/public/mediapipe/wasm/
