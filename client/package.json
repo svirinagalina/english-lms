@@ -5,7 +5,8 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "prebuild": "node scripts/copy-mediapipe.js"
   },
   "dependencies": {
     "@mediapipe/selfie_segmentation": "^0.1.1675465747",

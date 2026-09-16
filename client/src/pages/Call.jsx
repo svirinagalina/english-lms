@@ -179,7 +179,13 @@ export default function Call() {
       }
       if (!cancelled) animationRef.current = requestAnimationFrame(loop)
     }
-    videoProcessor.initialize().then(() => { if (!cancelled) loop() }).catch((err) => console.error(err))
+    videoProcessor.initialize()
+      .then(() => { if (!cancelled) loop() })
+      .catch((err) => {
+        console.error(err)
+        setMediaWarning(`Blur could not start: ${err?.message ?? err}`)
+        setIsBlurEnabled(false)
+      })
     return () => {
       cancelled = true
       videoProcessor.onFrame = null
