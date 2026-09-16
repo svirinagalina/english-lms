@@ -46,7 +46,7 @@ export default function Controls({
         onClick={onNoiseToggle}
         title="Filter out background noise from your microphone"
       >
-        {noiseSuppression ? 'Noise filter on' : 'Noise filter off'}
+        {noiseSuppression ? 'Noise reduction on' : 'Add noise reduction'}
       </button>
 
       <div className="blur-control">

@@ -25,7 +25,7 @@ export default function Call() {
   const [blurAmount, setBlurAmount] = useState(12)
   const [copied, setCopied] = useState(false)
   const [joined, setJoined] = useState(false)
-  const [noiseSuppression, setNoiseSuppression] = useState(true)
+  const [noiseSuppression, setNoiseSuppression] = useState(false)
 
   const socketRef = useRef(null)
   const localStreamRef = useRef(null)
@@ -34,6 +34,7 @@ export default function Call() {
   const screenVideoRef = useRef(null)
   const drawingCanvasRef = useRef(null)
   const processingCanvasRef = useRef(null)
+  const backgroundCanvasRef = useRef(null)
   const animationRef = useRef(null)
 
   useEffect(() => {
@@ -70,7 +71,7 @@ export default function Call() {
       setStatus('requesting-media')
       try {
         const stream = await navigator.mediaDevices.getUserMedia({
-          audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
+          audio: { echoCancellation: true, noiseSuppression: false, autoGainControl: true },
           video: true
         })
         if (disposed) { stream.getTracks().forEach((t) => t.stop()); return }
@@ -150,19 +151,23 @@ export default function Call() {
     let cancelled = false
     videoProcessor.onFrame = (results) => {
       const canvas = processingCanvasRef.current
+      const background = backgroundCanvasRef.current
       const video = localVideoRef.current
-      if (!canvas || !video) return
+      if (!canvas || !background || !video) return
       const width = video.videoWidth || 640
       const height = video.videoHeight || 480
-      canvas.width = width; canvas.height = height
+      if (canvas.width !== width || canvas.height !== height) { canvas.width = width; canvas.height = height }
+      if (background.width !== width || background.height !== height) { background.width = width; background.height = height }
+
+      // The whole frame goes on a canvas blurred by CSS (Safari has no
+      // canvas filter); the person, cut out by the mask, is drawn on top.
+      background.getContext('2d').drawImage(results.image, 0, 0, width, height)
+
       const ctx = canvas.getContext('2d')
       ctx.save()
       ctx.clearRect(0, 0, width, height)
       ctx.drawImage(results.segmentationMask, 0, 0, width, height)
       ctx.globalCompositeOperation = 'source-in'
-      ctx.drawImage(results.image, 0, 0, width, height)
-      ctx.globalCompositeOperation = 'destination-over'
-      ctx.filter = `blur(${blurAmount}px)`
       ctx.drawImage(results.image, 0, 0, width, height)
       ctx.restore()
     }
@@ -280,6 +285,8 @@ export default function Call() {
           screenVideoRef={screenVideoRef}
           drawingCanvasRef={drawingCanvasRef}
           processingCanvasRef={processingCanvasRef}
+          backgroundCanvasRef={backgroundCanvasRef}
+          blurAmount={blurAmount}
           isBlurEnabled={isBlurEnabled}
           socketRef={socketRef}
         />

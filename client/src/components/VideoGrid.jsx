@@ -27,6 +27,8 @@ export default function VideoGrid({
   screenVideoRef,
   drawingCanvasRef,
   processingCanvasRef,
+  backgroundCanvasRef,
+  blurAmount,
   isBlurEnabled,
   socketRef
 }) {
@@ -111,6 +113,11 @@ export default function VideoGrid({
       <div className="tiles">
         <div className="video-tile local">
           <video ref={localVideoRef} autoPlay muted playsInline />
+          <canvas
+            ref={backgroundCanvasRef}
+            className={isBlurEnabled ? 'blur-layer' : 'blur-layer hidden'}
+            style={{ filter: `blur(${blurAmount}px)`, transform: 'scale(1.06)' }}
+          />
           <canvas
             ref={processingCanvasRef}
             className={isBlurEnabled ? 'blur-layer' : 'blur-layer hidden'}
