@@ -315,6 +315,26 @@ classroomsRouter.post('/:id/boards/:boardId/images', requireRole('OWNER', 'TEACH
   res.status(201).json({ src: `/uploads/${board.id.toLowerCase()}/${fileName}` })
 })
 
+// Screenshots pasted into the writing document; the student may add them too.
+classroomsRouter.post('/:id/writing/images', async (req, res) => {
+  const classroom = await accessibleClassroom(req.user, req.params.id)
+  if (!classroom) return res.status(404).json({ error: 'Classroom not found' })
+
+  const dataUrl = typeof req.body?.data === 'string' ? req.body.data : ''
+  const match = dataUrl.match(/^data:(image\/(?:png|jpeg|gif|webp));base64,(.+)$/)
+  if (!match) return res.status(400).json({ error: 'Only PNG, JPEG, GIF or WebP images are accepted' })
+
+  const bytes = Buffer.from(match[2], 'base64')
+  if (bytes.length > MAX_IMAGE_BYTES) return res.status(413).json({ error: 'Image is larger than 5 MB' })
+
+  const fileName = `${randomBytes(12).toString('hex')}.${IMAGE_TYPES[match[1]]}`
+  const directory = path.join(UPLOAD_ROOT, classroom.id.toLowerCase())
+  await mkdir(directory, { recursive: true })
+  await writeFile(path.join(directory, fileName), bytes)
+
+  res.status(201).json({ src: `/uploads/${classroom.id.toLowerCase()}/${fileName}` })
+})
+
 // --- Sessions -----------------------------------------------------------------
 
 const sessionPatchSchema = z.object({

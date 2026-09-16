@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
+import { api } from '../api'
 import '../styles/writing.css'
 
 // A shared writing document with tracked changes, Google-Docs style.
@@ -16,14 +17,14 @@ const normalise = (runs) => {
   for (const run of runs) {
     if (!run.text) continue
     const last = out[out.length - 1]
-    if (last && last.kind === run.kind && last.author === run.author) last.text += run.text
+    if (last && run.kind !== 'image' && last.kind === run.kind && last.kind !== 'image' && last.author === run.author) last.text += run.text
     else out.push({ ...run })
   }
   return out
 }
 
 const totalLength = (runs) => runs.reduce((n, r) => n + r.text.length, 0)
-const plainText = (runs) => runs.filter((r) => r.kind !== 'del').map((r) => r.text).join('')
+const plainText = (runs) => runs.filter((r) => r.kind !== 'del' && r.kind !== 'image').map((r) => r.text).join('')
 
 // Splits runs so that `offset` falls on a run boundary; returns the index.
 function splitAt(runs, offset) {
@@ -52,6 +53,7 @@ function applyEdit(runs, start, end, text, actor) {
   const replacement = []
 
   for (const run of removed) {
+    if (run.kind === 'image') continue // a screenshot is simply removed
     if (actor.tracked) {
       if (run.kind === 'ins' && run.author === actor.id) continue // own suggestion: really gone
       if (run.kind === 'del') { replacement.push(run); continue }  // already struck
@@ -75,7 +77,7 @@ function applyEdit(runs, start, end, text, actor) {
 
 function resolveAll(runs, accept) {
   return normalise(runs.flatMap((run) => {
-    if (run.kind === 'base') return [run]
+    if (run.kind === 'base' || run.kind === 'image') return [run]
     if (run.kind === 'ins') return accept ? [{ text: run.text, kind: 'base' }] : []
     return accept ? [] : [{ text: run.text, kind: 'base' }]
   }))
@@ -83,7 +85,7 @@ function resolveAll(runs, accept) {
 
 function resolveOne(runs, index, accept) {
   const run = runs[index]
-  if (!run || run.kind === 'base') return runs
+  if (!run || run.kind === 'base' || run.kind === 'image') return runs
   const next = runs.slice()
   if (run.kind === 'ins') next.splice(index, 1, ...(accept ? [{ text: run.text, kind: 'base' }] : []))
   else next.splice(index, 1, ...(accept ? [] : [{ text: run.text, kind: 'base' }]))
@@ -139,6 +141,8 @@ function setCaret(root, offset) {
 }
 
 // --- Component -----------------------------------------------------------------
+
+const IMAGE_CHAR = '\uFFFC'
 
 export default function Writing({ socketRef, classroomId, user, title, subtitle, onClose, embedded = false }) {
   const [runs, setRuns] = useState([])
@@ -265,10 +269,47 @@ export default function Writing({ socketRef, classroomId, user, title, subtitle,
     commit(result.runs, result.caret)
   }
 
+  // A screenshot goes in at the caret on its own line, as a base run.
+  const [uploading, setUploading] = useState(false)
+  const fileInputRef = useRef(null)
+  const insertImage = async (file) => {
+    if (!file || !file.type.startsWith('image/')) return
+    setUploading(true)
+    try {
+      const dataUrl = await new Promise((resolve, reject) => {
+        const reader = new FileReader()
+        reader.onload = () => resolve(reader.result)
+        reader.onerror = reject
+        reader.readAsDataURL(file)
+      })
+      const { src } = await api.uploadWritingImage(classroomId, dataUrl)
+      const root = editorRef.current
+      const sel = root ? selectionOffsets(root) : null
+      const at = sel ? sel.end : totalLength(runsRef.current)
+      const next = runsRef.current.map((r) => ({ ...r }))
+      const index = splitAt(next, at)
+      const before = next[index - 1]
+      const after = next[index]
+      const lead = before && !before.text.endsWith('\n') ? '\n' : ''
+      const trail = after && after.text.startsWith('\n') ? '' : '\n'
+      next.splice(index, 0, { text: lead, kind: 'base' }, { text: IMAGE_CHAR, kind: 'image', src }, { text: trail, kind: 'base' })
+      commit(normalise(next), at + lead.length + 2)
+    } catch (err) {
+      setError(err.message)
+    } finally {
+      setUploading(false)
+    }
+  }
+
+  const handlePaste = (event) => {
+    const file = [...(event.clipboardData?.files ?? [])].find((f) => f.type.startsWith('image/'))
+    if (file) { event.preventDefault(); insertImage(file) }
+  }
+
   const handleClick = (event) => {
-    const index = Number(event.target.dataset?.run)
+    const index = Number(event.target.closest?.('[data-run]')?.dataset.run ?? event.target.dataset?.run)
     const run = runsRef.current[index]
-    if (!run || run.kind === 'base') { setPopover(null); return }
+    if (!run || run.kind === 'base' || run.kind === 'image') { setPopover(null); return }
     const rect = event.target.getBoundingClientRect()
     const host = editorRef.current.parentElement.getBoundingClientRect()
     setPopover({ index, x: rect.left - host.left, y: rect.bottom - host.top + 6 })
@@ -297,6 +338,10 @@ export default function Writing({ socketRef, classroomId, user, title, subtitle,
               <button className="tool" onClick={() => commit(resolveAll(runsRef.current, false), null)} title="Discard every correction">Reject all</button>
             </>
           )}
+          <button className="tool" onClick={() => fileInputRef.current?.click()} disabled={uploading} title="Insert a screenshot or picture (or just paste one)">
+            {uploading ? 'Uploading…' : 'Image'}
+          </button>
+          <input ref={fileInputRef} type="file" accept="image/png,image/jpeg,image/gif,image/webp" hidden onChange={(e) => { insertImage(e.target.files?.[0]); e.target.value = '' }} />
           {onClose && <button className="tool" onClick={onClose}>Close</button>}
         </div>
       </div>
@@ -312,9 +357,17 @@ export default function Writing({ socketRef, classroomId, user, title, subtitle,
           spellCheck={false}
           onClick={handleClick}
           onKeyDown={handleKeyDown}
+          onPaste={handlePaste}
+          onDrop={(e) => { const f = e.dataTransfer?.files?.[0]; if (f) { e.preventDefault(); insertImage(f) } }}
           data-placeholder={actor.tracked ? 'The student has not written anything yet.' : 'Write your text here…'}
         >
-          {runs.map((run, index) => (
+          {runs.map((run, index) => run.kind === 'image' ? (
+            // The placeholder character keeps text offsets honest; the picture is decoration.
+            <span key={index} data-run={index} className="run image" contentEditable={false}>
+              <img src={run.src} alt="" draggable={false} />
+              <span className="obj">{run.text}</span>
+            </span>
+          ) : (
             <span key={index} data-run={index} className={`run ${run.kind}`}>{run.text}</span>
           ))}
         </div>

@@ -8,8 +8,10 @@ const SAVE_DELAY_MS = 1000
 
 const runSchema = z.object({
   text: z.string().max(20000),
-  kind: z.enum(['base', 'ins', 'del']),
-  author: z.string().max(64).optional()
+  kind: z.enum(['base', 'ins', 'del', 'image']),
+  author: z.string().max(64).optional(),
+  // Images sit in the text as one placeholder character each.
+  src: z.string().regex(/^\/uploads\/[a-z0-9]+\/[a-z0-9]+\.(png|jpe?g|gif|webp)$/i).optional()
 })
 
 export const runsSchema = z.array(runSchema).max(5000).refine(

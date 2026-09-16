@@ -1,5 +1,5 @@
 import { Router } from 'express'
-import { randomBytes } from 'crypto'
+import { randomBytes, createHmac } from 'crypto'
 import { z } from 'zod'
 import { prisma } from '../db.js'
 import { requireAuth, requireRole } from '../auth.js'
@@ -21,6 +21,25 @@ const callView = (call, origin) => ({
 })
 
 callsRouter.use(requireAuth)
+
+// STUN always; TURN (relay for people behind strict NATs) when a coturn
+// server is configured. TURN credentials are short-lived HMACs of a shared
+// secret, the standard "REST API" scheme coturn understands.
+callsRouter.get('/ice', (req, res) => {
+  const iceServers = [{ urls: ['stun:stun.l.google.com:19302', 'stun:stun1.l.google.com:19302'] }]
+  const secret = process.env.TURN_SECRET
+  const host = process.env.TURN_HOST
+  if (secret && host) {
+    const username = `${Math.floor(Date.now() / 1000) + 6 * 3600}:lms`
+    const credential = createHmac('sha1', secret).update(username).digest('base64')
+    iceServers.push({
+      urls: [`turn:${host}:3478?transport=udp`, `turn:${host}:3478?transport=tcp`],
+      username,
+      credential
+    })
+  }
+  res.json({ iceServers })
+})
 
 // What a participant sees before joining. Only members of the school that
 // made the call can look it up — a link alone is not an invitation.

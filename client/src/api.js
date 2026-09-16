@@ -71,6 +71,9 @@ export const api = {
   assist: (mode, words) => request('/assist', { method: 'POST', body: { mode, words } }),
 
   getCall: (token) => request(`/calls/token/${token}`),
+  iceServers: () => request('/calls/ice'),
+  uploadWritingImage: (classroomId, data) =>
+    request(`/classrooms/${classroomId}/writing/images`, { method: 'POST', body: { data } }),
   createCall: (body) => request('/calls', { method: 'POST', body }),
   listCalls: () => request('/calls'),
   endCall: (id) => request(`/calls/${id}/end`, { method: 'POST' }),

@@ -39,7 +39,8 @@ export default function Call() {
   const [mediaWarning, setMediaWarning] = useState('')
   const [peers, setPeers] = useState({})
   const [screenStream, setScreenStream] = useState(null)
-  const [isBlurEnabled, setIsBlurEnabled] = useState(false)
+  // Blur is on from the start; it can be switched off in the call.
+  const [isBlurEnabled, setIsBlurEnabled] = useState(true)
   const [blurAmount, setBlurAmount] = useState(20)
   const [copied, setCopied] = useState(false)
   const [micOn, setMicOn] = useState(true)
@@ -87,8 +88,9 @@ export default function Call() {
     if (!canJoin) return
     let disposed = false
 
+    let iceServers = ICE_SERVERS
     const createConnection = (peerId, peerName) => {
-      const pc = new RTCPeerConnection({ iceServers: ICE_SERVERS })
+      const pc = new RTCPeerConnection({ iceServers })
       const stream = localStreamRef.current
       if (stream) stream.getTracks().forEach((track) => pc.addTrack(track, stream))
 
@@ -103,6 +105,8 @@ export default function Call() {
     }
 
     const start = async () => {
+      // TURN relay credentials, when the server has a relay configured.
+      try { iceServers = (await api.iceServers()).iceServers } catch { /* STUN only */ }
       setStatus('requesting-media')
       try {
         const stream = await navigator.mediaDevices.getUserMedia({
