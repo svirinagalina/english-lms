@@ -110,5 +110,8 @@ authRouter.get('/me', requireAuth, async (req, res) => {
   })
   if (!user) return res.status(401).json({ error: 'Not authenticated' })
 
+  // Every visit extends the sign-in by a week, so people who use the
+  // platform regularly are never logged out in the middle of a lesson.
+  issueToken(res, user)
   res.json({ user: { ...publicUser(user), schoolName: user.school.name } })
 })

@@ -141,6 +141,11 @@ export default function Call() {
       // camera's place, like everyone else.
       const screen = screenStreamRef.current?.getVideoTracks()[0]
       if (stream) stream.getTracks().forEach((track) => pc.addTrack(track.kind === 'video' && screen ? screen : track, stream))
+      // Without a camera or microphone of our own we still need to receive
+      // theirs: an offer with no media lines would carry nothing back.
+      for (const kind of ['audio', 'video']) {
+        if (!stream?.getTracks().some((t) => t.kind === kind)) pc.addTransceiver(kind, { direction: 'recvonly' })
+      }
 
       pc.ontrack = (event) => {
         setPeers((prev) => ({ ...prev, [peerId]: { ...(prev[peerId] ?? { name: peerName }), stream: event.streams[0] } }))
@@ -157,10 +162,15 @@ export default function Call() {
       try { iceServers = (await api.iceServers()).iceServers } catch { /* STUN only */ }
       setStatus('requesting-media')
       try {
-        const raw = await navigator.mediaDevices.getUserMedia({
-          audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
-          video: true
-        })
+        const audioConstraints = { echoCancellation: true, noiseSuppression: true, autoGainControl: true }
+        let raw
+        try {
+          raw = await navigator.mediaDevices.getUserMedia({ audio: audioConstraints, video: true })
+        } catch (err) {
+          // A busy or missing camera must not take the microphone down with it.
+          raw = await navigator.mediaDevices.getUserMedia({ audio: audioConstraints })
+          setMediaWarning(`Camera is not available (${err?.name === 'NotAllowedError' ? 'not allowed' : err?.message ?? err}) — joining with sound only.`)
+        }
         if (disposed) { raw.getTracks().forEach((t) => t.stop()); return }
         rawMicRef.current = raw.getAudioTracks()[0] ?? null
         const stream = new MediaStream(raw.getVideoTracks())
@@ -373,6 +383,8 @@ export default function Call() {
           watchdog = setTimeout(() => {
             if (!cancelled && frames === 0) {
               const video = localVideoRef.current
+              // No camera at all: nothing to blur, and nothing to complain about.
+              if (localStreamRef.current && !localStreamRef.current.getVideoTracks().length) { cancelled = true; setIsBlurEnabled(false); return }
               fail('start', new Error(`no frames were processed (camera ${video?.videoWidth ?? 0}×${video?.videoHeight ?? 0}, ready ${video?.readyState ?? '?'})`))
             }
           }, 8000)

@@ -7,6 +7,12 @@ async function request(path, options = {}) {
   })
 
   const data = await response.json().catch(() => ({}))
+  // The sign-in expired while the page was open: go to the login page and
+  // come back here afterwards, instead of failing every request.
+  if (response.status === 401 && !path.startsWith('/auth/') && !window.location.pathname.startsWith('/login')) {
+    window.location.assign(`/login?next=${encodeURIComponent(window.location.pathname + window.location.search)}`)
+    return new Promise(() => {})
+  }
   if (!response.ok) throw new Error(data.error ?? 'Request failed')
   return data
 }

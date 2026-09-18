@@ -154,6 +154,7 @@ export default function Writing({ socketRef, classroomId, user, title, subtitle,
   const caretRef = useRef(null)
   const runsRef = useRef(runs)
   runsRef.current = runs
+  const historyRef = useRef({ undo: [], redo: [] })
 
   // Teachers suggest; students write.
   const actor = { id: user.id, tracked: user.role !== 'STUDENT' }
@@ -163,6 +164,10 @@ export default function Writing({ socketRef, classroomId, user, title, subtitle,
   }, [socketRef])
 
   const commit = useCallback((next, caret) => {
+    const history = historyRef.current
+    history.undo.push(runsRef.current)
+    if (history.undo.length > 200) history.undo.shift()
+    history.redo = []
     setRuns(next)
     caretRef.current = caret ?? null
     broadcast(next)
@@ -219,37 +224,34 @@ export default function Writing({ socketRef, classroomId, user, title, subtitle,
     const root = editorRef.current
     const sel = selectionOffsets(root)
     if (!sel) return
+    // Every native edit is either replayed on the model or blocked: the
+    // browser must never change the DOM on its own (bold, native undo…),
+    // or the marks would drift away from the text.
     event.preventDefault()
     let { start, end } = sel
+    // The browser says exactly what it meant to replace (a word for
+    // Option+Backspace, the misspelling for an autocorrect).
+    const target = event.getTargetRanges?.()[0]
+    if (target && root.contains(target.startContainer)) {
+      start = offsetOf(root, target.startContainer, target.startOffset)
+      end = offsetOf(root, target.endContainer, target.endOffset)
+    }
     let text = ''
-    switch (event.inputType) {
-      case 'insertText':
-      case 'insertCompositionText':
-        text = event.data ?? ''
-        break
-      case 'insertParagraph':
-      case 'insertLineBreak':
-        text = '\n'
-        break
-      case 'insertFromPaste':
-      case 'insertFromDrop': {
-        text = event.dataTransfer?.getData('text/plain') ?? ''
-        break
-      }
-      case 'deleteContentBackward':
-        if (start === end) start = Math.max(0, start - 1)
-        break
-      case 'deleteContentForward':
-        if (start === end) end = Math.min(totalLength(runsRef.current), end + 1)
-        break
-      case 'deleteWordBackward':
-      case 'deleteWordForward':
-      case 'deleteByCut':
-      case 'deleteContent':
-        if (start === end) return
-        break
-      default:
-        return
+    const type = event.inputType
+    if (type === 'historyUndo') { undo(); return }
+    if (type === 'historyRedo') { redo(); return }
+    if (type === 'insertText' || type === 'insertCompositionText' || type === 'insertReplacementText') {
+      text = event.data ?? event.dataTransfer?.getData('text/plain') ?? ''
+    } else if (type === 'insertParagraph' || type === 'insertLineBreak') {
+      text = '\n'
+    } else if (type === 'insertFromPaste' || type === 'insertFromDrop') {
+      text = event.dataTransfer?.getData('text/plain') ?? ''
+    } else if (type === 'deleteContentBackward') {
+      if (start === end) start = Math.max(0, start - 1)
+    } else if (type === 'deleteContentForward') {
+      if (start === end) end = Math.min(totalLength(runsRef.current), end + 1)
+    } else if (!type.startsWith('delete')) {
+      return // formatting and anything else: not for this editor
     }
     if (start === end && !text) return
     const result = applyEdit(runsRef.current, start, end, text, actor)
@@ -257,10 +259,29 @@ export default function Writing({ socketRef, classroomId, user, title, subtitle,
   }
   beforeInputRef.current = handleBeforeInput
 
+  // ⌘Z / ⇧⌘Z work on the model, since the browser's own undo is blocked.
+  const undo = () => {
+    const prev = historyRef.current.undo.pop()
+    if (!prev) return
+    historyRef.current.redo.push(runsRef.current)
+    setRuns(prev); caretRef.current = null; broadcast(prev)
+  }
+  const redo = () => {
+    const next = historyRef.current.redo.pop()
+    if (!next) return
+    historyRef.current.undo.push(runsRef.current)
+    setRuns(next); caretRef.current = null; broadcast(next)
+  }
+
   // Backspace and Delete are handled on keydown: it always fires, while some
   // browsers skip beforeinput for them in a contentEditable.
   const handleKeyDown = (event) => {
     if (event.key === 'Escape') { setPopover(null); return }
+    if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'z') {
+      event.preventDefault()
+      event.shiftKey ? redo() : undo()
+      return
+    }
     if ((event.key !== 'Backspace' && event.key !== 'Delete') || event.altKey || event.metaKey || event.ctrlKey) return
     const sel = selectionOffsets(editorRef.current)
     if (!sel) return
