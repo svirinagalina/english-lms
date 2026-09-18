@@ -27,6 +27,19 @@
 .board-chip > strong, .board-chip > .muted { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 .board-chip > strong { flex-shrink: 1; }
 .board-chip button { flex-shrink: 0; }
+.chip-back {
+  background: transparent;
+  border: none;
+  color: var(--text);
+  font: inherit;
+  font-weight: 600;
+  padding: 0 10px 0 0;
+  margin-right: 6px;
+  border-right: 1px solid var(--border);
+  cursor: pointer;
+  white-space: nowrap;
+}
+.chip-back:hover { color: var(--accent); }
 .chip-close {
   background: transparent;
   border: none;

@@ -362,6 +362,7 @@ export default function Writing({ socketRef, classroomId, user, title, subtitle,
     <div className={`writing ${embedded ? 'embedded' : ''}`}>
       <div className="writing-bar">
         <div className="writing-title">
+          {onClose && <button className="chip-back" onClick={onClose} title="Back">← Back</button>}
           <strong>{title ?? 'Writing'}</strong>
           {subtitle && <span className="muted"> · {subtitle}</span>}
           <span className="muted writing-stats"> · {words} words{pending ? ` · ${pending} suggestion${pending === 1 ? '' : 's'}` : ''}</span>
@@ -377,7 +378,6 @@ export default function Writing({ socketRef, classroomId, user, title, subtitle,
             {uploading ? 'Uploading…' : 'Image'}
           </button>
           <input ref={fileInputRef} type="file" accept="image/png,image/jpeg,image/gif,image/webp" hidden onChange={(e) => { insertImage(e.target.files?.[0]); e.target.value = '' }} />
-          {onClose && <button className="tool" onClick={onClose}>Close</button>}
         </div>
       </div>
 

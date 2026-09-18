@@ -2179,6 +2179,7 @@ export default function Whiteboard({ socketRef, boardId, title, subtitle, onClos
 
         {/* Corner chip with the board's name, like a Figma file tab. */}
         <div className="board-chip">
+          {onClose && <button className="chip-back" onClick={onClose} title="Back">← Back</button>}
           <strong>{title ?? 'Board'}</strong>
           {subtitle && <span className="muted"> · {subtitle}</span>}
           {onOpenWriting && (
@@ -2196,7 +2197,6 @@ export default function Whiteboard({ socketRef, boardId, title, subtitle, onClos
               Start call
             </button>
           )}
-          {onClose && <button className="chip-close" onClick={onClose} title="Close board">×</button>}
         </div>
 
         {Object.entries(cursors).map(([id, c]) => (
