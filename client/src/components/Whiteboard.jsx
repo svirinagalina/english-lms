@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, useCallback } from 'react'
+import { forwardRef, useCallback, useEffect, useImperativeHandle, useRef, useState } from 'react'
 import '../styles/whiteboard.css'
 import { isEnglishWord, lookupWord, wordAt } from '../utils/dictionary'
 import WordCard from './WordCard'
@@ -740,7 +740,7 @@ export async function exportBoardPdf(elements, title = 'Board') {
 
 // --- Component ----------------------------------------------------------------
 
-export default function Whiteboard({ socketRef, boardId, title, subtitle, onClose, backLabel = '← Back', onStartCall, onOpenWriting, canSpotlight = false, onUploadImage, onAssist, assistEnabled, wordPicker = false, focusElementId = null, onMistake, onMistakeRemoved, insertBlock = null, onInserted }) {
+const Whiteboard = forwardRef(function Whiteboard({ socketRef, boardId, title, subtitle, onClose, backLabel = '← Back', onStartCall, onOpenWriting, canSpotlight = false, onUploadImage, onAssist, assistEnabled, wordPicker = false, focusElementId = null, onMistake, onMistakeRemoved, insertBlock = null, onInserted }, ref) {
   const [assisting, setAssisting] = useState(null)
   const [exporting, setExporting] = useState(false)
   const fileInputRef = useRef(null)
@@ -2194,6 +2194,24 @@ export default function Whiteboard({ socketRef, boardId, title, subtitle, onClos
     scheduleRender()
     bump()
   }
+  // A sticker — an emoji or a short phrase — in the middle of the current
+  // view, selected so it can be dragged where it belongs.
+  const addSticker = (sticker) => {
+    const rect = canvasRef.current?.getBoundingClientRect() ?? { width: 800, height: 600 }
+    const v = viewRef.current
+    const jitter = () => (Math.random() - 0.5) * 80
+    const cx = (rect.width / 2 - v.x) / v.scale + jitter()
+    const cy = (rect.height / 2 - v.y) / v.scale + jitter()
+    const element = sticker.phrase
+      ? { id: newId(), type: 'note', color: COLORS[0], width, x: cx - 80, y: cy - 30, w: 160, h: 60, fill: sticker.fill ?? NOTE_FILLS[0], text: `**${sticker.text}**`, fontSize: 20 }
+      : { id: newId(), type: 'text', color: COLORS[0], width, x: cx - 36, y: cy - 36, text: sticker.text, fontSize: 72 }
+    commit(element)
+    selectedRef.current = [element.id]
+    setTool('select')
+    bump()
+  }
+  useImperativeHandle(ref, () => ({ addSticker }), [addSticker])
+
   // A heading with a block of lines under it (numbered), below everything.
   const addBlock = (title, lines, color) => {
     // Readable on arrival: the glide in addHeading keeps the current zoom,
@@ -2622,4 +2640,6 @@ export default function Whiteboard({ socketRef, boardId, title, subtitle, onClos
       </div>
     </div>
   )
-}
+})
+
+export default Whiteboard

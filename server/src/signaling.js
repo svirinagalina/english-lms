@@ -242,6 +242,15 @@ export function setupSignaling(io) {
       if (room) socket.to(room).emit('screen-share-stopped', { from: socket.id })
     })
 
+    // A quick emoji reaction, shown flying up for everyone in the room.
+    const REACTIONS = new Set(['👍', '👏', '🎉', '❤️', '😂', '🔥', '💪', '⭐', '🙌', '😊'])
+    socket.on('reaction', (payload) => {
+      const room = socket.data.roomId
+      const emoji = typeof payload?.emoji === 'string' ? payload.emoji : ''
+      if (!room || !REACTIONS.has(emoji)) return
+      io.to(room).emit('reaction', { from: socket.id, name: socket.data.name, emoji, at: Date.now() })
+    })
+
     // Pointer strokes over a shared screen, for everyone else in the room.
     socket.on('drawing', (stroke) => {
       const room = socket.data.roomId

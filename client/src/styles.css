@@ -222,7 +222,7 @@ textarea:focus { outline: none; border-color: var(--accent); }
 .lesson-page { height: 100vh; display: flex; flex-direction: column; position: relative; }
 .lesson-page .topbar { padding: 14px 20px; }
 
-.view-pane { flex: 1; display: flex; flex-direction: column; min-height: 0; }
+.view-pane { flex: 1; display: flex; flex-direction: column; min-height: 0; position: relative; }
 .view-pane[hidden] { display: none; }
 
 .banner {
@@ -628,19 +628,21 @@ select.pill { padding: 0 16px; color: var(--text); border: none; }
 .stage.board-mode .video-tile { flex: none; }
 .stage.board-mode .video-tile { box-shadow: 0 6px 20px rgba(0, 0, 0, 0.35); }
 .lesson-page.board-mode .controls {
-  /* One compact row at the top centre — Cam, Mic, More, Leave — between
-     the board chip on the left and the zoom buttons on the right. */
+  /* The same 44px row as the board chip (left) and the zoom group (right);
+     centred between them by script (see Call.jsx), not in the whole width. */
   position: absolute;
-  top: 10px;
+  top: 12px;
   left: 50%;
   transform: translateX(-50%);
   z-index: 4;
-  padding: 5px 8px;
-  gap: 5px;
+  height: 44px;
+  box-sizing: border-box;
+  padding: 6px 8px;
+  gap: 6px;
   border: 1px solid var(--border);
-  border-radius: 12px;
-  background: rgba(15, 55, 49, 0.94);
-  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.35);
+  border-radius: 10px;
+  background: #0f3731;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.25);
   flex-wrap: nowrap;
   justify-content: center;
 }
@@ -849,3 +851,26 @@ select.pill { padding: 0 16px; color: var(--text); border: none; }
 .summary-questions { margin: 0; padding-left: 20px; display: flex; flex-direction: column; gap: 4px; }
 .more-tools { display: flex; flex-wrap: wrap; gap: 6px; padding-bottom: 8px; margin-bottom: 2px; border-bottom: 1px solid var(--border); }
 .more-tools .round, .more-tools select.pill { height: 32px; font-size: 13px; }
+
+/* Flying reactions */
+.reactions-layer { position: absolute; inset: 0; pointer-events: none; z-index: 40; overflow: hidden; }
+.reaction-fly {
+  position: absolute; bottom: 80px;
+  display: flex; flex-direction: column; align-items: center; gap: 2px;
+  animation: reaction-up 2.5s cubic-bezier(.2,.7,.3,1) forwards;
+}
+.reaction-emoji { font-size: 44px; line-height: 1; filter: drop-shadow(0 4px 10px rgba(0,0,0,.35)); }
+.reaction-name { font-size: 11px; color: var(--text); background: rgba(15,55,49,.85); padding: 1px 6px; border-radius: 8px; }
+@keyframes reaction-up {
+  0% { transform: translateY(0) scale(.6); opacity: 0; }
+  12% { transform: translateY(-30px) scale(1.15); opacity: 1; }
+  70% { opacity: 1; }
+  100% { transform: translateY(-70vh) scale(1); opacity: 0; }
+}
+
+/* React and Stickers rows inside More */
+.more-emoji { display: flex; flex-wrap: wrap; gap: 4px; }
+.more-emoji button { font-size: 22px; line-height: 1; padding: 4px 6px; background: transparent; border: none; border-radius: 8px; cursor: pointer; }
+.more-emoji button:hover { background: rgba(255,255,255,.1); transform: scale(1.15); }
+.more-emoji .phrase { font-size: 12px; font-weight: 600; padding: 5px 8px; color: var(--accent-ink); }
+.more-label { font-size: 11px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); margin: 4px 0 2px; }

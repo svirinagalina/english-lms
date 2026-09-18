@@ -1,6 +1,16 @@
-import { useEffect, useRef, useState } from 'react'
+import { forwardRef, useEffect, useRef, useState } from 'react'
+import { REACTIONS } from './Reactions'
 
-export default function Controls({
+// Stickers for the board: emoji, and a few phrases as coloured notes.
+export const STICKERS = [
+  { text: '⭐' }, { text: '🏆' }, { text: '👍' }, { text: '🎉' }, { text: '✅' }, { text: '💡' },
+  { text: '🔥' }, { text: '🎯' }, { text: '🧠' }, { text: '📌' }, { text: '❓' }, { text: '❗' },
+  { text: 'Well done!', phrase: true, fill: '#bbf7d0' }, { text: 'Great job', phrase: true, fill: '#fef08a' },
+  { text: 'New word', phrase: true, fill: '#bfdbfe' }, { text: 'Remember!', phrase: true, fill: '#fed7aa' },
+  { text: 'Homework', phrase: true, fill: '#e9d5ff' }, { text: 'Say it again', phrase: true, fill: '#fecaca' }
+]
+
+const Controls = forwardRef(function Controls({
   onToggleCamera,
   onToggleMicrophone,
   cameraOn,
@@ -30,8 +40,10 @@ export default function Controls({
   onOpenWriting,
   onCloseWriting,
   // Board mode: only Cam, Mic, More and Leave stay in the row; the rest is under More.
-  compact = false
-}) {
+  compact = false,
+  onReact,
+  onSticker
+}, ref) {
   // The rarely used controls live behind "More": noise reduction, blur, the link.
   const [moreOpen, setMoreOpen] = useState(false)
   const moreRef = useRef(null)
@@ -113,7 +125,7 @@ export default function Controls({
   )
 
   return (
-    <div className="controls">
+    <div className="controls" ref={ref}>
       <button
         className={`round ${cameraOn ? 'on' : 'off'}`}
         onClick={onToggleCamera}
@@ -151,6 +163,35 @@ export default function Controls({
         {moreOpen && (
           <div className="more-menu">
             {compact && <div className="more-tools" onClick={(e) => { if (e.target.tagName === 'BUTTON') setMoreOpen(false) }}>{tools}</div>}
+            {onReact && (
+              <>
+                <div className="more-label">React</div>
+                <div className="more-emoji">
+                  {REACTIONS.map((emoji) => (
+                    <button key={emoji} type="button" onClick={() => onReact(emoji)} title="Send to everyone in the call">{emoji}</button>
+                  ))}
+                </div>
+              </>
+            )}
+            {onSticker && (
+              <>
+                <div className="more-label">Stickers for the board</div>
+                <div className="more-emoji">
+                  {STICKERS.map((sticker) => (
+                    <button
+                      key={sticker.text}
+                      type="button"
+                      className={sticker.phrase ? 'phrase' : ''}
+                      style={sticker.phrase ? { background: sticker.fill } : undefined}
+                      onClick={() => { onSticker(sticker); setMoreOpen(false) }}
+                      title="Put on the board"
+                    >
+                      {sticker.text}
+                    </button>
+                  ))}
+                </div>
+              </>
+            )}
             <button
               className={`pill ${noiseSuppression ? 'on' : ''}`}
               onClick={onNoiseToggle}
@@ -187,4 +228,6 @@ export default function Controls({
       )}
     </div>
   )
-}
+})
+
+export default Controls

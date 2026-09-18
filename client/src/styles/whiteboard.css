@@ -14,7 +14,9 @@
   display: flex;
   align-items: center;
   gap: 4px;
-  padding: 7px 8px 7px 12px;
+  height: 44px;
+  box-sizing: border-box;
+  padding: 6px 8px 6px 12px;
   background: #0f3731;
   border: 1px solid var(--border);
   border-radius: 10px;
@@ -61,6 +63,8 @@
   gap: 8px;
   z-index: 2;
 }
+.board-corner-right .dock-group { height: 44px; box-sizing: border-box; padding: 6px 8px; }
+.board-corner-right .tool { height: 30px; padding: 0 10px; display: inline-flex; align-items: center; }
 
 .board-dock {
   position: absolute;
@@ -231,7 +235,8 @@ select.tool { appearance: auto; padding: 5px 8px; }
   color: var(--accent-ink);
   border: none;
   border-radius: 7px;
-  padding: 5px 10px;
+  height: 30px;
+  padding: 0 10px;
   font-size: 12px;
   font-weight: 600;
   cursor: pointer;

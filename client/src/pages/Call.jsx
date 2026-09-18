@@ -5,6 +5,7 @@ import { useAuth } from '../AuthContext'
 import { api } from '../api'
 import VideoGrid from '../components/VideoGrid'
 import Controls from '../components/Controls'
+import Reactions from '../components/Reactions'
 import Whiteboard from '../components/Whiteboard'
 import Writing from '../components/Writing'
 import { videoProcessor } from '../utils/videoProcessor'
@@ -523,6 +524,34 @@ export default function Call() {
     setUnread(0)
   }
 
+  // Board mode: the call controls sit exactly between the board chip and
+  // the zoom group, not in the middle of the whole width.
+  const controlsRef = useRef(null)
+  const boardRef = useRef(null)
+  useEffect(() => {
+    if (!boardId || writingId) return
+    const align = () => {
+      const controls = controlsRef.current
+      const chip = document.querySelector('.board-chip')
+      const zoom = document.querySelector('.board-corner-right')
+      if (!controls) return
+      if (!chip || !zoom) { controls.style.left = ''; controls.style.transform = ''; return }
+      const a = chip.getBoundingClientRect().right
+      const b = zoom.getBoundingClientRect().left
+      const host = controls.offsetParent?.getBoundingClientRect() ?? { left: 0 }
+      const width = controls.getBoundingClientRect().width
+      const left = Math.max(a + 8, Math.min((a + b) / 2 - width / 2, b - width - 8))
+      controls.style.left = `${left - host.left}px`
+      controls.style.transform = 'none'
+    }
+    align()
+    const observer = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(align) : null
+    for (const el of [controlsRef.current, document.querySelector('.board-chip'), document.querySelector('.board-corner-right')]) if (el) observer?.observe(el)
+    window.addEventListener('resize', align)
+    const timer = setInterval(align, 500)
+    return () => { observer?.disconnect(); window.removeEventListener('resize', align); clearInterval(timer); if (controlsRef.current) { controlsRef.current.style.left = ''; controlsRef.current.style.transform = '' } }
+  }, [boardId, writingId])
+
   // Remembered so "Board" goes back to it after Writing, without a picker.
   const lastBoardRef = useRef(null)
   useEffect(() => { if (boardId) lastBoardRef.current = boardId }, [boardId])
@@ -599,6 +628,7 @@ export default function Call() {
       {blurStatus && <div className="banner">{blurStatus}</div>}
 
       <div className="view-pane">
+        <Reactions socketRef={socketRef} ready={status === 'live'} />
         <VideoGrid
           peers={peers}
           micOn={micOn}
@@ -621,6 +651,7 @@ export default function Call() {
               {boardId && (
             <div style={{ display: writingId ? 'none' : 'contents' }}>
             <Whiteboard
+              ref={boardRef}
               socketRef={socketRef}
               boardId={boardId}
               title={currentBoard?.title ?? 'Board'}
@@ -665,7 +696,10 @@ export default function Call() {
       )}
 
       <Controls
+        ref={controlsRef}
         compact={Boolean(boardId || writingId)}
+        onReact={(emoji) => socketRef.current?.emit('reaction', { emoji })}
+        onSticker={boardId && !writingId ? (sticker) => boardRef.current?.addSticker(sticker) : undefined}
         onToggleCamera={toggleTrack('video')}
         onToggleMicrophone={toggleTrack('audio')}
         cameraOn={cameraOn}
