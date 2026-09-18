@@ -78,3 +78,5 @@
 .run.image { display: block; margin: 8px 0; }
 .run.image img { max-width: 100%; max-height: 480px; border-radius: 6px; box-shadow: 0 1px 6px rgba(0,0,0,0.15); display: block; }
 .run.image .obj { font-size: 0; }
+
+.writing-bar .tool.accept { background: #22c55e; color: #052e16; }

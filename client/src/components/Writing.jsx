@@ -364,7 +364,7 @@ export default function Writing({ socketRef, classroomId, user, title, subtitle,
         <div className="row-actions">
           {pending > 0 && (
             <>
-              <button className="tool" onClick={() => commit(resolveAll(runsRef.current, true), null)} title="Apply every correction">Accept all</button>
+              <button className="tool accept" onClick={() => commit(resolveAll(runsRef.current, true), null)} title="Apply every correction to the text">Accept all changes</button>
               <button className="tool" onClick={() => commit(resolveAll(runsRef.current, false), null)} title="Discard every correction">Reject all</button>
             </>
           )}

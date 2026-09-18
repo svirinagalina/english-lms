@@ -54,6 +54,25 @@ const roomBoards = new Map()
 // Likewise for the writing document shown in a call (by classroom id).
 const roomDocs = new Map()
 
+// Everyone who currently has a board or a document open, by id — a board
+// open in a call and the same board open from the classroom page are in
+// different rooms, yet every stroke must reach both.
+const boardWatchers = new Map()
+const docWatchers = new Map()
+const watch = (map, key, socket) => {
+  if (!map.has(key)) map.set(key, new Set())
+  map.get(key).add(socket)
+}
+const unwatch = (map, key, socket) => {
+  const set = key && map.get(key)
+  if (!set) return
+  set.delete(socket)
+  if (!set.size) map.delete(key)
+}
+const emitToWatchers = (map, key, socket, event, payload) => {
+  for (const other of map.get(key) ?? []) if (other !== socket) other.emit(event, payload)
+}
+
 export function setupSignaling(io) {
   io.use(async (socket, next) => {
     const token = readTokenCookie(socket.handshake.headers.cookie)
@@ -229,10 +248,15 @@ export function setupSignaling(io) {
         return
       }
 
+      unwatch(boardWatchers, socket.data.boardId, socket)
       socket.data.boardId = boardId
-      if (socket.data.callId) roomBoards.set(socket.data.roomId, boardId)
+      watch(boardWatchers, boardId, socket)
       const elements = await loadBoard(boardId)
-      socket.to(socket.data.roomId).emit('board:switched', boardId)
+      // A teacher's switch leads the room; a student's is private to them.
+      if (user.role !== 'STUDENT') {
+        if (socket.data.callId) roomBoards.set(socket.data.roomId, boardId)
+        socket.to(socket.data.roomId).emit('board:switched', boardId)
+      }
       if (typeof ack === 'function') ack({ elements })
     })
 
@@ -245,7 +269,7 @@ export function setupSignaling(io) {
 
       const element = { ...parsed.data, authorId: user.id }
       if (await addElement(boardId, element)) {
-        socket.to(roomId).emit('board:add', element)
+        emitToWatchers(boardWatchers, boardId, socket, 'board:add', element)
       }
     })
 
@@ -257,7 +281,7 @@ export function setupSignaling(io) {
       if (!parsed.success) return
 
       if (await updateElement(boardId, parsed.data)) {
-        socket.to(roomId).emit('board:update', parsed.data)
+        emitToWatchers(boardWatchers, boardId, socket, 'board:update', parsed.data)
       }
     })
 
@@ -266,15 +290,17 @@ export function setupSignaling(io) {
       if (!boardId || typeof elementId !== 'string') return
 
       if (await deleteElement(boardId, elementId)) {
-        socket.to(roomId).emit('board:delete', elementId)
+        emitToWatchers(boardWatchers, boardId, socket, 'board:delete', elementId)
       }
     })
 
     // Whoever closes the board in a call closes it for everyone there.
     socket.on('board:close', () => {
       const { roomId } = socket.data
-      if (!roomId) return
+      unwatch(boardWatchers, socket.data.boardId, socket)
       socket.data.boardId = null
+      if (!roomId || user.role === 'STUDENT') return
+      roomBoards.delete(roomId)
       socket.to(roomId).emit('board:closed')
     })
 
@@ -296,8 +322,10 @@ export function setupSignaling(io) {
         if (typeof ack === 'function') ack({ error: 'Document not found' })
         return
       }
+      unwatch(docWatchers, socket.data.docId, socket)
       socket.data.docId = classroomId
-      if (socket.data.callId) roomDocs.set(socket.data.roomId, classroomId)
+      watch(docWatchers, classroomId, socket)
+      if (user.role !== 'STUDENT' && socket.data.callId) roomDocs.set(socket.data.roomId, classroomId)
       let runs
       try {
         runs = await loadDocument(classroomId)
@@ -306,7 +334,7 @@ export function setupSignaling(io) {
         if (typeof ack === 'function') ack({ error: 'Could not load the document' })
         return
       }
-      socket.to(socket.data.roomId).emit('doc:switched', classroomId)
+      if (user.role !== 'STUDENT') socket.to(socket.data.roomId).emit('doc:switched', classroomId)
       if (typeof ack === 'function') ack({ runs })
     })
 
@@ -316,13 +344,16 @@ export function setupSignaling(io) {
       const parsed = runsSchema.safeParse(raw)
       if (!parsed.success) return
       replaceDocument(docId, parsed.data)
-      socket.to(roomId).emit('doc:update', { classroomId: docId, runs: parsed.data, from: socket.id })
+      emitToWatchers(docWatchers, docId, socket, 'doc:update', { classroomId: docId, runs: parsed.data, from: socket.id })
     })
 
     socket.on('doc:close', () => {
       const { roomId } = socket.data
+      unwatch(docWatchers, socket.data.docId, socket)
       socket.data.docId = null
-      if (roomId) socket.to(roomId).emit('doc:closed')
+      if (!roomId || user.role === 'STUDENT') return
+      roomDocs.delete(roomId)
+      socket.to(roomId).emit('doc:closed')
     })
 
     // Spotlight: the teacher's viewport is broadcast so students' boards
@@ -343,10 +374,12 @@ export function setupSignaling(io) {
       if (!boardId) return
 
       await clearBoard(boardId)
-      socket.to(roomId).emit('board:clear')
+      emitToWatchers(boardWatchers, boardId, socket, 'board:clear')
     })
 
     socket.on('disconnect', async () => {
+      unwatch(boardWatchers, socket.data.boardId, socket)
+      unwatch(docWatchers, socket.data.docId, socket)
       const { roomId, classroomId } = socket.data
       if (!roomId) return
 

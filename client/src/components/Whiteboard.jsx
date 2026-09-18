@@ -2006,18 +2006,23 @@ export default function Whiteboard({ socketRef, boardId, title, subtitle, onClos
 
   // Everything from every lesson stays on the one board: a new lesson starts
   // with a dated heading below all existing content, and the view goes there.
-  const startLesson = () => {
+  const addHeading = (text, color) => {
     const items = elementsRef.current
     const box = items.length ? unionBounds(items) : { x: 0, y: 0, w: 0, h: 0 }
     const x = items.length ? box.x : 40
     const y = items.length ? box.y + box.h + 120 : 40
-    const date = new Date().toLocaleDateString(undefined, { day: 'numeric', month: 'long', year: 'numeric' })
-    commit({ id: newId(), type: 'text', color: COLORS[0], width: 6, x, y, text: `— Lesson · ${date} —`, fontSize: 28 })
+    commit({ id: newId(), type: 'text', color, width: 6, x, y, text, fontSize: 28 })
     viewRef.current = { scale: 1, x: 60 - x, y: 60 - y }
     setTool('pen')
     scheduleRender()
     bump()
   }
+  const startLesson = () => {
+    const date = new Date().toLocaleDateString(undefined, { day: 'numeric', month: 'long', year: 'numeric' })
+    addHeading(`— Lesson · ${date} —`, COLORS[0])
+  }
+  // A homework block below everything, in the accent colour so it stands out.
+  const startHomework = () => addHeading('— Homework —', COLORS[5])
 
   const view = viewRef.current
   const cropping = Boolean(cropRef.current)
@@ -2169,6 +2174,7 @@ export default function Whiteboard({ socketRef, boardId, title, subtitle, onClos
 
             <div className="dock-group">
               {onUploadImage && <button className="tool" onClick={startLesson} title="Add a dated heading below everything and start there">New lesson</button>}
+              {onUploadImage && <button className="tool" onClick={startHomework} title="Add a Homework heading below everything and start there">Homework</button>}
               <button
                 className="tool"
                 disabled={exporting}
