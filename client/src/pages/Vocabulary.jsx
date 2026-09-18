@@ -23,6 +23,28 @@ export default function Vocabulary() {
     refresh().finally(() => setLoading(false))
   }, [])
 
+  const [renaming, setRenaming] = useState(null)
+  const [titleDraft, setTitleDraft] = useState('')
+  const saveTitle = async (id) => {
+    setError('')
+    try {
+      await api.renameVocabSet(id, titleDraft.trim())
+      setRenaming(null)
+      await refresh()
+    } catch (err) {
+      setError(err.message)
+    }
+  }
+  const removeSet = async (set) => {
+    if (!window.confirm(`Delete "${set.title}" with all ${set.total} words? This cannot be undone.`)) return
+    try {
+      await api.deleteVocabSet(set.id)
+      await refresh()
+    } catch (err) {
+      setError(err.message)
+    }
+  }
+
   const handleCreate = async (event) => {
     event.preventDefault()
     setError('')
@@ -71,13 +93,32 @@ export default function Vocabulary() {
 
         <div className="list">
           {sets.map((set) => (
-            <Link key={set.id} className="row unit-row" to={`/vocabulary/${set.id}`}>
-              <div className="unit-main">
-                <strong>{set.title}</strong>
-                <div className="muted">{set.total} {set.total === 1 ? 'word' : 'words'}{set.personal ? ' · your own words, with pronunciation' : ''}</div>
-              </div>
-              {set.due > 0 && <span className="due-badge">{set.due} to review</span>}
-            </Link>
+            <div key={set.id} className="row set-row">
+              {renaming === set.id ? (
+                <form className="row-actions" style={{ flex: 1 }} onSubmit={(e) => { e.preventDefault(); saveTitle(set.id) }}>
+                  <input autoFocus value={titleDraft} onChange={(e) => setTitleDraft(e.target.value)} maxLength={200} required style={{ flex: 1 }} />
+                  <button type="submit">Save</button>
+                  <button type="button" className="ghost" onClick={() => setRenaming(null)}>Cancel</button>
+                </form>
+              ) : (
+                <>
+                  <Link className="unit-main student-link" to={`/vocabulary/${set.id}`}>
+                    <strong>{set.title}</strong>
+                    <div className="muted">{set.total} {set.total === 1 ? 'word' : 'words'}{set.personal ? ' · your own words, with pronunciation' : ''}</div>
+                  </Link>
+                  <div className="row-actions">
+                    {set.due > 0 && <span className="due-badge">{set.due} to review</span>}
+                    {(isStaff || set.personal) && (
+                      <button className="ghost" onClick={() => { setTitleDraft(set.title); setRenaming(set.id) }} title="Rename">Rename</button>
+                    )}
+                    {isStaff && !set.personal && (
+                      <button className="ghost" onClick={() => removeSet(set)} title="Delete this set and all its words">Delete</button>
+                    )}
+                    <Link className="button" to={`/vocabulary/${set.id}`}>Open</Link>
+                  </div>
+                </>
+              )}
+            </div>
           ))}
         </div>
       </section>

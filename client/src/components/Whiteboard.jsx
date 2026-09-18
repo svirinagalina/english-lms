@@ -780,8 +780,12 @@ export default function Whiteboard({ socketRef, boardId, title, subtitle, onClos
   const [tip, setTip] = useState(null) // { x, y, word, entry }
   // A student's double-click on a word: the word card (with "Add to my words").
   const [wordCard, setWordCard] = useState(null) // { word, x, y }
-  // The Mistake tool's form: where on the board the note will go.
-  const [mistakeForm, setMistakeForm] = useState(null) // { x, y, left, top, said, correct, busy, error }
+  // The Mistakes panel: rows typed during the lesson; each saved row becomes
+  // a red note on the board (so the student sees it at once) and a notebook entry.
+  const [mistakesOpen, setMistakesOpen] = useState(false)
+  const [mistakeRow, setMistakeRow] = useState({ said: '', correct: '', busy: false, error: '' })
+  const [mistakesSaved, setMistakesSaved] = useState([]) // this session's entries
+  const mistakeStackRef = useRef(null) // where the next note goes
   const editClickTimer = useRef(null)
   // A block handed in from outside (speaking questions from a lesson
   // summary) goes under everything once the board is in, once per block.
@@ -1394,7 +1398,8 @@ export default function Whiteboard({ socketRef, boardId, title, subtitle, onClos
       const mod = event.metaKey || event.ctrlKey
       if (!mod && !event.altKey) {
         const shortcut = TOOLS.find((item) => item.key.toLowerCase() === event.key.toLowerCase())
-          ?? (onMistake && event.key.toLowerCase() === 'x' ? { id: 'mistake' } : null)
+          ?? null
+        if (onMistake && event.key.toLowerCase() === 'x' && !shortcut) { event.preventDefault(); setMistakesOpen((v) => !v); return }
         if (shortcut) { setTool(shortcut.id); if (shortcut.id !== 'select') selectedRef.current = []; scheduleRender(); bump(); return }
       }
       if (mod && event.key.toLowerCase() === 'z') {
@@ -1600,15 +1605,6 @@ export default function Whiteboard({ socketRef, boardId, title, subtitle, onClos
         points: [point.x, point.y], ...(marker ? { highlight: true } : {})
       }
       pointerRef.current = { mode: 'draw' }
-      return
-    }
-
-    if (tool === 'mistake') {
-      // The form floats where the click was; the note lands there on save.
-      const rect = canvasRef.current.getBoundingClientRect()
-      setMistakeForm({ x: point.x, y: point.y, left: Math.max(8, Math.min(event.clientX - rect.left, rect.width - 380)), top: Math.max(8, Math.min(event.clientY - rect.top, rect.height - 260)), said: '', correct: '', busy: false, error: '' })
-      pointerRef.current = null
-      setTool('select')
       return
     }
 
@@ -2303,56 +2299,74 @@ export default function Whiteboard({ socketRef, boardId, title, subtitle, onClos
 
         {wordCard && <WordCard word={wordCard.word} x={wordCard.x} y={wordCard.y} onClose={() => setWordCard(null)} />}
 
-        {mistakeForm && (
-          <form
-            className="mistake-form"
-            style={{ left: mistakeForm.left, top: mistakeForm.top }}
-            onPointerDown={(e) => e.stopPropagation()}
-            onSubmit={async (e) => {
-              e.preventDefault()
-              const said = mistakeForm.said.trim()
-              const correct = mistakeForm.correct.trim()
-              if (!said || !correct) return
-              setMistakeForm((f) => ({ ...f, busy: true, error: '' }))
-              const elementId = newId()
-              try {
-                const { mistake } = await onMistake({ said, correct, elementId })
-                const safe = (t) => t.replace(/[{}]/g, '')
-                const tag = mistake.labels?.length ? `\n{{#6b7280:${safe(mistake.labels.join(' · '))}}}` : ''
-                const note = {
-                  id: elementId, type: 'note', color: COLORS[0], width, x: mistakeForm.x, y: mistakeForm.y, w: 320, h: 90,
-                  fill: '#fecaca', fontSize: 18, mistakeId: mistake.id,
-                  text: `{{#b91c1c:✗ ${safe(said)}}}\n{{#15803d:✓ ${safe(correct)}}}${tag}`
-                }
-                commit(note)
-                selectedRef.current = [note.id]
-                setMistakeForm(null)
-                bump()
-              } catch (err) {
-                setMistakeForm((f) => ({ ...f, busy: false, error: err.message }))
-              }
-            }}
-            onKeyDown={(e) => {
-              if (e.key === 'Escape') setMistakeForm(null)
-              if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) e.currentTarget.requestSubmit()
-            }}
-          >
-            <strong>Mistake</strong>
-            <label>
-              <span className="muted">What the student said</span>
-              <textarea autoFocus rows={2} value={mistakeForm.said} onChange={(e) => setMistakeForm((f) => ({ ...f, said: e.target.value }))} placeholder="I have 20 years" />
-            </label>
-            <label>
-              <span className="muted">How it should be</span>
-              <textarea rows={2} value={mistakeForm.correct} onChange={(e) => setMistakeForm((f) => ({ ...f, correct: e.target.value }))} placeholder="I am 20 years old" />
-            </label>
-            {mistakeForm.error && <div className="error">{mistakeForm.error}</div>}
-            <div className="row-actions">
-              <button type="submit" disabled={mistakeForm.busy || !mistakeForm.said.trim() || !mistakeForm.correct.trim()}>{mistakeForm.busy ? 'Saving…' : 'Save to notebook'}</button>
-              <button type="button" className="ghost" onClick={() => setMistakeForm(null)}>Cancel</button>
-              <span className="small-hint muted">⌘Enter</span>
+        {mistakesOpen && onMistake && (
+          <div className="mistakes-panel" onPointerDown={(e) => e.stopPropagation()}>
+            <div className="mistakes-head">
+              <strong>Mistakes this lesson</strong>
+              <button type="button" className="word-card-close" onClick={() => setMistakesOpen(false)} title="Close">×</button>
             </div>
-          </form>
+            <p className="muted small-hint">Each saved line appears on the board for the student right away and goes into their notebook.</p>
+            <form
+              className="mistakes-row"
+              onSubmit={async (e) => {
+                e.preventDefault()
+                const said = mistakeRow.said.trim()
+                const correct = mistakeRow.correct.trim()
+                if (!said || !correct || mistakeRow.busy) return
+                setMistakeRow((r) => ({ ...r, busy: true, error: '' }))
+                const elementId = newId()
+                try {
+                  const { mistake } = await onMistake({ said, correct, elementId })
+                  const safe = (t) => t.replace(/[{}]/g, '')
+                  const tag = mistake.labels?.length ? `\n{{#6b7280:${safe(mistake.labels.join(' · '))}}}` : ''
+                  // Notes stack in a column at the right of the current view.
+                  const rect = canvasRef.current.getBoundingClientRect()
+                  const v = viewRef.current
+                  const stack = mistakeStackRef.current
+                  // Left of the panel, so the teacher sees the notes appear too.
+                  const x = stack ? stack.x : (Math.max(40, rect.width - 720) - v.x) / v.scale
+                  const y = stack ? stack.y + stack.h + 16 : (100 - v.y) / v.scale
+                  const note = {
+                    id: elementId, type: 'note', color: COLORS[0], width, x, y, w: 320, h: 90,
+                    fill: '#fecaca', fontSize: 18, mistakeId: mistake.id,
+                    text: `{{#b91c1c:✗ ${safe(said)}}}\n{{#15803d:✓ ${safe(correct)}}}${tag}`
+                  }
+                  commit(note)
+                  mistakeStackRef.current = { x, y, h: boundsOf(note).h }
+                  setMistakesSaved((list) => [{ id: mistake.id, said, correct, labels: mistake.labels ?? [] }, ...list])
+                  setMistakeRow({ said: '', correct: '', busy: false, error: '' })
+                  e.target.querySelector('input')?.focus()
+                } catch (err) {
+                  setMistakeRow((r) => ({ ...r, busy: false, error: err.message }))
+                }
+              }}
+            >
+              <input
+                autoFocus
+                placeholder="What the student said"
+                value={mistakeRow.said}
+                onChange={(e) => setMistakeRow((r) => ({ ...r, said: e.target.value }))}
+                onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); e.currentTarget.form.querySelectorAll('input')[1]?.focus() } }}
+              />
+              <input
+                placeholder="How it should be"
+                value={mistakeRow.correct}
+                onChange={(e) => setMistakeRow((r) => ({ ...r, correct: e.target.value }))}
+              />
+              <button type="submit" disabled={mistakeRow.busy || !mistakeRow.said.trim() || !mistakeRow.correct.trim()}>{mistakeRow.busy ? '…' : 'Add'}</button>
+              {mistakeRow.error && <div className="error">{mistakeRow.error}</div>}
+            </form>
+            <div className="mistakes-list">
+              {mistakesSaved.length === 0 && <div className="muted small-hint">Type the sentence as it was said, Enter, the correct version, Enter.</div>}
+              {mistakesSaved.map((m) => (
+                <div key={m.id} className="mistakes-item">
+                  <div className="said">✗ {m.said}</div>
+                  <div className="correct">✓ {m.correct}</div>
+                  {m.labels.length > 0 && <div className="muted small-hint">{m.labels.join(' · ')}</div>}
+                </div>
+              ))}
+            </div>
+          </div>
         )}
 
         {tip && !wordCard && (
@@ -2401,11 +2415,11 @@ export default function Whiteboard({ socketRef, boardId, title, subtitle, onClos
               ))}
               {onMistake && (
                 <button
-                  className={`tool mistake-tool ${tool === 'mistake' ? 'active' : ''}`}
-                  onClick={() => { setTool('mistake'); selectedRef.current = [] }}
-                  title="Note a mistake: what the student said and how it should be. Goes into their notebook (X)"
+                  className={`tool ${mistakesOpen ? 'active' : ''}`}
+                  onClick={() => setMistakesOpen((v) => !v)}
+                  title="The lesson's mistakes: what the student said and how it should be. Each goes on the board and into their notebook (X)"
                 >
-                  Mistake
+                  Mistakes
                 </button>
               )}
               {onUploadImage && (

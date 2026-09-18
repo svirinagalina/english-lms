@@ -3,6 +3,8 @@ import { Routes, Route, Navigate, useSearchParams, useLocation } from 'react-rou
 import { api } from './api'
 import { useAuth } from './AuthContext'
 import Login from './pages/Login'
+import ForgotPassword from './pages/ForgotPassword'
+import ResetPassword from './pages/ResetPassword'
 import Register from './pages/Register'
 import Classrooms from './pages/Classrooms'
 import Classroom from './pages/Classroom'
@@ -73,6 +75,8 @@ export default function App() {
     )}
     <Routes>
       <Route path="/login" element={<LoginRoute />} />
+      <Route path="/forgot" element={user ? <Navigate to="/" replace /> : <ForgotPassword />} />
+      <Route path="/reset/:token" element={<ResetPassword />} />
       <Route path="/register" element={user ? <Navigate to="/" replace /> : <Register />} />
       <Route path="/join/:token" element={user ? <Navigate to="/" replace /> : <Join />} />
       <Route path="/call/:token" element={<Call />} />

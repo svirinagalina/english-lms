@@ -52,6 +52,7 @@ export default function Login() {
           required
         />
         <button type="submit" disabled={busy}>{busy ? 'Signing in…' : 'Sign in'}</button>
+        <p className="muted"><Link to="/forgot">Forgot password?</Link></p>
         {registrationOpen && (
           <p className="muted">
             New school? <Link to="/register">Create an account</Link>

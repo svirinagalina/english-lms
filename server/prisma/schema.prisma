@@ -67,6 +67,7 @@ model User {
   studentClassrooms Classroom[]  @relation("StudentClassrooms")
   personalVocab     VocabSet[]   @relation("PersonalVocab")
   mistakes          LessonMistake[] @relation("StudentMistakes")
+  passwordResets    PasswordReset[]
   contentItems      ContentItem[]
   apiTokens         ApiToken[]
 
@@ -218,6 +219,19 @@ model TeacherStudent {
 
 // A pending invitation. The token goes into a link the inviter passes on;
 // accepting it creates the account and, for students, the teacher link.
+// "Forgot password": a single-use link, valid for an hour, mailed to the account.
+model PasswordReset {
+  id        String   @id @default(cuid())
+  tokenHash String   @unique
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+}
+
 model Invite {
   id        String    @id @default(cuid())
   token     String    @unique

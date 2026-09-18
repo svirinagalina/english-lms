@@ -100,3 +100,17 @@ export function sendPaymentReportedEmail({ to, studentName, note }) {
   const text = `${studentName} pressed "I have paid" on the platform${note ? `: ${note}` : ''}. Check the payment, then set the new package in Payments.`
   return send({ to, subject: `${studentName} reports a payment`, html, text })
 }
+
+export function sendPasswordResetEmail({ to, name, link }) {
+  const html = `
+<div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;max-width:520px;margin:0 auto;padding:32px 24px;color:#1a1a1a">
+  <h1 style="font-size:20px;margin:0 0 16px">Hello, ${escapeHtml(name)}</h1>
+  <p style="font-size:15px;line-height:1.55;margin:0 0 24px">Someone asked to reset the password for your Advent Academy account. If it was you, choose a new password here — the link works for one hour.</p>
+  <p style="margin:0 0 24px">
+    <a href="${escapeHtml(link)}" style="display:inline-block;background:#14453f;color:#fff;text-decoration:none;padding:12px 22px;border-radius:8px;font-weight:600;font-size:15px">Set a new password</a>
+  </p>
+  <p style="font-size:13px;color:#666;line-height:1.5;margin:0">If you did not ask for this, ignore this letter — your password stays as it is.</p>
+</div>`
+  const text = `Someone asked to reset the password for your Advent Academy account. If it was you, open this link within an hour: ${link}\nIf not, ignore this letter.`
+  return send({ to, subject: 'Reset your Advent Academy password', html, text })
+}
