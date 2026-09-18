@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { api } from '../api'
+import { lookupWord, wordAt } from '../utils/dictionary'
 import '../styles/writing.css'
 
 // A shared writing document with tracked changes, Google-Docs style.
@@ -306,6 +307,8 @@ export default function Writing({ socketRef, classroomId, user, title, subtitle,
     if (file) { event.preventDefault(); insertImage(file) }
   }
 
+  // A click on a mark offers accept/reject; anywhere else the browser's own
+  // caret, double-click-word and triple-click-line behaviour applies.
   const handleClick = (event) => {
     const index = Number(event.target.closest?.('[data-run]')?.dataset.run ?? event.target.dataset?.run)
     const run = runsRef.current[index]
@@ -318,6 +321,33 @@ export default function Writing({ socketRef, classroomId, user, title, subtitle,
   const resolve = (index, accept) => {
     commit(resolveOne(runsRef.current, index, accept), null)
     setPopover(null)
+  }
+
+  // Hover dictionary over the document.
+  const [tip, setTip] = useState(null)
+  const tipTimer = useRef(null)
+  const tipWordRef = useRef(null)
+  const handleMouseMove = (event) => {
+    let range = null
+    if (document.caretRangeFromPoint) range = document.caretRangeFromPoint(event.clientX, event.clientY)
+    else if (document.caretPositionFromPoint) {
+      const pos = document.caretPositionFromPoint(event.clientX, event.clientY)
+      if (pos) { range = { startContainer: pos.offsetNode, startOffset: pos.offset } }
+    }
+    const node = range?.startContainer
+    const found = node && node.nodeType === Node.TEXT_NODE ? wordAt(node.textContent, Math.min(range.startOffset, node.textContent.length - 1)) : null
+    const word = found?.word ?? null
+    if (!word) { if (tipWordRef.current) { tipWordRef.current = null; clearTimeout(tipTimer.current); setTip(null) } return }
+    if (word === tipWordRef.current) return
+    tipWordRef.current = word
+    clearTimeout(tipTimer.current)
+    setTip(null)
+    const host = editorRef.current.parentElement.getBoundingClientRect()
+    const at = { x: event.clientX - host.left + 12, y: event.clientY - host.top + 18 }
+    tipTimer.current = setTimeout(async () => {
+      const entry = await lookupWord(word)
+      if (tipWordRef.current === word && entry) setTip({ ...at, word, entry })
+    }, 350)
   }
 
   const pending = runs.filter((r) => r.kind !== 'base').length
@@ -358,6 +388,8 @@ export default function Writing({ socketRef, classroomId, user, title, subtitle,
           onClick={handleClick}
           onKeyDown={handleKeyDown}
           onPaste={handlePaste}
+          onMouseMove={handleMouseMove}
+          onMouseLeave={() => { tipWordRef.current = null; clearTimeout(tipTimer.current); setTip(null) }}
           onDrop={(e) => { const f = e.dataTransfer?.files?.[0]; if (f) { e.preventDefault(); insertImage(f) } }}
           data-placeholder={actor.tracked ? 'The student has not written anything yet.' : 'Write your text here…'}
         >
@@ -372,6 +404,11 @@ export default function Writing({ socketRef, classroomId, user, title, subtitle,
           ))}
         </div>
 
+        {tip && (
+          <div className="writing-popover word-tip" style={{ left: tip.x, top: tip.y }}>
+            <span><strong>{tip.word}</strong>{tip.entry.transcription ? ` ${tip.entry.transcription}` : ''} — {tip.entry.translation}</span>
+          </div>
+        )}
         {popover && (
           <div className="writing-popover" style={{ left: popover.x, top: popover.y }}>
             <span className="muted">{runs[popover.index]?.kind === 'ins' ? 'Suggested insertion' : 'Suggested deletion'}</span>

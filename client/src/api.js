@@ -23,6 +23,7 @@ export const api = {
   listTeachers: () => request('/users/teachers'),
   deleteUser: (id) => request(`/users/${id}`, { method: 'DELETE' }),
   setUserRole: (id, role) => request(`/users/${id}/role`, { method: 'PATCH', body: { role } }),
+  updateUser: (id, body) => request(`/users/${id}`, { method: 'PATCH', body }),
   linkStudent: (teacherId, studentId) =>
     request('/users/links', { method: 'POST', body: { teacherId, studentId } }),
   unlinkStudent: (teacherId, studentId) =>
@@ -72,6 +73,7 @@ export const api = {
 
   getCall: (token) => request(`/calls/token/${token}`),
   iceServers: () => request('/calls/ice'),
+  dictionary: (word) => request(`/dictionary?word=${encodeURIComponent(word)}`),
   uploadWritingImage: (classroomId, data) =>
     request(`/classrooms/${classroomId}/writing/images`, { method: 'POST', body: { data } }),
   createCall: (body) => request('/calls', { method: 'POST', body }),

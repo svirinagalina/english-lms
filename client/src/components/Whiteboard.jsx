@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, useCallback } from 'react'
 import '../styles/whiteboard.css'
+import { lookupWord, wordAt } from '../utils/dictionary'
 
 const COLORS = ['#111827', '#ef4444', '#16a34a', '#2563eb', '#f59e0b', '#9333ea']
 // Ink drawn while the board was dark, shown dark on the white board.
@@ -116,6 +117,103 @@ function textRuns(line) {
 }
 
 const sameStyle = (a, b) => a.bold === b.bold && a.italic === b.italic && a.color === b.color
+
+// The word under a world point inside a text or note, from the same layout
+// the canvas draws.
+function wordUnderPoint(element, px, py) {
+  const size = element.fontSize ?? (element.type === 'note' ? 18 : 20)
+  const note = element.type === 'note'
+  const originX = element.x + (note ? NOTE_PAD : 0)
+  const originY = element.y + (note ? NOTE_PAD : 0)
+  const lines = textLines(note ? { text: element.text, fontSize: size, w: Math.max(20, element.w - 2 * NOTE_PAD) } : element)
+  const row = Math.floor((py - originY) / (size * LINE_HEIGHT))
+  const runs = lines[row]
+  if (!runs) return null
+  let x = originX
+  for (const run of runs) {
+    const w = measureWidth(run.text, size, run.bold, run.italic)
+    if (px >= x && px <= x + w) {
+      // Walk the characters of this run to the one under the point.
+      let acc = x
+      for (let i = 0; i < run.text.length; i++) {
+        const cw = measureWidth(run.text[i], size, run.bold, run.italic)
+        if (px <= acc + cw) return wordAt(run.text, i)?.word ?? null
+        acc += cw
+      }
+      return null
+    }
+    x += w
+  }
+  return null
+}
+
+// --- Rich editor ---------------------------------------------------------------
+// The text editor is a contentEditable: the markup becomes styled spans on
+// open, and the DOM is read back into markup on every input, so the person
+// never sees the ** / {{#…}} marks themselves.
+
+const escapeHtml = (text) => text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+
+function markupToHtml(text) {
+  return String(text ?? '').split('\n').map((line) =>
+    textRuns(line).map((run) => {
+      const style = [
+        run.bold ? 'font-weight:700' : '',
+        run.italic ? 'font-style:italic' : '',
+        run.color ? `color:${inkOf(run.color)}` : ''
+      ].filter(Boolean).join(';')
+      return style ? `<span style="${style}">${escapeHtml(run.text)}</span>` : escapeHtml(run.text)
+    }).join('') || '<br>'
+  ).join('<br>')
+}
+
+const rgbToHex = (value) => {
+  const m = String(value).match(/rgba?\((\d+),\s*(\d+),\s*(\d+)/)
+  if (!m) return /^#[0-9a-f]{6}$/i.test(value) ? value.toLowerCase() : null
+  return '#' + [m[1], m[2], m[3]].map((n) => Number(n).toString(16).padStart(2, '0')).join('')
+}
+
+// Reads the editor DOM back into markup. baseColor is the element's own
+// colour: only other colours become {{#…}} spans.
+function htmlToMarkup(root, baseColor) {
+  const runs = []
+  const base = rgbToHex(inkOf(baseColor)) ?? baseColor
+  const walk = (node, style, blockStart) => {
+    if (node.nodeType === Node.TEXT_NODE) {
+      if (node.textContent) runs.push({ text: node.textContent, ...style })
+      return
+    }
+    if (node.nodeType !== Node.ELEMENT_NODE) return
+    const tag = node.tagName
+    if (tag === 'BR') { runs.push({ text: '\n', bold: false, italic: false, color: null }); return }
+    const cs = getComputedStyle(node)
+    const next = {
+      bold: style.bold || tag === 'B' || tag === 'STRONG' || Number(cs.fontWeight) >= 600 || cs.fontWeight === 'bold',
+      italic: style.italic || tag === 'I' || tag === 'EM' || cs.fontStyle === 'italic',
+      color: style.color
+    }
+    const own = node.style?.color || node.getAttribute?.('color')
+    if (own) {
+      const hex = rgbToHex(own) ?? rgbToHex(cs.color)
+      if (hex) next.color = hex === base ? null : hex
+    }
+    const isBlock = cs.display === 'block' || tag === 'DIV' || tag === 'P'
+    if (isBlock && node !== root && runs.length && !runs[runs.length - 1].text.endsWith('\n')) {
+      runs.push({ text: '\n', bold: false, italic: false, color: null })
+    }
+    for (const child of node.childNodes) walk(child, next, false)
+  }
+  walk(root, { bold: false, italic: false, color: null }, true)
+  return runs.map((run) => {
+    if (run.text === '\n') return '\n'
+    let out = run.text
+    if (run.bold) out = `**${out}**`
+    if (run.italic) out = `__${out}__`
+    if (run.color) out = `{{${run.color}:${out}}}`
+    return out
+  }).join('').replace(/\n$/, '')
+}
+
 const styleOf = (run) => ({ bold: run.bold, italic: run.italic, color: run.color })
 
 
@@ -642,7 +740,7 @@ export async function exportBoardPdf(elements, title = 'Board') {
 
 // --- Component ----------------------------------------------------------------
 
-export default function Whiteboard({ socketRef, boardId, title, subtitle, onClose, onStartCall, onUploadImage, onAssist, assistEnabled }) {
+export default function Whiteboard({ socketRef, boardId, title, subtitle, onClose, onStartCall, onOpenWriting, canSpotlight = false, onUploadImage, onAssist, assistEnabled }) {
   const [assisting, setAssisting] = useState(null)
   const [exporting, setExporting] = useState(false)
   const fileInputRef = useRef(null)
@@ -668,6 +766,38 @@ export default function Whiteboard({ socketRef, boardId, title, subtitle, onClos
   const lastFontSizeRef = useRef(24)
   const [width, setWidth] = useState(3)
   const [textInput, setTextInput] = useState(null)
+  // Hover dictionary: the word under the pointer and its translation.
+  const [tip, setTip] = useState(null) // { x, y, word, entry }
+  const tipTimer = useRef(null)
+  const tipWordRef = useRef(null)
+  const hoverDictionary = (event) => {
+    if (pointerRef.current || textInput) return
+    const point = toWorld(event)
+    const target = [...elementsRef.current].reverse().find((e) => (e.type === 'text' || e.type === 'note') && hitTest(e, point.x, point.y))
+    const word = target ? wordUnderPoint(target, point.x, point.y) : null
+    if (!word) {
+      if (tipWordRef.current) { tipWordRef.current = null; clearTimeout(tipTimer.current); setTip(null) }
+      return
+    }
+    if (word === tipWordRef.current) return
+    tipWordRef.current = word
+    clearTimeout(tipTimer.current)
+    setTip(null)
+    const rect = canvasRef.current.getBoundingClientRect()
+    const at = { x: event.clientX - rect.left, y: event.clientY - rect.top }
+    tipTimer.current = setTimeout(async () => {
+      const entry = await lookupWord(word)
+      if (tipWordRef.current === word && entry) setTip({ ...at, word, entry })
+    }, 350)
+  }
+  // Spotlight: I broadcast my viewport (spotlighting) or follow someone's.
+  const [spotlighting, setSpotlighting] = useState(false)
+  const [following, setFollowing] = useState(null) // { name }
+  const spotlightRef = useRef(false)
+  spotlightRef.current = spotlighting
+  const viewBroadcastRef = useRef(0)
+  // True while a press is held on the canvas: floating bars step aside.
+  const [dragging, setDragging] = useState(false)
   // Fingers currently on the canvas (touch screens): two of them pinch-zoom.
   const touchesRef = useRef(new Map())
   const pinchRef = useRef(null)
@@ -763,11 +893,13 @@ export default function Whiteboard({ socketRef, boardId, title, subtitle, onClos
     }
   }, [])
 
+  const viewHookRef = useRef(null)
   const scheduleRender = useCallback(() => {
     if (frameRef.current) return
     frameRef.current = requestAnimationFrame(() => {
       frameRef.current = null
       render()
+      viewHookRef.current?.()
     })
   }, [render])
 
@@ -808,18 +940,60 @@ export default function Whiteboard({ socketRef, boardId, title, subtitle, onClos
     }
     const onClear = () => { elementsRef.current = []; selectedRef.current = []; scheduleRender() }
 
+    // Following a spotlight: the same scale, the same world point at the centre.
+    const onSpotlight = ({ name, on }) => setFollowing(on ? { name } : null)
+    const onView = ({ scale, cx, cy }) => {
+      if (spotlightRef.current) return
+      const canvas = canvasRef.current
+      if (!canvas) return
+      const rect = canvas.getBoundingClientRect()
+      viewRef.current = { scale, x: rect.width / 2 - cx * scale, y: rect.height / 2 - cy * scale }
+      scheduleRender()
+      bumpSoon()
+    }
+
     socket.on('board:add', onAdd)
     socket.on('board:update', onUpdate)
     socket.on('board:delete', onDelete)
     socket.on('board:clear', onClear)
+    socket.on('board:spotlight', onSpotlight)
+    socket.on('board:view', onView)
 
     return () => {
       socket.off('board:add', onAdd)
       socket.off('board:update', onUpdate)
       socket.off('board:delete', onDelete)
       socket.off('board:clear', onClear)
+      socket.off('board:spotlight', onSpotlight)
+      socket.off('board:view', onView)
     }
   }, [socketRef, boardId, scheduleRender])
+
+  // While spotlighting, every viewport change goes out (at most ~10/s).
+  const broadcastView = () => {
+    if (!spotlightRef.current) return
+    const now = Date.now()
+    if (now - viewBroadcastRef.current < 100) return
+    viewBroadcastRef.current = now
+    const canvas = canvasRef.current
+    if (!canvas) return
+    const rect = canvas.getBoundingClientRect()
+    const view = viewRef.current
+    socketRef.current?.emit('board:view', {
+      scale: view.scale,
+      cx: (rect.width / 2 - view.x) / view.scale,
+      cy: (rect.height / 2 - view.y) / view.scale
+    })
+  }
+  viewHookRef.current = broadcastView
+  const toggleSpotlight = () => {
+    const next = !spotlighting
+    setSpotlighting(next)
+    spotlightRef.current = next
+    socketRef.current?.emit('board:spotlight', { on: next })
+    if (next) { viewBroadcastRef.current = 0; broadcastView() }
+  }
+  useEffect(() => () => { if (spotlightRef.current) socketRef.current?.emit('board:spotlight', { on: false }) }, [socketRef])
 
   useEffect(() => {
     const repaint = () => scheduleRender()
@@ -1201,10 +1375,11 @@ export default function Whiteboard({ socketRef, boardId, title, subtitle, onClos
 
   // Edit a text (or a note's text) in place: the text hides while the
   // editor sits over it. A note's editor sits inside its padding.
-  const openEditor = (target) => {
+  const openEditor = (target, caretAt = null) => {
     const note = target.type === 'note'
     selectedRef.current = [target.id]
     setTextInput({
+      caretAt,
       id: target.id,
       note,
       x: target.x + (note ? NOTE_PAD : 0),
@@ -1237,6 +1412,9 @@ export default function Whiteboard({ socketRef, boardId, title, subtitle, onClos
   const handlePointerDown = (event) => {
     if (trackTouch(event)) return
     if (textInput) return
+    // Keep receiving moves even when the pointer crosses a floating bar.
+    try { event.currentTarget.setPointerCapture(event.pointerId) } catch { /* not supported */ }
+    setDragging(true)
     const point = toWorld(event)
     const scale = viewRef.current.scale
 
@@ -1290,8 +1468,14 @@ export default function Whiteboard({ socketRef, boardId, title, subtitle, onClos
           return
         }
         // Clicking a member keeps the group so it can be dragged together.
+        // A click (not a drag) on the one selected text opens it for editing
+        // with the caret where the click landed.
         if (!already) selectedRef.current = [target.id]
-        pointerRef.current = { mode: 'move', ids: [...selectedRef.current], last: point, originals: selectedElements().map((i) => structuredClone(i)) }
+        pointerRef.current = {
+          mode: 'move', ids: [...selectedRef.current], last: point, originals: selectedElements().map((i) => structuredClone(i)),
+          editOnClick: already && selectedRef.current.length === 1 && (target.type === 'text' || target.type === 'note') ? { target, clientX: event.clientX, clientY: event.clientY } : null,
+          moved: false
+        }
       } else {
         if (!event.shiftKey) selectedRef.current = []
         marqueeRef.current = { x: point.x, y: point.y, w: 0, h: 0 }
@@ -1376,7 +1560,7 @@ export default function Whiteboard({ socketRef, boardId, title, subtitle, onClos
       if (pinchRef.current) { movePinch(); return }
     }
     const pointer = pointerRef.current
-    if (!pointer) { updateHoverCursor(event); return }
+    if (!pointer) { updateHoverCursor(event); hoverDictionary(event); return }
 
     if (pointer.mode === 'pan') {
       viewRef.current = {
@@ -1406,6 +1590,7 @@ export default function Whiteboard({ socketRef, boardId, title, subtitle, onClos
     if (pointer.mode === 'move') {
       const dx = point.x - pointer.last.x
       const dy = point.y - pointer.last.y
+      if (Math.abs(dx) + Math.abs(dy) > 0) pointer.moved = true
       const ids = new Set(pointer.ids)
       elementsRef.current = elementsRef.current.map((item) => (ids.has(item.id) ? moveElement(item, dx, dy) : item))
       pointer.last = point
@@ -1445,10 +1630,16 @@ export default function Whiteboard({ socketRef, boardId, title, subtitle, onClos
   }
 
   const handlePointerUp = (event) => {
+    setDragging(false)
     if (event) releaseTouch(event)
     const pointer = pointerRef.current
     pointerRef.current = null
     if (!pointer) return
+
+    if (pointer.mode === 'move' && !pointer.moved && pointer.editOnClick) {
+      openEditor(pointer.editOnClick.target, { clientX: pointer.editOnClick.clientX, clientY: pointer.editOnClick.clientY })
+      return
+    }
 
     if (pointer.mode === 'move' || pointer.mode === 'resize') {
       const ids = new Set(pointer.ids)
@@ -1600,9 +1791,12 @@ export default function Whiteboard({ socketRef, boardId, title, subtitle, onClos
   const submitText = () => {
     const draft = textInput
     if (!draft) return
+    // The DOM is the source of truth while editing; read it one last time.
+    const area = textAreaRef.current
+    const latest = area ? htmlToMarkup(area, draft.color) : draft.value
     setTextInput(null)
     lastFontSizeRef.current = draft.fontSize
-    const text = draft.value.replace(/\s+$/, '')
+    const text = latest.replace(/\s+$/, '')
 
     if (draft.id) {
       if (!text.trim() && !draft.note) { remove(draft.id); return }
@@ -1616,7 +1810,12 @@ export default function Whiteboard({ socketRef, boardId, title, subtitle, onClos
     }
 
     if (!text.trim()) { scheduleRender(); return }
-    commit({ id: newId(), type: 'text', color: draft.color, width, x: draft.x, y: draft.y, text, fontSize: draft.fontSize })
+    const element = { id: newId(), type: 'text', color: draft.color, width, x: draft.x, y: draft.y, text, fontSize: draft.fontSize }
+    commit(element)
+    // Done typing: the text is selected and ready to be moved.
+    selectedRef.current = [element.id]
+    setTool('select')
+    bump()
   }
 
   const cancelText = () => {
@@ -1624,61 +1823,62 @@ export default function Whiteboard({ socketRef, boardId, title, subtitle, onClos
     scheduleRender()
   }
 
-  // Current selection in the editor; with nothing selected, the whole text.
-  const editorSelection = () => {
+  // Reads the editor back into markup after any change.
+  const syncEditor = () => {
     const area = textAreaRef.current
-    if (!area) return null
-    const { selectionStart: start, selectionEnd: end, value } = area
-    return start === end ? { start: 0, end: value.length, value } : { start, end, value }
+    if (!area || !textInput) return
+    setTextInput((current) => (current ? { ...current, value: htmlToMarkup(area, current.color) } : current))
   }
 
-  // Wraps the selection in open…close, or unwraps it when it already is.
-  const toggleSpan = (open, close) => {
+  // Is the editor's selection collapsed (nothing highlighted)?
+  const editorHasSelection = () => {
     const area = textAreaRef.current
-    const sel = editorSelection()
-    if (!area || !textInput || !sel) return
-    const { start, end, value } = sel
-    const inner = value.slice(start, end)
-    let next, cursorEnd
-    if (inner.startsWith(open) && inner.endsWith(close) && inner.length >= open.length + close.length) {
-      next = value.slice(0, start) + inner.slice(open.length, inner.length - close.length) + value.slice(end)
-      cursorEnd = end - open.length - close.length
-    } else if (value.slice(start - open.length, start) === open && value.slice(end, end + close.length) === close) {
-      next = value.slice(0, start - open.length) + inner + value.slice(end + close.length)
-      cursorEnd = end - open.length
-    } else {
-      next = value.slice(0, start) + open + inner + close + value.slice(end)
-      cursorEnd = end + open.length + close.length
+    const selection = window.getSelection()
+    return Boolean(area && selection && selection.rangeCount && !selection.isCollapsed && area.contains(selection.anchorNode))
+  }
+
+  // Formatting goes through the browser's own editing commands, which split
+  // the selection correctly; with nothing selected the whole text is styled.
+  const runCommand = (command, argument) => {
+    const area = textAreaRef.current
+    if (!area || !textInput) return
+    area.focus({ preventScroll: true })
+    if (!editorHasSelection()) {
+      const range = document.createRange()
+      range.selectNodeContents(area)
+      const selection = window.getSelection()
+      selection.removeAllRanges()
+      selection.addRange(range)
     }
-    setTextInput({ ...textInput, value: next })
-    requestAnimationFrame(() => { area.focus(); area.setSelectionRange(start, cursorEnd) })
+    document.execCommand('styleWithCSS', false, true)
+    document.execCommand(command, false, argument)
+    syncEditor()
   }
-  const toggleBold = () => toggleSpan('**', '**')
-  const toggleItalic = () => toggleSpan('__', '__')
+  const toggleBold = () => runCommand('bold')
+  const toggleItalic = () => runCommand('italic')
 
-  // Colours the selection; with nothing selected, recolours the whole text.
+  // Colours the selection; with nothing selected, recolours the whole text
+  // (or the note itself).
   const colorSelection = (value) => {
     const area = textAreaRef.current
     if (!area || !textInput) return
-    const { selectionStart: start, selectionEnd: end, value: text } = area
-    if (start === end) {
+    if (!editorHasSelection()) {
       if (textInput.note) {
-        // Nothing selected in a note: recolour the note itself.
         const fill = NOTE_FILLS[Math.max(0, COLORS.indexOf(value))]
         setTextInput({ ...textInput, before: { ...textInput.before, fill } })
         replace({ ...textInput.before, fill })
       } else {
-        setTextInput({ ...textInput, color: value })
+        // Whole text: drop per-word colours so the new colour shows everywhere.
+        for (const span of area.querySelectorAll('[style*="color"], font[color]')) {
+          span.style && (span.style.color = '')
+          span.removeAttribute?.('color')
+        }
+        setTextInput({ ...textInput, color: value, value: htmlToMarkup(area, value) })
       }
-      requestAnimationFrame(() => area.focus())
+      requestAnimationFrame(() => area.focus({ preventScroll: true }))
       return
     }
-    // Strip colour marks inside the selection so colours do not pile up.
-    const inner = text.slice(start, end).replace(/\{\{#[0-9a-fA-F]{6}:/g, '').replace(/\}\}/g, '')
-    const wrapped = `{{${value}:${inner}}}`
-    const next = text.slice(0, start) + wrapped + text.slice(end)
-    setTextInput({ ...textInput, value: next })
-    requestAnimationFrame(() => { area.focus(); area.setSelectionRange(start, start + wrapped.length) })
+    runCommand('foreColor', inkOf(value))
   }
 
   // Styles applied to selected (not edited) text elements as a whole.
@@ -1712,7 +1912,7 @@ export default function Whiteboard({ socketRef, boardId, title, subtitle, onClos
   const setFontSize = (size) => {
     if (textInput) {
       setTextInput({ ...textInput, fontSize: size })
-      requestAnimationFrame(() => textAreaRef.current?.focus())
+      requestAnimationFrame(() => textAreaRef.current?.focus({ preventScroll: true }))
       return
     }
     const items = selectedElements().filter((item) => item.type === 'text' || item.type === 'note')
@@ -1725,19 +1925,33 @@ export default function Whiteboard({ socketRef, boardId, title, subtitle, onClos
     bump()
   }
 
-  // The editor grows with its text so every line stays visible.
-  const fitTextArea = () => {
+  // The editor is filled once per opening; afterwards the DOM is the source
+  // of truth and only read back. The caret goes where the click landed.
+  const editorKey = textInput ? `${textInput.id ?? 'new'}:${textInput.x},${textInput.y}` : null
+  useEffect(() => {
     const area = textAreaRef.current
     if (!area || !textInput) return
-    const scale = viewRef.current.scale
-    const { w, h } = textSize(textInput.value || ' ', textInput.fontSize, textInput.w)
-    area.style.whiteSpace = textInput.w ? 'pre-wrap' : 'pre'
-    area.style.width = textInput.w
-      ? `${textInput.w * scale + 2}px`
-      : `${Math.max(120, w * scale + 2 * textInput.fontSize * scale)}px`
-    area.style.height = `${h * scale + 4}px`
-  }
-  useEffect(fitTextArea)
+    area.innerHTML = markupToHtml(textInput.value)
+    area.focus({ preventScroll: true })
+    // An overflow-hidden box still scrolls to a focused child; keep it put.
+    if (area.parentElement) { area.parentElement.scrollLeft = 0; area.parentElement.scrollTop = 0 }
+    const at = textInput.caretAt
+    let range = null
+    if (at && document.caretRangeFromPoint) range = document.caretRangeFromPoint(at.clientX, at.clientY)
+    else if (at && document.caretPositionFromPoint) {
+      const pos = document.caretPositionFromPoint(at.clientX, at.clientY)
+      if (pos) { range = document.createRange(); range.setStart(pos.offsetNode, pos.offset); range.collapse(true) }
+    }
+    if (!range || !area.contains(range.startContainer)) {
+      range = document.createRange()
+      range.selectNodeContents(area)
+      range.collapse(false)
+    }
+    const selection = window.getSelection()
+    selection.removeAllRanges()
+    selection.addRange(range)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [editorKey])
 
   const handleClear = () => {
     if (!window.confirm('Clear the board for everyone?')) return
@@ -1822,7 +2036,12 @@ export default function Whiteboard({ socketRef, boardId, title, subtitle, onClos
       const first = items.find((i) => i.type === 'text' || i.type === 'note')
       barColor = first?.color ?? null
     } else return null
-    return { x: Math.max(8, box.x * view.scale + view.x), y: Math.max(8, box.y * view.scale + view.y - 52), color: barColor }
+    const wrapWidth = canvasRef.current?.getBoundingClientRect().width ?? 800
+    return {
+      x: Math.min(Math.max(8, box.x * view.scale + view.x), Math.max(8, wrapWidth - 560)),
+      y: Math.max(8, box.y * view.scale + view.y - 52),
+      color: barColor
+    }
   })()
   const textLike = textInput ? [] : selectedElements().filter((i) => i.type === 'text' || i.type === 'note')
   const showTextControls = Boolean(textInput) || textLike.length > 0
@@ -1859,6 +2078,16 @@ export default function Whiteboard({ socketRef, boardId, title, subtitle, onClos
         <div className="board-chip">
           <strong>{title ?? 'Board'}</strong>
           {subtitle && <span className="muted"> · {subtitle}</span>}
+          {onOpenWriting && (
+            <button className="chip-call ghost-chip" onClick={onOpenWriting} title="Open this student's writing document">
+              Writing
+            </button>
+          )}
+          {canSpotlight && (
+            <button className={`chip-call ${spotlighting ? 'on' : 'ghost-chip'}`} onClick={toggleSpotlight} title="Everyone on this board follows your view">
+              {spotlighting ? 'Spotlight on' : 'Spotlight me'}
+            </button>
+          )}
           {onStartCall && (
             <button className="chip-call" onClick={onStartCall} title="Start a call on this board and get a link to send">
               Start call
@@ -1866,6 +2095,18 @@ export default function Whiteboard({ socketRef, boardId, title, subtitle, onClos
           )}
           {onClose && <button className="chip-close" onClick={onClose} title="Close board">×</button>}
         </div>
+
+        {tip && (
+          <div className="word-tip" style={{ left: tip.x + 12, top: tip.y + 16 }}>
+            <strong>{tip.word}</strong>
+            {tip.entry.transcription && <span className="muted"> {tip.entry.transcription}</span>}
+            <div>{tip.entry.translation}</div>
+          </div>
+        )}
+
+        {following && !spotlighting && (
+          <div className="board-following">Following {following.name}’s view</div>
+        )}
 
         <div className="board-corner-right">
           <div className="dock-group">
@@ -1945,7 +2186,7 @@ export default function Whiteboard({ socketRef, boardId, title, subtitle, onClos
         )}
 
         {/* Floating bar above the selection: text styling, and actions for whatever is selected. */}
-        {textBar && (
+        {textBar && !dragging && (
           <div
             className="text-toolbar"
             style={{ left: textBar.x, top: textBar.y }}
@@ -2016,72 +2257,45 @@ export default function Whiteboard({ socketRef, boardId, title, subtitle, onClos
         )}
 
         {textInput && (
-          <textarea
+          <div
+            key={editorKey}
             ref={textAreaRef}
             className="board-text-input"
-            autoFocus
-            value={textInput.value}
+            contentEditable
+            suppressContentEditableWarning
+            spellCheck={false}
             style={{
               left: textInput.x * view.scale + view.x - 1,
               top: textInput.y * view.scale + view.y - 1,
               fontSize: textInput.fontSize * view.scale,
               lineHeight: LINE_HEIGHT,
-              color: inkOf(textInput.color)
+              color: inkOf(textInput.color),
+              width: textInput.w ? `${textInput.w * view.scale + 2}px` : undefined,
+              maxWidth: textInput.w ? undefined : '70vw'
             }}
-            onChange={(e) => setTextInput({ ...textInput, value: e.target.value })}
-            onClick={(e) => {
-              // One click takes the line under the cursor, a double click the whole text.
-              if (e.detail >= 2) { e.target.select(); return }
-              const { value, selectionStart } = e.target
-              const start = value.lastIndexOf('\n', selectionStart - 1) + 1
-              const end = value.indexOf('\n', selectionStart)
-              e.target.setSelectionRange(start, end === -1 ? value.length : end)
-            }}
+            onInput={syncEditor}
             onBlur={(e) => {
               // Clicking the text toolbar must not close the editor.
-              if (e.relatedTarget?.closest?.('.text-toolbar')) { requestAnimationFrame(() => e.target.focus()); return }
+              if (e.relatedTarget?.closest?.('.text-toolbar')) { requestAnimationFrame(() => e.target.focus({ preventScroll: true })); return }
               submitText()
             }}
             onKeyDown={(e) => {
               if (e.key === 'Escape') { e.preventDefault(); textInput.id ? cancelText() : submitText() }
               if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) { e.preventDefault(); submitText() }
+              if (e.key === 'Enter' && !e.shiftKey && !e.metaKey && !e.ctrlKey) {
+                // A plain line break, never a nested block.
+                e.preventDefault()
+                document.execCommand('insertLineBreak')
+                syncEditor()
+              }
+            }}
+            onPaste={(e) => {
+              // Plain text only, so nothing foreign gets into the markup.
+              e.preventDefault()
+              document.execCommand('insertText', false, e.clipboardData.getData('text/plain'))
+              syncEditor()
             }}
           />
-        )}
-
-        {textBar && (
-          <div
-            className="text-toolbar"
-            style={{ left: textBar.x, top: textBar.y }}
-            onMouseDown={(e) => { if (e.target.tagName !== 'SELECT') e.preventDefault() }}
-          >
-            <div className="text-toolbar-group">
-              {COLORS.map((value) => (
-                <button
-                  key={value}
-                  className={`swatch small ${textBar.color === value ? 'active' : ''}`}
-                  style={{ background: value }}
-                  onClick={() => (textInput ? colorSelection(value) : colorSelectedTexts(value))}
-                  title="Colour the selected words, or the whole text"
-                />
-              ))}
-            </div>
-            <div className="text-toolbar-group">
-              <select
-                className="tool"
-                value={currentFontSize}
-                onChange={(e) => setFontSize(Number(e.target.value))}
-                title="Text size"
-              >
-                {fontSizeOptions.map((size) => <option key={size} value={size}>{size}</option>)}
-              </select>
-            </div>
-            <div className="text-toolbar-group">
-              <button className="tool" onClick={() => (textInput ? toggleBold() : wrapSelectedTexts('**', '**'))} title="Bold (⌘B)"><b>B</b></button>
-              <button className="tool" onClick={() => (textInput ? toggleItalic() : wrapSelectedTexts('__', '__'))} title="Italic (⌘I)"><i>I</i></button>
-            </div>
-            {textInput && <span className="small-hint">⌘Enter to finish · Esc {textInput.id ? 'to cancel' : 'to finish'}</span>}
-          </div>
         )}
 
         <div className="board-hint">

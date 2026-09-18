@@ -121,6 +121,26 @@ usersRouter.patch('/:id/role', async (req, res) => {
   res.json({ ok: true })
 })
 
+// Name and email of a student or teacher can be corrected by an admin.
+usersRouter.patch('/:id', requireRole('OWNER'), async (req, res) => {
+  const name = typeof req.body?.name === 'string' ? req.body.name.trim() : undefined
+  const email = typeof req.body?.email === 'string' ? req.body.email.trim().toLowerCase() : undefined
+  if (name !== undefined && (name.length < 2 || name.length > 80)) return res.status(400).json({ error: 'Name must be 2–80 characters' })
+  if (email !== undefined && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return res.status(400).json({ error: 'Invalid email' })
+
+  const target = await prisma.user.findFirst({ where: { id: req.params.id, schoolId: req.user.schoolId } })
+  if (!target) return res.status(404).json({ error: 'User not found' })
+  if (req.user.role !== 'OWNER' && isAdmin(target) && target.id !== req.user.id) {
+    return res.status(403).json({ error: 'Only the administrator can edit an administrator or partner' })
+  }
+  if (email && email !== target.email && await prisma.user.findUnique({ where: { email } })) {
+    return res.status(409).json({ error: 'An account with this email already exists' })
+  }
+
+  await prisma.user.update({ where: { id: target.id }, data: { ...(name !== undefined ? { name } : {}), ...(email !== undefined ? { email } : {}) } })
+  res.json({ ok: true })
+})
+
 usersRouter.delete('/:id', requireRole('OWNER'), async (req, res) => {
   const target = await prisma.user.findFirst({
     where: { id: req.params.id, schoolId: req.user.schoolId }

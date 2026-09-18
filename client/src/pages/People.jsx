@@ -144,6 +144,28 @@ export default function People() {
     await refresh()
   }
 
+  const [editing, setEditing] = useState(null) // { id, name, email }
+  const saveEdit = async () => {
+    setError('')
+    try {
+      await api.updateUser(editing.id, { name: editing.name, email: editing.email })
+      setEditing(null)
+      await refresh()
+    } catch (err) {
+      setError(err.message)
+    }
+  }
+  const editForm = (person) => editing?.id === person.id && (
+    <div className="link-editor">
+      <div className="row-actions">
+        <input value={editing.name} onChange={(e) => setEditing({ ...editing, name: e.target.value })} placeholder="Full name" />
+        <input type="email" value={editing.email} onChange={(e) => setEditing({ ...editing, email: e.target.value })} placeholder="Email" />
+        <button onClick={saveEdit}>Save</button>
+        <button className="ghost" onClick={() => setEditing(null)}>Cancel</button>
+      </div>
+    </div>
+  )
+
   const changeRole = async (person, role) => {
     if (role === person.role) return
     const label = { TEACHER: 'a teacher', STUDENT: 'a student', PARTNER: 'a partner (same access as you, cannot change roles)' }[role]
@@ -264,7 +286,8 @@ export default function People() {
         </p>
         <div className="list">
           {staff.map((person) => (
-            <div key={person.id} className="row">
+            <div key={person.id} className="row column">
+             <div className="row-main">
               <div>
                 <strong>{person.name}</strong>
                 <div className="muted">
@@ -275,11 +298,16 @@ export default function People() {
               {person.id !== user.id && (user.role === 'OWNER' || person.role === 'TEACHER') && (
                 <div className="row-actions">
                   {roleSelect(person)}
+                  <button className="ghost" onClick={() => setEditing(editing?.id === person.id ? null : { id: person.id, name: person.name, email: person.email })}>
+                    {editing?.id === person.id ? 'Close' : 'Edit'}
+                  </button>
                   <button className="ghost" onClick={() => removePerson(person.id, person.name)}>
                     Remove
                   </button>
                 </div>
               )}
+             </div>
+             {editForm(person)}
             </div>
           ))}
         </div>
@@ -304,6 +332,9 @@ export default function People() {
                 </div>
                 <div className="row-actions">
                   {roleSelect(person)}
+                  <button className="ghost" onClick={() => setEditing(editing?.id === person.id ? null : { id: person.id, name: person.name, email: person.email })}>
+                    {editing?.id === person.id ? 'Close' : 'Edit'}
+                  </button>
                   <button
                     className="ghost"
                     onClick={() => setLinking(linking === person.id ? null : person.id)}
@@ -316,6 +347,7 @@ export default function People() {
                 </div>
               </div>
 
+              {editForm(person)}
               {linking === person.id && (
                 <div className="link-editor">
                   <div className="muted">Link to:</div>

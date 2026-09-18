@@ -203,6 +203,8 @@ export default function Classroom() {
             subtitle={partner}
             onClose={() => setOpenBoardId(null)}
             onStartCall={isStaff ? () => startCallOnBoard(openBoard.id) : undefined}
+            onOpenWriting={!isPersonal ? () => setWritingOpen(true) : undefined}
+            canSpotlight={isStaff}
             onUploadImage={isStaff
               ? async (dataUrl) => {
                   try {

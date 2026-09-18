@@ -178,6 +178,14 @@ export function setupSignaling(io) {
     socket.on('answer', relayToPeer('answer'))
     socket.on('ice-candidate', relayToPeer('ice-candidate'))
 
+    // Text chat inside a call: relayed to the room, not stored.
+    socket.on('chat:message', (payload) => {
+      const room = socket.data.roomId
+      const text = typeof payload?.text === 'string' ? payload.text.trim().slice(0, 2000) : ''
+      if (!room || !text) return
+      io.to(room).emit('chat:message', { from: socket.id, name: socket.data.name, text, at: Date.now() })
+    })
+
     // A muted microphone shows on everyone's tile for that person.
     socket.on('mic:state', (state) => {
       const room = socket.data.roomId
@@ -314,6 +322,19 @@ export function setupSignaling(io) {
       const { roomId } = socket.data
       socket.data.docId = null
       if (roomId) socket.to(roomId).emit('doc:closed')
+    })
+
+    // Spotlight: the teacher's viewport is broadcast so students' boards
+    // follow it. Pure relay; the room decides what to do with it.
+    socket.on('board:spotlight', (state) => {
+      const { roomId } = socket.data
+      if (!roomId) return
+      socket.to(roomId).emit('board:spotlight', { from: socket.id, name: socket.data.name, on: Boolean(state?.on) })
+    })
+    socket.on('board:view', (view) => {
+      const { roomId } = socket.data
+      if (!roomId || typeof view?.scale !== 'number') return
+      socket.to(roomId).emit('board:view', { from: socket.id, scale: view.scale, cx: Number(view.cx) || 0, cy: Number(view.cy) || 0 })
     })
 
     socket.on('board:clear', async () => {

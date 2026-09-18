@@ -12,6 +12,39 @@ import { videoProcessor } from '../utils/videoProcessor'
 // Older Safari cannot blur inside a canvas; there the layer is blurred by CSS.
 const CANVAS_FILTER = typeof CanvasRenderingContext2D !== 'undefined' && 'filter' in CanvasRenderingContext2D.prototype
 
+// Floating chat panel for the call.
+function CallChat({ messages, onSend, onClose }) {
+  const [draft, setDraft] = useState('')
+  const listRef = useRef(null)
+  useEffect(() => { listRef.current?.scrollTo({ top: listRef.current.scrollHeight }) }, [messages])
+  const submit = (event) => {
+    event.preventDefault()
+    onSend(draft)
+    setDraft('')
+  }
+  return (
+    <div className="call-chat">
+      <div className="call-chat-head">
+        <strong>Chat</strong>
+        <button className="chip-close" onClick={onClose} title="Close chat">×</button>
+      </div>
+      <div className="call-chat-list" ref={listRef}>
+        {messages.length === 0 && <div className="muted">No messages yet.</div>}
+        {messages.map((m, i) => (
+          <div key={i} className={`call-chat-msg ${m.mine ? 'mine' : ''}`}>
+            <div className="call-chat-meta">{m.mine ? 'You' : m.name} · {new Date(m.at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</div>
+            <div className="call-chat-text">{m.text}</div>
+          </div>
+        ))}
+      </div>
+      <form className="call-chat-form" onSubmit={submit}>
+        <input value={draft} onChange={(e) => setDraft(e.target.value)} placeholder="Write a message…" autoFocus />
+        <button type="submit" disabled={!draft.trim()}>Send</button>
+      </form>
+    </div>
+  )
+}
+
 const hasWebGL = () => {
   try {
     const canvas = document.createElement('canvas')
@@ -47,13 +80,19 @@ export default function Call() {
   const [cameraOn, setCameraOn] = useState(true)
   const micOnRef = useRef(true)
   const [joined, setJoined] = useState(false)
-  const [noiseSuppression, setNoiseSuppression] = useState(false)
+  const [noiseSuppression, setNoiseSuppression] = useState(true)
   const [blurStatus, setBlurStatus] = useState('')
   // The student's board, shown inside the call for everyone in it.
   // Boards this person may show in the call (students' boards, own boards).
   const [boards, setBoards] = useState([])
   // Writing document open in the call, by classroom id; it covers the board.
   const [writingId, setWritingId] = useState(null)
+  // In-call text chat (not stored; lives as long as the call page).
+  const [chatOpen, setChatOpen] = useState(false)
+  const [messages, setMessages] = useState([])
+  const [unread, setUnread] = useState(0)
+  const chatOpenRef = useRef(false)
+  chatOpenRef.current = chatOpen
   const [boardId, setBoardId] = useState(null)
   const isStaff = user && user.role !== 'STUDENT'
   const isStaffRef = useRef(isStaff)
@@ -110,7 +149,7 @@ export default function Call() {
       setStatus('requesting-media')
       try {
         const stream = await navigator.mediaDevices.getUserMedia({
-          audio: { echoCancellation: true, noiseSuppression: false, autoGainControl: true },
+          audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
           video: true
         })
         if (disposed) { stream.getTracks().forEach((t) => t.stop()); return }
@@ -163,6 +202,10 @@ export default function Call() {
       // Follow the other side's board: opening or closing it there does it here too.
       socket.on('board:switched', (id) => setBoardId(id))
       socket.on('board:closed', () => setBoardId(null))
+      socket.on('chat:message', (message) => {
+        setMessages((prev) => [...prev.slice(-200), { ...message, mine: message.from === socket.id }])
+        if (!chatOpenRef.current) setUnread((n) => n + 1)
+      })
       socket.on('doc:switched', (id) => setWritingId(id))
       socket.on('doc:closed', () => setWritingId(null))
       socket.on('drawing', ({ x0, y0, x1, y1, color }) => {
@@ -306,15 +349,27 @@ export default function Call() {
     }
   }
 
+  // Browsers rarely honour applyConstraints on a live microphone, so the
+  // microphone is opened again with the new setting and the fresh track is
+  // swapped into every connection.
   const toggleNoiseSuppression = async () => {
     const next = !noiseSuppression
-    setNoiseSuppression(next)
-    for (const track of localStreamRef.current?.getAudioTracks() ?? []) {
-      try {
-        await track.applyConstraints({ noiseSuppression: next, echoCancellation: true, autoGainControl: next })
-      } catch (err) {
-        console.error('Noise suppression not supported:', err)
+    try {
+      const fresh = await navigator.mediaDevices.getUserMedia({
+        audio: { echoCancellation: true, noiseSuppression: next, autoGainControl: next }
+      })
+      const track = fresh.getAudioTracks()[0]
+      const stream = localStreamRef.current
+      const old = stream?.getAudioTracks()[0]
+      track.enabled = old ? old.enabled : micOnRef.current
+      for (const pc of Object.values(connectionsRef.current)) {
+        const sender = pc.getSenders().find((s) => s.track?.kind === 'audio')
+        if (sender) await sender.replaceTrack(track)
       }
+      if (stream) { if (old) { stream.removeTrack(old); old.stop() } stream.addTrack(track) }
+      setNoiseSuppression(next)
+    } catch (err) {
+      setMediaWarning(`Could not change noise reduction: ${err?.message ?? err}`)
     }
   }
 
@@ -354,7 +409,10 @@ export default function Call() {
   const writingChoices = (() => {
     const seen = new Map()
     const add = (classroomId, label) => { if (classroomId && !seen.has(classroomId)) seen.set(classroomId, label) }
-    if (call?.classroomId) add(call.classroomId, boards.find((b) => b.classroomId === call.classroomId)?.student ?? 'Student')
+    if (call?.classroomId) {
+      add(call.classroomId, boards.find((b) => b.classroomId === call.classroomId)?.student ?? 'Student')
+      return [...seen].map(([id, label]) => ({ id, label }))
+    }
     if (currentBoard?.studentId) add(currentBoard.classroomId, currentBoard.student)
     for (const peer of Object.values(peers)) {
       const board = boards.find((b) => b.studentId && b.studentId === peer.userId)
@@ -369,6 +427,14 @@ export default function Call() {
   const closeWriting = () => {
     setWritingId(null)
     socketRef.current?.emit('doc:close')
+  }
+
+  const sendChat = (text) => {
+    if (text.trim()) socketRef.current?.emit('chat:message', { text })
+  }
+  const toggleChat = () => {
+    setChatOpen((open) => !open)
+    setUnread(0)
   }
 
   const openBoard = (id) => setBoardId(id)
@@ -458,6 +524,8 @@ export default function Call() {
               title={currentBoard?.title ?? 'Board'}
               subtitle={currentBoard?.student ?? currentBoard?.owner ?? undefined}
               onClose={closeBoard}
+              onOpenWriting={currentBoard?.studentId ? () => openWriting(currentBoard.classroomId) : (writingChoices.length === 1 ? () => openWriting(writingChoices[0].id) : undefined)}
+              canSpotlight={isStaff}
               onUploadImage={isStaff && currentBoard
                 ? async (dataUrl) => {
                     try {
@@ -483,6 +551,10 @@ export default function Call() {
         />
       </div>
 
+      {chatOpen && (
+        <CallChat messages={messages} onSend={sendChat} onClose={toggleChat} />
+      )}
+
       <Controls
         onToggleCamera={toggleTrack('video')}
         onToggleMicrophone={toggleTrack('audio')}
@@ -491,6 +563,9 @@ export default function Call() {
         onLeave={boardId || writingId ? () => navigate('/classroom') : undefined}
         onCopyLink={boardId || writingId ? copyLink : undefined}
         copied={copied}
+        chatOpen={chatOpen}
+        unread={unread}
+        onToggleChat={toggleChat}
         writingChoices={writingChoices}
         writingId={writingId}
         onOpenWriting={openWriting}

@@ -217,7 +217,7 @@ textarea:focus { outline: none; border-color: var(--accent); }
   font-size: 14px;
 }
 
-.lesson-page { height: 100vh; display: flex; flex-direction: column; }
+.lesson-page { height: 100vh; display: flex; flex-direction: column; position: relative; }
 .lesson-page .topbar { padding: 14px 20px; }
 
 .view-pane { flex: 1; display: flex; flex-direction: column; min-height: 0; }
@@ -656,3 +656,29 @@ select.pill { padding: 0 16px; color: var(--text); border: none; }
   font-size: 13px;
 }
 .update-toast button { padding: 6px 12px; font-size: 13px; }
+
+/* In-call chat: a floating panel on the right. */
+.call-chat {
+  position: absolute;
+  right: 12px;
+  bottom: 90px;
+  width: 320px;
+  max-height: 60vh;
+  display: flex;
+  flex-direction: column;
+  background: #14161c;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+  z-index: 6;
+}
+.lesson-page.board-mode .call-chat { top: 70px; bottom: auto; right: 224px; max-height: calc(100vh - 160px); }
+.call-chat-head { display: flex; justify-content: space-between; align-items: center; padding: 10px 12px; border-bottom: 1px solid var(--border); }
+.call-chat-list { flex: 1; overflow-y: auto; padding: 10px 12px; display: flex; flex-direction: column; gap: 8px; min-height: 160px; }
+.call-chat-msg { background: #1f2229; border-radius: 10px; padding: 6px 10px; max-width: 90%; align-self: flex-start; }
+.call-chat-msg.mine { background: rgba(99, 102, 241, 0.25); align-self: flex-end; }
+.call-chat-meta { font-size: 11px; color: var(--muted); margin-bottom: 2px; }
+.call-chat-text { font-size: 14px; white-space: pre-wrap; word-break: break-word; }
+.call-chat-form { display: flex; gap: 6px; padding: 8px; border-top: 1px solid var(--border); }
+.call-chat-form input { flex: 1; }
+.call-chat-form button { padding: 8px 12px; }

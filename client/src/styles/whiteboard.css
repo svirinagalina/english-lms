@@ -21,11 +21,12 @@
   box-shadow: 0 4px 14px rgba(0, 0, 0, 0.25);
   font-size: 13px;
   z-index: 2;
-  max-width: 40vw;
+  max-width: 60vw;
   white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
 }
+.board-chip > strong, .board-chip > .muted { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.board-chip > strong { flex-shrink: 1; }
+.board-chip button { flex-shrink: 0; }
 .chip-close {
   background: transparent;
   border: none;
@@ -128,8 +129,10 @@
 .board-text-input {
   position: absolute;
   min-width: 120px;
+  width: max-content;
   overflow: hidden;
-  white-space: pre;
+  white-space: pre-wrap;
+  outline: none;
   background: rgba(255, 255, 255, 0.95);
   border: 1px solid var(--accent);
   border-radius: 6px;
@@ -217,4 +220,34 @@ select.tool { appearance: auto; padding: 5px 8px; }
   font-size: 12px;
   font-weight: 600;
   cursor: pointer;
+}
+
+.chip-call.ghost-chip { background: transparent; border: 1px solid var(--border); color: var(--text); }
+.chip-call.on { background: #22c55e; color: #052e16; }
+.board-following {
+  position: absolute;
+  top: 12px;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 6px 12px;
+  background: rgba(34, 197, 94, 0.9);
+  color: #052e16;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 600;
+  z-index: 2;
+}
+
+.word-tip {
+  position: absolute;
+  z-index: 4;
+  max-width: 260px;
+  padding: 6px 10px;
+  background: #14161c;
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.3);
+  font-size: 13px;
+  pointer-events: none;
 }

@@ -16,6 +16,9 @@ export default function Controls({
   onOpenBoard,
   onCloseBoard,
   onLeave,
+  chatOpen,
+  unread = 0,
+  onToggleChat,
   onCopyLink,
   copied,
   writingChoices = [],
@@ -76,7 +79,7 @@ export default function Controls({
         onClick={onNoiseToggle}
         title="Filter out background noise from your microphone"
       >
-        {noiseSuppression ? (onLeave ? 'Noise on' : 'Noise reduction on') : (onLeave ? 'Noise' : 'Add noise reduction')}
+        {noiseSuppression ? 'Noise reduction: ON' : 'Noise reduction: OFF'}
       </button>
 
       {writingChoices.length > 0 && (
@@ -97,6 +100,11 @@ export default function Controls({
         )
       )}
 
+      {onToggleChat && (
+        <button className={`round ${chatOpen ? 'on' : ''}`} onClick={onToggleChat} title="Text chat">
+          Chat{unread > 0 && !chatOpen ? ` (${unread})` : ''}
+        </button>
+      )}
       {onCopyLink && (
         <button className="pill" onClick={onCopyLink} title="Copy the link to send to the student">
           {copied ? 'Link copied' : 'Copy link'}

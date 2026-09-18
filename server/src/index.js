@@ -17,6 +17,7 @@ import { statsRouter } from './routes/stats.js'
 import { callsRouter } from './routes/calls.js'
 import { assistRouter } from './routes/assist.js'
 import { contentRouter } from './routes/content.js'
+import { dictionaryRouter } from './routes/dictionary.js'
 import { setupSignaling } from './signaling.js'
 
 const app = express()
@@ -38,6 +39,7 @@ app.use('/api/stats', statsRouter)
 app.use('/api/calls', callsRouter)
 app.use('/api/assist', assistRouter)
 app.use('/api/content', contentRouter)
+app.use('/api/dictionary', dictionaryRouter)
 
 app.get('/api/health', (req, res) => res.json({ ok: true }))
 
