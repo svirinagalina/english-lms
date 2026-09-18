@@ -213,7 +213,7 @@ select.tool { appearance: auto; padding: 5px 8px; }
 .chip-call {
   margin-left: 10px;
   background: var(--accent);
-  color: #fff;
+  color: var(--accent-ink);
   border: none;
   border-radius: 7px;
   padding: 5px 10px;

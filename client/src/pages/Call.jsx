@@ -8,6 +8,7 @@ import Controls from '../components/Controls'
 import Whiteboard from '../components/Whiteboard'
 import Writing from '../components/Writing'
 import { videoProcessor } from '../utils/videoProcessor'
+import { denoiseTrack } from '../utils/noiseSuppressor'
 
 // Older Safari cannot blur inside a canvas; there the layer is blurred by CSS.
 const CANVAS_FILTER = typeof CanvasRenderingContext2D !== 'undefined' && 'filter' in CanvasRenderingContext2D.prototype
@@ -81,6 +82,8 @@ export default function Call() {
   const micOnRef = useRef(true)
   const [joined, setJoined] = useState(false)
   const [noiseSuppression, setNoiseSuppression] = useState(true)
+  const rawMicRef = useRef(null)
+  const denoiserRef = useRef(null)
   const [blurStatus, setBlurStatus] = useState('')
   // The student's board, shown inside the call for everyone in it.
   // Boards this person may show in the call (students' boards, own boards).
@@ -148,11 +151,26 @@ export default function Call() {
       try { iceServers = (await api.iceServers()).iceServers } catch { /* STUN only */ }
       setStatus('requesting-media')
       try {
-        const stream = await navigator.mediaDevices.getUserMedia({
+        const raw = await navigator.mediaDevices.getUserMedia({
           audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
           video: true
         })
-        if (disposed) { stream.getTracks().forEach((t) => t.stop()); return }
+        if (disposed) { raw.getTracks().forEach((t) => t.stop()); return }
+        rawMicRef.current = raw.getAudioTracks()[0] ?? null
+        const stream = new MediaStream(raw.getVideoTracks())
+        // Outgoing audio: the neural denoiser's output when available.
+        let audio = rawMicRef.current
+        if (audio) {
+          try {
+            const cleaned = await denoiseTrack(audio)
+            denoiserRef.current = cleaned
+            audio = cleaned.track
+          } catch (err) {
+            console.error('Noise suppressor unavailable, using the plain microphone:', err)
+            setNoiseSuppression(false)
+          }
+        }
+        if (audio) stream.addTrack(audio)
         localStreamRef.current = stream
         if (localVideoRef.current) localVideoRef.current.srcObject = stream
       } catch {
@@ -247,6 +265,9 @@ export default function Call() {
       Object.values(connectionsRef.current).forEach((pc) => pc.close())
       connectionsRef.current = {}
       localStreamRef.current?.getTracks().forEach((track) => track.stop())
+      rawMicRef.current?.stop()
+      denoiserRef.current?.stop()
+      denoiserRef.current = null
       if (animationRef.current) cancelAnimationFrame(animationRef.current)
     }
   }, [canJoin, token])
@@ -347,6 +368,8 @@ export default function Call() {
     localStreamRef.current?.getTracks().filter((t) => t.kind === kind).forEach((t) => { t.enabled = !t.enabled })
     if (kind === 'audio') {
       const next = !micOnRef.current
+      if (rawMicRef.current) rawMicRef.current.enabled = next
+      if (denoiserRef.current) denoiserRef.current.track.enabled = next
       micOnRef.current = next
       setMicOn(next)
       socketRef.current?.emit('mic:state', { muted: !next })
@@ -355,31 +378,29 @@ export default function Call() {
     }
   }
 
-  // Browsers rarely honour applyConstraints on a live microphone, so the
-  // microphone is opened again with the new setting and the fresh track is
-  // swapped into every connection.
+  // Switches the outgoing audio between the denoised track and the plain
+  // microphone; the microphone itself stays open.
   const toggleNoiseSuppression = async () => {
     const next = !noiseSuppression
+    const raw = rawMicRef.current
+    if (!raw) return
     try {
-      const fresh = await navigator.mediaDevices.getUserMedia({
-        audio: { echoCancellation: true, noiseSuppression: next, autoGainControl: next }
-      })
-      const track = fresh.getAudioTracks()[0]
+      let track = raw
+      if (next) {
+        if (!denoiserRef.current) denoiserRef.current = await denoiseTrack(raw)
+        track = denoiserRef.current.track
+      }
       const stream = localStreamRef.current
       const old = stream?.getAudioTracks()[0]
-      track.enabled = old ? old.enabled : micOnRef.current
+      track.enabled = micOnRef.current
       for (const pc of Object.values(connectionsRef.current)) {
         const sender = pc.getSenders().find((s) => s.track?.kind === 'audio')
         if (sender) await sender.replaceTrack(track)
       }
-      if (stream) { if (old) { stream.removeTrack(old); old.stop() } stream.addTrack(track) }
-      // Report what the browser actually applied — Safari, for one, ignores it.
-      const applied = track.getSettings?.().noiseSuppression
+      if (stream) { if (old && old !== track) stream.removeTrack(old); if (!stream.getAudioTracks().includes(track)) stream.addTrack(track) }
       setNoiseSuppression(next)
-      if (next && applied === false) setMediaWarning('This browser does not support noise reduction — use headphones to avoid echo.')
-      else setMediaWarning((w) => (w.startsWith('This browser does not support noise') ? '' : w))
     } catch (err) {
-      setMediaWarning(`Could not change noise reduction: ${err?.message ?? err}`)
+      setMediaWarning(`Noise reduction is not available here: ${err?.message ?? err}`)
     }
   }
 
