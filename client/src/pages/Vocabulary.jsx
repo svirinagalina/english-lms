@@ -61,7 +61,13 @@ export default function Vocabulary() {
             Double-click any word on the board or in Writing to hear it, see its meanings and add it to <strong>My words</strong>.
           </p>
         )}
-        {sets.length === 0 && <p className="muted">No sets yet.</p>}
+        {sets.length === 0 && (
+          <p className="muted">
+            {isStaff
+              ? 'No sets yet. Create one above and add words one by one or paste a whole list (word — translation).'
+              : 'No word sets yet. Words you save from the board or Writing will appear here as “My words”.'}
+          </p>
+        )}
 
         <div className="list">
           {sets.map((set) => (

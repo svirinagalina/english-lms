@@ -743,7 +743,7 @@ export async function exportBoardPdf(elements, title = 'Board') {
 
 // --- Component ----------------------------------------------------------------
 
-export default function Whiteboard({ socketRef, boardId, title, subtitle, onClose, backLabel = '← Back', onStartCall, onOpenWriting, canSpotlight = false, onUploadImage, onAssist, assistEnabled, wordPicker = false }) {
+export default function Whiteboard({ socketRef, boardId, title, subtitle, onClose, backLabel = '← Back', onStartCall, onOpenWriting, canSpotlight = false, onUploadImage, onAssist, assistEnabled, wordPicker = false, focusElementId = null }) {
   const [assisting, setAssisting] = useState(null)
   const [exporting, setExporting] = useState(false)
   const fileInputRef = useRef(null)
@@ -941,8 +941,13 @@ export default function Whiteboard({ socketRef, boardId, title, subtitle, onClos
     const open = (quiet) => socket.emit('board:open', boardId, { quiet }, (response) => {
       elementsRef.current = dedupe(response?.elements ?? [])
       if (quiet) { scheduleRender(); bump(); return }
-      // A board with content opens showing all of it; an empty one at 100%.
-      if (elementsRef.current.length) fitAll(1)
+      // A board with content opens showing all of it; an empty one at 100%
+      // — or on the element it was opened for (the homework heading).
+      const focus = focusElementId && elementsRef.current.find((e) => e.id === focusElementId)
+      if (focus) {
+        const rect = canvasRef.current?.getBoundingClientRect() ?? { width: 800 }
+        viewRef.current = { scale: 1, x: Math.max(40, (rect.width - 600) / 2) - focus.x, y: 80 - focus.y }
+      } else if (elementsRef.current.length) fitAll(1)
       else viewRef.current = { x: 0, y: 0, scale: 1 }
       scheduleRender()
       bump()

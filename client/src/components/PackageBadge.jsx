@@ -2,7 +2,7 @@
 export function PackageBadge({ pkg }) {
   if (!pkg) return null
   if (pkg.lessonsPaid == null) {
-    return <span className="paid-badge">{pkg.held} {pkg.held === 1 ? 'lesson' : 'lessons'} held · no package yet</span>
+    return <span className="paid-badge neutral">{pkg.held} {pkg.held === 1 ? 'lesson' : 'lessons'} held · no package set</span>
   }
   const left = pkg.remaining
   const tone = left <= 0 ? 'paid-badge' : left <= 2 ? 'paid-badge mid' : 'paid-badge active'

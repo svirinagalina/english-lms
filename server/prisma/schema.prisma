@@ -51,6 +51,8 @@ model User {
   // Sessions held after packageStartedAt count against lessonsPaid.
   lessonsPaid      Int?
   packageStartedAt DateTime?
+  // When the student last pressed "I have paid" — the teacher confirms by hand.
+  paymentReportedAt DateTime?
 
   schoolId String
   school   School @relation(fields: [schoolId], references: [id], onDelete: Cascade)

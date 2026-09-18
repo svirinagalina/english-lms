@@ -117,6 +117,38 @@ classroomsRouter.get('/', async (req, res) => {
   res.json({ classrooms: classrooms.filter((c) => c.student !== null).map(view) })
 })
 
+// The student's home: the latest homework on their board, so it is one
+// click away and they know it exists.
+classroomsRouter.get('/home', async (req, res) => {
+  if (req.user.role !== 'STUDENT') return res.json({ homework: null })
+  const boards = await prisma.board.findMany({
+    where: { classroom: { studentId: req.user.id } },
+    select: { id: true, title: true, classroomId: true, elements: true, updatedAt: true }
+  })
+  const isText = (e) => (e.type === 'text' || e.type === 'note') && typeof e.text === 'string'
+  const clean = (text) => text.replace(/\{\{#[0-9a-f]{6}:([^}]*)\}\}/gi, '$1').replace(/\*\*|__/g, '').trim()
+  let homework = null
+  for (const board of boards) {
+    const elements = Array.isArray(board.elements) ? board.elements : []
+    const texts = elements.filter(isText).map((e) => ({ ...e, plain: clean(e.text) }))
+    // The "— Homework —" heading, or any text/note that starts with "Homework".
+    const headings = texts.filter((e) => /^[—\-\s]*homework\b/i.test(e.plain)).sort((a, b) => b.y - a.y)
+    const heading = headings[0]
+    if (!heading) continue
+    // What sits under the heading, until the next lesson heading: the task itself.
+    const nextLesson = texts.filter((e) => e.y > heading.y && /^—\s*Lesson/i.test(e.plain)).sort((a, b) => a.y - b.y)[0]
+    const own = heading.plain.replace(/^[—\-\s]*homework[\s:—\-]*/i, '').replace(/\s*—\s*$/, '').trim()
+    const lines = [own, ...texts
+      .filter((e) => e.id !== heading.id && e.y > heading.y && (!nextLesson || e.y < nextLesson.y))
+      .sort((a, b) => a.y - b.y || a.x - b.x)
+      .map((e) => e.plain)]
+      .filter(Boolean)
+    const candidate = { boardId: board.id, boardTitle: board.title, classroomId: board.classroomId, elementId: heading.id, updatedAt: board.updatedAt, lines: lines.slice(0, 6), more: Math.max(0, lines.length - 6) }
+    if (!homework || candidate.updatedAt > homework.updatedAt) homework = candidate
+  }
+  res.json({ homework })
+})
+
 classroomsRouter.get('/mine', requireRole('OWNER', 'TEACHER'), async (req, res) => {
   const space = await ensurePersonalSpace(req.user.id, req.user.schoolId)
   const boards = await prisma.board.findMany({

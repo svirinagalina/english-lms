@@ -61,9 +61,11 @@ export default function UnitPractice() {
 
     setBusy(true)
     try {
-      const isDrill = Boolean(current.isFollowUp)
+      // A retry of the same sentence adds no drills: they were added the first time.
+      const isDrill = Boolean(current.isFollowUp) || retrying
       const data = await api.submitAttempt(current.id, answer)
       setResult(isDrill ? { ...data, followUps: [] } : data)
+      setRetrying(false)
       setStats((prev) => ({
         right: prev.right + (data.correct ? 1 : 0),
         wrong: prev.wrong + (data.correct ? 0 : 1)
@@ -90,7 +92,15 @@ export default function UnitPractice() {
   const next = () => {
     setResult(null)
     setAnswer('')
+    setRetrying(false)
     setIndex((value) => value + 1)
+  }
+
+  // Have another go at the same sentence, with the previous answer left to fix.
+  const [retrying, setRetrying] = useState(false)
+  const tryAgain = () => {
+    setRetrying(true)
+    setResult(null)
   }
 
   const progress = useMemo(
@@ -204,7 +214,10 @@ export default function UnitPractice() {
                 </>
               )}
 
-              <button onClick={next} autoFocus>Next</button>
+              <div className="row-actions">
+                {!result.correct && <button className="ghost" onClick={tryAgain}>Try again</button>}
+                <button onClick={next} autoFocus>Next</button>
+              </div>
             </div>
           )}
         </>

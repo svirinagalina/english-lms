@@ -657,7 +657,7 @@ export default function Call() {
         cameraOn={cameraOn}
         micOn={micOn}
         onLeave={boardId || writingId ? () => navigate(leaveTo) : undefined}
-        onCopyLink={boardId || writingId ? copyLink : undefined}
+        onCopyLink={copyLink}
         copied={copied}
         chatOpen={chatOpen}
         unread={unread}

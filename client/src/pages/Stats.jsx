@@ -31,7 +31,7 @@ function StudentList() {
       <Nav title="Progress" />
       {error && <div className="error">{error}</div>}
 
-      {students.length === 0 && <p className="muted" style={{ marginTop: 24 }}>No students yet.</p>}
+      {students.length === 0 && <p className="muted" style={{ marginTop: 24 }}>No students yet. Once a student practises, their accuracy and weak topics show here.</p>}
 
       <section>
         <div className="list">

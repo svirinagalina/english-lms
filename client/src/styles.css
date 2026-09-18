@@ -766,3 +766,52 @@ select.pill { padding: 0 16px; color: var(--text); border: none; }
   .inline-form input { min-width: 0; }
   .stat-row { grid-template-columns: 1fr 1fr; }
 }
+.student-row { align-items: center; }
+.student-link { text-decoration: none; color: var(--text); display: block; }
+.student-link:hover strong { color: var(--accent); }
+
+/* "More" in the call controls: a small menu that opens upward. */
+.more-wrap { position: relative; }
+.more-menu {
+  position: absolute;
+  bottom: calc(100% + 8px);
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px;
+  background: #0f3731;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+  z-index: 6;
+  min-width: 240px;
+}
+.more-menu .pill, .more-menu .blur-control { width: 100%; }
+.more-menu .blur-control { flex-direction: column; align-items: stretch; }
+.more-menu .blur-control input[type="range"] { width: 100%; }
+.lesson-page.board-mode .more-menu { bottom: auto; top: calc(100% + 8px); }
+@media (max-width: 1400px) {
+  .lesson-page.board-mode .more-menu { top: auto; bottom: calc(100% + 8px); }
+}
+.button-link { display: inline-block; margin-top: 10px; text-decoration: none; padding: 8px 14px; border: 1px solid var(--border); border-radius: 8px; color: var(--text); font-size: 13px; }
+.button-link:hover { border-color: var(--accent); }
+
+/* Student home tiles */
+.tiles-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 12px; }
+.tile {
+  display: flex; flex-direction: column; gap: 6px;
+  padding: 18px; min-height: 120px;
+  background: var(--surface); border: 1px solid var(--border); border-radius: 12px;
+  color: var(--text); text-decoration: none;
+  transition: border-color .15s, transform .15s;
+}
+.tile:hover { border-color: var(--accent); transform: translateY(-1px); }
+.tile.accent { border-color: var(--accent); }
+.tile strong { font-size: 18px; }
+.tile-kicker { font-size: 12px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); }
+.tile-lines { display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+.paid-report { margin-top: 14px; }
+.link-button { background: none; border: none; color: inherit; text-decoration: underline; padding: 0 0 0 8px; font: inherit; cursor: pointer; }
+.paid-badge.neutral { background: rgba(255, 255, 255, 0.07); color: var(--muted); }

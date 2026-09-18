@@ -72,7 +72,7 @@ export default function Billing() {
         <p className="muted" style={{ marginBottom: 10 }}>
           Payment is per lesson: set the price and how many lessons are paid. Every call with the student uses one lesson up.
         </p>
-        {students.length === 0 && <p className="muted">No students yet.</p>}
+        {students.length === 0 && <p className="muted">No students yet — invite one in People, then set their price and lessons here.</p>}
 
         <div className="list">
           {students.map((student) => (
@@ -86,6 +86,12 @@ export default function Billing() {
                       ` · ${formatPrice(student.priceAmount, student.priceCurrency)} per lesson`}
                   </div>
                   <PackageBadge pkg={student.package} />
+                  {student.paymentReportedAt && (
+                    <div className="paid-badge mid" style={{ marginLeft: 8 }}>
+                      Says they paid on {new Date(student.paymentReportedAt).toLocaleDateString()}
+                      <button className="link-button" onClick={async () => { await api.paymentSeen(student.id); await refresh() }}>dismiss</button>
+                    </div>
+                  )}
                 </div>
                 <button
                   className="ghost"

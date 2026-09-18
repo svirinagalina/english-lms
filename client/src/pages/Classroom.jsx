@@ -68,10 +68,19 @@ export default function Classroom() {
   const [title, setTitle] = useState('')
   const [starting, setStarting] = useState(false)
   const [assistEnabled, setAssistEnabled] = useState(false)
+
   const [targets, setTargets] = useState([])
   const socketRef = useRef(null)
 
   const isStaff = user.role !== 'STUDENT'
+
+  // The student's weak spots, for a glance before the lesson.
+  const [report, setReport] = useState(null)
+  const studentId = classroom?.student?.id ?? null
+  useEffect(() => {
+    if (!studentId || !isStaff) { setReport(null); return }
+    api.statsStudent(studentId).then(setReport).catch(() => setReport(null))
+  }, [studentId, isStaff])
 
   const refresh = async () => {
     const { classroom } = await api.getClassroom(id)
@@ -83,6 +92,7 @@ export default function Classroom() {
     refresh().catch((err) => setError(err.message))
     if (isStaff) {
       api.assistStatus().then(({ enabled }) => setAssistEnabled(enabled)).catch(() => {})
+
       // Where a board from here can go: my own boards, or another student.
       Promise.all([api.myBoards(), api.listClassrooms()])
         .then(([{ classroom: mine }, { classrooms }]) =>
@@ -210,6 +220,7 @@ export default function Classroom() {
             onOpenWriting={!isPersonal ? () => setWritingOpen(true) : undefined}
             canSpotlight={isStaff}
             wordPicker={!isStaff}
+            focusElementId={searchParams.get('focus')}
             onUploadImage={isStaff
               ? async (dataUrl) => {
                   try {
@@ -280,7 +291,7 @@ export default function Classroom() {
           </form>
         )}
 
-        {classroom.boards.length === 0 && <p className="muted">No boards yet.</p>}
+        {classroom.boards.length === 0 && <p className="muted">{isPersonal ? 'No boards yet — create one above.' : 'No board yet — it appears the first time the cabinet is opened.'}</p>}
 
         <div className="list">
           {classroom.boards.map((board) => (
@@ -309,6 +320,37 @@ export default function Classroom() {
               : 'The student writes here; your corrections show as tracked changes, like suggestions in Google Docs. Also opens inside a call.'}
           </p>
           <button onClick={() => setWritingOpen(true)}>Open writing</button>
+        </section>
+      )}
+
+      {isStaff && !isPersonal && report && (
+        <section>
+          <h2>Worth practising</h2>
+          {report.total === 0 ? (
+            <p className="muted">No practice attempts yet.</p>
+          ) : (
+            <>
+              <p className="muted" style={{ marginBottom: 10 }}>
+                {report.total} attempts · {report.accuracy}% correct
+                {report.weakTopics?.length ? ' · the topics that keep going wrong:' : ' · no recurring mistakes.'}
+              </p>
+              {report.weakTopics?.length > 0 && (
+                <div className="mistake-tags">
+                  {report.weakTopics.map((t) => (
+                    <span key={t.topic} className="mistake-tag" title={`${t.count} mistakes, ${t.errorRate}% of the exercises on it`}>
+                      {t.label} · {t.count}
+                    </span>
+                  ))}
+                </div>
+              )}
+              {report.suggestions?.length > 0 && (
+                <p className="muted" style={{ marginTop: 8 }}>
+                  Chapters to revisit: {report.suggestions.flatMap((s) => s.units.map((u) => u.title)).filter((v, i, arr) => arr.indexOf(v) === i).slice(0, 4).join(' · ')}
+                </p>
+              )}
+              <Link className="ghost button-link" to={`/progress/${classroom.student.id}`}>Full report</Link>
+            </>
+          )}
         </section>
       )}
 

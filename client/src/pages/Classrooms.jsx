@@ -5,30 +5,19 @@ import { api } from '../api'
 import Nav from '../components/Nav'
 import { SiteFooter } from '../components/Brand'
 import BoardRow from '../components/BoardRow'
-
-function PackageBadge({ progress }) {
-  if (progress.lessonsPaid == null) {
-    return <span className="muted">{progress.held} lessons held</span>
-  }
-  const left = progress.remaining
-  return (
-    <span className={left <= 0 ? 'paid-badge' : 'paid-badge active'}>
-      {progress.held} of {progress.lessonsPaid} · {left > 0 ? `${left} left` : 'package finished'}
-    </span>
-  )
-}
+import { PackageBadge } from '../components/PackageBadge'
+import StudentHome from '../components/StudentHome'
 
 export default function Classrooms() {
   const { user } = useAuth()
   const navigate = useNavigate()
   const [classrooms, setClassrooms] = useState([])
-  const [calls, setCalls] = useState([])
   const [mine, setMine] = useState(null)
   const [boardTitle, setBoardTitle] = useState('')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(true)
   const [starting, setStarting] = useState(false)
-  const [copied, setCopied] = useState(null)
+  const [startingFor, setStartingFor] = useState(null)
 
   const isStaff = user.role !== 'STUDENT'
 
@@ -36,8 +25,7 @@ export default function Classrooms() {
     const { classrooms } = await api.listClassrooms()
     setClassrooms(classrooms)
     if (isStaff) {
-      const [{ calls }, { classroom }] = await Promise.all([api.listCalls(), api.myBoards()])
-      setCalls(calls)
+      const { classroom } = await api.myBoards()
       setMine(classroom)
     }
   }
@@ -57,13 +45,15 @@ export default function Classrooms() {
     }
   }
 
-  const copyLink = async (call) => {
+  // One click from the list: a call tied to the student, opening on their board.
+  const startLesson = async (classroom) => {
+    setStartingFor(classroom.id)
     try {
-      await navigator.clipboard.writeText(call.link)
-      setCopied(call.id)
-      setTimeout(() => setCopied(null), 2500)
-    } catch {
-      window.prompt('Copy this link:', call.link)
+      const { call } = await api.createCall({ classroomId: classroom.id, title: `Lesson with ${classroom.student.name}` })
+      navigate(`/call/${call.token}`)
+    } catch (err) {
+      setError(err.message)
+      setStartingFor(null)
     }
   }
 
@@ -78,11 +68,6 @@ export default function Classrooms() {
     }
   }
 
-  const endCall = async (call) => {
-    await api.endCall(call.id)
-    await refresh()
-  }
-
   if (loading) return <div className="centered">Loading…</div>
 
   return (
@@ -91,28 +76,58 @@ export default function Classrooms() {
 
       {error && <div className="error">{error}</div>}
 
-      {isStaff && (
-        <section>
-          <div className="call-launch">
-            <div>
-              <h2 style={{ marginBottom: 4 }}>Video call</h2>
-              <p className="muted">
-                Starts a call and gives you a link to send to a student or a colleague. Only people with an account on the platform can join.
-              </p>
-            </div>
-            <button onClick={startCall} disabled={starting}>
-              {starting ? 'Starting…' : 'Start a call'}
-            </button>
-          </div>
+      {!isStaff && <StudentHome classrooms={classrooms} />}
 
-        </section>
-      )}
+      <section>
+        <h2>{user.role === 'STUDENT' ? 'My teachers' : 'Students'}</h2>
+        <p className="muted" style={{ marginBottom: 10 }}>
+          {user.role === 'STUDENT'
+            ? 'Boards and materials from your lessons.'
+            : 'Start lesson opens a call on the student\'s board; the student joins from their cabinet or the link.'}
+        </p>
+
+        {classrooms.length === 0 && (
+          <p className="muted">
+            {user.role === 'STUDENT'
+              ? 'You are not linked to a teacher yet.'
+              : 'No students yet. Invite one in the People section.'}
+          </p>
+        )}
+
+        <div className="list">
+          {classrooms.map((classroom) => (
+            <div key={classroom.id} className="row student-row">
+              <Link className="unit-main student-link" to={`/classroom/${classroom.id}`}>
+                <strong>{user.role === 'STUDENT' ? classroom.teacher.name : classroom.student.name}</strong>
+                <div className="muted">
+                  {classroom.lastSession
+                    ? `last lesson ${new Date(classroom.lastSession).toLocaleDateString()}`
+                    : 'no lessons yet'}
+                  {classroom.boards > 1 && ` · ${classroom.boards} boards`}
+                </div>
+                {isStaff && classroom.progress && (
+                  <PackageBadge pkg={{ lessonsPaid: classroom.progress.lessonsPaid, held: classroom.progress.held, remaining: classroom.progress.remaining }} />
+                )}
+              </Link>
+              {isStaff && (
+                <div className="row-actions">
+                  <button className="ghost" onClick={() => navigate(`/classroom/${classroom.id}`)}>Open</button>
+                  <button onClick={() => startLesson(classroom)} disabled={startingFor === classroom.id}>
+                    {startingFor === classroom.id ? 'Starting…' : 'Start lesson'}
+                  </button>
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      </section>
 
       {isStaff && mine && (
         <section>
           <h2>My boards</h2>
           <p className="muted" style={{ marginBottom: 10 }}>
-            Your own whiteboards — screenshots, notes, materials. Open any time; a board opened during a call is shared with everyone in it.
+            Boards that belong to you rather than to a student — drafts, screenshots, reusable material.
+            A student's lessons live on the board in their cabinet; use <strong>Assign</strong> to move, copy or share one of these to a student.
           </p>
           <form className="inline-form" onSubmit={addBoard}>
             <input
@@ -123,7 +138,7 @@ export default function Classrooms() {
             <button type="submit">New board</button>
           </form>
 
-          {mine.boards.length === 0 && <p className="muted">No boards yet.</p>}
+          {mine.boards.length === 0 && <p className="muted">No boards of your own yet — most work happens on the students' boards above.</p>}
 
           <div className="list">
             {mine.boards.map((board) => (
@@ -141,38 +156,22 @@ export default function Classrooms() {
         </section>
       )}
 
-      <section>
-        <h2>{user.role === 'STUDENT' ? 'My teachers' : 'Students'}</h2>
-        <p className="muted" style={{ marginBottom: 10 }}>
-          {user.role === 'STUDENT'
-            ? 'Boards and materials from your lessons.'
-            : 'Each student has a space with boards, materials and the lesson count.'}
-        </p>
+      {isStaff && (
+        <section>
+          <div className="call-launch">
+            <div>
+              <h2 style={{ marginBottom: 4 }}>Call without a student</h2>
+              <p className="muted">
+                A group lesson or a call with a colleague: starts a call not tied to any student and gives you a link to send. Only people with an account can join.
+              </p>
+            </div>
+            <button className="ghost" onClick={startCall} disabled={starting}>
+              {starting ? 'Starting…' : 'Start a call'}
+            </button>
+          </div>
+        </section>
+      )}
 
-        {classrooms.length === 0 && (
-          <p className="muted">
-            {user.role === 'STUDENT'
-              ? 'You are not linked to a teacher yet.'
-              : 'No students yet. Invite one in the People section.'}
-          </p>
-        )}
-
-        <div className="list">
-          {classrooms.map((classroom) => (
-            <Link key={classroom.id} className="row unit-row" to={`/classroom/${classroom.id}`}>
-              <div className="unit-main">
-                <strong>{user.role === 'STUDENT' ? classroom.teacher.name : classroom.student.name}</strong>
-                <div className="muted">
-                  {classroom.boards} {classroom.boards === 1 ? 'board' : 'boards'}
-                  {classroom.lastSession &&
-                    ` · last lesson ${new Date(classroom.lastSession).toLocaleDateString()}`}
-                </div>
-              </div>
-              {isStaff && classroom.progress && <PackageBadge progress={classroom.progress} />}
-            </Link>
-          ))}
-        </div>
-      </section>
       <SiteFooter />
     </div>
   )

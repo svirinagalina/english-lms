@@ -273,9 +273,12 @@ select.tool { appearance: auto; padding: 5px 8px; }
 @media (max-width: 720px) {
   .board-chip { max-width: calc(100vw - 24px); }
   .board-corner-right { top: 60px; }
-  .board-dock { gap: 8px; padding: 8px 10px; }
-  .board-dock .dock-group { flex-wrap: wrap; justify-content: center; }
-  .board-dock .dock-group + .dock-group { border-left: none; padding-left: 0; border-top: 1px solid var(--border); padding-top: 8px; width: 100%; }
+  /* A compact dock: each group is one row that scrolls sideways. */
+  .board-dock { gap: 6px; padding: 6px 8px; width: calc(100% - 16px); flex-direction: column; align-items: stretch; }
+  .board-dock .dock-group { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; max-width: 100%; justify-content: flex-start; }
+  .board-dock .dock-group::-webkit-scrollbar { display: none; }
+  .board-dock .dock-group + .dock-group { border-left: none; padding-left: 0; border-top: 1px solid var(--border); padding-top: 6px; }
+  .board-dock .tool { flex-shrink: 0; padding: 6px 10px; font-size: 13px; }
   .board-hint { display: none; }
   .stage.board-mode .tiles { width: 120px; top: 100px; }
 }

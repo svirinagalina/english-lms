@@ -321,7 +321,7 @@ export default function People() {
 
       <section>
         <h2>Students</h2>
-        {students.length === 0 && <p className="muted">No students yet.</p>}
+        {students.length === 0 && <p className="muted">No students yet. Send an invitation above — the student sets a password from the link and appears here.</p>}
 
         <div className="list">
           {students.map((person) => (

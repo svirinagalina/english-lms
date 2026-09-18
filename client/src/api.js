@@ -46,6 +46,8 @@ export const api = {
 
   myBilling: () => request('/billing/me'),
   billingStudents: () => request('/billing/students'),
+  reportPayment: (note) => request('/billing/me/paid', { method: 'POST', body: { note } }),
+  paymentSeen: (id) => request(`/billing/students/${id}/seen`, { method: 'POST' }),
   updateStudentBilling: (id, body) => request(`/billing/students/${id}`, { method: 'PATCH', body }),
   schoolPaymentDetails: () => request('/billing/school'),
   updateSchoolPaymentDetails: (body) => request('/billing/school', { method: 'PATCH', body }),
@@ -90,6 +92,7 @@ export const api = {
   endCall: (id) => request(`/calls/${id}/end`, { method: 'POST' }),
 
   listClassrooms: () => request('/classrooms'),
+  studentHome: () => request('/classrooms/home'),
   myBoards: () => request('/classrooms/mine'),
   getClassroom: (id) => request(`/classrooms/${id}`),
   allBoards: () => request('/classrooms/boards'),

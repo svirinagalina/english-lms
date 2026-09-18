@@ -1,3 +1,5 @@
+import { useEffect, useRef, useState } from 'react'
+
 export default function Controls({
   onToggleCamera,
   onToggleMicrophone,
@@ -26,6 +28,17 @@ export default function Controls({
   onOpenWriting,
   onCloseWriting
 }) {
+  // The rarely used controls live behind "More": noise reduction, blur, the link.
+  const [moreOpen, setMoreOpen] = useState(false)
+  const moreRef = useRef(null)
+  useEffect(() => {
+    if (!moreOpen) return
+    const close = (e) => { if (!moreRef.current?.contains(e.target)) setMoreOpen(false) }
+    document.addEventListener('pointerdown', close)
+    return () => document.removeEventListener('pointerdown', close)
+  }, [moreOpen])
+  const moreActive = noiseSuppression || isBlurEnabled
+
   return (
     <div className="controls">
       <button
@@ -74,14 +87,6 @@ export default function Controls({
         )
       )}
 
-      <button
-        className={`pill ${noiseSuppression ? 'on' : ''}`}
-        onClick={onNoiseToggle}
-        title="Filter out background noise from your microphone"
-      >
-        {noiseSuppression ? 'Noise reduction: ON' : 'Noise reduction: OFF'}
-      </button>
-
       {writingChoices.length > 0 && (
         writingId ? (
           <button className="round on" onClick={onCloseWriting} title="Back to the board">Writing</button>
@@ -105,29 +110,46 @@ export default function Controls({
           Chat{unread > 0 && !chatOpen ? ` (${unread})` : ''}
         </button>
       )}
-      {onCopyLink && (
-        <button className="pill" onClick={onCopyLink} title="Copy the link to send to the student">
-          {copied ? 'Link copied' : 'Copy link'}
+      <div className="more-wrap" ref={moreRef}>
+        <button className={`round ${moreOpen ? 'on' : ''}`} onClick={() => setMoreOpen((v) => !v)} title="Noise reduction, blur, invite link">
+          More{moreActive && !moreOpen ? ' •' : ''}
         </button>
-      )}
+        {moreOpen && (
+          <div className="more-menu">
+            <button
+              className={`pill ${noiseSuppression ? 'on' : ''}`}
+              onClick={onNoiseToggle}
+              title="Filter out background noise from your microphone"
+            >
+              {noiseSuppression ? 'Noise reduction: ON' : 'Noise reduction: OFF'}
+            </button>
+            <div className="blur-control">
+              <button className={`pill ${isBlurEnabled ? 'on' : ''}`} onClick={onBlurToggle}>
+                {isBlurEnabled ? 'Background blur: ON' : 'Background blur: OFF'}
+              </button>
+              {isBlurEnabled && (
+                <input
+                  type="range"
+                  min="4"
+                  max="40"
+                  value={blurAmount}
+                  onChange={(e) => onBlurChange(Number(e.target.value))}
+                  title="How strong the blur is"
+                />
+              )}
+            </div>
+            {onCopyLink && (
+              <button className="pill" onClick={onCopyLink} title="Copy the link to send to the student">
+                {copied ? 'Link copied' : 'Copy invite link'}
+              </button>
+            )}
+          </div>
+        )}
+      </div>
+
       {onLeave && (
         <button className="pill leave" onClick={onLeave} title="Leave the call">Leave</button>
       )}
-
-      <div className="blur-control">
-        <button className={`pill ${isBlurEnabled ? 'on' : ''}`} onClick={onBlurToggle}>
-          {isBlurEnabled ? 'Blur on' : (onLeave ? 'Blur' : 'Add blur')}
-        </button>
-        {isBlurEnabled && (
-          <input
-            type="range"
-            min="4"
-            max="40"
-            value={blurAmount}
-            onChange={(e) => onBlurChange(Number(e.target.value))}
-          />
-        )}
-      </div>
     </div>
   )
 }
