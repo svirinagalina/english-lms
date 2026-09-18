@@ -140,11 +140,13 @@ classroomsRouter.get('/boards', async (req, res) => {
     include: {
       student: { select: { id: true, name: true } },
       teacher: { select: { id: true, name: true } },
-      boards: { select: { id: true, title: true, updatedAt: true }, orderBy: { updatedAt: 'desc' } }
+      boards: { select: { id: true, title: true, updatedAt: true }, orderBy: { updatedAt: 'desc' } },
+      sharedBoards: { select: { id: true, title: true, updatedAt: true }, orderBy: { updatedAt: 'desc' } }
     }
   })
+  const seen = new Set()
   const boards = classrooms.flatMap((classroom) =>
-    classroom.boards.map((board) => ({
+    [...classroom.boards, ...classroom.sharedBoards].filter((board) => !seen.has(board.id) && seen.add(board.id)).map((board) => ({
       id: board.id,
       title: board.title,
       classroomId: classroom.id,
@@ -173,8 +175,8 @@ classroomsRouter.get('/:id', async (req, res) => {
       orderBy: { startedAt: 'desc' }
     }),
     prisma.board.findMany({
-      where: { classroomId: classroom.id },
-      select: { id: true, title: true, createdAt: true, updatedAt: true },
+      where: { OR: [{ classroomId: classroom.id }, { sharedWith: { some: { id: classroom.id } } }] },
+      select: { id: true, title: true, createdAt: true, updatedAt: true, classroomId: true, sharedWith: { select: { id: true, student: { select: { name: true } } } } },
       orderBy: { createdAt: 'asc' }
     })
   ])
@@ -196,7 +198,15 @@ classroomsRouter.get('/:id', async (req, res) => {
           ? Math.max(1, Math.round((session.endedAt - session.startedAt) / 60000))
           : null
       })),
-      boards
+      boards: boards.map((board) => ({
+        id: board.id,
+        title: board.title,
+        createdAt: board.createdAt,
+        updatedAt: board.updatedAt,
+        // Shared in from another student's space, or shared out to others.
+        shared: board.classroomId !== classroom.id,
+        sharedWith: board.sharedWith.map((c) => c.student?.name).filter(Boolean)
+      }))
     }
   })
 })
@@ -238,7 +248,7 @@ classroomsRouter.patch('/:id/boards/:boardId', requireRole('OWNER', 'TEACHER'), 
 
 const assignSchema = z.object({
   targetClassroomId: z.string(),
-  mode: z.enum(['copy', 'move'])
+  mode: z.enum(['copy', 'move', 'share', 'unshare'])
 })
 
 // Copies or moves a board into another classroom the teacher can access —
@@ -256,9 +266,20 @@ classroomsRouter.post('/:id/boards/:boardId/assign', requireRole('OWNER', 'TEACH
   if (target.id === source.id) return res.status(400).json({ error: 'Board is already there' })
 
   const board = await prisma.board.findFirst({
-    where: { id: req.params.boardId, classroomId: source.id }
+    where: { id: req.params.boardId, OR: [{ classroomId: source.id }, { sharedWith: { some: { id: source.id } } }] }
   })
   if (!board) return res.status(404).json({ error: 'Board not found' })
+
+  // Sharing keeps one board and attaches it to another student too.
+  if (parsed.data.mode === 'share' || parsed.data.mode === 'unshare') {
+    if (target.id === board.classroomId) return res.status(400).json({ error: 'Board already belongs there' })
+    const updated = await prisma.board.update({
+      where: { id: board.id },
+      data: { sharedWith: parsed.data.mode === 'share' ? { connect: { id: target.id } } : { disconnect: { id: target.id } } },
+      select: { id: true, title: true }
+    })
+    return res.json({ board: updated, mode: parsed.data.mode })
+  }
 
   if (parsed.data.mode === 'move') {
     const moved = await prisma.board.update({
@@ -281,7 +302,11 @@ classroomsRouter.delete('/:id/boards/:boardId', requireRole('OWNER', 'TEACHER'),
   const classroom = await accessibleClassroom(req.user, req.params.id)
   if (!classroom) return res.status(404).json({ error: 'Classroom not found' })
 
-  await prisma.board.deleteMany({ where: { id: req.params.boardId, classroomId: classroom.id } })
+  const owned = await prisma.board.deleteMany({ where: { id: req.params.boardId, classroomId: classroom.id } })
+  if (!owned.count) {
+    // Not ours: just detach it from this space.
+    await prisma.board.update({ where: { id: req.params.boardId }, data: { sharedWith: { disconnect: { id: classroom.id } } } }).catch(() => {})
+  }
   res.json({ ok: true })
 })
 
@@ -293,7 +318,7 @@ classroomsRouter.post('/:id/boards/:boardId/images', requireRole('OWNER', 'TEACH
   if (!classroom) return res.status(404).json({ error: 'Classroom not found' })
 
   const board = await prisma.board.findFirst({
-    where: { id: req.params.boardId, classroomId: classroom.id },
+    where: { id: req.params.boardId, OR: [{ classroomId: classroom.id }, { sharedWith: { some: { id: classroom.id } } }] },
     select: { id: true }
   })
   if (!board) return res.status(404).json({ error: 'Board not found' })

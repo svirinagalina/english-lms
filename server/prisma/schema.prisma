@@ -245,6 +245,8 @@ model Classroom {
   sessions Session[]
   document Document?
   boards   Board[]
+  // Boards that live elsewhere but are shared into this space as well.
+  sharedBoards Board[] @relation("BoardShares")
   calls    Call[]
 
   @@unique([teacherId, studentId])
@@ -288,6 +290,8 @@ model Board {
 
   classroomId String
   classroom   Classroom @relation(fields: [classroomId], references: [id], onDelete: Cascade)
+  // One board can be attached to several students at once.
+  sharedWith  Classroom[] @relation("BoardShares")
 
   @@index([classroomId, updatedAt])
 }

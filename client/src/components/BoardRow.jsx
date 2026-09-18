@@ -16,7 +16,8 @@ export default function BoardRow({ board, classroomId, targets, canEdit, onOpen,
     try {
       await api.assignBoard(classroomId, board.id, targetId, mode)
       const target = targets.find((t) => t.id === targetId)
-      setNotice(`${mode === 'copy' ? 'Copied' : 'Moved'} to ${target?.label ?? 'the student'}`)
+      const verb = { copy: 'Copied', move: 'Moved', share: 'Shared with', unshare: 'No longer shared with' }[mode]
+      setNotice(`${verb} ${target?.label ?? 'the student'}`)
       setAssigning(false)
       await onChanged()
       setTimeout(() => setNotice(''), 3000)
@@ -28,7 +29,7 @@ export default function BoardRow({ board, classroomId, targets, canEdit, onOpen,
   }
 
   const remove = async () => {
-    if (!window.confirm(`Delete "${board.title}"?`)) return
+    if (!window.confirm(board.shared ? `Remove "${board.title}" from this student? The board itself stays.` : `Delete "${board.title}"?`)) return
     await api.deleteBoard(classroomId, board.id)
     await onChanged()
   }
@@ -38,7 +39,11 @@ export default function BoardRow({ board, classroomId, targets, canEdit, onOpen,
       <div className="row-main">
         <div>
           <strong>{board.title}</strong>
-          <div className="muted">Updated {new Date(board.updatedAt).toLocaleString()}</div>
+          <div className="muted">
+            Updated {new Date(board.updatedAt).toLocaleString()}
+            {board.shared && ' · shared from another student'}
+            {board.sharedWith?.length > 0 && ` · also with ${board.sharedWith.join(', ')}`}
+          </div>
           {notice && <div className="muted" style={{ color: '#a5b4fc' }}>{notice}</div>}
         </div>
         <div className="row-actions">
@@ -48,7 +53,7 @@ export default function BoardRow({ board, classroomId, targets, canEdit, onOpen,
               {assigning ? 'Close' : 'Assign'}
             </button>
           )}
-          {canEdit && <button className="ghost" onClick={remove}>Delete</button>}
+          {canEdit && <button className="ghost" onClick={remove}>{board.shared ? 'Remove from here' : 'Delete'}</button>}
         </div>
       </div>
 
@@ -60,11 +65,16 @@ export default function BoardRow({ board, classroomId, targets, canEdit, onOpen,
                 <option key={target.id} value={target.id}>{target.label}</option>
               ))}
             </select>
-            <button onClick={() => assign('copy')} disabled={busy}>Copy there</button>
+            <button onClick={() => assign('share')} disabled={busy}>Share there</button>
+            <button className="ghost" onClick={() => assign('copy')} disabled={busy}>Copy there</button>
             <button className="ghost" onClick={() => assign('move')} disabled={busy}>Move there</button>
+            {board.sharedWith?.length > 0 && (
+              <button className="ghost" onClick={() => assign('unshare')} disabled={busy}>Stop sharing there</button>
+            )}
           </div>
           <span className="muted">
-            Copy keeps this board and gives the student their own; move takes it away from here.
+            Share attaches this same board to another student too — one board, everyone sees the same content.
+            Copy gives them their own copy; move takes it away from here.
           </span>
         </div>
       )}

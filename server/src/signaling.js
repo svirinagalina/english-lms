@@ -211,10 +211,11 @@ export function setupSignaling(io) {
     // access to its classroom, or when it is already the room's board.
     const boardBelongsHere = async (boardId) => {
       if (typeof boardId !== 'string') return false
-      const board = await prisma.board.findUnique({ where: { id: boardId }, select: { classroomId: true } })
+      const board = await prisma.board.findUnique({ where: { id: boardId }, select: { classroomId: true, sharedWith: { select: { id: true } } } })
       if (!board) return false
       const { roomId, classroomId } = socket.data
       if (board.classroomId === classroomId) return true
+      if (classroomId && board.sharedWith.some((c) => c.id === classroomId)) return true
       if (roomId && roomBoards.get(roomId) === boardId) return true
       const classroom = await accessibleClassroom(user, board.classroomId)
       if (!classroom) return false
