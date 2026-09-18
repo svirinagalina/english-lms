@@ -294,11 +294,33 @@ model LessonMistake {
   @@index([classroomId])
 }
 
+// What a lesson was about, built when the call ends: topics, the words
+// that came up, mistakes noted, and speaking questions for next time.
+model LessonSummary {
+  id          String   @id @default(cuid())
+  sessionId   String   @unique
+  session     Session  @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  classroomId String
+  studentId   String
+  topics      String[] @default([])
+  // [{ word, transcription?, translation?, saved? }]
+  words       Json     @default("[]")
+  mistakeIds  String[] @default([])
+  questions   String[] @default([])
+  withAi      Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([classroomId, createdAt])
+  @@index([studentId])
+}
+
 model Session {
   id        String    @id @default(cuid())
   startedAt DateTime  @default(now())
   endedAt   DateTime?
   note      String?
+  summary   LessonSummary?
 
   // Lets a teacher exclude a session from the package count, e.g. a test call.
   counted Boolean @default(true)

@@ -32,7 +32,10 @@ export const elementSchema = z.object({
   src: z.string().regex(/^\/uploads\/[a-z0-9]+\/[a-z0-9]+\.(png|jpe?g|gif|webp)$/i).optional(),
   authorId: z.string().max(64).optional(),
   // A note written with the Mistake tool points at its notebook record.
-  mistakeId: z.string().max(64).optional()
+  mistakeId: z.string().max(64).optional(),
+  // When the element was added (set by the server), so a lesson's summary
+  // knows what appeared during it.
+  at: z.number().int().positive().optional()
 })
 
 const boards = new Map()

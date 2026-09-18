@@ -10,6 +10,7 @@ import {
   clearBoard
 } from './boardStore.js'
 import { loadDocument, replaceDocument, runsSchema } from './docStore.js'
+import { buildSummary } from './lessonSummary.js'
 
 // A call that resumes within this window continues the previous session rather
 // than counting as a second lesson — reconnects should not inflate the count.
@@ -45,6 +46,8 @@ async function closeSession(classroomId) {
   })
   if (open) {
     await prisma.session.update({ where: { id: open.id }, data: { endedAt: new Date() } })
+    // The lesson's summary: topics, words, mistakes, questions for next time.
+    buildSummary(open.id).catch((error) => console.error('Lesson summary failed:', error.message))
   }
 }
 
@@ -297,7 +300,7 @@ export function setupSignaling(io) {
       const parsed = elementSchema.safeParse(raw)
       if (!parsed.success) return
 
-      const element = { ...parsed.data, authorId: user.id }
+      const element = { ...parsed.data, authorId: user.id, at: parsed.data.at ?? Date.now() }
       if (await addElement(boardId, element)) {
         emitToWatchers(boardWatchers, boardId, socket, 'board:add', element)
       }

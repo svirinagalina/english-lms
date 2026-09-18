@@ -14,9 +14,6 @@ const TOOLS = [
   { id: 'select', label: 'Move', key: 'V' },
   { id: 'pen', label: 'Pen', key: 'P' },
   { id: 'marker', label: 'Marker', key: 'M' },
-  { id: 'rect', label: 'Box', key: 'R' },
-  { id: 'ellipse', label: 'Circle', key: 'O' },
-  { id: 'arrow', label: 'Arrow', key: 'A' },
   { id: 'text', label: 'Text', key: 'T' },
   { id: 'note', label: 'Note', key: 'N' },
   { id: 'eraser', label: 'Erase', key: 'E' }
@@ -743,7 +740,7 @@ export async function exportBoardPdf(elements, title = 'Board') {
 
 // --- Component ----------------------------------------------------------------
 
-export default function Whiteboard({ socketRef, boardId, title, subtitle, onClose, backLabel = '← Back', onStartCall, onOpenWriting, canSpotlight = false, onUploadImage, onAssist, assistEnabled, wordPicker = false, focusElementId = null, onMistake, onMistakeRemoved }) {
+export default function Whiteboard({ socketRef, boardId, title, subtitle, onClose, backLabel = '← Back', onStartCall, onOpenWriting, canSpotlight = false, onUploadImage, onAssist, assistEnabled, wordPicker = false, focusElementId = null, onMistake, onMistakeRemoved, insertBlock = null, onInserted }) {
   const [assisting, setAssisting] = useState(null)
   const [exporting, setExporting] = useState(false)
   const fileInputRef = useRef(null)
@@ -786,6 +783,16 @@ export default function Whiteboard({ socketRef, boardId, title, subtitle, onClos
   // The Mistake tool's form: where on the board the note will go.
   const [mistakeForm, setMistakeForm] = useState(null) // { x, y, left, top, said, correct, busy, error }
   const editClickTimer = useRef(null)
+  // A block handed in from outside (speaking questions from a lesson
+  // summary) goes under everything once the board is in, once per block.
+  const insertedRef = useRef(null)
+  const [loadedBoard, setLoadedBoard] = useState(null)
+  useEffect(() => {
+    if (!insertBlock || loadedBoard !== boardId || insertedRef.current === insertBlock.key) return
+    insertedRef.current = insertBlock.key
+    addBlock(insertBlock.title, insertBlock.lines, insertBlock.color ?? COLORS[3])
+    onInserted?.()
+  }, [insertBlock, loadedBoard, boardId])
   const tipTimer = useRef(null)
   const tipWordRef = useRef(null)
   const hoverDictionary = (event) => {
@@ -945,6 +952,7 @@ export default function Whiteboard({ socketRef, boardId, title, subtitle, onClos
       if (quiet) { scheduleRender(); bump(); return }
       // A board with content opens showing all of it; an empty one at 100%
       // — or on the element it was opened for (the homework heading).
+      setLoadedBoard(boardId)
       const focus = focusElementId && elementsRef.current.find((e) => e.id === focusElementId)
       if (focus) {
         const rect = canvasRef.current?.getBoundingClientRect() ?? { width: 800 }
@@ -2181,6 +2189,22 @@ export default function Whiteboard({ socketRef, boardId, title, subtitle, onClos
     setTool('pen')
     scheduleRender()
     bump()
+  }
+  // A heading with a block of lines under it (numbered), below everything.
+  const addBlock = (title, lines, color) => {
+    // Readable on arrival: the glide in addHeading keeps the current zoom,
+    // so go to 100% first, around the same centre.
+    const rect = canvasRef.current?.getBoundingClientRect() ?? { width: 800, height: 600 }
+    const v = viewRef.current
+    const cx = (rect.width / 2 - v.x) / v.scale
+    const cy = (rect.height / 2 - v.y) / v.scale
+    viewRef.current = { scale: 1, x: rect.width / 2 - cx, y: rect.height / 2 - cy }
+    addHeading(title, color)
+    const heading = elementsRef.current[elementsRef.current.length - 1]
+    if (!heading) return
+    const text = lines.map((line, i) => `${i + 1}. ${line}`).join('\n')
+    commit({ id: newId(), type: 'text', color: COLORS[0], width: 6, x: heading.x, y: heading.y + 48, text, fontSize: 20, w: 720 })
+    setTool('select')
   }
   const startLesson = () => {
     const date = new Date().toLocaleDateString(undefined, { day: 'numeric', month: 'long', year: 'numeric' })

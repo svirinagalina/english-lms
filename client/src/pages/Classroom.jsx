@@ -9,6 +9,7 @@ import Nav from '../components/Nav'
 import { SiteFooter } from '../components/Brand'
 import BoardRow from '../components/BoardRow'
 import MistakeNotebook from '../components/MistakeNotebook'
+import LessonSummaries from '../components/LessonSummaries'
 import ActivityHeatmap from '../components/ActivityHeatmap'
 
 function PackagePanel({ classroom, onChanged }) {
@@ -62,10 +63,24 @@ export default function Classroom() {
   const { id } = useParams()
   const { user } = useAuth()
   const navigate = useNavigate()
-  const [searchParams] = useSearchParams()
+  const [searchParams, setSearchParams] = useSearchParams()
   const [classroom, setClassroom] = useState(null)
   const [error, setError] = useState('')
   const [openBoardId, setOpenBoardId] = useState(searchParams.get('board'))
+  // Links within the page (a lesson summary, the homework tile) change ?board=.
+  useEffect(() => { const b = searchParams.get('board'); if (b) setOpenBoardId(b) }, [searchParams])
+  // ?summary=<id>: the lesson summary whose questions go onto the board.
+  const [insertBlock, setInsertBlock] = useState(null)
+  useEffect(() => {
+    const summaryId = searchParams.get('summary')
+    if (!summaryId) { setInsertBlock(null); return }
+    api.lessonSummaries(id).then(({ summaries }) => {
+      const s = summaries.find((x) => x.id === summaryId)
+      if (!s || !s.questions.length) return
+      const date = new Date(s.startedAt).toLocaleDateString(undefined, { day: 'numeric', month: 'long' })
+      setInsertBlock({ key: s.id, title: `— Speaking · lesson of ${date} —`, lines: s.questions })
+    }).catch(() => {})
+  }, [id, searchParams])
   const [writingOpen, setWritingOpen] = useState(searchParams.get('writing') === '1')
   const [title, setTitle] = useState('')
   const [starting, setStarting] = useState(false)
@@ -188,7 +203,7 @@ export default function Classroom() {
   const partner = isPersonal
     ? 'My boards'
     : user.role === 'STUDENT' ? classroom.teacher.name : classroom.student.name
-  const openBoard = classroom.boards.find((b) => b.id === openBoardId)
+  const openBoard = classroom.boards.find((b) => b.id === openBoardId) ?? (openBoardId === 'default' ? classroom.boards.find((b) => !b.shared) : undefined)
 
   if (writingOpen && !isPersonal) {
     return (
@@ -214,7 +229,7 @@ export default function Classroom() {
         <div className="view-pane">
           <Whiteboard
             socketRef={socketRef}
-            boardId={openBoardId}
+            boardId={openBoard.id}
             title={openBoard.title}
             subtitle={partner}
             onClose={() => setOpenBoardId(null)}
@@ -223,12 +238,14 @@ export default function Classroom() {
             canSpotlight={isStaff}
             wordPicker={!isStaff}
             focusElementId={searchParams.get('focus')}
-            onMistake={isStaff && !isPersonal ? (body) => api.addMistake(id, { ...body, boardId: openBoardId }) : undefined}
+            insertBlock={insertBlock}
+            onInserted={() => { setInsertBlock(null); setSearchParams((p) => { p.delete('summary'); p.set('board', openBoard.id); return p }, { replace: true }) }}
+            onMistake={isStaff && !isPersonal ? (body) => api.addMistake(id, { ...body, boardId: openBoard.id }) : undefined}
             onMistakeRemoved={isStaff && !isPersonal ? (elementId) => api.deleteMistakeByElement(elementId).catch(() => {}) : undefined}
             onUploadImage={isStaff
               ? async (dataUrl) => {
                   try {
-                    const { src } = await api.uploadBoardImage(id, openBoardId, dataUrl)
+                    const { src } = await api.uploadBoardImage(id, openBoard.id, dataUrl)
                     return src
                   } catch (err) {
                     setError(err.message)
@@ -335,6 +352,8 @@ export default function Classroom() {
           boardLink={(m) => `/classroom/${id}?board=${m.boardId}&focus=${m.elementId}`}
         />
       )}
+
+      {!isPersonal && <LessonSummaries classroomId={id} canEdit={isStaff} student={!isStaff} />}
 
       {!isPersonal && (
         <section>
