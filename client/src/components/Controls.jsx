@@ -28,7 +28,9 @@ export default function Controls({
   writingChoices = [],
   writingId,
   onOpenWriting,
-  onCloseWriting
+  onCloseWriting,
+  // Board mode: only Cam, Mic, More and Leave stay in the row; the rest is under More.
+  compact = false
 }) {
   // The rarely used controls live behind "More": noise reduction, blur, the link.
   const [moreOpen, setMoreOpen] = useState(false)
@@ -39,7 +41,7 @@ export default function Controls({
     document.addEventListener('pointerdown', close)
     return () => document.removeEventListener('pointerdown', close)
   }, [moreOpen])
-  const moreActive = noiseSuppression || isBlurEnabled
+  const moreActive = noiseSuppression || isBlurEnabled || (compact && (hasScreenStream || (unread > 0 && !chatOpen)))
 
   return (
     <div className="controls">
@@ -59,6 +61,8 @@ export default function Controls({
         Mic
       </button>
 
+      {!compact && (
+        <>
       <button
         className={`round ${hasScreenStream ? 'on' : ''}`}
         onClick={onShareScreen}
@@ -112,12 +116,71 @@ export default function Controls({
           Chat{unread > 0 && !chatOpen ? ` (${unread})` : ''}
         </button>
       )}
+        </>
+      )}
       <div className="more-wrap" ref={moreRef}>
-        <button className={`round ${moreOpen ? 'on' : ''}`} onClick={() => setMoreOpen((v) => !v)} title="Noise reduction, blur, invite link">
-          More{moreActive && !moreOpen ? ' •' : ''}
+        <button className={`round ${moreOpen ? 'on' : ''}`} onClick={() => setMoreOpen((v) => !v)} title={compact ? 'Screen, board, writing, chat, noise reduction, blur, invite link' : 'Noise reduction, blur, invite link'}>
+          More{compact && unread > 0 && !chatOpen ? ` (${unread})` : moreActive && !moreOpen ? ' •' : ''}
         </button>
         {moreOpen && (
           <div className="more-menu">
+            {compact && (
+              <div className="more-tools">
+      <button
+                className={`round ${hasScreenStream ? 'on' : ''}`}
+                onClick={onShareScreen}
+                title={hasScreenStream ? 'Stop sharing your screen' : 'Share your screen'}
+              >
+                {hasScreenStream ? 'Stop screen' : 'Screen'}
+              </button>
+        
+              {boards.length > 0 && (
+                boardId ? (
+                  <button className="round on" onClick={onCloseBoard} title="Close the board (only for you)">Board</button>
+                ) : boards.length === 1 || (preferredBoardId && boards.some((b) => b.id === preferredBoardId)) ? (
+                  <button className="round" onClick={() => onOpenBoard(boards.length === 1 ? boards[0].id : preferredBoardId)} title="Open the board">Board</button>
+                ) : (
+                  <select
+                    className="pill"
+                    value=""
+                    onChange={(e) => { if (e.target.value) onOpenBoard(e.target.value) }}
+                    title="Open a board"
+                  >
+                    <option value="">Board…</option>
+                    {boards.map((board) => (
+                      <option key={board.id} value={board.id}>
+                        {board.student ? `${board.student} — ${board.title}` : board.title}
+                      </option>
+                    ))}
+                  </select>
+                )
+              )}
+        
+              {writingChoices.length > 0 && (
+                writingId ? (
+                  <button className="round on" onClick={onCloseWriting} title="Close writing">Writing</button>
+                ) : writingChoices.length === 1 ? (
+                  <button className="round" onClick={() => onOpenWriting(writingChoices[0].id)} title="Open the student's writing">Writing</button>
+                ) : (
+                  <select
+                    className="pill"
+                    value=""
+                    onChange={(e) => { if (e.target.value) onOpenWriting(e.target.value) }}
+                    title="Open a student's writing"
+                  >
+                    <option value="">Writing…</option>
+                    {writingChoices.map((c) => <option key={c.id} value={c.id}>{c.label}</option>)}
+                  </select>
+                )
+              )}
+        
+              {onToggleChat && (
+                <button className={`round ${chatOpen ? 'on' : ''}`} onClick={onToggleChat} title="Text chat">
+                  Chat{unread > 0 && !chatOpen ? ` (${unread})` : ''}
+                </button>
+              )}
+                      </div>
+            )}
             <button
               className={`pill ${noiseSuppression ? 'on' : ''}`}
               onClick={onNoiseToggle}

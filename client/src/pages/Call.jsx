@@ -611,7 +611,7 @@ export default function Call() {
               subtitle={writingChoices.find((c) => c.id === writingId)?.label ?? boards.find((b) => b.classroomId === writingId)?.student}
               onClose={closeWriting}
               wordPicker={!isStaff}
-              backLabel={boardId ? '← Back to board' : '← Back to video'}
+              backLabel={boardId ? '← Back to board' : '← Back'}
               embedded
             />
           ) : boardId ? (
@@ -621,7 +621,7 @@ export default function Call() {
               title={currentBoard?.title ?? 'Board'}
               subtitle={currentBoard?.student ?? currentBoard?.owner ?? undefined}
               onClose={closeBoard}
-              backLabel="← Back to video"
+              backLabel="← Back"
               onOpenWriting={currentBoard?.studentId ? () => openWriting(currentBoard.classroomId) : (writingChoices.length === 1 ? () => openWriting(writingChoices[0].id) : undefined)}
               canSpotlight={isStaff}
               wordPicker={!isStaff}
@@ -657,6 +657,7 @@ export default function Call() {
       )}
 
       <Controls
+        compact={Boolean(boardId || writingId)}
         onToggleCamera={toggleTrack('video')}
         onToggleMicrophone={toggleTrack('audio')}
         cameraOn={cameraOn}
