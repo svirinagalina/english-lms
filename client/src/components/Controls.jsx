@@ -67,15 +67,15 @@ export default function Controls({
 
       {boards.length > 0 && (
         boardId ? (
-          <button className="round on" onClick={onCloseBoard} title="Close the board for everyone">Board</button>
+          <button className="round on" onClick={onCloseBoard} title="Close the board (only for you)">Board</button>
         ) : boards.length === 1 ? (
-          <button className="round" onClick={() => onOpenBoard(boards[0].id)} title="Open the student's board for everyone in the call">Board</button>
+          <button className="round" onClick={() => onOpenBoard(boards[0].id)} title="Open the student's board">Board</button>
         ) : (
           <select
             className="pill"
             value=""
             onChange={(e) => { if (e.target.value) onOpenBoard(e.target.value) }}
-            title="Open a board for everyone in the call"
+            title="Open a board"
           >
             <option value="">Board…</option>
             {boards.map((board) => (
@@ -89,15 +89,15 @@ export default function Controls({
 
       {writingChoices.length > 0 && (
         writingId ? (
-          <button className="round on" onClick={onCloseWriting} title="Back to the board">Writing</button>
+          <button className="round on" onClick={onCloseWriting} title="Close writing">Writing</button>
         ) : writingChoices.length === 1 ? (
-          <button className="round" onClick={() => onOpenWriting(writingChoices[0].id)} title="Open the student's writing for everyone in the call">Writing</button>
+          <button className="round" onClick={() => onOpenWriting(writingChoices[0].id)} title="Open the student's writing">Writing</button>
         ) : (
           <select
             className="pill"
             value=""
             onChange={(e) => { if (e.target.value) onOpenWriting(e.target.value) }}
-            title="Open a student's writing for everyone in the call"
+            title="Open a student's writing"
           >
             <option value="">Writing…</option>
             {writingChoices.map((c) => <option key={c.id} value={c.id}>{c.label}</option>)}

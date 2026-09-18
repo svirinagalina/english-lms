@@ -608,7 +608,7 @@ export default function Call() {
               subtitle={writingChoices.find((c) => c.id === writingId)?.label ?? boards.find((b) => b.classroomId === writingId)?.student}
               onClose={closeWriting}
               wordPicker={!isStaff}
-              backLabel="← Back to video"
+              backLabel={boardId ? '← Back to board' : '← Back to video'}
               embedded
             />
           ) : boardId ? (
