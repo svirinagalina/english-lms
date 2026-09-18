@@ -361,7 +361,7 @@ export default function Writing({ socketRef, classroomId, user, title, subtitle,
     if (!found || !isEnglishWord(found.word)) return
     const host = editorRef.current.parentElement.getBoundingClientRect()
     setTip(null)
-    setWordCard({ word: found.word.toLowerCase(), x: Math.min(event.clientX - host.left, host.width - 300), y: event.clientY - host.top + 14 })
+    setWordCard({ word: found.word.toLowerCase(), x: Math.max(8, Math.min(event.clientX - host.left, host.width - 300)), y: Math.max(8, Math.min(event.clientY - host.top + 14, host.height - 270)) })
   }
 
   // Hover dictionary over the document.

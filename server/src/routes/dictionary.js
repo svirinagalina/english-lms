@@ -49,11 +49,29 @@ async function wiktionaryIpa(word) {
   const text = (await response.json())?.parse?.wikitext ?? ''
   const english = text.split(/\n==[^=]/)[0] || text
   const section = english.includes('==English==') ? english : (text.match(/==English==[\s\S]*?(?=\n==[^=]|$)/)?.[0] ?? '')
-  const found = [...section.matchAll(/\{\{IPA\|en\|([^}]*)\}\}/g)].map((m) => m[1])
+  // One IPA per line, with the accent read from the line (it may sit in
+  // the IPA template itself, in {{a|US}}, or in {{enPR|…|a=US}} before it).
+  const found = []
+  const AMERICAN = /\b(GA|GenAm|US|General American|cot-caught|non-trap-bath)\b/
+  let group = '' // the "* {{a|US}}" heading that "**" sub-bullets belong to
+  let lastTop = -1
+  for (const line of section.split('\n')) {
+    const sub = line.startsWith('**')
+    if (!sub && line.startsWith('*')) group = line
+    const m = line.match(/\{\{IPA\|en\|([^}]*)\}\}/)
+    if (!m) continue
+    const phonemic = m[1].split('|').find((part) => part.startsWith('/'))
+    const american = AMERICAN.test(sub ? `${group} ${line}` : line)
+    if (!phonemic) {
+      // A US sub-variant given only phonetically: its parent's phonemes are American.
+      if (sub && american && lastTop >= 0) found[lastTop].american = true
+      continue
+    }
+    found.push({ phonemic, american })
+    if (!sub) lastTop = found.length - 1
+  }
   if (!found.length) return null
-  const pick = found.find((f) => /a=[^|]*GA|a=[^|]*US/.test(f)) ?? found[0]
-  const phonemic = pick.split('|').find((part) => part.startsWith('/'))
-  return phonemic ?? null
+  return (found.find((f) => f.american) ?? found[0]).phonemic
 }
 
 async function lookup(word) {
@@ -65,6 +83,8 @@ async function lookup(word) {
   let translation = ai?.translation ?? null
   if (!translation && google.senses.length) translation = google.senses.map((s) => `${s.pos}: ${s.translations.slice(0, 4).join(', ')}`).slice(0, 3).join(' · ')
   if (!translation) translation = google.main
+  // Nothing but the word itself back, and no pronunciation: not a word we know.
+  if (!google.senses.length && !ipa && !ai && (translation ?? '').trim().toLowerCase() === word) throw new Error('No entry for this word')
   if (!translation) {
     const url = `https://api.mymemory.translated.net/get?q=${encodeURIComponent(word)}&langpair=en|ru`
     const response = await fetch(url, { signal: AbortSignal.timeout(6000) })

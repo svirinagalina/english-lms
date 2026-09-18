@@ -1457,7 +1457,7 @@ export default function Whiteboard({ socketRef, boardId, title, subtitle, onClos
       if (word && isEnglishWord(word)) {
         const rect = canvasRef.current.getBoundingClientRect()
         tipWordRef.current = null; clearTimeout(tipTimer.current); setTip(null)
-        setWordCard({ word: word.toLowerCase(), x: Math.min(event.clientX - rect.left, rect.width - 300), y: event.clientY - rect.top + 14 })
+        setWordCard({ word: word.toLowerCase(), x: Math.max(8, Math.min(event.clientX - rect.left, rect.width - 300)), y: Math.max(8, Math.min(event.clientY - rect.top + 14, rect.height - 270)) })
         selectedRef.current = []
         scheduleRender()
         return
