@@ -116,18 +116,20 @@ export function setupSignaling(io) {
         return
       }
 
-      socket.data.classroomId = classroom.id
-      socket.data.roomId = classroom.roomId
-      socket.join(classroom.roomId)
-
       const profile = await prisma.user.findUnique({
         where: { id: user.id },
         select: { name: true }
       })
       socket.data.name = profile?.name ?? 'Participant'
-
       const session = options?.withCall ? await openSession(classroom.id) : null
+
+      // Joining and listing who is already here happen in one go, with no
+      // await in between: two people arriving together must not each see
+      // the other as "already there" and both make an offer.
+      socket.data.classroomId = classroom.id
+      socket.data.roomId = classroom.roomId
       socket.data.inCall = Boolean(options?.withCall)
+      socket.join(classroom.roomId)
 
       const peers = []
       for (const id of io.sockets.adapter.rooms.get(classroom.roomId) ?? []) {
@@ -161,6 +163,10 @@ export function setupSignaling(io) {
       const profile = await prisma.user.findUnique({ where: { id: user.id }, select: { name: true } })
       socket.data.name = profile?.name ?? 'Participant'
 
+      // Calls tied to a student's classroom count as lessons.
+      if (call.classroom) await openSession(call.classroom.id)
+
+      // Join and list the others without an await in between (see above).
       const roomId = `call:${call.token}`
       socket.data.roomId = roomId
       socket.data.callId = call.id
@@ -168,14 +174,11 @@ export function setupSignaling(io) {
       socket.data.inCall = true
       socket.join(roomId)
 
-      // Calls tied to a student's classroom count as lessons.
-      if (call.classroom) await openSession(call.classroom.id)
-
       const peers = []
       for (const id of io.sockets.adapter.rooms.get(roomId) ?? []) {
         if (id === socket.id) continue
         const peer = io.sockets.sockets.get(id)
-        if (peer) peers.push({ id, name: peer.data.name, userId: peer.data.user?.id, muted: Boolean(peer.data.micMuted) })
+        if (peer) peers.push({ id, name: peer.data.name, userId: peer.data.user?.id, muted: Boolean(peer.data.micMuted), sharing: Boolean(peer.data.sharing) })
       }
 
       socket.to(roomId).emit('user-joined', { id: socket.id, name: socket.data.name, userId: user.id })
@@ -223,12 +226,21 @@ export function setupSignaling(io) {
 
     socket.on('screen-share-start', () => {
       const room = socket.data.roomId
+      socket.data.sharing = true
       if (room) socket.to(room).emit('screen-share-started', { from: socket.id })
     })
 
     socket.on('screen-share-stop', () => {
       const room = socket.data.roomId
+      socket.data.sharing = false
       if (room) socket.to(room).emit('screen-share-stopped', { from: socket.id })
+    })
+
+    // Pointer strokes over a shared screen, for everyone else in the room.
+    socket.on('drawing', (stroke) => {
+      const room = socket.data.roomId
+      if (!room || typeof stroke?.x0 !== 'number' || typeof stroke?.x1 !== 'number') return
+      socket.to(room).emit('drawing', { x0: stroke.x0, y0: Number(stroke.y0) || 0, x1: stroke.x1, y1: Number(stroke.y1) || 0, color: typeof stroke.color === 'string' ? stroke.color.slice(0, 20) : undefined })
     })
 
     // --- Whiteboards ---------------------------------------------------------

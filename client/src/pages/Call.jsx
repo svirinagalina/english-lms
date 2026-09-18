@@ -106,6 +106,7 @@ export default function Call() {
 
   const socketRef = useRef(null)
   const localStreamRef = useRef(null)
+  const screenStreamRef = useRef(null)
   const connectionsRef = useRef({})
   const localVideoRef = useRef(null)
   const screenVideoRef = useRef(null)
@@ -136,7 +137,10 @@ export default function Call() {
     const createConnection = (peerId, peerName) => {
       const pc = new RTCPeerConnection({ iceServers })
       const stream = localStreamRef.current
-      if (stream) stream.getTracks().forEach((track) => pc.addTrack(track, stream))
+      // While the screen is being shared, a newcomer gets the screen in the
+      // camera's place, like everyone else.
+      const screen = screenStreamRef.current?.getVideoTracks()[0]
+      if (stream) stream.getTracks().forEach((track) => pc.addTrack(track.kind === 'video' && screen ? screen : track, stream))
 
       pc.ontrack = (event) => {
         setPeers((prev) => ({ ...prev, [peerId]: { ...(prev[peerId] ?? { name: peerName }), stream: event.streams[0] } }))
@@ -188,6 +192,12 @@ export default function Call() {
 
       socket.on('offer', async ({ from, offer }) => {
         const pc = connectionsRef.current[from] ?? createConnection(from, peers[from]?.name ?? 'Participant')
+        // Both sides offered at once: the one with the smaller id keeps its
+        // offer and ignores the other's; the other drops its own and answers.
+        if (pc.signalingState === 'have-local-offer') {
+          if (socket.id < from) return
+          await pc.setLocalDescription({ type: 'rollback' })
+        }
         await pc.setRemoteDescription(new RTCSessionDescription(offer))
         const answer = await pc.createAnswer()
         await pc.setLocalDescription(answer)
@@ -208,8 +218,9 @@ export default function Call() {
         if (isStaffRef.current && userId) {
           setBoardId((current) => current ?? boardsRef.current.find((b) => b.studentId === userId)?.id ?? null)
         }
-        // The newcomer needs to know whether I am muted.
+        // The newcomer needs to know whether I am muted or sharing my screen.
         socket.emit('mic:state', { muted: !micOnRef.current })
+        if (screenStreamRef.current) socket.emit('screen-share-start')
       })
       socket.on('mic:state', ({ from, muted }) => {
         setPeers((prev) => (prev[from] ? { ...prev, [from]: { ...prev[from], muted } } : prev))
@@ -257,7 +268,7 @@ export default function Call() {
           if (response.boardId) setBoardId(response.boardId)
           if (response.docId) setWritingId(response.docId)
           for (const peer of response.peers) {
-            setPeers((prev) => ({ ...prev, [peer.id]: { name: peer.name, stream: prev[peer.id]?.stream ?? null, muted: Boolean(peer.muted) } }))
+            setPeers((prev) => ({ ...prev, [peer.id]: { name: peer.name, stream: prev[peer.id]?.stream ?? null, muted: Boolean(peer.muted), sharing: Boolean(peer.sharing), userId: peer.userId } }))
             const pc = createConnection(peer.id, peer.name)
             const offer = await pc.createOffer()
             await pc.setLocalDescription(offer)
@@ -419,7 +430,6 @@ export default function Call() {
 
   // The screen goes out in place of the camera on every connection (no
   // renegotiation needed); the camera comes back when sharing stops.
-  const screenStreamRef = useRef(null)
   const swapOutgoingVideo = async (track) => {
     for (const pc of Object.values(connectionsRef.current)) {
       const sender = pc.getSenders().find((s) => s.track?.kind === 'video')

@@ -614,14 +614,17 @@ select.pill { padding: 0 16px; color: var(--text); border: none; }
   position: absolute;
   top: 60px;
   right: 12px;
+  bottom: 96px;
   width: 200px;
   flex: none;
   display: flex;
   flex-direction: column;
   gap: 8px;
-  overflow: visible;
+  overflow-y: auto;
   z-index: 3;
+  scrollbar-width: none;
 }
+.stage.board-mode .video-tile { flex: none; }
 .stage.board-mode .video-tile { box-shadow: 0 6px 20px rgba(0, 0, 0, 0.35); }
 .lesson-page.board-mode .controls {
   position: absolute;
