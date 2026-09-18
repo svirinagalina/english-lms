@@ -3,8 +3,8 @@
 export function Logo({ height = 28 }) {
   return (
     <svg width={height * 0.62} height={height} viewBox="0 0 62 100" fill="none" aria-hidden="true">
-      <path d="M12 50 L36 6 L60 50" stroke="#fcfbf6" strokeWidth="9" strokeLinejoin="miter" strokeLinecap="butt" />
-      <path d="M2 96 L26 52 L50 96" stroke="#fcfbf6" strokeWidth="9" strokeLinejoin="miter" strokeLinecap="butt" />
+      <path d="M7 50 L31 6 L55 50" stroke="#fcfbf6" strokeWidth="9" strokeLinejoin="miter" strokeLinecap="butt" />
+      <path d="M7 96 L31 52 L55 96" stroke="#fcfbf6" strokeWidth="9" strokeLinejoin="miter" strokeLinecap="butt" />
     </svg>
   )
 }
