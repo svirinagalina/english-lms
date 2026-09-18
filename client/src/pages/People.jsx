@@ -180,8 +180,13 @@ export default function People() {
     }
   }
 
-  const removePerson = async (id, name) => {
-    if (!window.confirm(`Remove ${name}? This deletes their account and progress.`)) return
+  const removePerson = async (id, name, role) => {
+    const consequence = role === 'STUDENT'
+      ? 'This deletes their account, progress, boards and writing — it cannot be undone.'
+      : role === 'TEACHER'
+        ? 'This deletes their account and every classroom they taught, including those students\' boards and writing — it cannot be undone.'
+        : 'This deletes their account — it cannot be undone.'
+    if (!window.confirm(`Remove ${name}? ${consequence}`)) return
     try {
       await api.deleteUser(id)
       await refresh()
@@ -302,7 +307,7 @@ export default function People() {
                   <button className="ghost" onClick={() => setEditing(editing?.id === person.id ? null : { id: person.id, name: person.name, email: person.email })}>
                     {editing?.id === person.id ? 'Close' : 'Edit'}
                   </button>
-                  <button className="ghost" onClick={() => removePerson(person.id, person.name)}>
+                  <button className="ghost" onClick={() => removePerson(person.id, person.name, person.role)}>
                     Remove
                   </button>
                 </div>
@@ -342,7 +347,7 @@ export default function People() {
                   >
                     {linking === person.id ? 'Close' : 'Change teacher'}
                   </button>
-                  <button className="ghost" onClick={() => removePerson(person.id, person.name)}>
+                  <button className="ghost" onClick={() => removePerson(person.id, person.name, person.role)}>
                     Remove
                   </button>
                 </div>
