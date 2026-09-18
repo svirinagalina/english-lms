@@ -86,7 +86,7 @@ function StudentDetail({ id }) {
 
   return (
     <div className="page">
-      <Nav title={report.student.name} />
+      <Nav title={report.student.name} back="/progress" />
 
       <section>
         <div className="stat-row">

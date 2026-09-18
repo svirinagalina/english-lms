@@ -239,11 +239,10 @@ export default function Classroom() {
 
   return (
     <div className="page">
-      <Nav title={partner} />
+      <Nav title={partner} back="/classroom" />
 
       <div className="row-main subheader">
         <div className="row-actions">
-          <Link className="ghost back-link" to="/classroom">← Back</Link>
           {isStaff && classroom.progress && (
             <span className="muted">
               {classroom.progress.held}

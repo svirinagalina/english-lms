@@ -117,14 +117,16 @@ export default function UnitPractice() {
   return (
     <div className="page practice-page">
       <header className="topbar">
-        <strong>{unit.title}</strong>
+        <div className="row-actions">
+          <Link className="ghost back-link" to="/practice">← Back</Link>
+          <strong>{unit.title}</strong>
+        </div>
         <div className="row-actions">
           {unit.theory && (
             <button className="ghost" onClick={() => setShowTheory((v) => !v)}>
               {showTheory ? 'Hide theory' : 'Theory'}
             </button>
           )}
-          <Link className="ghost" to="/practice">Back</Link>
         </div>
       </header>
 

@@ -9,7 +9,8 @@ const ROLE_LABEL = {
   PARTNER: 'partner'
 }
 
-export default function Nav({ title }) {
+// `back` is where the ← Back link leads on inner pages (a student, a unit, a set).
+export default function Nav({ title, back }) {
   const { user, logout } = useAuth()
   const { pathname } = useLocation()
 
@@ -39,6 +40,7 @@ export default function Nav({ title }) {
   return (
     <header className="topbar">
       <div className="nav-identity brand-row">
+        {back && <Link className="ghost back-link" to={back}>← Back</Link>}
         <Brand compact />
         <div>
           <strong>{title ?? user.schoolName ?? 'School'}</strong>

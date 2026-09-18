@@ -215,12 +215,14 @@ export default function VocabSet() {
   return (
     <div className="page practice-page">
       <header className="topbar">
-        <strong>{set.title}</strong>
+        <div className="row-actions">
+          <Link className="ghost back-link" to="/vocabulary">← Back</Link>
+          <strong>{set.title}</strong>
+        </div>
         <div className="row-actions">
           {!studying && set.cards.length > 0 && (
             <button onClick={() => setStudying(true)}>Study</button>
           )}
-          <Link className="ghost" to="/vocabulary">Back</Link>
         </div>
       </header>
 
