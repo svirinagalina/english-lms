@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useAuth } from '../AuthContext'
 import { api } from '../api'
+import { Brand } from '../components/Brand'
 
 export default function Login() {
   const { login } = useAuth()
@@ -33,6 +34,7 @@ export default function Login() {
   return (
     <div className="auth-page">
       <form className="card" onSubmit={handleSubmit}>
+        <div className="login-brand"><Brand /></div>
         <h1>Sign in</h1>
         {error && <div className="error">{error}</div>}
         <input

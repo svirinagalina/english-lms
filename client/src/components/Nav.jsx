@@ -1,5 +1,6 @@
 import { Link, useLocation } from 'react-router-dom'
 import { useAuth } from '../AuthContext'
+import { Brand } from './Brand'
 
 const ROLE_LABEL = {
   OWNER: 'administrator',
@@ -37,9 +38,12 @@ export default function Nav({ title }) {
 
   return (
     <header className="topbar">
-      <div className="nav-identity">
-        <strong>{title ?? user.schoolName ?? 'School'}</strong>
-        <span className="muted"> · {user.name} ({ROLE_LABEL[user.role]})</span>
+      <div className="nav-identity brand-row">
+        <Brand compact />
+        <div>
+          <strong>{title ?? user.schoolName ?? 'School'}</strong>
+          <span className="muted"> · {user.name} ({ROLE_LABEL[user.role]})</span>
+        </div>
       </div>
 
       <nav className="nav-links">

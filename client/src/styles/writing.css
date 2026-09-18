@@ -12,7 +12,7 @@
   align-items: center;
   gap: 12px;
   padding: 10px 16px;
-  background: #14161c;
+  background: #0f3731;
   color: var(--text);
   border-bottom: 1px solid var(--border);
   flex-wrap: wrap;
@@ -55,7 +55,7 @@
   align-items: center;
   gap: 8px;
   padding: 6px 10px;
-  background: #14161c;
+  background: #0f3731;
   color: var(--text);
   border: 1px solid var(--border);
   border-radius: 10px;
@@ -67,7 +67,7 @@
 
 .writing-hint {
   padding: 8px 16px;
-  background: #14161c;
+  background: #0f3731;
   border-top: 1px solid var(--border);
   font-size: 12px;
 }

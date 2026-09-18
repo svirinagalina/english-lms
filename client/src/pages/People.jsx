@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { useAuth } from '../AuthContext'
 import { api } from '../api'
 import Nav from '../components/Nav'
+import { SiteFooter } from '../components/Brand'
 
 function InviteForm({ role, teachers, currentUserId, onInvited }) {
   const [form, setForm] = useState({ name: '', email: '', teacherId: currentUserId })
@@ -373,6 +374,7 @@ export default function People() {
           ))}
         </div>
       </section>
+      <SiteFooter />
     </div>
   )
 }

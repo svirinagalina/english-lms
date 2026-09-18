@@ -2,7 +2,7 @@
   display: flex;
   flex-direction: column;
   height: 100%;
-  background: #14161c;
+  background: #0f3731;
 }
 
 /* Everything floats over the canvas: a name chip top-left, zoom top-right,
@@ -15,7 +15,7 @@
   align-items: center;
   gap: 4px;
   padding: 7px 8px 7px 12px;
-  background: #14161c;
+  background: #0f3731;
   border: 1px solid var(--border);
   border-radius: 10px;
   box-shadow: 0 4px 14px rgba(0, 0, 0, 0.25);
@@ -56,7 +56,7 @@
   align-items: center;
   gap: 12px;
   padding: 8px 12px;
-  background: #14161c;
+  background: #0f3731;
   border: 1px solid var(--border);
   border-radius: 12px;
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
@@ -70,7 +70,7 @@
   align-items: center;
   gap: 5px;
   padding: 4px 6px;
-  background: #14161c;
+  background: #0f3731;
   border: 1px solid var(--border);
   border-radius: 10px;
 }
@@ -81,7 +81,7 @@
 .tool-group { display: flex; align-items: center; gap: 6px; }
 
 .tool {
-  background: #2a2e38;
+  background: #1f5c52;
   border: none;
   border-radius: 7px;
   padding: 6px 10px;
@@ -91,8 +91,8 @@
   cursor: pointer;
 }
 
-.tool:hover { background: #343946; }
-.tool.active { background: var(--accent); }
+.tool:hover { background: #27685d; }
+.tool.active { background: var(--accent); color: var(--accent-ink); }
 .tool.danger { background: transparent; border: 1px solid rgba(239, 68, 68, 0.5); color: #fca5a5; }
 .tool.danger:hover { background: rgba(239, 68, 68, 0.15); }
 
@@ -152,7 +152,7 @@
   white-space: normal;
   text-align: right;
   font-size: 11px;
-  color: #e8eaed;
+  color: #fcfbf6;
   background: rgba(15, 17, 21, 0.75);
   padding: 4px 9px;
   border-radius: 5px;
@@ -176,10 +176,10 @@
 .board-canvas.tool-crop { cursor: crosshair; }
 
 .tool:disabled { opacity: 0.35; cursor: default; }
-.tool:disabled:hover { background: #2a2e38; }
+.tool:disabled:hover { background: #1f5c52; }
 
-.tool.assist { background: rgba(99, 102, 241, 0.2); color: #c7d2fe; }
-.tool.assist:hover:not(:disabled) { background: rgba(99, 102, 241, 0.35); }
+.tool.assist { background: rgba(255, 213, 237, 0.2); color: #ffd5ed; }
+.tool.assist:hover:not(:disabled) { background: rgba(255, 213, 237, 0.35); }
 
 .zoom-group { margin-left: auto; }
 .zoom-group .tool { min-width: 34px; }
@@ -194,7 +194,7 @@ select.tool { appearance: auto; padding: 5px 8px; }
   align-items: center;
   gap: 10px;
   padding: 6px 10px;
-  background: #14161c;
+  background: #0f3731;
   border: 1px solid var(--border);
   border-radius: 10px;
   box-shadow: 0 6px 20px rgba(0, 0, 0, 0.35);
@@ -243,7 +243,7 @@ select.tool { appearance: auto; padding: 5px 8px; }
   z-index: 4;
   max-width: 260px;
   padding: 6px 10px;
-  background: #14161c;
+  background: #0f3731;
   color: var(--text);
   border: 1px solid var(--border);
   border-radius: 8px;

@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '../AuthContext'
 import { api } from '../api'
 import Nav from '../components/Nav'
+import { SiteFooter } from '../components/Brand'
 import BoardRow from '../components/BoardRow'
 
 function PackageBadge({ progress }) {
@@ -191,6 +192,7 @@ export default function Classrooms() {
           ))}
         </div>
       </section>
+      <SiteFooter />
     </div>
   )
 }

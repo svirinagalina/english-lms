@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { api } from '../api'
 import Nav from '../components/Nav'
+import { SiteFooter } from '../components/Brand'
 
 const formatDate = (value) => (value ? new Date(value).toLocaleDateString() : '—')
 
@@ -200,6 +201,7 @@ function StudentDetail({ id }) {
       {report.total === 0 && (
         <p className="muted" style={{ marginTop: 24 }}>This student has not done any exercises yet.</p>
       )}
+      <SiteFooter />
     </div>
   )
 }

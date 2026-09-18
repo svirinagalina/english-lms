@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { useAuth } from '../AuthContext'
 import { api } from '../api'
 import Nav from '../components/Nav'
+import { SiteFooter } from '../components/Brand'
 import BillingEditor from '../components/BillingEditor'
 import StudentPayment from '../components/StudentPayment'
 
@@ -133,6 +134,7 @@ export default function Billing() {
           </form>
         </section>
       )}
+      <SiteFooter />
     </div>
   )
 }

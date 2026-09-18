@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { useAuth } from '../AuthContext'
 import { api } from '../api'
 import Nav from '../components/Nav'
+import { SiteFooter } from '../components/Brand'
 
 // Sources → Editing → Ready. The owner drops raw text and photos into
 // Sources, the partner posts an edited version into Editing, the owner
@@ -429,6 +430,7 @@ export default function Content() {
       </section>
 
       {user.role !== 'STUDENT' && <ApiAccess />}
+      <SiteFooter />
     </div>
   )
 }

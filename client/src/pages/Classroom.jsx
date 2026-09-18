@@ -6,6 +6,7 @@ import { api } from '../api'
 import Whiteboard from '../components/Whiteboard'
 import Writing from '../components/Writing'
 import Nav from '../components/Nav'
+import { SiteFooter } from '../components/Brand'
 import BoardRow from '../components/BoardRow'
 
 function PackagePanel({ classroom, onChanged }) {
@@ -337,6 +338,7 @@ export default function Classroom() {
         </div>
       </section>
       )}
+      <SiteFooter />
     </div>
   )
 }

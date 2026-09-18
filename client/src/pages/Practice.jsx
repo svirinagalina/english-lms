@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import { useAuth } from '../AuthContext'
 import { api } from '../api'
 import Nav from '../components/Nav'
+import { SiteFooter } from '../components/Brand'
 
 export default function Practice() {
   const { user } = useAuth()
@@ -74,6 +75,7 @@ export default function Practice() {
           })}
         </div>
       </section>
+      <SiteFooter />
     </div>
   )
 }

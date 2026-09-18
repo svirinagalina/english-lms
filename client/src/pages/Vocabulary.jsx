@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import { useAuth } from '../AuthContext'
 import { api } from '../api'
 import Nav from '../components/Nav'
+import { SiteFooter } from '../components/Brand'
 
 export default function Vocabulary() {
   const { user } = useAuth()
@@ -69,6 +70,7 @@ export default function Vocabulary() {
           ))}
         </div>
       </section>
+      <SiteFooter />
     </div>
   )
 }
