@@ -5,6 +5,7 @@ import Nav from '../components/Nav'
 import { SiteFooter } from '../components/Brand'
 import BillingEditor from '../components/BillingEditor'
 import StudentPayment from '../components/StudentPayment'
+import { PackageBadge } from '../components/PackageBadge'
 
 const formatPrice = (amount, currency) =>
   new Intl.NumberFormat(undefined, { style: 'currency', currency }).format(amount / 100)
@@ -22,8 +23,8 @@ export default function Billing() {
 
   const refresh = async () => {
     if (!isStaff) return
-    const { people } = await api.listPeople()
-    setStudents(people.filter((person) => person.role === 'STUDENT'))
+    const { students } = await api.billingStudents()
+    setStudents(students)
 
     if (user.role === 'OWNER' || user.role === 'PARTNER') {
       const { paymentDetails } = await api.schoolPaymentDetails()
@@ -68,51 +69,44 @@ export default function Billing() {
 
       <section>
         <h2>Students</h2>
+        <p className="muted" style={{ marginBottom: 10 }}>
+          Payment is per lesson: set the price and how many lessons are paid. Every call with the student uses one lesson up.
+        </p>
         {students.length === 0 && <p className="muted">No students yet.</p>}
 
         <div className="list">
-          {students.map((student) => {
-            const active = student.paidUntil && new Date(student.paidUntil) >= new Date()
-
-            return (
-              <div key={student.id} className="row column">
-                <div className="row-main">
-                  <div>
-                    <strong>{student.name}</strong>
-                    <div className="muted">
-                      {student.email}
-                      {student.priceAmount != null &&
-                        ` · ${formatPrice(student.priceAmount, student.priceCurrency)}`}
-                    </div>
-                    <div className={active ? 'paid-badge active' : 'paid-badge'}>
-                      {active
-                        ? `Paid until ${new Date(student.paidUntil).toLocaleDateString()}`
-                        : student.paidUntil
-                          ? `Expired ${new Date(student.paidUntil).toLocaleDateString()}`
-                          : 'Not paid'}
-                    </div>
+          {students.map((student) => (
+            <div key={student.id} className="row column">
+              <div className="row-main">
+                <div>
+                  <strong>{student.name}</strong>
+                  <div className="muted">
+                    {student.email}
+                    {student.priceAmount != null &&
+                      ` · ${formatPrice(student.priceAmount, student.priceCurrency)} per lesson`}
                   </div>
-                  <button
-                    className="ghost"
-                    onClick={() => setEditing(editing === student.id ? null : student.id)}
-                  >
-                    {editing === student.id ? 'Close' : 'Edit'}
-                  </button>
+                  <PackageBadge pkg={student.package} />
                 </div>
-
-                {editing === student.id && (
-                  <BillingEditor
-                    student={student}
-                    onCancel={() => setEditing(null)}
-                    onSaved={async () => {
-                      setEditing(null)
-                      await refresh()
-                    }}
-                  />
-                )}
+                <button
+                  className="ghost"
+                  onClick={() => setEditing(editing === student.id ? null : student.id)}
+                >
+                  {editing === student.id ? 'Close' : 'Edit'}
+                </button>
               </div>
-            )
-          })}
+
+              {editing === student.id && (
+                <BillingEditor
+                  student={student}
+                  onCancel={() => setEditing(null)}
+                  onSaved={async () => {
+                    setEditing(null)
+                    await refresh()
+                  }}
+                />
+              )}
+            </div>
+          ))}
         </div>
       </section>
 

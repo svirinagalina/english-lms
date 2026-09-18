@@ -5,13 +5,16 @@ const CURRENCIES = ['RUB', 'USD', 'EUR']
 
 const toMinorUnits = (value) => Math.round(Number(value) * 100)
 const toMajorUnits = (value) => (value == null ? '' : String(value / 100))
-const asDateInput = (value) => (value ? new Date(value).toISOString().slice(0, 10) : '')
 
+// Price per lesson and the package of paid lessons. Every call with the
+// student uses one lesson up; when a new package is paid, the count can
+// start again from now.
 export default function BillingEditor({ student, onSaved, onCancel }) {
   const [price, setPrice] = useState(toMajorUnits(student.priceAmount))
   const [currency, setCurrency] = useState(student.priceCurrency ?? 'RUB')
   const [link, setLink] = useState(student.paymentLink ?? '')
-  const [paidUntil, setPaidUntil] = useState(asDateInput(student.paidUntil))
+  const [lessonsPaid, setLessonsPaid] = useState(student.package?.lessonsPaid ?? '')
+  const [resetCounter, setResetCounter] = useState(false)
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
 
@@ -25,7 +28,8 @@ export default function BillingEditor({ student, onSaved, onCancel }) {
         priceAmount: price === '' ? null : toMinorUnits(price),
         priceCurrency: currency,
         paymentLink: link.trim() === '' ? null : link.trim(),
-        paidUntil: paidUntil === '' ? null : new Date(`${paidUntil}T00:00:00.000Z`).toISOString()
+        lessonsPaid: lessonsPaid === '' ? null : Number(lessonsPaid),
+        resetCounter
       })
       onSaved()
     } catch (err) {
@@ -35,12 +39,14 @@ export default function BillingEditor({ student, onSaved, onCancel }) {
     }
   }
 
+  const held = student.package?.held ?? 0
+
   return (
     <form className="billing-editor" onSubmit={handleSubmit}>
       {error && <div className="error">{error}</div>}
 
       <label>
-        Price per month
+        Price per lesson
         <div className="price-row">
           <input
             type="number"
@@ -57,6 +63,27 @@ export default function BillingEditor({ student, onSaved, onCancel }) {
       </label>
 
       <label>
+        Lessons paid
+        <input
+          type="number"
+          min="0"
+          max="500"
+          step="1"
+          placeholder="e.g. 8"
+          value={lessonsPaid}
+          onChange={(e) => setLessonsPaid(e.target.value)}
+        />
+        <span className="muted small-hint">
+          {held} {held === 1 ? 'lesson' : 'lessons'} held so far in this package. Each call with the student counts as one lesson.
+        </span>
+      </label>
+
+      <label className="check-row">
+        <input type="checkbox" checked={resetCounter} onChange={(e) => setResetCounter(e.target.checked)} />
+        New package — count lessons from now (the {held} already held are left behind)
+      </label>
+
+      <label>
         Payment link (Stripe)
         <input
           type="url"
@@ -64,11 +91,6 @@ export default function BillingEditor({ student, onSaved, onCancel }) {
           value={link}
           onChange={(e) => setLink(e.target.value)}
         />
-      </label>
-
-      <label>
-        Paid until
-        <input type="date" value={paidUntil} onChange={(e) => setPaidUntil(e.target.value)} />
       </label>
 
       <div className="editor-actions">

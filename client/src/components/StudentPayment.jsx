@@ -1,10 +1,9 @@
 import { useEffect, useState } from 'react'
 import { api } from '../api'
+import { PackageBadge } from './PackageBadge'
 
 const formatPrice = (amount, currency) =>
   new Intl.NumberFormat(undefined, { style: 'currency', currency }).format(amount / 100)
-
-const formatDate = (value) => new Date(value).toLocaleDateString()
 
 export default function StudentPayment() {
   const [billing, setBilling] = useState(null)
@@ -15,12 +14,10 @@ export default function StudentPayment() {
 
   if (!billing) return null
 
-  const { priceAmount, priceCurrency, paymentLink, paidUntil, paymentDetails } = billing
-  const nothingConfigured = priceAmount == null && !paymentLink && !paymentDetails
+  const { priceAmount, priceCurrency, paymentLink, paymentDetails } = billing
+  const pkg = billing.package
+  const nothingConfigured = priceAmount == null && !paymentLink && !paymentDetails && pkg?.lessonsPaid == null
   if (nothingConfigured) return null
-
-  const activeUntil = paidUntil ? new Date(paidUntil) : null
-  const isActive = activeUntil && activeUntil >= new Date()
 
   return (
     <section>
@@ -29,15 +26,12 @@ export default function StudentPayment() {
       <div className="row">
         <div>
           {priceAmount != null && (
-            <strong>{formatPrice(priceAmount, priceCurrency)} per month</strong>
+            <strong>{formatPrice(priceAmount, priceCurrency)} per lesson</strong>
           )}
-          <div className="muted">
-            {isActive
-              ? `Paid until ${formatDate(paidUntil)}`
-              : activeUntil
-                ? `Expired on ${formatDate(paidUntil)}`
-                : 'Not paid yet'}
-          </div>
+          <div><PackageBadge pkg={pkg} /></div>
+          {pkg?.lessonsPaid != null && pkg.remaining <= 0 && priceAmount != null && (
+            <div className="muted">Your package is used up — pay for the next lessons below.</div>
+          )}
         </div>
 
         {paymentLink && (

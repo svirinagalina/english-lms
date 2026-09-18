@@ -45,6 +45,7 @@ export const api = {
     request(`/invites/token/${token}/accept`, { method: 'POST', body: { password } }),
 
   myBilling: () => request('/billing/me'),
+  billingStudents: () => request('/billing/students'),
   updateStudentBilling: (id, body) => request(`/billing/students/${id}`, { method: 'PATCH', body }),
   schoolPaymentDetails: () => request('/billing/school'),
   updateSchoolPaymentDetails: (body) => request('/billing/school', { method: 'PATCH', body }),

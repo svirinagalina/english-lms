@@ -705,3 +705,7 @@ select.pill { padding: 0 16px; color: var(--text); border: none; }
 .brand-row { display: flex; align-items: center; gap: 16px; }
 .brand-row .brand { padding-right: 16px; border-right: 1px solid var(--border); }
 .login-brand { margin-bottom: 8px; }
+
+.billing-editor .small-hint { display: block; margin-top: 4px; font-size: 12px; }
+.billing-editor .check-row { display: flex; align-items: center; gap: 8px; font-size: 13px; }
+.billing-editor .check-row input { width: auto; margin: 0; }

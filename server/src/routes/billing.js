@@ -1,7 +1,7 @@
 import { Router } from 'express'
 import { z } from 'zod'
 import { prisma } from '../db.js'
-import { requireAuth, requireRole } from '../auth.js'
+import { requireAuth, requireRole, isAdmin } from '../auth.js'
 
 export const billingRouter = Router()
 
@@ -14,35 +14,95 @@ const httpsUrl = z
   .url()
   .refine((value) => value.startsWith('https://'), { message: 'Link must start with https://' })
 
+// Payment is per lesson: a price, and a package of paid lessons that every
+// call with the student uses up. Nothing is tied to the calendar.
 const billingSchema = z.object({
   priceAmount: z.number().int().min(0).max(100_000_000).nullable(),
   priceCurrency: z.enum(['RUB', 'USD', 'EUR']),
   paymentLink: httpsUrl.nullable(),
-  paidUntil: z.string().datetime().nullable()
+  lessonsPaid: z.number().int().min(0).max(500).nullable(),
+  // Count lessons from now on (a new package), instead of continuing the old count.
+  resetCounter: z.boolean()
 })
 
 const detailsSchema = z.object({
   paymentDetails: z.string().max(2000).nullable()
 })
 
+const STUDENT_SELECT = {
+  id: true, name: true, email: true,
+  priceAmount: true, priceCurrency: true, paymentLink: true,
+  lessonsPaid: true, packageStartedAt: true
+}
+
+// Lessons held since the package started, across every classroom of the
+// student (a call that reaches the student counts, wherever it was started).
+async function withPackage(student) {
+  const held = await prisma.session.count({
+    where: {
+      classroom: { studentId: student.id },
+      counted: true,
+      ...(student.packageStartedAt ? { startedAt: { gte: student.packageStartedAt } } : {})
+    }
+  })
+  const { packageStartedAt, ...rest } = student
+  return {
+    ...rest,
+    package: {
+      lessonsPaid: student.lessonsPaid,
+      held,
+      remaining: student.lessonsPaid == null ? null : student.lessonsPaid - held,
+      startedAt: packageStartedAt
+    }
+  }
+}
+
+// A teacher deals with their own students; the owner and partner with everyone.
+async function reachableStudent(user, id) {
+  return prisma.user.findFirst({
+    where: {
+      id,
+      schoolId: user.schoolId,
+      role: 'STUDENT',
+      ...(isAdmin(user) ? {} : { studentLinks: { some: { teacherId: user.id } } })
+    },
+    select: STUDENT_SELECT
+  })
+}
+
 // What the signed-in student needs in order to pay.
 billingRouter.get('/me', async (req, res) => {
   const user = await prisma.user.findUnique({
     where: { id: req.user.id },
-    include: { school: { select: { paymentDetails: true, name: true } } }
+    select: { ...STUDENT_SELECT, school: { select: { paymentDetails: true, name: true } } }
   })
   if (!user) return res.status(401).json({ error: 'Not authenticated' })
 
+  const { school, ...student } = user
+  const view = await withPackage(student)
   res.json({
     billing: {
-      priceAmount: user.priceAmount,
-      priceCurrency: user.priceCurrency,
-      paymentLink: user.paymentLink,
-      paidUntil: user.paidUntil,
-      paymentDetails: user.school.paymentDetails,
-      schoolName: user.school.name
+      priceAmount: view.priceAmount,
+      priceCurrency: view.priceCurrency,
+      paymentLink: view.paymentLink,
+      package: view.package,
+      paymentDetails: school.paymentDetails,
+      schoolName: school.name
     }
   })
+})
+
+billingRouter.get('/students', requireRole('OWNER', 'TEACHER'), async (req, res) => {
+  const students = await prisma.user.findMany({
+    where: {
+      schoolId: req.user.schoolId,
+      role: 'STUDENT',
+      ...(isAdmin(req.user) ? {} : { studentLinks: { some: { teacherId: req.user.id } } })
+    },
+    select: STUDENT_SELECT,
+    orderBy: { name: 'asc' }
+  })
+  res.json({ students: await Promise.all(students.map(withPackage)) })
 })
 
 billingRouter.patch('/students/:id', requireRole('OWNER', 'TEACHER'), async (req, res) => {
@@ -51,29 +111,14 @@ billingRouter.patch('/students/:id', requireRole('OWNER', 'TEACHER'), async (req
     return res.status(400).json({ error: 'Invalid data', details: parsed.error.flatten().fieldErrors })
   }
 
-  const student = await prisma.user.findFirst({
-    where: { id: req.params.id, schoolId: req.user.schoolId, role: 'STUDENT' }
-  })
+  const student = await reachableStudent(req.user, req.params.id)
   if (!student) return res.status(404).json({ error: 'Student not found' })
 
-  const data = { ...parsed.data }
-  if (data.paidUntil !== undefined) {
-    data.paidUntil = data.paidUntil ? new Date(data.paidUntil) : null
-  }
+  const { resetCounter, ...data } = parsed.data
+  if (resetCounter) data.packageStartedAt = new Date()
 
-  const updated = await prisma.user.update({
-    where: { id: student.id },
-    data,
-    select: {
-      id: true,
-      priceAmount: true,
-      priceCurrency: true,
-      paymentLink: true,
-      paidUntil: true
-    }
-  })
-
-  res.json({ student: updated })
+  const updated = await prisma.user.update({ where: { id: student.id }, data, select: STUDENT_SELECT })
+  res.json({ student: await withPackage(updated) })
 })
 
 billingRouter.patch('/school', requireRole('OWNER'), async (req, res) => {
