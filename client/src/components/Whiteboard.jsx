@@ -1753,7 +1753,7 @@ const Whiteboard = forwardRef(function Whiteboard({ socketRef, boardId, title, s
     if (pointer.mode === 'resize') {
       // Images, text and any group keep proportions; hold Shift to stretch. A lone shape is free.
       const lone = pointer.originals.length === 1 ? pointer.originals[0] : null
-      const proportional = !lone || lone.type === 'image' || lone.type === 'text'
+      const proportional = !lone || lone.type === 'image' || lone.type === 'text' || lone.type === 'sticker'
       const box = pointer.edge
         ? resizeBoxEdge(pointer.start, pointer.edge, point)
         : resizeBox(pointer.start, pointer.corner, point, proportional !== event.shiftKey)
