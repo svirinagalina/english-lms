@@ -178,7 +178,7 @@
 .tool:disabled { opacity: 0.35; cursor: default; }
 .tool:disabled:hover { background: #1f5c52; }
 
-.tool.assist { background: rgba(255, 213, 237, 0.2); color: #ffd5ed; }
+.tool.assist { background: rgba(255, 213, 237, 0.2); color: #f4b9d9; }
 .tool.assist:hover:not(:disabled) { background: rgba(255, 213, 237, 0.35); }
 
 .zoom-group { margin-left: auto; }

@@ -15,7 +15,22 @@ async function lookup(word) {
     const [item] = await translateWords([word])
     if (item) return { word, translation: item.translation, transcription: item.transcription }
   }
-  // Free fallback without a key: MyMemory's public endpoint.
+  // Without a key: Google's public translate endpoint, with its dictionary
+  // senses (a few per part of speech) — far better for single words than a
+  // translation-memory hit like "см." for "see".
+  try {
+    const url = `https://translate.googleapis.com/translate_a/single?client=gtx&sl=en&tl=ru&dt=t&dt=bd&q=${encodeURIComponent(word)}`
+    const response = await fetch(url, { signal: AbortSignal.timeout(6000) })
+    if (response.ok) {
+      const data = await response.json()
+      const senses = Array.isArray(data?.[1])
+        ? data[1].map((entry) => `${entry[0]}: ${(entry[1] ?? []).slice(0, 4).join(', ')}`).slice(0, 3)
+        : []
+      const main = data?.[0]?.[0]?.[0]
+      const translation = senses.length ? senses.join(' · ') : main
+      if (translation) return { word, translation, transcription: null }
+    }
+  } catch { /* fall through */ }
   const url = `https://api.mymemory.translated.net/get?q=${encodeURIComponent(word)}&langpair=en|ru`
   const response = await fetch(url, { signal: AbortSignal.timeout(6000) })
   if (!response.ok) throw new Error('Dictionary unavailable')

@@ -5,7 +5,7 @@
   --border: rgba(252, 251, 246, 0.14);
   --text: #fcfbf6;
   --muted: rgba(252, 251, 246, 0.7);
-  --accent: #ffd5ed;
+  --accent: #f4b9d9;
   --accent-ink: #14453f;
   --danger: #ef4444;
   color-scheme: dark;
@@ -314,6 +314,7 @@ textarea:focus { outline: none; border-color: var(--accent); }
 .round {
   min-width: 62px;
   height: 42px;
+  font-weight: 500;
   border-radius: 21px;
   background: #1f5c52;
   font-size: 13px;
@@ -324,7 +325,7 @@ textarea:focus { outline: none; border-color: var(--accent); }
 
 .blur-control { display: flex; align-items: center; gap: 10px; }
 
-.pill { background: #1f5c52; border-radius: 21px; height: 42px; font-size: 13px; white-space: nowrap; }
+.pill { background: #1f5c52; border-radius: 21px; height: 42px; font-size: 13px; font-weight: 500; white-space: nowrap; }
 .pill.on { background: var(--accent); color: var(--accent-ink); }
 
 input[type='range'] { width: 110px; padding: 0; }
