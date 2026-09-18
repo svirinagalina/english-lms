@@ -523,7 +523,10 @@ export default function Call() {
     setUnread(0)
   }
 
-  const openBoard = (id) => setBoardId(id)
+  // Remembered so "Board" goes back to it after Writing, without a picker.
+  const lastBoardRef = useRef(null)
+  useEffect(() => { if (boardId) lastBoardRef.current = boardId }, [boardId])
+  const openBoard = (id) => { setBoardId(id); if (writingId) { setWritingId(null); socketRef.current?.emit('doc:close') } }
   const closeBoard = () => {
     setBoardId(null)
     socketRef.current?.emit('board:close')
@@ -672,6 +675,7 @@ export default function Call() {
         hasScreenStream={Boolean(screenStream)}
         boards={boards}
         boardId={boardId}
+        preferredBoardId={lastBoardRef.current ?? (call?.classroomId ? boards.find((b) => b.classroomId === call.classroomId)?.id : null)}
         onOpenBoard={openBoard}
         onCloseBoard={closeBoard}
         isBlurEnabled={isBlurEnabled}

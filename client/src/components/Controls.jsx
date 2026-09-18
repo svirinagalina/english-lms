@@ -15,6 +15,8 @@ export default function Controls({
   onNoiseToggle,
   boards = [],
   boardId,
+  // The board to go back to with one click (the last one opened, or the student's).
+  preferredBoardId,
   onOpenBoard,
   onCloseBoard,
   onLeave,
@@ -68,8 +70,8 @@ export default function Controls({
       {boards.length > 0 && (
         boardId ? (
           <button className="round on" onClick={onCloseBoard} title="Close the board (only for you)">Board</button>
-        ) : boards.length === 1 ? (
-          <button className="round" onClick={() => onOpenBoard(boards[0].id)} title="Open the student's board">Board</button>
+        ) : boards.length === 1 || (preferredBoardId && boards.some((b) => b.id === preferredBoardId)) ? (
+          <button className="round" onClick={() => onOpenBoard(boards.length === 1 ? boards[0].id : preferredBoardId)} title="Open the board">Board</button>
         ) : (
           <select
             className="pill"
