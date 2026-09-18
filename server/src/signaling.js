@@ -396,6 +396,18 @@ export function setupSignaling(io) {
           console.error('Could not close session:', error.message)
         )
       }
+      // An empty call room is over: the call ends so nothing piles up. The
+      // link stays usable for 15 minutes in case someone reconnects.
+      if (stillOnCall === 0 && socket.data.callId) {
+        const callId = socket.data.callId
+        setTimeout(async () => {
+          const still = [...(io.sockets.adapter.rooms.get(roomId) ?? [])].length
+          if (still) return
+          await prisma.call.updateMany({ where: { id: callId, endedAt: null }, data: { endedAt: new Date() } }).catch(() => {})
+          roomBoards.delete(roomId)
+          roomDocs.delete(roomId)
+        }, 15 * 60 * 1000)
+      }
     })
   })
 }

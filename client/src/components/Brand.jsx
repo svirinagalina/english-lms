@@ -15,7 +15,7 @@ export function Brand({ compact = false }) {
       <Logo height={compact ? 22 : 28} />
       <span className="brand-name">
         Advent<br />Academy
-        {!compact && <small>by Galina Svirina</small>}
+        <small>by Galina Svirina</small>
       </span>
     </a>
   )

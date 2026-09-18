@@ -105,25 +105,6 @@ export default function Classrooms() {
             </button>
           </div>
 
-          {calls.length > 0 && (
-            <div className="list" style={{ marginTop: 12 }}>
-              {calls.map((call) => (
-                <div key={call.id} className="row">
-                  <div>
-                    <strong>{call.title ?? 'Open call'}</strong>
-                    <div className="muted">started {new Date(call.createdAt).toLocaleString()}</div>
-                  </div>
-                  <div className="row-actions">
-                    <button className="ghost" onClick={() => copyLink(call)}>
-                      {copied === call.id ? 'Copied' : 'Copy link'}
-                    </button>
-                    <Link className="button" to={`/call/${call.token}`}>Rejoin</Link>
-                    <button className="ghost" onClick={() => endCall(call)}>End</button>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
         </section>
       )}
 
