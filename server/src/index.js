@@ -1,4 +1,7 @@
 import express from 'express'
+// Lets a rejected promise in a route reach the error handler below instead
+// of taking the whole process (and every call on it) down.
+import 'express-async-errors'
 import { createServer } from 'http'
 import { Server } from 'socket.io'
 import cors from 'cors'
@@ -19,9 +22,13 @@ import { assistRouter } from './routes/assist.js'
 import { contentRouter } from './routes/content.js'
 import { dictionaryRouter } from './routes/dictionary.js'
 import { setupSignaling } from './signaling.js'
+import { flushBoards } from './boardStore.js'
+import { flushDocuments } from './docStore.js'
 
 const app = express()
 const httpServer = createServer(app)
+// Behind Caddy: the client's address comes from X-Forwarded-For.
+app.set('trust proxy', 1)
 const clientOrigin = process.env.CLIENT_ORIGIN ?? 'http://localhost:5173'
 
 app.use(cors({ origin: clientOrigin, credentials: true }))
@@ -69,6 +76,14 @@ if (process.env.NODE_ENV === 'production') {
   })
 }
 
+// Last resort for anything a route did not handle itself.
+app.use((error, req, res, next) => {
+  console.error(`${req.method} ${req.originalUrl} failed:`, error)
+  if (res.headersSent) return next(error)
+  res.status(500).json({ error: 'Something went wrong on the server. Please try again.' })
+})
+process.on('unhandledRejection', (reason) => console.error('Unhandled rejection:', reason))
+
 const io = new Server(httpServer, {
   cors: { origin: clientOrigin, credentials: true }
 })
@@ -78,3 +93,21 @@ const port = process.env.PORT ?? 4000
 httpServer.listen(port, () => {
   console.log(`LMS server running on http://localhost:${port}`)
 })
+
+// A deploy stops the container with SIGTERM: write out the boards and
+// documents that are still waiting for their debounced save, then leave.
+let stopping = false
+const shutdown = async (signal) => {
+  if (stopping) return
+  stopping = true
+  console.log(`${signal}: saving pending work before exit`)
+  const deadline = setTimeout(() => process.exit(1), 8000)
+  try {
+    await Promise.all([flushBoards(), flushDocuments()])
+  } finally {
+    clearTimeout(deadline)
+    process.exit(0)
+  }
+}
+process.on('SIGTERM', () => shutdown('SIGTERM'))
+process.on('SIGINT', () => shutdown('SIGINT'))

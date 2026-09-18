@@ -39,21 +39,27 @@ export async function loadDocument(classroomId) {
   return runs
 }
 
+async function save(classroomId) {
+  saveTimers.delete(classroomId)
+  const runs = docs.get(classroomId)
+  if (!runs) return
+  try {
+    await prisma.document.update({ where: { classroomId }, data: { runs } })
+  } catch (error) {
+    console.error(`Failed to save document ${classroomId}:`, error.message)
+  }
+}
+
 function scheduleSave(classroomId) {
   clearTimeout(saveTimers.get(classroomId))
-  saveTimers.set(
-    classroomId,
-    setTimeout(async () => {
-      saveTimers.delete(classroomId)
-      const runs = docs.get(classroomId)
-      if (!runs) return
-      try {
-        await prisma.document.update({ where: { classroomId }, data: { runs } })
-      } catch (error) {
-        console.error(`Failed to save document ${classroomId}:`, error.message)
-      }
-    }, SAVE_DELAY_MS)
-  )
+  saveTimers.set(classroomId, setTimeout(() => save(classroomId), SAVE_DELAY_MS))
+}
+
+// Writes every document still waiting for its save (server shutdown).
+export async function flushDocuments() {
+  const pending = [...saveTimers.keys()]
+  for (const id of pending) clearTimeout(saveTimers.get(id))
+  await Promise.all(pending.map(save))
 }
 
 export function replaceDocument(classroomId, runs) {

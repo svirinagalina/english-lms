@@ -934,14 +934,21 @@ export default function Whiteboard({ socketRef, boardId, title, subtitle, onClos
     historyRef.current = { undo: [], redo: [] }
     scheduleRender()
 
-    socket.emit('board:open', boardId, (response) => {
+    const open = (quiet) => socket.emit('board:open', boardId, { quiet }, (response) => {
       elementsRef.current = dedupe(response?.elements ?? [])
+      if (quiet) { scheduleRender(); bump(); return }
       // A board with content opens showing all of it; an empty one at 100%.
       if (elementsRef.current.length) fitAll(1)
       else viewRef.current = { x: 0, y: 0, scale: 1 }
       scheduleRender()
       bump()
     })
+    // A reconnected socket is a stranger to the server: open the board again,
+    // quietly, so nobody else is dragged to it.
+    let opened = false
+    const reopen = () => { open(opened); opened = true }
+    if (socket.connected) reopen()
+    socket.on('connect', reopen)
 
     const onAdd = (element) => {
       const index = elementsRef.current.findIndex((item) => item.id === element.id)
@@ -996,6 +1003,7 @@ export default function Whiteboard({ socketRef, boardId, title, subtitle, onClos
     socket.on('board:view', onView)
 
     return () => {
+      socket.off('connect', reopen)
       socket.off('board:add', onAdd)
       socket.off('board:update', onUpdate)
       socket.off('board:delete', onDelete)
@@ -2355,7 +2363,7 @@ export default function Whiteboard({ socketRef, boardId, title, subtitle, onClos
                 </button>
               </div>
             )}
-            {textInput && <span className="small-hint">⌘Enter to finish · Esc {textInput.id ? 'to cancel' : 'to finish'}</span>}
+            {textInput && <span className="small-hint">⌘Enter to finish · Esc {textInput.id && !textInput.created ? 'to cancel' : 'to finish'}</span>}
           </div>
         )}
 
@@ -2383,7 +2391,8 @@ export default function Whiteboard({ socketRef, boardId, title, subtitle, onClos
               submitText()
             }}
             onKeyDown={(e) => {
-              if (e.key === 'Escape') { e.preventDefault(); textInput.id ? cancelText() : submitText() }
+              // Esc keeps a text that was just typed and reverts edits to an existing one.
+              if (e.key === 'Escape') { e.preventDefault(); textInput.id && !textInput.created ? cancelText() : submitText() }
               if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) { e.preventDefault(); submitText() }
               if (e.key === 'Enter' && !e.shiftKey && !e.metaKey && !e.ctrlKey) {
                 // A plain line break, never a nested block.

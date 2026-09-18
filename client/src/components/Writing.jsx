@@ -173,11 +173,16 @@ export default function Writing({ socketRef, classroomId, user, title, subtitle,
     const socket = socketRef.current
     if (!socket || !classroomId) return
     setLoaded(false)
-    socket.emit('doc:open', classroomId, (response) => {
+    const open = (quiet) => socket.emit('doc:open', classroomId, { quiet }, (response) => {
       if (response?.error) { setError(response.error); return }
       setRuns(normalise(response.runs ?? []))
       setLoaded(true)
     })
+    // After a reconnect the document is opened again, without leading others to it.
+    let opened = false
+    const reopen = () => { open(opened); opened = true }
+    if (socket.connected) reopen()
+    socket.on('connect', reopen)
     const onUpdate = ({ classroomId: id, runs: incoming, from }) => {
       if (id !== classroomId || from === socket.id) return
       // Keep the caret where it was in the text if the other side edited.
@@ -187,7 +192,7 @@ export default function Writing({ socketRef, classroomId, user, title, subtitle,
       setRuns(normalise(incoming))
     }
     socket.on('doc:update', onUpdate)
-    return () => { socket.off('doc:update', onUpdate) }
+    return () => { socket.off('connect', reopen); socket.off('doc:update', onUpdate) }
   }, [socketRef, classroomId])
 
   // Restore the caret after every re-render caused by an edit.

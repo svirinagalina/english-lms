@@ -60,6 +60,8 @@ const ICE_SERVERS = [
   { urls: 'stun:stun1.l.google.com:19302' }
 ]
 
+const RECONNECTING = 'Connection lost — reconnecting…'
+
 export default function Call() {
   const { token } = useParams()
   const [searchParams] = useSearchParams()
@@ -242,19 +244,35 @@ export default function Call() {
         ctx.beginPath(); ctx.moveTo(x0, y0); ctx.lineTo(x1, y1); ctx.stroke()
       })
 
-      socket.emit('join-call', token, async (response) => {
-        if (response?.error) { setError(response.error); return }
-        if (response.boardId) setBoardId(response.boardId)
-        if (response.docId) setWritingId(response.docId)
-        for (const peer of response.peers) {
-          setPeers((prev) => ({ ...prev, [peer.id]: { name: peer.name, stream: prev[peer.id]?.stream ?? null, muted: Boolean(peer.muted) } }))
-          const pc = createConnection(peer.id, peer.name)
-          const offer = await pc.createOffer()
-          await pc.setLocalDescription(offer)
-          socket.emit('offer', { to: peer.id, offer })
+      // Runs on the first connection and again after every reconnect (a
+      // Wi-Fi blip, a laptop waking up, a server restart): the room is
+      // joined afresh and every peer connection is made again, since the
+      // others now know us under a new id.
+      let connectedBefore = false
+      socket.on('connect', () => {
+        if (connectedBefore) {
+          Object.values(connectionsRef.current).forEach((pc) => pc.close())
+          connectionsRef.current = {}
+          setPeers({})
         }
-        setStatus('live')
+        connectedBefore = true
+        setMediaWarning((w) => (w === RECONNECTING ? '' : w))
+        socket.emit('join-call', token, async (response) => {
+          if (response?.error) { setError(response.error); return }
+          if (response.boardId) setBoardId(response.boardId)
+          if (response.docId) setWritingId(response.docId)
+          for (const peer of response.peers) {
+            setPeers((prev) => ({ ...prev, [peer.id]: { name: peer.name, stream: prev[peer.id]?.stream ?? null, muted: Boolean(peer.muted) } }))
+            const pc = createConnection(peer.id, peer.name)
+            const offer = await pc.createOffer()
+            await pc.setLocalDescription(offer)
+            socket.emit('offer', { to: peer.id, offer })
+          }
+          socket.emit('mic:state', { muted: !micOnRef.current })
+          setStatus('live')
+        })
       })
+      socket.on('disconnect', () => setMediaWarning(RECONNECTING))
     }
 
     start()

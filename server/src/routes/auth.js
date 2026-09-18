@@ -63,15 +63,36 @@ authRouter.post('/register', async (req, res) => {
   res.status(201).json({ user: publicUser(user) })
 })
 
+// Failed sign-ins are counted per address and per account; too many in a
+// row and the next attempts wait, so a password cannot be guessed by force.
+const LOGIN_WINDOW_MS = 15 * 60 * 1000
+// One account: 10 tries. One address: 40, since a whole school may share it.
+const LOGIN_MAX_FAILURES = { email: 10, ip: 40 }
+const loginFailures = new Map()
+const failuresFor = (key) => {
+  const now = Date.now()
+  const recent = (loginFailures.get(key) ?? []).filter((at) => now - at < LOGIN_WINDOW_MS)
+  if (recent.length) loginFailures.set(key, recent)
+  else loginFailures.delete(key)
+  return recent
+}
+
 authRouter.post('/login', async (req, res) => {
   const parsed = loginSchema.safeParse(req.body)
   if (!parsed.success) return res.status(400).json({ error: 'Invalid data' })
 
   const { email, password } = parsed.data
+  const keys = [`ip:${req.ip}`, `email:${email.toLowerCase()}`]
+  if (keys.some((key) => failuresFor(key).length >= LOGIN_MAX_FAILURES[key.split(':')[0]])) {
+    return res.status(429).json({ error: 'Too many attempts. Please wait 15 minutes and try again.' })
+  }
+
   const user = await prisma.user.findUnique({ where: { email } })
   if (!user || !(await verifyPassword(password, user.passwordHash))) {
+    for (const key of keys) loginFailures.set(key, [...failuresFor(key), Date.now()])
     return res.status(401).json({ error: 'Invalid email or password' })
   }
+  for (const key of keys) loginFailures.delete(key)
 
   issueToken(res, user)
   res.json({ user: publicUser(user) })

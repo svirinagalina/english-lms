@@ -17,4 +17,5 @@ COPY data ./data
 
 EXPOSE 4010
 
-CMD ["sh", "-c", "npx prisma migrate deploy && node src/index.js"]
+# exec: node becomes the main process and receives the stop signal itself.
+CMD ["sh", "-c", "npx prisma migrate deploy && exec node src/index.js"]

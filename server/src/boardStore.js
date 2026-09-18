@@ -45,23 +45,28 @@ export async function loadBoard(boardId) {
   return elements
 }
 
+async function save(boardId) {
+  saveTimers.delete(boardId)
+  const elements = boards.get(boardId)
+  if (!elements) return
+  try {
+    await prisma.board.update({ where: { id: boardId }, data: { elements } })
+  } catch (error) {
+    console.error('Failed to save board', boardId, error.message)
+  }
+}
+
 function scheduleSave(boardId) {
   clearTimeout(saveTimers.get(boardId))
+  saveTimers.set(boardId, setTimeout(() => save(boardId), SAVE_DELAY_MS))
+}
 
-  saveTimers.set(
-    boardId,
-    setTimeout(async () => {
-      saveTimers.delete(boardId)
-      const elements = boards.get(boardId)
-      if (!elements) return
-
-      try {
-        await prisma.board.update({ where: { id: boardId }, data: { elements } })
-      } catch (error) {
-        console.error('Failed to save board', boardId, error.message)
-      }
-    }, SAVE_DELAY_MS)
-  )
+// Writes every board still waiting for its save — called when the server
+// is shutting down, so the last strokes before a deploy are not lost.
+export async function flushBoards() {
+  const pending = [...saveTimers.keys()]
+  for (const id of pending) clearTimeout(saveTimers.get(id))
+  await Promise.all(pending.map(save))
 }
 
 export async function addElement(boardId, element) {

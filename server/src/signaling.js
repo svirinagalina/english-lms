@@ -78,11 +78,19 @@ export function setupSignaling(io) {
     const token = readTokenCookie(socket.handshake.headers.cookie)
 
     // Only members of the platform connect — calls, boards, everything.
+    // The role comes from the database, as for API requests, so a removed
+    // account or a changed role takes effect on the next connection.
     if (token) {
       try {
         const payload = jwt.verify(token, process.env.JWT_SECRET)
-        socket.data.user = { id: payload.sub, role: payload.role, schoolId: payload.schoolId }
-        return next()
+        const user = await prisma.user.findUnique({
+          where: { id: payload.sub },
+          select: { id: true, role: true, schoolId: true }
+        })
+        if (user) {
+          socket.data.user = user
+          return next()
+        }
       } catch {
         // stale or forged cookie: rejected below
       }
@@ -242,7 +250,9 @@ export function setupSignaling(io) {
       return true
     }
 
-    socket.on('board:open', async (boardId, ack) => {
+    // `quiet` reopens a board after a reconnect without leading the room to it.
+    socket.on('board:open', async (boardId, options, ack) => {
+      if (typeof options === 'function') { ack = options; options = {} }
       if (!(await boardBelongsHere(boardId))) {
         if (typeof ack === 'function') ack({ error: 'Board not found' })
         return
@@ -253,7 +263,7 @@ export function setupSignaling(io) {
       watch(boardWatchers, boardId, socket)
       const elements = await loadBoard(boardId)
       // A teacher's switch leads the room; a student's is private to them.
-      if (user.role !== 'STUDENT') {
+      if (user.role !== 'STUDENT' && !options?.quiet) {
         if (socket.data.callId) roomBoards.set(socket.data.roomId, boardId)
         socket.to(socket.data.roomId).emit('board:switched', boardId)
       }
@@ -317,7 +327,8 @@ export function setupSignaling(io) {
       return Boolean(classroom)
     }
 
-    socket.on('doc:open', async (classroomId, ack) => {
+    socket.on('doc:open', async (classroomId, options, ack) => {
+      if (typeof options === 'function') { ack = options; options = {} }
       if (!(await docAllowed(classroomId))) {
         if (typeof ack === 'function') ack({ error: 'Document not found' })
         return
@@ -334,7 +345,7 @@ export function setupSignaling(io) {
         if (typeof ack === 'function') ack({ error: 'Could not load the document' })
         return
       }
-      if (user.role !== 'STUDENT') socket.to(socket.data.roomId).emit('doc:switched', classroomId)
+      if (user.role !== 'STUDENT' && !options?.quiet) socket.to(socket.data.roomId).emit('doc:switched', classroomId)
       if (typeof ack === 'function') ack({ runs })
     })
 
@@ -376,9 +387,10 @@ export function setupSignaling(io) {
       socket.to(roomId).emit('board:view', { from: socket.id, scale: view.scale, cx: Number(view.cx) || 0, cy: Number(view.cy) || 0 })
     })
 
+    // Wiping a board is the teacher's call; a student can undo their own strokes.
     socket.on('board:clear', async () => {
       const { boardId, roomId } = socket.data
-      if (!boardId) return
+      if (!boardId || user.role === 'STUDENT') return
 
       await clearBoard(boardId)
       emitToWatchers(boardWatchers, boardId, socket, 'board:clear')

@@ -97,8 +97,11 @@ export default function Classroom() {
     const socket = io({ withCredentials: true })
     socketRef.current = socket
     socket.on('connect_error', (err) => setError(err.message))
-    socket.emit('join-classroom', id, {}, (response) => {
-      if (response?.error) setError(response.error)
+    // On the first connection and after every reconnect.
+    socket.on('connect', () => {
+      socket.emit('join-classroom', id, {}, (response) => {
+        if (response?.error) setError(response.error)
+      })
     })
     socket.on('board:switched', (boardId) => setOpenBoardId(boardId))
 
