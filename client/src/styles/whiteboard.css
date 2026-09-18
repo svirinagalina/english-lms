@@ -137,7 +137,7 @@
 .board-canvas.tool-rect,
 .board-canvas.tool-ellipse,
 .board-canvas.tool-arrow { cursor: crosshair; }
-.board-canvas.tool-select { cursor: grab; }
+.board-canvas.tool-select { cursor: default; }
 .board-canvas.tool-text { cursor: text; }
 .board-canvas.tool-eraser { cursor: cell; }
 
@@ -305,8 +305,10 @@ select.tool { appearance: auto; padding: 5px 8px; }
   box-shadow: 0 10px 30px rgba(0, 0, 0, 0.35);
 }
 .mistakes-head { display: flex; align-items: center; justify-content: space-between; }
-.mistakes-row { display: flex; flex-direction: column; gap: 6px; }
-.mistakes-row input { width: 100%; font: inherit; font-size: 14px; padding: 8px 10px; border-radius: 8px; border: 1px solid var(--border); background: var(--bg); color: var(--text); }
+.mistakes-rows { display: flex; flex-direction: column; gap: 6px; }
+.mistakes-row { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+.mistakes-row input { width: 100%; min-width: 0; font: inherit; font-size: 13px; padding: 7px 9px; border-radius: 8px; border: 1px solid var(--border); background: var(--bg); color: var(--text); }
+.mistakes-panel { width: 420px; }
 .mistakes-list { overflow-y: auto; display: flex; flex-direction: column; gap: 6px; flex: 1; min-height: 0; }
 .mistakes-item { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 8px 10px; font-size: 14px; }
 .mistakes-item .said { color: #fca5a5; text-decoration: line-through; }

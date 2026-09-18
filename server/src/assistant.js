@@ -74,3 +74,22 @@ export async function makeQuestions(words) {
 
   return response.parsed_output?.items ?? []
 }
+
+const MistakeTopicSchema = z.object({ topic: z.string(), note: z.string() })
+
+// Names the grammar point behind one mistake ("Adjectives: -ed vs -ing",
+// "Comparatives: no 'more' with -er"). Short, for a tag and a notebook.
+export async function classifyMistakeWithAi(said, correct) {
+  const response = await getClient().messages.parse({
+    model: MODEL,
+    max_tokens: 300,
+    system:
+      'You are an English teacher. Given what a Russian-speaking learner said and the corrected version, name the ' +
+      'single grammar or vocabulary point behind the mistake as a short English label of 2–6 words (e.g. "Present Simple: 3rd person -s", ' +
+      '"Adjectives: -ed vs -ing", "Comparatives: -er, not more", "Articles: a/an with jobs", "Word choice: say vs tell"). ' +
+      'Then one sentence (in English, simple) explaining the rule. If the sentences are the same or the difference is only spelling, use "Spelling".',
+    messages: [{ role: 'user', content: `Said: ${said}\nCorrect: ${correct}` }],
+    output_config: { format: zodOutputFormat(MistakeTopicSchema) }
+  })
+  return response.parsed_output ?? null
+}

@@ -757,7 +757,7 @@ export default function Whiteboard({ socketRef, boardId, title, subtitle, onClos
   const pasteCountRef = useRef(0)
   const historyRef = useRef({ undo: [], redo: [] })
 
-  const [tool, setTool] = useState('pen')
+  const [tool, setTool] = useState('select')
   // render() reads the tool through a ref so its identity never changes:
   // the sync effect below must not re-open the board on every tool switch.
   const toolRef = useRef(tool)
@@ -783,7 +783,10 @@ export default function Whiteboard({ socketRef, boardId, title, subtitle, onClos
   // The Mistakes panel: rows typed during the lesson; each saved row becomes
   // a red note on the board (so the student sees it at once) and a notebook entry.
   const [mistakesOpen, setMistakesOpen] = useState(false)
-  const [mistakeRow, setMistakeRow] = useState({ said: '', correct: '', busy: false, error: '' })
+  const emptyRow = () => ({ said: '', correct: '' })
+  const [mistakeRows, setMistakeRows] = useState([emptyRow(), emptyRow(), emptyRow()]) // up to 10
+  const [mistakeBusy, setMistakeBusy] = useState(false)
+  const [mistakeError, setMistakeError] = useState('')
   const [mistakesSaved, setMistakesSaved] = useState([]) // this session's entries
   const mistakeStackRef = useRef(null) // where the next note goes
   const editClickTimer = useRef(null)
@@ -1641,7 +1644,7 @@ export default function Whiteboard({ socketRef, boardId, title, subtitle, onClos
       if (handle) { canvas.style.cursor = CURSOR_FOR[handle.id]; return }
     }
     const over = elementsRef.current.some((element) => hitTest(element, point.x, point.y))
-    canvas.style.cursor = over ? 'move' : ''
+    canvas.style.cursor = over ? 'move' : 'default'
   }
 
   const handlePointerMove = (event) => {
@@ -2249,7 +2252,6 @@ export default function Whiteboard({ socketRef, boardId, title, subtitle, onClos
   const currentFontSize = Math.round(textInput ? textInput.fontSize : (textLike[0]?.fontSize ?? 20))
   const fontSizeOptions = FONT_SIZES.includes(currentFontSize) ? FONT_SIZES : [...FONT_SIZES, currentFontSize].sort((a, b) => a - b)
   const selected = selectedElement()
-  const selectedCount = selectedRef.current.length
 
   return (
     <div className="whiteboard">
@@ -2312,57 +2314,81 @@ export default function Whiteboard({ socketRef, boardId, title, subtitle, onClos
             </div>
             <p className="muted small-hint">Each saved line appears on the board for the student right away and goes into their notebook.</p>
             <form
-              className="mistakes-row"
+              className="mistakes-rows"
               onSubmit={async (e) => {
                 e.preventDefault()
-                const said = mistakeRow.said.trim()
-                const correct = mistakeRow.correct.trim()
-                if (!said || !correct || mistakeRow.busy) return
-                setMistakeRow((r) => ({ ...r, busy: true, error: '' }))
-                const elementId = newId()
+                const filled = mistakeRows.map((r) => ({ said: r.said.trim(), correct: r.correct.trim() })).filter((r) => r.said && r.correct)
+                if (!filled.length || mistakeBusy) return
+                setMistakeBusy(true)
+                setMistakeError('')
+                const rect = canvasRef.current.getBoundingClientRect()
+                const v = viewRef.current
+                const safe = (t) => t.replace(/[{}]/g, '')
                 try {
-                  const { mistake } = await onMistake({ said, correct, elementId })
-                  const safe = (t) => t.replace(/[{}]/g, '')
-                  const tag = mistake.labels?.length ? `\n{{#6b7280:${safe(mistake.labels.join(' · '))}}}` : ''
-                  // Notes stack in a column at the right of the current view.
-                  const rect = canvasRef.current.getBoundingClientRect()
-                  const v = viewRef.current
-                  const stack = mistakeStackRef.current
-                  // Left of the panel, so the teacher sees the notes appear too.
-                  const x = stack ? stack.x : (Math.max(40, rect.width - 720) - v.x) / v.scale
-                  const y = stack ? stack.y + stack.h + 16 : (100 - v.y) / v.scale
-                  const note = {
-                    id: elementId, type: 'note', color: COLORS[0], width, x, y, w: 320, h: 90,
-                    fill: '#fecaca', fontSize: 18, mistakeId: mistake.id,
-                    text: `{{#b91c1c:✗ ${safe(said)}}}\n{{#15803d:✓ ${safe(correct)}}}${tag}`
+                  for (const { said, correct } of filled) {
+                    const elementId = newId()
+                    const { mistake } = await onMistake({ said, correct, elementId })
+                    const tag = mistake.labels?.length ? `\n{{#6b7280:${safe(mistake.labels.join(' · '))}}}` : ''
+                    // Notes stack in a column left of the panel, so the teacher sees them too.
+                    const stack = mistakeStackRef.current
+                    const x = stack ? stack.x : (Math.max(40, rect.width - 720) - v.x) / v.scale
+                    const y = stack ? stack.y + stack.h + 16 : (100 - v.y) / v.scale
+                    const note = {
+                      id: elementId, type: 'note', color: COLORS[0], width, x, y, w: 320, h: 90,
+                      fill: '#fecaca', fontSize: 18, mistakeId: mistake.id,
+                      text: `{{#b91c1c:✗ ${safe(said)}}}\n{{#15803d:✓ ${safe(correct)}}}${tag}`
+                    }
+                    commit(note)
+                    mistakeStackRef.current = { x, y, h: boundsOf(note).h }
+                    setMistakesSaved((list) => [{ id: mistake.id, said, correct, labels: mistake.labels ?? [] }, ...list])
                   }
-                  commit(note)
-                  mistakeStackRef.current = { x, y, h: boundsOf(note).h }
-                  setMistakesSaved((list) => [{ id: mistake.id, said, correct, labels: mistake.labels ?? [] }, ...list])
-                  setMistakeRow({ said: '', correct: '', busy: false, error: '' })
+                  setMistakeRows([emptyRow(), emptyRow(), emptyRow()])
                   e.target.querySelector('input')?.focus()
                 } catch (err) {
-                  setMistakeRow((r) => ({ ...r, busy: false, error: err.message }))
+                  setMistakeError(err.message)
+                } finally {
+                  setMistakeBusy(false)
                 }
               }}
             >
-              <input
-                autoFocus
-                placeholder="What the student said"
-                value={mistakeRow.said}
-                onChange={(e) => setMistakeRow((r) => ({ ...r, said: e.target.value }))}
-                onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); e.currentTarget.form.querySelectorAll('input')[1]?.focus() } }}
-              />
-              <input
-                placeholder="How it should be"
-                value={mistakeRow.correct}
-                onChange={(e) => setMistakeRow((r) => ({ ...r, correct: e.target.value }))}
-              />
-              <button type="submit" disabled={mistakeRow.busy || !mistakeRow.said.trim() || !mistakeRow.correct.trim()}>{mistakeRow.busy ? '…' : 'Add'}</button>
-              {mistakeRow.error && <div className="error">{mistakeRow.error}</div>}
+              {mistakeRows.map((row, i) => (
+                <div key={i} className="mistakes-row">
+                  <input
+                    autoFocus={i === 0}
+                    placeholder={i === 0 ? 'What the student said' : ''}
+                    value={row.said}
+                    onChange={(e) => setMistakeRows((rows) => rows.map((r, j) => (j === i ? { ...r, said: e.target.value } : r)))}
+                    onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); e.currentTarget.parentElement.querySelectorAll('input')[1]?.focus() } }}
+                  />
+                  <input
+                    placeholder={i === 0 ? 'How it should be' : ''}
+                    value={row.correct}
+                    onChange={(e) => setMistakeRows((rows) => rows.map((r, j) => (j === i ? { ...r, correct: e.target.value } : r)))}
+                    onKeyDown={(e) => {
+                      if (e.key !== 'Enter') return
+                      e.preventDefault()
+                      // Enter on the last row adds one (up to 10); ⌘Enter saves everything.
+                      if (e.metaKey || e.ctrlKey) { e.currentTarget.form.requestSubmit(); return }
+                      const next = e.currentTarget.closest('.mistakes-row').nextElementSibling
+                      if (next) next.querySelector('input')?.focus()
+                      else if (mistakeRows.length < 10) setMistakeRows((rows) => [...rows, emptyRow()])
+                    }}
+                  />
+                </div>
+              ))}
+              {mistakeError && <div className="error">{mistakeError}</div>}
+              <div className="row-actions">
+                <button type="submit" disabled={mistakeBusy || !mistakeRows.some((r) => r.said.trim() && r.correct.trim())}>
+                  {mistakeBusy ? 'Saving…' : 'Save to board and notebook'}
+                </button>
+                {mistakeRows.length < 10 && (
+                  <button type="button" className="ghost" onClick={() => setMistakeRows((rows) => [...rows, emptyRow()])}>+ Row</button>
+                )}
+                <span className="small-hint muted">{mistakeRows.length} / 10</span>
+              </div>
             </form>
             <div className="mistakes-list">
-              {mistakesSaved.length === 0 && <div className="muted small-hint">Type the sentence as it was said, Enter, the correct version, Enter.</div>}
+              {mistakesSaved.length === 0 && <div className="muted small-hint">Left: as it was said. Right: how it should be. Enter moves along, ⌘Enter saves.</div>}
               {mistakesSaved.map((m) => (
                 <div key={m.id} className="mistakes-item">
                   <div className="said">✗ {m.said}</div>
@@ -2534,14 +2560,6 @@ export default function Whiteboard({ socketRef, boardId, title, subtitle, onClos
               <div className="text-toolbar-group">
                 {selected?.type === 'image' && selected.crop && (
                   <button className="tool" onClick={resetCrop}>Uncrop</button>
-                )}
-                {showTextControls && (
-                  <>
-                    <button className="tool" onClick={duplicateSelection} title="Duplicate (⌘D)">Duplicate</button>
-                    <button className="tool" onClick={() => remove(selectedRef.current)} title="Delete">
-                      Delete{selectedCount > 1 ? ` (${selectedCount})` : ''}
-                    </button>
-                  </>
                 )}
               </div>
             )}

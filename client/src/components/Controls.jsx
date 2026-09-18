@@ -43,7 +43,31 @@ export default function Controls({
   }, [moreOpen])
   const moreActive = noiseSuppression || isBlurEnabled || (compact && (hasScreenStream || (unread > 0 && !chatOpen)))
 
-  // Screen, board, writing, chat — in the row, or under More when compact.
+  // Writing: in the row in both layouts (next to Cam and Mic when compact).
+  const writing = (
+    <>
+      {writingChoices.length > 0 && (
+        writingId ? (
+          <button className="round on" onClick={onCloseWriting} title="Close writing">Writing</button>
+        ) : writingChoices.length === 1 ? (
+          <button className="round" onClick={() => onOpenWriting(writingChoices[0].id)} title="Open the student's writing">Writing</button>
+        ) : (
+          <select
+            className="pill"
+            value=""
+            onChange={(e) => { if (e.target.value) onOpenWriting(e.target.value) }}
+            title="Open a student's writing"
+          >
+            <option value="">Writing…</option>
+            {writingChoices.map((c) => <option key={c.id} value={c.id}>{c.label}</option>)}
+          </select>
+        )
+      )}
+
+    </>
+  )
+
+  // Screen, board, chat — in the row, or under More when compact.
   const tools = (
     <>
       <button
@@ -78,23 +102,7 @@ export default function Controls({
         )
       )}
 
-      {writingChoices.length > 0 && (
-        writingId ? (
-          <button className="round on" onClick={onCloseWriting} title="Close writing">Writing</button>
-        ) : writingChoices.length === 1 ? (
-          <button className="round" onClick={() => onOpenWriting(writingChoices[0].id)} title="Open the student's writing">Writing</button>
-        ) : (
-          <select
-            className="pill"
-            value=""
-            onChange={(e) => { if (e.target.value) onOpenWriting(e.target.value) }}
-            title="Open a student's writing"
-          >
-            <option value="">Writing…</option>
-            {writingChoices.map((c) => <option key={c.id} value={c.id}>{c.label}</option>)}
-          </select>
-        )
-      )}
+      {!compact && writing}
 
       {onToggleChat && (
         <button className={`round ${chatOpen ? 'on' : ''}`} onClick={onToggleChat} title="Text chat">
@@ -122,9 +130,10 @@ export default function Controls({
         Mic
       </button>
 
+      {compact && writing}
       {!compact && tools}
       <div className="more-wrap" ref={moreRef}>
-        <button className={`round ${moreOpen ? 'on' : ''}`} onClick={() => setMoreOpen((v) => !v)} title={compact ? 'Screen, board, writing, chat, noise reduction, blur, invite link' : 'Noise reduction, blur, invite link'}>
+        <button className={`round ${moreOpen ? 'on' : ''}`} onClick={() => setMoreOpen((v) => !v)} title={compact ? 'Screen, board, chat, noise reduction, blur, invite link' : 'Noise reduction, blur, invite link'}>
           More{compact && unread > 0 && !chatOpen ? ` (${unread})` : moreActive && !moreOpen ? ' •' : ''}
         </button>
         {moreOpen && (

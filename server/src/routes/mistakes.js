@@ -4,12 +4,28 @@ import { prisma } from '../db.js'
 import { requireAuth } from '../auth.js'
 import { accessibleClassroom } from './classrooms.js'
 import { classifyMistake, topicLabel } from '../errorAnalysis.js'
+import { assistantEnabled, classifyMistakeWithAi } from '../assistant.js'
 import { checkAnswer } from '../answerCheck.js'
 
 // The mistake notebook: written on the board during a lesson, kept per
 // student, drilled in Practice, summarised in the analytics.
 export const mistakesRouter = Router()
 mistakesRouter.use(requireAuth)
+
+// The rule-based classifier knows the textbook's topics; with the AI key
+// the label comes from Claude instead, which reads the sentence properly.
+async function topicsFor(said, correct) {
+  if (said.trim().toLowerCase() === correct.trim().toLowerCase()) return []
+  if (assistantEnabled()) {
+    try {
+      const ai = await classifyMistakeWithAi(said, correct)
+      if (ai?.topic) return [ai.topic.trim().slice(0, 60)]
+    } catch (error) {
+      console.error('Mistake classification (AI) failed:', error.message)
+    }
+  }
+  return classifyMistake(said, correct).topics
+}
 
 const mistakeSchema = z.object({
   said: z.string().trim().min(1).max(500),
@@ -47,7 +63,7 @@ mistakesRouter.post('/classroom/:id', async (req, res) => {
   const parsed = mistakeSchema.safeParse(req.body)
   if (!parsed.success) return res.status(400).json({ error: 'Both sentences are needed' })
   const { said, correct, boardId, elementId } = parsed.data
-  const topics = said.trim().toLowerCase() === correct.trim().toLowerCase() ? [] : classifyMistake(said, correct).topics
+  const topics = await topicsFor(said, correct)
   const mistake = await prisma.lessonMistake.create({
     data: { said, correct, topics, classroomId: classroom.id, studentId: classroom.studentId, teacherId: req.user.id, boardId, elementId }
   })
@@ -61,7 +77,7 @@ mistakesRouter.patch('/:id', async (req, res) => {
   const parsed = mistakeSchema.pick({ said: true, correct: true }).safeParse(req.body)
   if (!parsed.success) return res.status(400).json({ error: 'Both sentences are needed' })
   const { said, correct } = parsed.data
-  const topics = said.toLowerCase() === correct.toLowerCase() ? [] : classifyMistake(said, correct).topics
+  const topics = await topicsFor(said, correct)
   const mistake = await prisma.lessonMistake.update({ where: { id: existing.id }, data: { said, correct, topics } })
   res.json({ mistake: view(mistake) })
 })
