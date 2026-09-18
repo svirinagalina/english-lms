@@ -602,7 +602,9 @@ export default function Call() {
         <VideoGrid
           peers={peers}
           micOn={micOn}
-          board={writingId ? (
+          board={(writingId || boardId) ? (
+            <>
+              {writingId && (
             <Writing
               socketRef={socketRef}
               classroomId={writingId}
@@ -614,7 +616,10 @@ export default function Call() {
               backLabel={boardId ? '← Back to board' : '← Back'}
               embedded
             />
-          ) : boardId ? (
+              )}
+              {/* The board stays mounted under Writing, so switching back is instant. */}
+              {boardId && (
+            <div style={{ display: writingId ? 'none' : 'contents' }}>
             <Whiteboard
               socketRef={socketRef}
               boardId={boardId}
@@ -639,6 +644,9 @@ export default function Call() {
                   }
                 : undefined}
             />
+            </div>
+              )}
+            </>
           ) : null}
           screenStream={screenStream}
           localVideoRef={localVideoRef}

@@ -43,26 +43,9 @@ export default function Controls({
   }, [moreOpen])
   const moreActive = noiseSuppression || isBlurEnabled || (compact && (hasScreenStream || (unread > 0 && !chatOpen)))
 
-  return (
-    <div className="controls">
-      <button
-        className={`round ${cameraOn ? 'on' : 'off'}`}
-        onClick={onToggleCamera}
-        title={cameraOn ? 'Turn camera off' : 'Turn camera on'}
-      >
-        Cam
-      </button>
-
-      <button
-        className={`round ${micOn ? 'on' : 'off'}`}
-        onClick={onToggleMicrophone}
-        title={micOn ? 'Mute microphone' : 'Unmute microphone'}
-      >
-        Mic
-      </button>
-
-      {!compact && (
-        <>
+  // Screen, board, writing, chat — in the row, or under More when compact.
+  const tools = (
+    <>
       <button
         className={`round ${hasScreenStream ? 'on' : ''}`}
         onClick={onShareScreen}
@@ -72,7 +55,9 @@ export default function Controls({
       </button>
 
       {boards.length > 0 && (
-        boardId ? (
+        boardId && writingId ? (
+          <button className="round" onClick={() => onOpenBoard(boardId)} title="Back to the board">Board</button>
+        ) : boardId ? (
           <button className="round on" onClick={onCloseBoard} title="Close the board (only for you)">Board</button>
         ) : boards.length === 1 || (preferredBoardId && boards.some((b) => b.id === preferredBoardId)) ? (
           <button className="round" onClick={() => onOpenBoard(boards.length === 1 ? boards[0].id : preferredBoardId)} title="Open the board">Board</button>
@@ -116,71 +101,35 @@ export default function Controls({
           Chat{unread > 0 && !chatOpen ? ` (${unread})` : ''}
         </button>
       )}
-        </>
-      )}
+    </>
+  )
+
+  return (
+    <div className="controls">
+      <button
+        className={`round ${cameraOn ? 'on' : 'off'}`}
+        onClick={onToggleCamera}
+        title={cameraOn ? 'Turn camera off' : 'Turn camera on'}
+      >
+        Cam
+      </button>
+
+      <button
+        className={`round ${micOn ? 'on' : 'off'}`}
+        onClick={onToggleMicrophone}
+        title={micOn ? 'Mute microphone' : 'Unmute microphone'}
+      >
+        Mic
+      </button>
+
+      {!compact && tools}
       <div className="more-wrap" ref={moreRef}>
         <button className={`round ${moreOpen ? 'on' : ''}`} onClick={() => setMoreOpen((v) => !v)} title={compact ? 'Screen, board, writing, chat, noise reduction, blur, invite link' : 'Noise reduction, blur, invite link'}>
           More{compact && unread > 0 && !chatOpen ? ` (${unread})` : moreActive && !moreOpen ? ' •' : ''}
         </button>
         {moreOpen && (
           <div className="more-menu">
-            {compact && (
-              <div className="more-tools">
-      <button
-                className={`round ${hasScreenStream ? 'on' : ''}`}
-                onClick={onShareScreen}
-                title={hasScreenStream ? 'Stop sharing your screen' : 'Share your screen'}
-              >
-                {hasScreenStream ? 'Stop screen' : 'Screen'}
-              </button>
-        
-              {boards.length > 0 && (
-                boardId ? (
-                  <button className="round on" onClick={onCloseBoard} title="Close the board (only for you)">Board</button>
-                ) : boards.length === 1 || (preferredBoardId && boards.some((b) => b.id === preferredBoardId)) ? (
-                  <button className="round" onClick={() => onOpenBoard(boards.length === 1 ? boards[0].id : preferredBoardId)} title="Open the board">Board</button>
-                ) : (
-                  <select
-                    className="pill"
-                    value=""
-                    onChange={(e) => { if (e.target.value) onOpenBoard(e.target.value) }}
-                    title="Open a board"
-                  >
-                    <option value="">Board…</option>
-                    {boards.map((board) => (
-                      <option key={board.id} value={board.id}>
-                        {board.student ? `${board.student} — ${board.title}` : board.title}
-                      </option>
-                    ))}
-                  </select>
-                )
-              )}
-        
-              {writingChoices.length > 0 && (
-                writingId ? (
-                  <button className="round on" onClick={onCloseWriting} title="Close writing">Writing</button>
-                ) : writingChoices.length === 1 ? (
-                  <button className="round" onClick={() => onOpenWriting(writingChoices[0].id)} title="Open the student's writing">Writing</button>
-                ) : (
-                  <select
-                    className="pill"
-                    value=""
-                    onChange={(e) => { if (e.target.value) onOpenWriting(e.target.value) }}
-                    title="Open a student's writing"
-                  >
-                    <option value="">Writing…</option>
-                    {writingChoices.map((c) => <option key={c.id} value={c.id}>{c.label}</option>)}
-                  </select>
-                )
-              )}
-        
-              {onToggleChat && (
-                <button className={`round ${chatOpen ? 'on' : ''}`} onClick={onToggleChat} title="Text chat">
-                  Chat{unread > 0 && !chatOpen ? ` (${unread})` : ''}
-                </button>
-              )}
-                      </div>
-            )}
+            {compact && <div className="more-tools" onClick={(e) => { if (e.target.tagName === 'BUTTON') setMoreOpen(false) }}>{tools}</div>}
             <button
               className={`pill ${noiseSuppression ? 'on' : ''}`}
               onClick={onNoiseToggle}

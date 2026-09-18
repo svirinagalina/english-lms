@@ -1069,10 +1069,15 @@ export default function Whiteboard({ socketRef, boardId, title, subtitle, onClos
     const repaint = () => scheduleRender()
     window.addEventListener('resize', repaint)
     document.addEventListener('visibilitychange', repaint)
+    // The canvas may be hidden (Writing shown over it in a call) and come
+    // back at a new size: repaint whenever its box changes.
+    const observer = typeof ResizeObserver !== 'undefined' && canvasRef.current ? new ResizeObserver(repaint) : null
+    observer?.observe(canvasRef.current)
     scheduleRender()
     return () => {
       window.removeEventListener('resize', repaint)
       document.removeEventListener('visibilitychange', repaint)
+      observer?.disconnect()
     }
   }, [scheduleRender])
 
