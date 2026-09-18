@@ -135,12 +135,16 @@ unitsRouter.post('/exercises/:id/attempt', async (req, res) => {
   const drillTopics = analysis.topics.filter((topic) => !NO_DRILL_TOPICS.has(topic))
 
   const reachable = { schoolId: req.user.schoolId, position: { lte: exercise.unit.position } }
-  const pickDrills = (tags, notIn) =>
-    prisma.exercise.findMany({
+  // A handful of candidates from the nearest chapters, a few of them at
+  // random, so the same slip does not bring the same three sentences every time.
+  const pickDrills = async (tags, notIn) => {
+    const candidates = await prisma.exercise.findMany({
       where: { id: { notIn }, tags: { hasSome: tags }, unit: reachable },
-      take: FOLLOW_UP_COUNT,
+      take: FOLLOW_UP_COUNT * 4,
       orderBy: [{ unit: { position: 'desc' } }, { position: 'asc' }]
     })
+    return candidates.sort(() => Math.random() - 0.5).slice(0, FOLLOW_UP_COUNT)
+  }
 
   let followUps = drillTopics.length ? await pickDrills(drillTopics, exclude) : []
 

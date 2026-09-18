@@ -192,6 +192,9 @@ export default function UnitPractice() {
                   {result.diff?.missing?.length > 0 && (
                     <div className="muted">Missing: {result.diff.missing.join(', ')}</div>
                   )}
+                  {result.diff?.extra?.length > 0 && (
+                    <div className="muted">Not needed: {result.diff.extra.join(', ')}</div>
+                  )}
                   {result.followUps?.length > 0 && (
                     <div className="muted follow-note">
                       Added {result.followUps.length} more sentences
