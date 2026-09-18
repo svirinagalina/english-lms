@@ -42,6 +42,8 @@ const MIN_SIZE = 12
 const FULL_CROP = { x: 0, y: 0, w: 1, h: 1 }
 
 const newId = () => crypto.randomUUID().slice(0, 32)
+// One element per id, the latest copy winning.
+const dedupe = (elements) => [...new Map(elements.map((item) => [item.id, item])).values()]
 
 // Decoded images by src, so drawElement stays synchronous. A missing entry
 // triggers a load and a repaint once it arrives.
@@ -811,6 +813,10 @@ export default function Whiteboard({ socketRef, boardId, title, subtitle, onClos
   // Fingers currently on the canvas (touch screens): two of them pinch-zoom.
   const touchesRef = useRef(new Map())
   const pinchRef = useRef(null)
+  const liveCreatedRef = useRef(null)
+  // The draft as state knows it, plus the element created for it this tick.
+  const withCreated = (draft) =>
+    draft.id || !liveCreatedRef.current ? draft : { ...draft, ...liveCreatedRef.current, created: true }
   const editingTextRef = useRef(null)
   editingTextRef.current = textInput?.id ?? null
   const textAreaRef = useRef(null)
@@ -929,7 +935,7 @@ export default function Whiteboard({ socketRef, boardId, title, subtitle, onClos
     scheduleRender()
 
     socket.emit('board:open', boardId, (response) => {
-      elementsRef.current = response?.elements ?? []
+      elementsRef.current = dedupe(response?.elements ?? [])
       // A board with content opens showing all of it; an empty one at 100%.
       if (elementsRef.current.length) fitAll(1)
       else viewRef.current = { x: 0, y: 0, scale: 1 }
@@ -937,7 +943,12 @@ export default function Whiteboard({ socketRef, boardId, title, subtitle, onClos
       bump()
     })
 
-    const onAdd = (element) => { elementsRef.current.push(element); scheduleRender() }
+    const onAdd = (element) => {
+      const index = elementsRef.current.findIndex((item) => item.id === element.id)
+      if (index === -1) elementsRef.current.push(element)
+      else elementsRef.current[index] = element
+      scheduleRender()
+    }
     const onUpdate = (element) => {
       const index = elementsRef.current.findIndex((item) => item.id === element.id)
       if (index !== -1) elementsRef.current[index] = element
@@ -1406,6 +1417,7 @@ export default function Whiteboard({ socketRef, boardId, title, subtitle, onClos
   const openEditor = (target, caretAt = null) => {
     const note = target.type === 'note'
     selectedRef.current = [target.id]
+    liveCreatedRef.current = null
     setTextInput({
       caretAt,
       id: target.id,
@@ -1688,6 +1700,7 @@ export default function Whiteboard({ socketRef, boardId, title, subtitle, onClos
     if (pointer.mode === 'crop' || pointer.mode === 'pan') return
 
     if (pointer.mode === 'text') {
+      liveCreatedRef.current = null
       setTextInput({ x: pointer.point.x, y: pointer.point.y, value: '', fontSize: textInput?.fontSize ?? lastFontSizeRef.current, color })
       return
     }
@@ -1818,8 +1831,11 @@ export default function Whiteboard({ socketRef, boardId, title, subtitle, onClos
   }
 
   const submitText = () => {
-    const draft = textInput
-    if (!draft) return
+    // Closing the editor blurs it, which calls this again with the same draft.
+    if (!textInput || submittedRef.current === textInput) return
+    submittedRef.current = textInput
+    const draft = withCreated(textInput)
+    liveCreatedRef.current = null
     // The DOM is the source of truth while editing; read it one last time.
     const area = textAreaRef.current
     const latest = area ? htmlToMarkup(area, draft.color) : draft.value
@@ -1859,7 +1875,10 @@ export default function Whiteboard({ socketRef, boardId, title, subtitle, onClos
   }
 
   const cancelText = () => {
-    if (textInput?.created) removeRaw(textInput.id)
+    clearTimeout(liveTimerRef.current)
+    const draft = textInput && withCreated(textInput)
+    liveCreatedRef.current = null
+    if (draft?.created) removeRaw(draft.id)
     setTextInput(null)
     scheduleRender()
   }
@@ -1868,6 +1887,7 @@ export default function Whiteboard({ socketRef, boardId, title, subtitle, onClos
   // Typing is visible to everyone as it happens: the first keystroke of a new
   // text creates the element, later ones update it (at most ~5 times a
   // second); the history entry is written once, when editing finishes.
+  const submittedRef = useRef(null)
   const liveSentRef = useRef(0)
   const liveTimerRef = useRef(null)
   const pushLive = (draft, value) => {
@@ -1882,17 +1902,22 @@ export default function Whiteboard({ socketRef, boardId, title, subtitle, onClos
     const area = textAreaRef.current
     if (!area || !textInput) return
     const value = htmlToMarkup(area, textInput.color)
-    if (!textInput.id) {
+    // A paste fires several input events before React has stored the new
+    // element's id, so the id lives in a ref as well: one element per editor.
+    const live = liveCreatedRef.current
+    if (!textInput.id && !live) {
       if (!value.trim()) { setTextInput({ ...textInput, value }); return }
       // First real character of a new text: put it on the board for everyone.
       const element = { id: newId(), type: 'text', color: textInput.color, width, x: textInput.x, y: textInput.y, text: value, fontSize: textInput.fontSize }
       addRaw(element)
       scheduleRender()
-      setTextInput({ ...textInput, id: element.id, value, before: structuredClone(element), created: true })
+      liveCreatedRef.current = { id: element.id, before: structuredClone(element) }
+      setTextInput({ ...textInput, id: element.id, value, before: liveCreatedRef.current.before, created: true })
       return
     }
-    setTextInput({ ...textInput, value })
-    pushLive(textInput, value)
+    const draft = withCreated(textInput)
+    setTextInput({ ...draft, value })
+    pushLive(draft, value)
   }
 
   // Is the editor's selection collapsed (nothing highlighted)?

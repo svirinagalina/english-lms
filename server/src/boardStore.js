@@ -66,9 +66,11 @@ function scheduleSave(boardId) {
 
 export async function addElement(boardId, element) {
   const elements = await loadBoard(boardId)
-  if (elements.length >= MAX_ELEMENTS) return false
-
-  elements.push(element)
+  // The same element can arrive twice (a retry, a second tab); keep one copy.
+  const index = elements.findIndex((item) => item.id === element.id)
+  if (index !== -1) elements[index] = element
+  else if (elements.length >= MAX_ELEMENTS) return false
+  else elements.push(element)
   scheduleSave(boardId)
   return true
 }
@@ -76,19 +78,23 @@ export async function addElement(boardId, element) {
 export async function updateElement(boardId, element) {
   const elements = await loadBoard(boardId)
   const index = elements.findIndex((item) => item.id === element.id)
-  if (index === -1) return false
-
-  elements[index] = element
+  // A live update can outrun the add that created the element; accept it.
+  if (index === -1) {
+    if (elements.length >= MAX_ELEMENTS) return false
+    elements.push(element)
+  } else {
+    elements[index] = element
+  }
   scheduleSave(boardId)
   return true
 }
 
 export async function deleteElement(boardId, elementId) {
   const elements = await loadBoard(boardId)
-  const index = elements.findIndex((item) => item.id === elementId)
-  if (index === -1) return false
+  const remaining = elements.filter((item) => item.id !== elementId)
+  if (remaining.length === elements.length) return false
 
-  elements.splice(index, 1)
+  elements.splice(0, elements.length, ...remaining)
   scheduleSave(boardId)
   return true
 }
