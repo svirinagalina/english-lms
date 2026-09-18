@@ -742,7 +742,7 @@ export async function exportBoardPdf(elements, title = 'Board') {
 
 // --- Component ----------------------------------------------------------------
 
-export default function Whiteboard({ socketRef, boardId, title, subtitle, onClose, onStartCall, onOpenWriting, canSpotlight = false, onUploadImage, onAssist, assistEnabled }) {
+export default function Whiteboard({ socketRef, boardId, title, subtitle, onClose, backLabel = '← Back', onStartCall, onOpenWriting, canSpotlight = false, onUploadImage, onAssist, assistEnabled }) {
   const [assisting, setAssisting] = useState(null)
   const [exporting, setExporting] = useState(false)
   const fileInputRef = useRef(null)
@@ -2179,7 +2179,7 @@ export default function Whiteboard({ socketRef, boardId, title, subtitle, onClos
 
         {/* Corner chip with the board's name, like a Figma file tab. */}
         <div className="board-chip">
-          {onClose && <button className="chip-back" onClick={onClose} title="Back">← Back</button>}
+          {onClose && <button className="chip-back" onClick={onClose} title="Back">{backLabel}</button>}
           <strong>{title ?? 'Board'}</strong>
           {subtitle && <span className="muted"> · {subtitle}</span>}
           {onOpenWriting && (

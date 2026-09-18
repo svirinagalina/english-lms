@@ -583,6 +583,7 @@ export default function Call() {
               title="Writing"
               subtitle={writingChoices.find((c) => c.id === writingId)?.label ?? boards.find((b) => b.classroomId === writingId)?.student}
               onClose={closeWriting}
+              backLabel="← Back to video"
               embedded
             />
           ) : boardId ? (
@@ -592,6 +593,7 @@ export default function Call() {
               title={currentBoard?.title ?? 'Board'}
               subtitle={currentBoard?.student ?? currentBoard?.owner ?? undefined}
               onClose={closeBoard}
+              backLabel="← Back to video"
               onOpenWriting={currentBoard?.studentId ? () => openWriting(currentBoard.classroomId) : (writingChoices.length === 1 ? () => openWriting(writingChoices[0].id) : undefined)}
               canSpotlight={isStaff}
               onUploadImage={isStaff && currentBoard

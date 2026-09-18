@@ -145,7 +145,7 @@ function setCaret(root, offset) {
 
 const IMAGE_CHAR = '\uFFFC'
 
-export default function Writing({ socketRef, classroomId, user, title, subtitle, onClose, embedded = false }) {
+export default function Writing({ socketRef, classroomId, user, title, subtitle, onClose, backLabel = '← Back', embedded = false }) {
   const [runs, setRuns] = useState([])
   const [loaded, setLoaded] = useState(false)
   const [error, setError] = useState('')
@@ -362,7 +362,7 @@ export default function Writing({ socketRef, classroomId, user, title, subtitle,
     <div className={`writing ${embedded ? 'embedded' : ''}`}>
       <div className="writing-bar">
         <div className="writing-title">
-          {onClose && <button className="chip-back" onClick={onClose} title="Back">← Back</button>}
+          {onClose && <button className="chip-back" onClick={onClose} title="Back">{backLabel}</button>}
           <strong>{title ?? 'Writing'}</strong>
           {subtitle && <span className="muted"> · {subtitle}</span>}
           <span className="muted writing-stats"> · {words} words{pending ? ` · ${pending} suggestion${pending === 1 ? '' : 's'}` : ''}</span>
