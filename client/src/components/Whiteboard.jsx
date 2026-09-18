@@ -2291,7 +2291,8 @@ export default function Whiteboard({ socketRef, boardId, title, subtitle, onClos
               >
                 {exporting ? 'Exporting…' : 'PDF'}
               </button>
-              <button className="tool danger" onClick={handleClear}>Clear</button>
+              {/* Wiping the board is the teacher's call (canSpotlight = staff); the server refuses students. */}
+              {canSpotlight && <button className="tool danger" onClick={handleClear}>Clear</button>}
             </div>
           </div>
         )}
