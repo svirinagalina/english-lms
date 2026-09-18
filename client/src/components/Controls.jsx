@@ -130,7 +130,19 @@ export default function Controls({
         Mic
       </button>
 
-      {compact && writing}
+      {compact && (
+        writingId ? (
+          // On Writing the button reads "Board": one click back to the board.
+          <button
+            className="round"
+            onClick={() => onOpenBoard(boardId ?? preferredBoardId ?? boards[0]?.id)}
+            disabled={!boardId && !preferredBoardId && !boards.length}
+            title="Back to the board"
+          >
+            Board
+          </button>
+        ) : writing
+      )}
       {!compact && tools}
       <div className="more-wrap" ref={moreRef}>
         <button className={`round ${moreOpen ? 'on' : ''}`} onClick={() => setMoreOpen((v) => !v)} title={compact ? 'Screen, board, chat, noise reduction, blur, invite link' : 'Noise reduction, blur, invite link'}>
