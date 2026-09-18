@@ -204,8 +204,9 @@ classroomsRouter.get('/:id', async (req, res) => {
         createdAt: board.createdAt,
         updatedAt: board.updatedAt,
         // Shared in from another student's space, or shared out to others.
+        // Who else a board is shared with is the teacher's business only.
         shared: board.classroomId !== classroom.id,
-        sharedWith: board.sharedWith.map((c) => c.student?.name).filter(Boolean)
+        sharedWith: req.user.role === 'STUDENT' ? [] : board.sharedWith.map((c) => c.student?.name).filter(Boolean)
       }))
     }
   })

@@ -182,7 +182,10 @@ export function setupSignaling(io) {
       }
 
       socket.to(roomId).emit('user-joined', { id: socket.id, name: socket.data.name, userId: user.id })
-      if (typeof ack === 'function') ack({ peers, name: socket.data.name, boardId: roomBoards.get(roomId) ?? null, docId: roomDocs.get(roomId) ?? null })
+      // The teacher's current board/document is offered to staff joining
+      // later; a student starts on their own (the client opens it).
+      const lead = user.role !== 'STUDENT'
+      if (typeof ack === 'function') ack({ peers, name: socket.data.name, boardId: lead ? roomBoards.get(roomId) ?? null : null, docId: lead ? roomDocs.get(roomId) ?? null : null })
     })
 
     socket.on('call:start', async (ack) => {
@@ -250,8 +253,14 @@ export function setupSignaling(io) {
     // access to its classroom, or when it is already the room's board.
     const boardBelongsHere = async (boardId) => {
       if (typeof boardId !== 'string') return false
-      const board = await prisma.board.findUnique({ where: { id: boardId }, select: { classroomId: true, sharedWith: { select: { id: true } } } })
+      const board = await prisma.board.findUnique({ where: { id: boardId }, select: { classroomId: true, sharedWith: { select: { id: true, studentId: true } } } })
       if (!board) return false
+      // A student sees their own boards and those shared with them — never
+      // another student's, whatever call they are in.
+      if (user.role === 'STUDENT') {
+        if (board.sharedWith.some((c) => c.studentId === user.id)) return true
+        return Boolean(await accessibleClassroom(user, board.classroomId))
+      }
       const { roomId, classroomId } = socket.data
       if (board.classroomId === classroomId) return true
       if (classroomId && board.sharedWith.some((c) => c.id === classroomId)) return true
@@ -329,6 +338,8 @@ export function setupSignaling(io) {
 
     const docAllowed = async (classroomId) => {
       if (typeof classroomId !== 'string') return false
+      // A student's writing is theirs alone; a student opens only their own.
+      if (user.role === 'STUDENT') return Boolean(await accessibleClassroom(user, classroomId))
       const { roomId } = socket.data
       if (socket.data.classroomId === classroomId) return true
       if (roomId && roomDocs.get(roomId) === classroomId) return true

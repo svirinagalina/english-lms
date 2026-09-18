@@ -481,7 +481,9 @@ export default function Call() {
   const writingChoices = (() => {
     const seen = new Map()
     const add = (classroomId, label) => { if (classroomId && !seen.has(classroomId)) seen.set(classroomId, label) }
-    if (call?.classroomId) {
+    // A student only ever gets their own writing; the call may belong to
+    // another student's classroom in a group lesson.
+    if (call?.classroomId && (isStaff || boards.some((b) => b.classroomId === call.classroomId))) {
       add(call.classroomId, boards.find((b) => b.classroomId === call.classroomId)?.student ?? 'Student')
       return [...seen].map(([id, label]) => ({ id, label }))
     }
