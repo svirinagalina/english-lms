@@ -103,7 +103,6 @@ export default function Classroom() {
         if (response?.error) setError(response.error)
       })
     })
-    socket.on('board:switched', (boardId) => setOpenBoardId(boardId))
 
     return () => socket.disconnect()
   }, [id])

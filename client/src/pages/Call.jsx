@@ -219,9 +219,6 @@ export default function Call() {
         delete connectionsRef.current[peerId]
         setPeers((prev) => { const next = { ...prev }; delete next[peerId]; return next })
       })
-      // Follow the other side's board: opening or closing it there does it here too.
-      socket.on('board:switched', (id) => setBoardId(id))
-      socket.on('board:closed', () => setBoardId(null))
       socket.on('screen-share-started', ({ from }) => {
         setPeers((prev) => (prev[from] ? { ...prev, [from]: { ...prev[from], sharing: true } } : prev))
       })
@@ -232,7 +229,6 @@ export default function Call() {
         setMessages((prev) => [...prev.slice(-200), { ...message, mine: message.from === socket.id }])
         if (!chatOpenRef.current) setUnread((n) => n + 1)
       })
-      socket.on('doc:switched', (id) => setWritingId(id))
       socket.on('drawing', ({ x0, y0, x1, y1, color }) => {
         const canvas = drawingCanvasRef.current
         if (!canvas) return
@@ -457,11 +453,12 @@ export default function Call() {
   const currentBoard = boards.find((b) => b.id === boardId) ?? null
 
   // A call started from a student's page opens that student's board as soon
-  // as the teacher is in; the student follows through board:switched.
+  // as the teacher is in; a student joining later starts on it too (the
+  // join answer carries it), and from then on each side is on its own.
   const autoOpened = useRef(false)
   useEffect(() => {
-    if (status !== 'live' || !isStaff || autoOpened.current) return
-    const wanted = requestedBoard
+    if (status !== 'live' || autoOpened.current) return
+    const wanted = requestedBoard && isStaff
       ? boards.find((b) => b.id === requestedBoard)
       : call?.classroomId ? boards.find((b) => b.classroomId === call.classroomId) : null
     if (!wanted) return

@@ -262,11 +262,10 @@ export function setupSignaling(io) {
       socket.data.boardId = boardId
       watch(boardWatchers, boardId, socket)
       const elements = await loadBoard(boardId)
-      // A teacher's switch leads the room; a student's is private to them.
-      if (user.role !== 'STUDENT' && !options?.quiet) {
-        if (socket.data.callId) roomBoards.set(socket.data.roomId, boardId)
-        socket.to(socket.data.roomId).emit('board:switched', boardId)
-      }
+      // What each person has open is their own business; the only thing a
+      // teacher's choice does is tell people who join the call later which
+      // board to start on. Edits reach everyone through the watchers.
+      if (user.role !== 'STUDENT' && socket.data.callId) roomBoards.set(socket.data.roomId, boardId)
       if (typeof ack === 'function') ack({ elements })
     })
 
@@ -304,14 +303,12 @@ export function setupSignaling(io) {
       }
     })
 
-    // Whoever closes the board in a call closes it for everyone there.
+    // Closing is private too; newcomers then start without a board.
     socket.on('board:close', () => {
       const { roomId } = socket.data
       unwatch(boardWatchers, socket.data.boardId, socket)
       socket.data.boardId = null
-      if (!roomId || user.role === 'STUDENT') return
-      roomBoards.delete(roomId)
-      socket.to(roomId).emit('board:closed')
+      if (roomId && user.role !== 'STUDENT') roomBoards.delete(roomId)
     })
 
     // --- Writing documents ---------------------------------------------------
@@ -345,7 +342,6 @@ export function setupSignaling(io) {
         if (typeof ack === 'function') ack({ error: 'Could not load the document' })
         return
       }
-      if (user.role !== 'STUDENT' && !options?.quiet) socket.to(socket.data.roomId).emit('doc:switched', classroomId)
       if (typeof ack === 'function') ack({ runs })
     })
 
@@ -358,8 +354,8 @@ export function setupSignaling(io) {
       emitToWatchers(docWatchers, docId, socket, 'doc:update', { classroomId: docId, runs: parsed.data, from: socket.id })
     })
 
-    // Closing the document is private: the other side keeps theirs open.
-    // Opening one still leads the room to it (doc:switched above).
+    // Opening and closing the document are private as well; a teacher's
+    // open only tells later joiners which document to start on.
     socket.on('doc:close', () => {
       const { roomId } = socket.data
       unwatch(docWatchers, socket.data.docId, socket)
@@ -375,17 +371,17 @@ export function setupSignaling(io) {
       emitToWatchers(boardWatchers, boardId, socket, 'board:cursor', { from: socket.id, name: socket.data.name, x: pos.x, y: pos.y })
     })
 
-    // Spotlight: the teacher's viewport is broadcast so students' boards
-    // follow it. Pure relay; the room decides what to do with it.
+    // Spotlight: the teacher's viewport goes to everyone looking at the
+    // same board, so their view follows it.
     socket.on('board:spotlight', (state) => {
-      const { roomId } = socket.data
-      if (!roomId) return
-      socket.to(roomId).emit('board:spotlight', { from: socket.id, name: socket.data.name, on: Boolean(state?.on) })
+      const { boardId } = socket.data
+      if (!boardId) return
+      emitToWatchers(boardWatchers, boardId, socket, 'board:spotlight', { from: socket.id, name: socket.data.name, on: Boolean(state?.on) })
     })
     socket.on('board:view', (view) => {
-      const { roomId } = socket.data
-      if (!roomId || typeof view?.scale !== 'number') return
-      socket.to(roomId).emit('board:view', { from: socket.id, scale: view.scale, cx: Number(view.cx) || 0, cy: Number(view.cy) || 0 })
+      const { boardId } = socket.data
+      if (!boardId || typeof view?.scale !== 'number') return
+      emitToWatchers(boardWatchers, boardId, socket, 'board:view', { from: socket.id, scale: view.scale, cx: Number(view.cx) || 0, cy: Number(view.cy) || 0 })
     })
 
     // Wiping a board is the teacher's call; a student can undo their own strokes.
