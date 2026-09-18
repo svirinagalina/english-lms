@@ -163,6 +163,15 @@ vocabRouter.post('/my/words', async (req, res) => {
   res.status(201).json({ card, setId: set.id, added: true })
 })
 
+vocabRouter.patch('/:id', async (req, res) => {
+  const parsed = setSchema.safeParse(req.body)
+  if (!parsed.success) return res.status(400).json({ error: 'Invalid data' })
+  const set = await prisma.vocabSet.findFirst({ where: { id: req.params.id, ...visibleSets(req.user) } })
+  if (!set || !mayEditSet(req.user, set)) return res.status(404).json({ error: 'Set not found' })
+  const updated = await prisma.vocabSet.update({ where: { id: set.id }, data: { title: parsed.data.title }, select: { id: true, title: true } })
+  res.json({ set: updated })
+})
+
 vocabRouter.delete('/:id', async (req, res) => {
   const set = await prisma.vocabSet.findFirst({
     where: { id: req.params.id, ...visibleSets(req.user) }

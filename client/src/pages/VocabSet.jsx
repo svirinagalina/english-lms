@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { Link, useParams } from 'react-router-dom'
+import { Link, useNavigate, useParams } from 'react-router-dom'
 import { api } from '../api'
 import { PlayButton } from '../components/WordCard'
 
@@ -193,6 +193,31 @@ export default function VocabSet() {
     }
   }
 
+  const [renaming, setRenaming] = useState(false)
+  const [titleDraft, setTitleDraft] = useState('')
+  const saveTitle = async (event) => {
+    event.preventDefault()
+    setError('')
+    try {
+      await api.renameVocabSet(id, titleDraft.trim())
+      setRenaming(false)
+      await refresh()
+    } catch (err) {
+      setError(err.message)
+    }
+  }
+
+  const navigate = useNavigate()
+  const deleteSet = async () => {
+    if (!window.confirm(`Delete "${set.title}" with all ${set.cards.length} words? This cannot be undone.`)) return
+    try {
+      await api.deleteVocabSet(id)
+      navigate('/vocabulary')
+    } catch (err) {
+      setError(err.message)
+    }
+  }
+
   const handleDelete = async (cardId) => {
     await api.deleteCard(id, cardId)
     await refresh()
@@ -217,7 +242,23 @@ export default function VocabSet() {
       <header className="topbar">
         <div className="row-actions">
           <Link className="ghost back-link" to="/vocabulary">← Back</Link>
-          <strong>{set.title}</strong>
+          {renaming ? (
+            <form className="row-actions" onSubmit={saveTitle}>
+              <input autoFocus value={titleDraft} onChange={(e) => setTitleDraft(e.target.value)} maxLength={200} required />
+              <button type="submit">Save</button>
+              <button type="button" className="ghost" onClick={() => setRenaming(false)}>Cancel</button>
+            </form>
+          ) : (
+            <>
+              <strong>{set.title}</strong>
+              {set.canEdit && !studying && (
+                <>
+                  <button className="ghost" onClick={() => { setTitleDraft(set.title); setRenaming(true) }} title="Rename this set">Rename</button>
+                  {!set.personal && <button className="ghost" onClick={deleteSet} title="Delete this set and all its words">Delete set</button>}
+                </>
+              )}
+            </>
+          )}
         </div>
         <div className="row-actions">
           {!studying && set.cards.length > 0 && (

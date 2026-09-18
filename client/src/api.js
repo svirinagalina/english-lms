@@ -60,6 +60,7 @@ export const api = {
   createVocabSet: (body) => request('/vocab', { method: 'POST', body }),
   getVocabSet: (id) => request(`/vocab/${id}`),
   deleteVocabSet: (id) => request(`/vocab/${id}`, { method: 'DELETE' }),
+  renameVocabSet: (id, title) => request(`/vocab/${id}`, { method: 'PATCH', body: { title } }),
   addCard: (setId, body) => request(`/vocab/${setId}/cards`, { method: 'POST', body }),
   addCardsBulk: (setId, text) =>
     request(`/vocab/${setId}/cards/bulk`, { method: 'POST', body: { text } }),
