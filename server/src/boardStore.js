@@ -8,7 +8,9 @@ const colour = z.string().regex(/^#[0-9a-fA-F]{6}$/)
 
 export const elementSchema = z.object({
   id: z.string().min(1).max(64),
-  type: z.enum(['path', 'rect', 'ellipse', 'arrow', 'text', 'image', 'note']),
+  type: z.enum(['path', 'rect', 'ellipse', 'arrow', 'text', 'image', 'note', 'sticker']),
+  // Which drawn sticker ("well-done", "great-job").
+  kind: z.string().max(32).optional(),
   color: colour,
   width: z.number().min(1).max(64),
   // Flat [x0, y0, x1, y1, …] list; capped so one stroke cannot bloat the board.

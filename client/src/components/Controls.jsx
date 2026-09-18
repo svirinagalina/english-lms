@@ -1,13 +1,10 @@
 import { forwardRef, useEffect, useRef, useState } from 'react'
 import { REACTIONS } from './Reactions'
 
-// Stickers for the board: emoji, and a few phrases as coloured notes.
+// Stickers for the board: two praise pills, drawn on the canvas.
 export const STICKERS = [
-  { text: '⭐' }, { text: '🏆' }, { text: '👍' }, { text: '🎉' }, { text: '✅' }, { text: '💡' },
-  { text: '🔥' }, { text: '🎯' }, { text: '🧠' }, { text: '📌' }, { text: '❓' }, { text: '❗' },
-  { text: 'Well done!', phrase: true, fill: '#bbf7d0' }, { text: 'Great job', phrase: true, fill: '#fef08a' },
-  { text: 'New word', phrase: true, fill: '#bfdbfe' }, { text: 'Remember!', phrase: true, fill: '#fed7aa' },
-  { text: 'Homework', phrase: true, fill: '#e9d5ff' }, { text: 'Say it again', phrase: true, fill: '#fecaca' }
+  { kind: 'well-done', text: 'Well done!', from: '#ffd5ed', to: '#f4b9d9', tilt: -4 },
+  { kind: 'great-job', text: 'Great job', from: '#c7f5d9', to: '#86efac', tilt: 3 }
 ]
 
 const Controls = forwardRef(function Controls({
@@ -176,17 +173,17 @@ const Controls = forwardRef(function Controls({
             {onSticker && (
               <>
                 <div className="more-label">Stickers for the board</div>
-                <div className="more-emoji">
+                <div className="more-stickers">
                   {STICKERS.map((sticker) => (
                     <button
-                      key={sticker.text}
+                      key={sticker.kind}
                       type="button"
-                      className={sticker.phrase ? 'phrase' : ''}
-                      style={sticker.phrase ? { background: sticker.fill } : undefined}
+                      className="sticker-preview"
+                      style={{ background: `linear-gradient(135deg, ${sticker.from}, ${sticker.to})`, transform: `rotate(${sticker.tilt}deg)` }}
                       onClick={() => { onSticker(sticker); setMoreOpen(false) }}
                       title="Put on the board"
                     >
-                      {sticker.text}
+                      <span className="sparkle">✦</span>{sticker.text}<span className="sparkle small">✦</span>
                     </button>
                   ))}
                 </div>

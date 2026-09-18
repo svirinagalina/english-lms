@@ -874,3 +874,15 @@ select.pill { padding: 0 16px; color: var(--text); border: none; }
 .more-emoji button:hover { background: rgba(255,255,255,.1); transform: scale(1.15); }
 .more-emoji .phrase { font-size: 12px; font-weight: 600; padding: 5px 8px; color: var(--accent-ink); }
 .more-label { font-size: 11px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); margin: 4px 0 2px; }
+.more-stickers { display: flex; gap: 14px; justify-content: center; padding: 8px 4px 10px; }
+.sticker-preview {
+  position: relative;
+  display: inline-flex; align-items: center; gap: 6px;
+  height: 40px; padding: 0 18px; border-radius: 20px; border: 2px solid rgba(255,255,255,.85);
+  color: #14453f; font-weight: 800; font-size: 15px; letter-spacing: .01em; white-space: nowrap;
+  box-shadow: 0 6px 16px rgba(20,69,63,.3); cursor: pointer;
+  transition: transform .15s;
+}
+.sticker-preview:hover { transform: rotate(0deg) scale(1.08) !important; }
+.sticker-preview .sparkle { color: #fff; font-size: 14px; }
+.sticker-preview .sparkle.small { font-size: 9px; align-self: flex-start; }

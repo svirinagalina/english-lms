@@ -536,6 +536,62 @@ function drawImageElement(ctx, element, alpha = 1) {
   ctx.restore()
 }
 
+// The two praise stickers: a soft gradient pill with a tilt, a shadow,
+// bold text and a few sparkles. Drawn, not an image, so they scale crisply.
+const STICKER_STYLES = {
+  'well-done': { text: 'Well done!', from: '#ffd5ed', to: '#f4b9d9', ink: '#14453f', tilt: -4, spark: '#fff' },
+  'great-job': { text: 'Great job', from: '#c7f5d9', to: '#86efac', ink: '#14453f', tilt: 3, spark: '#fff' }
+}
+function drawSparkle(ctx, x, y, r, color) {
+  ctx.save()
+  ctx.fillStyle = color
+  ctx.beginPath()
+  for (let i = 0; i < 8; i++) {
+    const angle = (Math.PI / 4) * i
+    const radius = i % 2 === 0 ? r : r * 0.38
+    ctx.lineTo(x + Math.cos(angle) * radius, y + Math.sin(angle) * radius)
+  }
+  ctx.closePath()
+  ctx.fill()
+  ctx.restore()
+}
+function drawSticker(ctx, element) {
+  const style = STICKER_STYLES[element.kind] ?? STICKER_STYLES['well-done']
+  const w = Math.abs(element.w) || 220
+  const h = Math.abs(element.h) || 84
+  const x = Math.min(element.x, element.x + element.w)
+  const y = Math.min(element.y, element.y + element.h)
+  ctx.save()
+  ctx.translate(x + w / 2, y + h / 2)
+  ctx.rotate((style.tilt * Math.PI) / 180)
+  const gradient = ctx.createLinearGradient(-w / 2, -h / 2, w / 2, h / 2)
+  gradient.addColorStop(0, style.from)
+  gradient.addColorStop(1, style.to)
+  ctx.shadowColor = 'rgba(20, 69, 63, 0.28)'
+  ctx.shadowBlur = h * 0.35
+  ctx.shadowOffsetY = h * 0.12
+  ctx.fillStyle = gradient
+  ctx.beginPath()
+  ctx.roundRect(-w / 2, -h / 2, w, h, h / 2)
+  ctx.fill()
+  ctx.shadowColor = 'transparent'
+  // A white inner rim gives it the glossy sticker edge.
+  ctx.lineWidth = Math.max(2, h * 0.06)
+  ctx.strokeStyle = 'rgba(255,255,255,0.85)'
+  ctx.beginPath()
+  ctx.roundRect(-w / 2 + ctx.lineWidth, -h / 2 + ctx.lineWidth, w - 2 * ctx.lineWidth, h - 2 * ctx.lineWidth, (h - 2 * ctx.lineWidth) / 2)
+  ctx.stroke()
+  ctx.fillStyle = style.ink
+  ctx.font = `800 ${Math.round(h * 0.38)}px Manrope, system-ui, sans-serif`
+  ctx.textAlign = 'center'
+  ctx.textBaseline = 'middle'
+  ctx.fillText(style.text, 0, h * 0.02)
+  drawSparkle(ctx, -w / 2 + h * 0.34, -h * 0.16, h * 0.13, style.spark)
+  drawSparkle(ctx, w / 2 - h * 0.3, h * 0.14, h * 0.1, style.spark)
+  drawSparkle(ctx, w / 2 - h * 0.48, -h * 0.3, h * 0.06, style.spark)
+  ctx.restore()
+}
+
 function drawElement(ctx, element) {
   ctx.strokeStyle = inkOf(element.color)
   ctx.fillStyle = inkOf(element.color)
@@ -544,6 +600,7 @@ function drawElement(ctx, element) {
   ctx.lineJoin = 'round'
 
   if (element.type === 'image') return drawImageElement(ctx, element)
+  if (element.type === 'sticker') return drawSticker(ctx, element)
 
   if (element.type === 'path') {
     const points = element.points ?? []
@@ -2202,9 +2259,7 @@ const Whiteboard = forwardRef(function Whiteboard({ socketRef, boardId, title, s
     const jitter = () => (Math.random() - 0.5) * 80
     const cx = (rect.width / 2 - v.x) / v.scale + jitter()
     const cy = (rect.height / 2 - v.y) / v.scale + jitter()
-    const element = sticker.phrase
-      ? { id: newId(), type: 'note', color: COLORS[0], width, x: cx - 80, y: cy - 30, w: 160, h: 60, fill: sticker.fill ?? NOTE_FILLS[0], text: `**${sticker.text}**`, fontSize: 20 }
-      : { id: newId(), type: 'text', color: COLORS[0], width, x: cx - 36, y: cy - 36, text: sticker.text, fontSize: 72 }
+    const element = { id: newId(), type: 'sticker', kind: sticker.kind, color: COLORS[0], width: 1, x: cx - 110, y: cy - 42, w: 220, h: 84 }
     commit(element)
     selectedRef.current = [element.id]
     setTool('select')
