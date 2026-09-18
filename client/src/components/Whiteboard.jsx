@@ -766,6 +766,16 @@ export default function Whiteboard({ socketRef, boardId, title, subtitle, onClos
   const lastFontSizeRef = useRef(24)
   const [width, setWidth] = useState(3)
   const [textInput, setTextInput] = useState(null)
+  // Other people's cursors on this board, by socket id.
+  const [cursors, setCursors] = useState({})
+  const cursorSentRef = useRef(0)
+  const broadcastCursor = (point) => {
+    const now = Date.now()
+    if (now - cursorSentRef.current < 60) return
+    cursorSentRef.current = now
+    socketRef.current?.emit('board:cursor', { x: point.x, y: point.y })
+  }
+
   // Hover dictionary: the word under the pointer and its translation.
   const [tip, setTip] = useState(null) // { x, y, word, entry }
   const tipTimer = useRef(null)
@@ -956,6 +966,21 @@ export default function Whiteboard({ socketRef, boardId, title, subtitle, onClos
     socket.on('board:update', onUpdate)
     socket.on('board:delete', onDelete)
     socket.on('board:clear', onClear)
+    const onCursor = ({ from, name, x, y, gone }) => {
+      setCursors((prev) => {
+        if (gone) { const next = { ...prev }; delete next[from]; return next }
+        return { ...prev, [from]: { name, x, y, at: Date.now() } }
+      })
+    }
+    socket.on('board:cursor', onCursor)
+    // Cursors that stopped moving fade away.
+    const sweep = setInterval(() => {
+      setCursors((prev) => {
+        const cutoff = Date.now() - 8000
+        const next = Object.fromEntries(Object.entries(prev).filter(([, c]) => c.at > cutoff))
+        return Object.keys(next).length === Object.keys(prev).length ? prev : next
+      })
+    }, 2000)
     socket.on('board:spotlight', onSpotlight)
     socket.on('board:view', onView)
 
@@ -966,6 +991,9 @@ export default function Whiteboard({ socketRef, boardId, title, subtitle, onClos
       socket.off('board:clear', onClear)
       socket.off('board:spotlight', onSpotlight)
       socket.off('board:view', onView)
+      socket.off('board:cursor', onCursor)
+      clearInterval(sweep)
+      setCursors({})
     }
   }, [socketRef, boardId, scheduleRender])
 
@@ -1554,6 +1582,7 @@ export default function Whiteboard({ socketRef, boardId, title, subtitle, onClos
   }
 
   const handlePointerMove = (event) => {
+    if (canvasRef.current) broadcastCursor(toWorld(event))
     if (event.pointerType === 'touch' && touchesRef.current.has(event.pointerId)) {
       const rect = canvasRef.current.getBoundingClientRect()
       touchesRef.current.set(event.pointerId, { x: event.clientX - rect.left, y: event.clientY - rect.top })
@@ -1798,9 +1827,20 @@ export default function Whiteboard({ socketRef, boardId, title, subtitle, onClos
     lastFontSizeRef.current = draft.fontSize
     const text = latest.replace(/\s+$/, '')
 
+    clearTimeout(liveTimerRef.current)
     if (draft.id) {
       if (!text.trim() && !draft.note) { remove(draft.id); return }
       const after = { ...draft.before, text, fontSize: draft.fontSize, color: draft.color }
+      if (draft.created) {
+        // Born live a moment ago: finish it and record it as one addition.
+        replaceRaw(after)
+        record({ type: 'add', element: structuredClone(after) })
+        selectedRef.current = [after.id]
+        setTool('select')
+        scheduleRender()
+        bump()
+        return
+      }
       if (JSON.stringify(after) === JSON.stringify(draft.before)) { scheduleRender(); return }
       replaceRaw(after)
       record({ type: 'update', before: draft.before, after: structuredClone(after) })
@@ -1819,15 +1859,40 @@ export default function Whiteboard({ socketRef, boardId, title, subtitle, onClos
   }
 
   const cancelText = () => {
+    if (textInput?.created) removeRaw(textInput.id)
     setTextInput(null)
     scheduleRender()
   }
 
   // Reads the editor back into markup after any change.
+  // Typing is visible to everyone as it happens: the first keystroke of a new
+  // text creates the element, later ones update it (at most ~5 times a
+  // second); the history entry is written once, when editing finishes.
+  const liveSentRef = useRef(0)
+  const liveTimerRef = useRef(null)
+  const pushLive = (draft, value) => {
+    if (!draft.id || !draft.before) return
+    const element = { ...draft.before, text: value, fontSize: draft.fontSize, color: draft.color }
+    const send = () => { liveSentRef.current = Date.now(); replace(element); emit('board:update', element) }
+    clearTimeout(liveTimerRef.current)
+    if (Date.now() - liveSentRef.current > 200) send()
+    else liveTimerRef.current = setTimeout(send, 200)
+  }
   const syncEditor = () => {
     const area = textAreaRef.current
     if (!area || !textInput) return
-    setTextInput((current) => (current ? { ...current, value: htmlToMarkup(area, current.color) } : current))
+    const value = htmlToMarkup(area, textInput.color)
+    if (!textInput.id) {
+      if (!value.trim()) { setTextInput({ ...textInput, value }); return }
+      // First real character of a new text: put it on the board for everyone.
+      const element = { id: newId(), type: 'text', color: textInput.color, width, x: textInput.x, y: textInput.y, text: value, fontSize: textInput.fontSize }
+      addRaw(element)
+      scheduleRender()
+      setTextInput({ ...textInput, id: element.id, value, before: structuredClone(element), created: true })
+      return
+    }
+    setTextInput({ ...textInput, value })
+    pushLive(textInput, value)
   }
 
   // Is the editor's selection collapsed (nothing highlighted)?
@@ -2100,6 +2165,13 @@ export default function Whiteboard({ socketRef, boardId, title, subtitle, onClos
           )}
           {onClose && <button className="chip-close" onClick={onClose} title="Close board">×</button>}
         </div>
+
+        {Object.entries(cursors).map(([id, c]) => (
+          <div key={id} className="peer-cursor" style={{ left: c.x * view.scale + view.x, top: c.y * view.scale + view.y }}>
+            <svg width="16" height="20" viewBox="0 0 16 20"><path d="M1 1 L15 10 L8 11 L4.5 19 Z" fill="#f4b9d9" stroke="#14453f" strokeWidth="1.2" /></svg>
+            <span>{c.name}</span>
+          </div>
+        ))}
 
         {tip && (
           <div className="word-tip" style={{ left: tip.x + 12, top: tip.y + 16 }}>

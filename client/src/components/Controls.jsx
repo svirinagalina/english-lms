@@ -47,9 +47,9 @@ export default function Controls({
       <button
         className={`round ${hasScreenStream ? 'on' : ''}`}
         onClick={onShareScreen}
-        title="Share your screen"
+        title={hasScreenStream ? 'Stop sharing your screen' : 'Share your screen'}
       >
-        Screen
+        {hasScreenStream ? 'Stop screen' : 'Screen'}
       </button>
 
       {boards.length > 0 && (

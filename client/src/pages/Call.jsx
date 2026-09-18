@@ -202,6 +202,12 @@ export default function Call() {
       // Follow the other side's board: opening or closing it there does it here too.
       socket.on('board:switched', (id) => setBoardId(id))
       socket.on('board:closed', () => setBoardId(null))
+      socket.on('screen-share-started', ({ from }) => {
+        setPeers((prev) => (prev[from] ? { ...prev, [from]: { ...prev[from], sharing: true } } : prev))
+      })
+      socket.on('screen-share-stopped', ({ from }) => {
+        setPeers((prev) => (prev[from] ? { ...prev, [from]: { ...prev[from], sharing: false } } : prev))
+      })
       socket.on('chat:message', (message) => {
         setMessages((prev) => [...prev.slice(-200), { ...message, mine: message.from === socket.id }])
         if (!chatOpenRef.current) setUnread((n) => n + 1)
@@ -367,22 +373,43 @@ export default function Call() {
         if (sender) await sender.replaceTrack(track)
       }
       if (stream) { if (old) { stream.removeTrack(old); old.stop() } stream.addTrack(track) }
+      // Report what the browser actually applied — Safari, for one, ignores it.
+      const applied = track.getSettings?.().noiseSuppression
       setNoiseSuppression(next)
+      if (next && applied === false) setMediaWarning('This browser does not support noise reduction — use headphones to avoid echo.')
+      else setMediaWarning((w) => (w.startsWith('This browser does not support noise') ? '' : w))
     } catch (err) {
       setMediaWarning(`Could not change noise reduction: ${err?.message ?? err}`)
     }
   }
 
+  // The screen goes out in place of the camera on every connection (no
+  // renegotiation needed); the camera comes back when sharing stops.
+  const screenStreamRef = useRef(null)
+  const swapOutgoingVideo = async (track) => {
+    for (const pc of Object.values(connectionsRef.current)) {
+      const sender = pc.getSenders().find((s) => s.track?.kind === 'video')
+      if (sender && track) await sender.replaceTrack(track).catch(() => {})
+    }
+  }
+  const stopSharing = async () => {
+    const stream = screenStreamRef.current
+    screenStreamRef.current = null
+    stream?.getTracks().forEach((t) => t.stop())
+    setScreenStream(null)
+    await swapOutgoingVideo(localStreamRef.current?.getVideoTracks()[0])
+    socketRef.current?.emit('screen-share-stop')
+  }
   const shareScreen = async () => {
+    if (screenStreamRef.current) { await stopSharing(); return }
     try {
       const stream = await navigator.mediaDevices.getDisplayMedia({ video: true, audio: false })
+      screenStreamRef.current = stream
       setScreenStream(stream)
       if (screenVideoRef.current) screenVideoRef.current.srcObject = stream
+      await swapOutgoingVideo(stream.getVideoTracks()[0])
       socketRef.current?.emit('screen-share-start')
-      stream.getVideoTracks()[0].onended = () => {
-        setScreenStream(null)
-        socketRef.current?.emit('screen-share-stop')
-      }
+      stream.getVideoTracks()[0].onended = () => { if (screenStreamRef.current) stopSharing() }
     } catch (err) {
       console.error('Screen share cancelled:', err)
     }

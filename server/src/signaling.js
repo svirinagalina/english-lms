@@ -356,6 +356,13 @@ export function setupSignaling(io) {
       socket.to(roomId).emit('doc:closed')
     })
 
+    // Live cursors: everyone with the board open sees where the others point.
+    socket.on('board:cursor', (pos) => {
+      const { boardId } = socket.data
+      if (!boardId || typeof pos?.x !== 'number' || typeof pos?.y !== 'number') return
+      emitToWatchers(boardWatchers, boardId, socket, 'board:cursor', { from: socket.id, name: socket.data.name, x: pos.x, y: pos.y })
+    })
+
     // Spotlight: the teacher's viewport is broadcast so students' boards
     // follow it. Pure relay; the room decides what to do with it.
     socket.on('board:spotlight', (state) => {
@@ -378,6 +385,7 @@ export function setupSignaling(io) {
     })
 
     socket.on('disconnect', async () => {
+      if (socket.data.boardId) emitToWatchers(boardWatchers, socket.data.boardId, socket, 'board:cursor', { from: socket.id, gone: true })
       unwatch(boardWatchers, socket.data.boardId, socket)
       unwatch(docWatchers, socket.data.docId, socket)
       const { roomId, classroomId } = socket.data

@@ -36,6 +36,23 @@ function PeerVideo({ stream, name, muted }) {
   )
 }
 
+// Someone else's shared screen, large.
+function RemoteScreen({ stream, name }) {
+  const ref = useRef(null)
+  useEffect(() => {
+    const video = ref.current
+    if (!video) return
+    if (video.srcObject !== stream) video.srcObject = stream
+    if (stream) video.play().catch(() => {})
+  }, [stream])
+  return (
+    <>
+      <video ref={ref} autoPlay playsInline />
+      <span className="tile-label">{name} is sharing their screen</span>
+    </>
+  )
+}
+
 export default function VideoGrid({
   peers,
   micOn = true,
@@ -50,6 +67,7 @@ export default function VideoGrid({
   isBlurEnabled,
   socketRef
 }) {
+  const sharingPeer = Object.values(peers).find((p) => p.sharing && p.stream) ?? null
   const drawing = useRef(false)
   const lastPoint = useRef(null)
 
@@ -107,9 +125,14 @@ export default function VideoGrid({
   }
 
   return (
-    <div className={`stage ${board ? 'board-mode' : screenStream ? 'with-screen' : ''}`}>
-      {board && <div className="board-area">{board}</div>}
-      {screenStream && !board && (
+    <div className={`stage ${board && !sharingPeer && !screenStream ? 'board-mode' : (screenStream || sharingPeer) ? 'with-screen' : ''}`}>
+      {board && !sharingPeer && !screenStream && <div className="board-area">{board}</div>}
+      {sharingPeer && !screenStream && (
+        <div className="screen-area">
+          <RemoteScreen stream={sharingPeer.stream} name={sharingPeer.name} />
+        </div>
+      )}
+      {screenStream && (
         <div className="screen-area">
           <video
             ref={screenVideoRef}
