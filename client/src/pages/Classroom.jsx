@@ -311,6 +311,23 @@ export default function Classroom() {
 
       {isStaff && classroom.progress && <PackagePanel classroom={classroom} onChanged={refresh} />}
 
+      {!isPersonal && !isStaff && classroom.progress && (
+        <section>
+          <h2>Lesson package</h2>
+          <p>
+            <strong>{classroom.progress.held}</strong>{' '}
+            {classroom.progress.lessonsPaid == null
+              ? 'lessons held'
+              : `of ${classroom.progress.lessonsPaid} paid lessons held`}
+            {classroom.progress.remaining != null && (
+              <span className={`paid-badge ${classroom.progress.remaining > 0 ? 'active' : ''}`} style={{ marginLeft: 10 }}>
+                {classroom.progress.remaining > 0 ? `${classroom.progress.remaining} left` : 'package finished'}
+              </span>
+            )}
+          </p>
+        </section>
+      )}
+
       {!isPersonal && (
       <section>
         <h2>Lessons held</h2>
