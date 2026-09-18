@@ -546,16 +546,22 @@ export default function Call() {
     )
   }
 
+  // Leaving returns to the student this call belongs to.
+  const leaveTo = call.classroomId ? `/classroom/${call.classroomId}` : '/classroom'
+
   return (
     <div className={`lesson-page ${boardId || writingId ? 'board-mode' : ''}`}>
       <header className="topbar">
-        <div className="nav-identity">
-          <strong>{call.title ?? 'Video call'}</strong>
-          <span className="muted"> · {call.host}</span>
+        <div className="nav-identity row-actions">
+          <Link className="ghost back-link" to={leaveTo}>← Back</Link>
+          <div>
+            <strong>{call.title ?? 'Video call'}</strong>
+            <span className="muted"> · {call.host}</span>
+          </div>
         </div>
         <div className="row-actions">
           <button className="ghost" onClick={copyLink}>{copied ? 'Link copied' : 'Copy invite link'}</button>
-          <Link className="ghost" to="/classroom">Leave</Link>
+          <Link className="ghost" to={leaveTo}>Leave</Link>
         </div>
       </header>
 
@@ -622,7 +628,7 @@ export default function Call() {
         onToggleMicrophone={toggleTrack('audio')}
         cameraOn={cameraOn}
         micOn={micOn}
-        onLeave={boardId || writingId ? () => navigate('/classroom') : undefined}
+        onLeave={boardId || writingId ? () => navigate(leaveTo) : undefined}
         onCopyLink={boardId || writingId ? copyLink : undefined}
         copied={copied}
         chatOpen={chatOpen}
