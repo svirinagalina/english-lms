@@ -658,7 +658,7 @@ export default function Call() {
               subtitle={currentBoard?.student ?? currentBoard?.owner ?? undefined}
               onClose={closeBoard}
               backLabel="← Back"
-              onOpenWriting={currentBoard?.studentId ? () => openWriting(currentBoard.classroomId) : (writingChoices.length === 1 ? () => openWriting(writingChoices[0].id) : undefined)}
+              // Writing is in the call controls; the chip stays lean.
               canSpotlight={isStaff}
               wordPicker={!isStaff}
               onMistake={isStaff && currentBoard?.studentId ? (body) => api.addMistake(currentBoard.classroomId, { ...body, boardId }) : undefined}

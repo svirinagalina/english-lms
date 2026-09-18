@@ -230,7 +230,7 @@ select.tool { appearance: auto; padding: 5px 8px; }
 @media (max-width: 1300px) { .board-hint { display: none; } }
 
 .chip-call {
-  margin-left: 10px;
+  margin-left: 8px;
   background: var(--accent);
   color: var(--accent-ink);
   border: none;
@@ -243,6 +243,8 @@ select.tool { appearance: auto; padding: 5px 8px; }
 }
 
 .chip-call.ghost-chip { background: transparent; border: 1px solid var(--border); color: var(--text); }
+/* The first button after the title keeps a little more air than buttons between themselves. */
+.board-chip > .muted + .chip-call, .board-chip > strong + .chip-call { margin-left: 12px; }
 .chip-call.on { background: #22c55e; color: #052e16; }
 .board-following {
   position: absolute;
