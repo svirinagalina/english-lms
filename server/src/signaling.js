@@ -358,13 +358,14 @@ export function setupSignaling(io) {
       emitToWatchers(docWatchers, docId, socket, 'doc:update', { classroomId: docId, runs: parsed.data, from: socket.id })
     })
 
+    // Closing the document is private: the other side keeps theirs open.
+    // Opening one still leads the room to it (doc:switched above).
     socket.on('doc:close', () => {
       const { roomId } = socket.data
       unwatch(docWatchers, socket.data.docId, socket)
       socket.data.docId = null
       if (!roomId || user.role === 'STUDENT') return
       roomDocs.delete(roomId)
-      socket.to(roomId).emit('doc:closed')
     })
 
     // Live cursors: everyone with the board open sees where the others point.

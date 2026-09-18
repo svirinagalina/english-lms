@@ -233,7 +233,6 @@ export default function Call() {
         if (!chatOpenRef.current) setUnread((n) => n + 1)
       })
       socket.on('doc:switched', (id) => setWritingId(id))
-      socket.on('doc:closed', () => setWritingId(null))
       socket.on('drawing', ({ x0, y0, x1, y1, color }) => {
         const canvas = drawingCanvasRef.current
         if (!canvas) return
