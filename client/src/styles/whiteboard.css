@@ -267,3 +267,15 @@ select.tool { appearance: auto; padding: 5px 8px; }
 
 .peer-cursor { position: absolute; pointer-events: none; z-index: 3; display: flex; align-items: flex-start; gap: 2px; transform: translate(-1px, -1px); }
 .peer-cursor span { margin-top: 10px; padding: 2px 7px; border-radius: 999px; background: #f4b9d9; color: #14453f; font-size: 11px; font-weight: 600; white-space: nowrap; }
+
+/* Narrow windows: the zoom controls drop under the name chip, the dock's
+   groups wrap into rows, and the chip never runs under the controls. */
+@media (max-width: 720px) {
+  .board-chip { max-width: calc(100vw - 24px); }
+  .board-corner-right { top: 60px; }
+  .board-dock { gap: 8px; padding: 8px 10px; }
+  .board-dock .dock-group { flex-wrap: wrap; justify-content: center; }
+  .board-dock .dock-group + .dock-group { border-left: none; padding-left: 0; border-top: 1px solid var(--border); padding-top: 8px; width: 100%; }
+  .board-hint { display: none; }
+  .stage.board-mode .tiles { width: 120px; top: 100px; }
+}

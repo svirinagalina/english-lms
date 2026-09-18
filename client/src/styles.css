@@ -741,3 +741,28 @@ select.pill { padding: 0 16px; color: var(--text); border: none; }
 .play-word.on { background: #22c55e; color: #052e16; }
 .play-word:hover { filter: brightness(1.08); }
 .word-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+
+/* --- Narrow windows: a browser split in two, a tablet, a phone ---------- */
+
+/* The header wraps: brand and title on one line, the section links below. */
+.topbar { flex-wrap: wrap; gap: 10px 16px; }
+.topbar .nav-identity { flex: 1 1 320px; }
+.topbar .nav-links { flex: 0 1 auto; margin-left: auto; }
+.nav-identity > div { min-width: 0; line-height: 1.3; }
+.brand-row .brand { flex-shrink: 0; }
+
+.row, .row-main, .row-actions { flex-wrap: wrap; }
+.row > div:first-child, .row-main > div:first-child { min-width: 0; }
+
+@media (max-width: 720px) {
+  .page { padding: 16px; }
+  .topbar .nav-identity { flex-basis: 100%; }
+  .topbar .nav-links { margin-left: 0; }
+  .nav-link { font-size: 14px; padding: 8px 12px; }
+  .row { padding: 12px 14px; }
+  .row-actions button, .row-actions .button { flex: 1 1 auto; }
+  .call-launch { flex-direction: column; align-items: stretch; }
+  .package-box { flex-direction: column; align-items: stretch; }
+  .inline-form input { min-width: 0; }
+  .stat-row { grid-template-columns: 1fr 1fr; }
+}
