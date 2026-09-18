@@ -557,8 +557,8 @@ function drawSparkle(ctx, x, y, r, color) {
 }
 function drawSticker(ctx, element) {
   const style = STICKER_STYLES[element.kind] ?? STICKER_STYLES['well-done']
-  const w = Math.abs(element.w) || 220
-  const h = Math.abs(element.h) || 84
+  const w = Math.abs(element.w) || 110
+  const h = Math.abs(element.h) || 42
   const x = Math.min(element.x, element.x + element.w)
   const y = Math.min(element.y, element.y + element.h)
   ctx.save()
@@ -2259,7 +2259,7 @@ const Whiteboard = forwardRef(function Whiteboard({ socketRef, boardId, title, s
     const jitter = () => (Math.random() - 0.5) * 80
     const cx = (rect.width / 2 - v.x) / v.scale + jitter()
     const cy = (rect.height / 2 - v.y) / v.scale + jitter()
-    const element = { id: newId(), type: 'sticker', kind: sticker.kind, color: COLORS[0], width: 1, x: cx - 110, y: cy - 42, w: 220, h: 84 }
+    const element = { id: newId(), type: 'sticker', kind: sticker.kind, color: COLORS[0], width: 1, x: cx - 55, y: cy - 21, w: 110, h: 42 }
     commit(element)
     selectedRef.current = [element.id]
     setTool('select')

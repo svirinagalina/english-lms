@@ -243,7 +243,7 @@ export function setupSignaling(io) {
     })
 
     // A quick emoji reaction, shown flying up for everyone in the room.
-    const REACTIONS = new Set(['👍', '👏', '🎉', '❤️', '😂', '🔥', '💪', '⭐', '🙌', '😊'])
+    const REACTIONS = new Set(['👍', '👏', '🎉', '❤️', '😂', '🔥', '💪', '⭐', '🙌', '😊', '💯'])
     socket.on('reaction', (payload) => {
       const room = socket.data.roomId
       const emoji = typeof payload?.emoji === 'string' ? payload.emoji : ''

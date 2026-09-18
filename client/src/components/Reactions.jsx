@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 
-export const REACTIONS = ['👍', '👏', '🎉', '❤️', '😂', '🔥', '💪', '⭐', '🙌', '😊']
+export const REACTIONS = ['👍', '👏', '🎉', '❤️', '😂', '🔥', '💪', '⭐', '🙌', '😊', '💯']
 
 // Emoji that float up the screen for a couple of seconds — everyone's.
 export default function Reactions({ socketRef, ready = true }) {
