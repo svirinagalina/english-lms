@@ -8,6 +8,7 @@ import Classrooms from './pages/Classrooms'
 import Classroom from './pages/Classroom'
 import Practice from './pages/Practice'
 import UnitPractice from './pages/UnitPractice'
+import MistakePractice from './pages/MistakePractice'
 import Vocabulary from './pages/Vocabulary'
 import VocabSet from './pages/VocabSet'
 import People from './pages/People'
@@ -79,6 +80,7 @@ export default function App() {
       <Route path="/classroom" element={<RequireAuth><Classrooms /></RequireAuth>} />
       <Route path="/classroom/:id" element={<RequireAuth><Classroom /></RequireAuth>} />
       <Route path="/practice" element={<RequireAuth><Practice /></RequireAuth>} />
+      <Route path="/practice/mistakes" element={<RequireAuth><MistakePractice /></RequireAuth>} />
       <Route path="/practice/:id" element={<RequireAuth><UnitPractice /></RequireAuth>} />
       <Route path="/vocabulary" element={<RequireAuth><Vocabulary /></RequireAuth>} />
       <Route path="/vocabulary/:id" element={<RequireAuth><VocabSet /></RequireAuth>} />

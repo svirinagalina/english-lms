@@ -11,9 +11,11 @@ export default function Practice() {
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(true)
   const [focus, setFocus] = useState(null)
+  const [mistakes, setMistakes] = useState([])
 
   useEffect(() => {
     api.statsMe().then(setFocus).catch(() => setFocus(null))
+    if (user.role === 'STUDENT') api.mistakePractice().then(({ exercises }) => setMistakes(exercises)).catch(() => {})
     api.listUnits()
       .then(({ units }) => setUnits(units))
       .catch((err) => setError(err.message))
@@ -27,6 +29,18 @@ export default function Practice() {
       <Nav title="Practice" />
 
       {error && <div className="error">{error}</div>}
+
+      {mistakes.length > 0 && (
+        <section>
+          <Link className="row unit-row notebook-row" to="/practice/mistakes">
+            <div className="unit-main">
+              <strong>My mistakes from lessons</strong>
+              <div className="muted">{mistakes.length} {mistakes.length === 1 ? 'sentence' : 'sentences'} your teacher noted — say them right.</div>
+            </div>
+            <span className="due-badge">Drill</span>
+          </Link>
+        </section>
+      )}
 
       {focus?.suggestions?.length > 0 && (
         <section>

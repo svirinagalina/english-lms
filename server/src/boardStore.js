@@ -30,7 +30,9 @@ export const elementSchema = z.object({
     w: z.number().min(0.01).max(1), h: z.number().min(0.01).max(1)
   }).optional(),
   src: z.string().regex(/^\/uploads\/[a-z0-9]+\/[a-z0-9]+\.(png|jpe?g|gif|webp)$/i).optional(),
-  authorId: z.string().max(64).optional()
+  authorId: z.string().max(64).optional(),
+  // A note written with the Mistake tool points at its notebook record.
+  mistakeId: z.string().max(64).optional()
 })
 
 const boards = new Map()

@@ -815,3 +815,26 @@ select.pill { padding: 0 16px; color: var(--text); border: none; }
 .paid-report { margin-top: 14px; }
 .link-button { background: none; border: none; color: inherit; text-decoration: underline; padding: 0 0 0 8px; font: inherit; cursor: pointer; }
 .paid-badge.neutral { background: rgba(255, 255, 255, 0.07); color: var(--muted); }
+
+/* Activity heat map */
+.heatmap-meta { margin-bottom: 8px; font-size: 13px; }
+.heatmap-meta .streak { color: #fdba74; }
+.heatmap-scroll { overflow-x: auto; }
+.heatmap-month { fill: var(--muted); font-size: 10px; }
+.heat { fill: rgba(255, 255, 255, 0.06); }
+.heat-1 { fill: rgba(244, 185, 217, 0.35); }
+.heat-2 { fill: rgba(244, 185, 217, 0.6); }
+.heat-3 { fill: rgba(244, 185, 217, 0.85); }
+.heat-4 { fill: #f4b9d9; }
+
+/* Mistake notebook */
+.notebook { display: flex; flex-direction: column; gap: 14px; }
+.notebook-date { font-size: 12px; margin-bottom: 6px; }
+.notebook-entry { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 10px 14px; margin-bottom: 6px; }
+.notebook-entry .said { color: #fca5a5; text-decoration: line-through; text-decoration-color: rgba(252, 165, 165, 0.6); }
+.notebook-entry .correct { color: #86efac; font-weight: 600; margin-top: 2px; }
+.notebook-meta { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-top: 6px; font-size: 12px; }
+.notebook-meta a { text-decoration: underline; }
+.notebook-edit { display: flex; flex-direction: column; gap: 6px; }
+.said-prompt { color: #fca5a5; }
+.notebook-row { border-color: rgba(252, 165, 165, 0.4); }

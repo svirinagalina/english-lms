@@ -8,6 +8,8 @@ import Writing from '../components/Writing'
 import Nav from '../components/Nav'
 import { SiteFooter } from '../components/Brand'
 import BoardRow from '../components/BoardRow'
+import MistakeNotebook from '../components/MistakeNotebook'
+import ActivityHeatmap from '../components/ActivityHeatmap'
 
 function PackagePanel({ classroom, onChanged }) {
   const [paid, setPaid] = useState(classroom.progress?.lessonsPaid ?? '')
@@ -221,6 +223,8 @@ export default function Classroom() {
             canSpotlight={isStaff}
             wordPicker={!isStaff}
             focusElementId={searchParams.get('focus')}
+            onMistake={isStaff && !isPersonal ? (body) => api.addMistake(id, { ...body, boardId: openBoardId }) : undefined}
+            onMistakeRemoved={isStaff && !isPersonal ? (elementId) => api.deleteMistakeByElement(elementId).catch(() => {}) : undefined}
             onUploadImage={isStaff
               ? async (dataUrl) => {
                   try {
@@ -320,6 +324,22 @@ export default function Classroom() {
               : 'The student writes here; your corrections show as tracked changes, like suggestions in Google Docs. Also opens inside a call.'}
           </p>
           <button onClick={() => setWritingOpen(true)}>Open writing</button>
+        </section>
+      )}
+
+      {!isPersonal && (
+        <MistakeNotebook
+          classroomId={id}
+          canEdit={isStaff}
+          student={!isStaff}
+          boardLink={(m) => `/classroom/${id}?board=${m.boardId}&focus=${m.elementId}`}
+        />
+      )}
+
+      {!isPersonal && (
+        <section>
+          <h2>Activity</h2>
+          <ActivityHeatmap studentId={isStaff ? classroom.student.id : null} />
         </section>
       )}
 

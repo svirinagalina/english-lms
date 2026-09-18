@@ -282,3 +282,24 @@ select.tool { appearance: auto; padding: 5px 8px; }
   .board-hint { display: none; }
   .stage.board-mode .tiles { width: 120px; top: 100px; }
 }
+
+/* The Mistake tool: its button is tinted like the note it makes; the form floats on the board. */
+.mistake-tool { background: #7f1d1d; color: #fecaca; }
+.mistake-tool.active, .mistake-tool:hover { background: #b91c1c; color: #fff; }
+.mistake-form {
+  position: absolute;
+  z-index: 30;
+  width: 360px;
+  max-width: calc(100vw - 24px);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px 14px;
+  background: #0f3731;
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.35);
+}
+.mistake-form label { display: flex; flex-direction: column; gap: 4px; font-size: 13px; }
+.mistake-form textarea { width: 100%; resize: vertical; font: inherit; font-size: 15px; padding: 8px 10px; border-radius: 8px; border: 1px solid var(--border); background: var(--bg); color: var(--text); }

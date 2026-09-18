@@ -230,3 +230,46 @@ statsRouter.get('/me', async (req, res) => {
     suggestions: summary.suggestions
   })
 })
+
+// --- Activity heat map --------------------------------------------------------
+// Per day, for the last `weeks` weeks: practice attempts, lessons, words
+// saved, mistakes noted. The client draws the calendar.
+async function activityFor(studentId, weeks = 26) {
+  const since = new Date()
+  since.setDate(since.getDate() - weeks * 7)
+  since.setHours(0, 0, 0, 0)
+  const [attempts, sessions, words, mistakes] = await Promise.all([
+    prisma.attempt.findMany({ where: { studentId, createdAt: { gte: since } }, select: { createdAt: true, correct: true } }),
+    prisma.session.findMany({ where: { classroom: { studentId }, counted: true, startedAt: { gte: since } }, select: { startedAt: true, endedAt: true } }),
+    prisma.vocabCard.findMany({ where: { set: { ownerId: studentId }, createdAt: { gte: since } }, select: { createdAt: true } }),
+    prisma.lessonMistake.findMany({ where: { studentId, createdAt: { gte: since } }, select: { createdAt: true } })
+  ])
+  const days = {}
+  const day = (date) => {
+    const d = new Date(date)
+    const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+    return (days[key] ??= { attempts: 0, correct: 0, lessons: 0, minutes: 0, words: 0, mistakes: 0 })
+  }
+  for (const a of attempts) { const d = day(a.createdAt); d.attempts++; if (a.correct) d.correct++ }
+  for (const s of sessions) { const d = day(s.startedAt); d.lessons++; if (s.endedAt) d.minutes += Math.round((s.endedAt - s.startedAt) / 60000) }
+  for (const w of words) day(w.createdAt).words++
+  for (const m of mistakes) day(m.createdAt).mistakes++
+  // Streak: consecutive days with anything at all, ending today or yesterday.
+  let streak = 0
+  const cursor = new Date()
+  cursor.setHours(0, 0, 0, 0)
+  const keyOf = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+  if (!days[keyOf(cursor)]) cursor.setDate(cursor.getDate() - 1)
+  while (days[keyOf(cursor)]) { streak++; cursor.setDate(cursor.getDate() - 1) }
+  return { since, days, streak, activeDays: Object.keys(days).length }
+}
+
+statsRouter.get('/activity/me', async (req, res) => {
+  res.json(await activityFor(req.user.id))
+})
+
+statsRouter.get('/activity/:id', requireRole('OWNER', 'TEACHER'), async (req, res) => {
+  const ids = await visibleStudentIds(req.user)
+  if (!ids.includes(req.params.id)) return res.status(404).json({ error: 'Student not found' })
+  res.json(await activityFor(req.params.id))
+})

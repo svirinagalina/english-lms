@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { api } from '../api'
 import { PackageBadge } from './PackageBadge'
+import ActivityHeatmap from './ActivityHeatmap'
 
 // The student's first screen: everything they might want is one click away.
 export default function StudentHome({ classrooms }) {
@@ -9,12 +10,14 @@ export default function StudentHome({ classrooms }) {
   const [sets, setSets] = useState(null)
   const [homework, setHomework] = useState(null)
   const [billing, setBilling] = useState(null)
+  const [mistakes, setMistakes] = useState(null)
 
   useEffect(() => {
     api.listUnits().then(({ units }) => setUnits(units)).catch(() => setUnits([]))
     api.listVocabSets().then(({ sets }) => setSets(sets)).catch(() => setSets([]))
     api.studentHome().then(({ homework }) => setHomework(homework)).catch(() => setHomework(null))
     api.myBilling().then(({ billing }) => setBilling(billing)).catch(() => setBilling(null))
+    api.mistakePractice().then(({ exercises }) => setMistakes(exercises)).catch(() => setMistakes([]))
   }, [])
 
   const classroom = classrooms[0] ?? null
@@ -78,6 +81,21 @@ export default function StudentHome({ classrooms }) {
             </span>
           </Link>
 
+          <Link className="tile" to={mistakes?.length ? '/practice/mistakes' : (classroom ? `/classroom/${classroom.id}` : '/practice')}>
+            <span className="tile-kicker">Mistake notebook</span>
+            {mistakes?.length ? (
+              <>
+                <strong>{mistakes.length} to drill</strong>
+                <span className="muted">From your lessons — say them right.</span>
+              </>
+            ) : (
+              <>
+                <strong>Empty so far</strong>
+                <span className="muted">Mistakes your teacher notes in lessons collect here.</span>
+              </>
+            )}
+          </Link>
+
           {pkg && (pkg.lessonsPaid != null || billing.priceAmount != null) && (
             <Link className="tile" to="/billing">
               <span className="tile-kicker">Lessons</span>
@@ -86,6 +104,10 @@ export default function StudentHome({ classrooms }) {
             </Link>
           )}
         </div>
+      </section>
+      <section>
+        <h2>Your activity</h2>
+        <ActivityHeatmap />
       </section>
     </>
   )

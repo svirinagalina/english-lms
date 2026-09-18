@@ -66,6 +66,7 @@ model User {
   hostedCalls       Call[]       @relation("HostedCalls")
   studentClassrooms Classroom[]  @relation("StudentClassrooms")
   personalVocab     VocabSet[]   @relation("PersonalVocab")
+  mistakes          LessonMistake[] @relation("StudentMistakes")
   contentItems      ContentItem[]
   apiTokens         ApiToken[]
 
@@ -172,6 +173,7 @@ model VocabCard {
   transcription String?
   audio         String?
   position Int    @default(0)
+  createdAt DateTime @default(now())
 
   setId String
   set   VocabSet @relation(fields: [setId], references: [id], onDelete: Cascade)
@@ -259,6 +261,7 @@ model Classroom {
   boards   Board[]
   // Boards that live elsewhere but are shared into this space as well.
   sharedBoards Board[] @relation("BoardShares")
+  mistakes     LessonMistake[]
   calls    Call[]
 
   @@unique([teacherId, studentId])
@@ -266,6 +269,31 @@ model Classroom {
 }
 
 // One call. Left open while somebody is in the room, closed when it empties.
+// The mistake notebook: what the student said in a lesson and how it
+// should be, classified into grammar topics for the analytics and drills.
+model LessonMistake {
+  id        String   @id @default(cuid())
+  said      String
+  correct   String
+  topics    String[] @default([])
+  createdAt DateTime @default(now())
+  // Drilled in Practice: how many times the student got it right since.
+  practicedCorrect Int       @default(0)
+  lastPracticedAt  DateTime?
+
+  classroomId String
+  classroom   Classroom @relation(fields: [classroomId], references: [id], onDelete: Cascade)
+  studentId String
+  student   User   @relation("StudentMistakes", fields: [studentId], references: [id], onDelete: Cascade)
+  teacherId String?
+  // The note on the board it was written on, so deleting one deletes the other.
+  boardId   String?
+  elementId String?
+
+  @@index([studentId, createdAt])
+  @@index([classroomId])
+}
+
 model Session {
   id        String    @id @default(cuid())
   startedAt DateTime  @default(now())

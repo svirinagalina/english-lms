@@ -622,6 +622,8 @@ export default function Call() {
               onOpenWriting={currentBoard?.studentId ? () => openWriting(currentBoard.classroomId) : (writingChoices.length === 1 ? () => openWriting(writingChoices[0].id) : undefined)}
               canSpotlight={isStaff}
               wordPicker={!isStaff}
+              onMistake={isStaff && currentBoard?.studentId ? (body) => api.addMistake(currentBoard.classroomId, { ...body, boardId }) : undefined}
+              onMistakeRemoved={isStaff ? (elementId) => api.deleteMistakeByElement(elementId).catch(() => {}) : undefined}
               onUploadImage={isStaff && currentBoard
                 ? async (dataUrl) => {
                     try {
