@@ -2123,13 +2123,43 @@ export default function Whiteboard({ socketRef, boardId, title, subtitle, onClos
 
   // Everything from every lesson stays on the one board: a new lesson starts
   // with a dated heading below all existing content, and the view goes there.
+  // Glides the view to a new position over a third of a second, so a jump
+  // to a new section reads as scrolling down rather than the board vanishing.
+  const glideTo = (target) => {
+    const from = { ...viewRef.current }
+    const start = performance.now()
+    const step = (now) => {
+      const t = Math.min(1, (now - start) / 350)
+      const ease = 1 - Math.pow(1 - t, 3)
+      viewRef.current = {
+        scale: from.scale + (target.scale - from.scale) * ease,
+        x: from.x + (target.x - from.x) * ease,
+        y: from.y + (target.y - from.y) * ease
+      }
+      scheduleRender()
+      if (t < 1) requestAnimationFrame(step)
+      else bump()
+    }
+    requestAnimationFrame(step)
+  }
+
+  // A new section goes under everything on the board, in the left column
+  // of the current view; the board then scrolls down to it at the same zoom.
   const addHeading = (text, color) => {
     const items = elementsRef.current
-    const box = items.length ? unionBounds(items) : { x: 0, y: 0, w: 0, h: 0 }
-    const x = items.length ? box.x : 40
-    const y = items.length ? box.y + box.h + 120 : 40
+    const canvas = canvasRef.current
+    const rect = canvas?.getBoundingClientRect() ?? { width: 800, height: 600 }
+    const view = viewRef.current
+    const box = items.length ? unionBounds(items) : null
+    const leftOfView = (40 - view.x) / view.scale
+    const x = box ? Math.min(box.x, leftOfView + 400) : leftOfView
+    const y = box ? box.y + box.h + 100 : (40 - view.y) / view.scale
     commit({ id: newId(), type: 'text', color, width: 6, x, y, text, fontSize: 28 })
-    viewRef.current = { scale: 1, x: 60 - x, y: 60 - y }
+    // The heading lands a bit below the top edge, as if the page had been scrolled.
+    const scale = view.scale
+    const screenX = view.x + x * scale
+    const keepX = screenX >= 40 && screenX <= rect.width - 240
+    glideTo({ scale, x: keepX ? view.x : 40 - x * scale, y: 80 - y * scale })
     setTool('pen')
     scheduleRender()
     bump()
