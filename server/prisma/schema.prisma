@@ -63,6 +63,7 @@ model User {
   teacherClassrooms Classroom[]  @relation("TeacherClassrooms")
   hostedCalls       Call[]       @relation("HostedCalls")
   studentClassrooms Classroom[]  @relation("StudentClassrooms")
+  personalVocab     VocabSet[]   @relation("PersonalVocab")
   contentItems      ContentItem[]
   apiTokens         ApiToken[]
 
@@ -149,9 +150,15 @@ model VocabSet {
   schoolId String
   school   School @relation(fields: [schoolId], references: [id], onDelete: Cascade)
 
+  // A personal set ("My words") belongs to one person and is seen by them alone;
+  // a teacher's set (no owner) is for the whole school.
+  ownerId String?
+  owner   User?   @relation("PersonalVocab", fields: [ownerId], references: [id], onDelete: Cascade)
+
   cards VocabCard[]
 
   @@index([schoolId])
+  @@index([ownerId])
 }
 
 model VocabCard {
@@ -159,6 +166,9 @@ model VocabCard {
   term    String
   translation String
   example String?
+  // Filled in for words saved from the dictionary: IPA and a pronunciation clip.
+  transcription String?
+  audio         String?
   position Int    @default(0)
 
   setId String

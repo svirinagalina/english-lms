@@ -709,3 +709,35 @@ select.pill { padding: 0 16px; color: var(--text); border: none; }
 .billing-editor .small-hint { display: block; margin-top: 4px; font-size: 12px; }
 .billing-editor .check-row { display: flex; align-items: center; gap: 8px; font-size: 13px; }
 .billing-editor .check-row input { width: auto; margin: 0; }
+
+/* Word card: pronunciation, senses and "Add to my words". */
+.word-card {
+  position: absolute;
+  z-index: 30;
+  width: 280px;
+  max-width: calc(100vw - 24px);
+  padding: 12px 14px;
+  background: #0f3731;
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.35);
+  font-size: 14px;
+  cursor: default;
+}
+.word-card-head { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+.word-card-head strong { font-size: 17px; }
+.word-card-close { margin-left: auto; background: none; border: none; color: var(--muted); font-size: 18px; line-height: 1; padding: 0 2px; cursor: pointer; }
+.word-card-close:hover { color: var(--text); }
+.word-senses { list-style: none; padding: 0; margin: 0 0 10px; display: flex; flex-direction: column; gap: 4px; }
+.word-senses em { color: var(--muted); font-style: normal; font-size: 12px; margin-right: 4px; }
+.word-card-add { width: 100%; margin-top: 4px; }
+.play-word {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 26px; height: 26px; padding: 0; border-radius: 50%;
+  background: var(--accent); color: var(--accent-ink); border: none; cursor: pointer;
+}
+.play-word.small { width: 22px; height: 22px; }
+.play-word.on { background: #22c55e; color: #052e16; }
+.play-word:hover { filter: brightness(1.08); }
+.word-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }

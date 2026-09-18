@@ -189,6 +189,7 @@ export default function Classroom() {
             title="Writing"
             subtitle={partner}
             onClose={() => setWritingOpen(false)}
+            wordPicker={!isStaff}
           />
         </div>
       </div>
@@ -208,6 +209,7 @@ export default function Classroom() {
             onStartCall={isStaff ? () => startCallOnBoard(openBoard.id) : undefined}
             onOpenWriting={!isPersonal ? () => setWritingOpen(true) : undefined}
             canSpotlight={isStaff}
+            wordPicker={!isStaff}
             onUploadImage={isStaff
               ? async (dataUrl) => {
                   try {

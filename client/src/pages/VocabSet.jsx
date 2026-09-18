@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
-import { useAuth } from '../AuthContext'
 import { api } from '../api'
+import { PlayButton } from '../components/WordCard'
 
 function Study({ setId, onExit }) {
   const [cards, setCards] = useState(null)
@@ -94,7 +94,8 @@ function Study({ setId, onExit }) {
             <div className="flash-term">{card.translation}</div>
             {revealed ? (
               <>
-                <div className="flash-answer">{card.term}</div>
+                <div className="flash-answer">{card.term}{card.audio && <> <PlayButton src={card.audio} small /></>}</div>
+                {card.transcription && <div className="muted">{card.transcription}</div>}
                 {card.example && <div className="muted flash-example">{card.example}</div>}
               </>
             ) : (
@@ -132,7 +133,8 @@ function Study({ setId, onExit }) {
           {verdict && (
             <div className={`verdict ${verdict.correct ? 'right' : 'wrong'}`}>
               <strong>{verdict.correct ? 'Correct' : 'Not quite'}</strong>
-              {!verdict.correct && <div className="expected">{verdict.term}</div>}
+              {!verdict.correct && <div className="expected">{verdict.term}{card.audio && <> <PlayButton src={card.audio} small /></>}</div>}
+              {verdict.correct && card.audio && <div><PlayButton src={card.audio} small /> <span className="muted">{card.transcription ?? ''}</span></div>}
               <button onClick={() => record(verdict.correct)} autoFocus>Next</button>
             </div>
           )}
@@ -144,7 +146,6 @@ function Study({ setId, onExit }) {
 
 export default function VocabSet() {
   const { id } = useParams()
-  const { user } = useAuth()
   const [set, setSet] = useState(null)
   const [error, setError] = useState('')
   const [studying, setStudying] = useState(false)
@@ -153,7 +154,6 @@ export default function VocabSet() {
   const [showBulk, setShowBulk] = useState(false)
   const [notice, setNotice] = useState('')
 
-  const isStaff = user.role !== 'STUDENT'
 
   const refresh = () =>
     api.getVocabSet(id)
@@ -233,7 +233,7 @@ export default function VocabSet() {
         <Study setId={id} onExit={() => { setStudying(false); refresh() }} />
       ) : (
         <>
-          {isStaff && (
+          {set.canEdit && (
             <section>
               <form className="inline-form" onSubmit={handleAddCard}>
                 <input
@@ -280,16 +280,23 @@ export default function VocabSet() {
           )}
 
           <section>
-            <h2>{set.cards.length} cards</h2>
+            <h2>{set.cards.length} {set.cards.length === 1 ? 'word' : 'words'}</h2>
+            {set.personal && set.cards.length === 0 && (
+              <p className="muted">Double-click a word on the board or in Writing and press “Add to my words”.</p>
+            )}
             <div className="list">
               {set.cards.map((item) => (
                 <div key={item.id} className="row">
                   <div>
-                    <strong>{item.term}</strong>
+                    <div className="word-row">
+                      <strong>{item.term}</strong>
+                      {item.transcription && <span className="muted">{item.transcription}</span>}
+                      {item.audio && <PlayButton src={item.audio} small />}
+                    </div>
                     <div className="muted">{item.translation}</div>
                     {item.example && <div className="muted flash-example">{item.example}</div>}
                   </div>
-                  {isStaff && (
+                  {set.canEdit && (
                     <button className="ghost" onClick={() => handleDelete(item.id)}>Remove</button>
                   )}
                 </div>

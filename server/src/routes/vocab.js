@@ -3,10 +3,24 @@ import { z } from 'zod'
 import { prisma } from '../db.js'
 import { requireAuth, requireRole } from '../auth.js'
 import { normalise } from '../answerCheck.js'
+import { cleanWord, lookupEntry } from './dictionary.js'
 
 export const vocabRouter = Router()
 
 vocabRouter.use(requireAuth)
+
+// Sets this person may see: the school's shared sets, plus their own "My words".
+const visibleSets = (user) => ({ schoolId: user.schoolId, OR: [{ ownerId: null }, { ownerId: user.id }] })
+
+// Who may change a set's cards: staff for shared sets, the owner for a personal one.
+const mayEditSet = (user, set) => (set.ownerId ? set.ownerId === user.id : user.role !== 'STUDENT')
+
+const MY_WORDS = 'My words'
+async function personalSet(user) {
+  const existing = await prisma.vocabSet.findFirst({ where: { ownerId: user.id } })
+  if (existing) return existing
+  return prisma.vocabSet.create({ data: { title: MY_WORDS, schoolId: user.schoolId, ownerId: user.id } })
+}
 
 // Days until a card comes back, indexed by how many times it was recalled in a
 // row. Anything beyond the last step repeats monthly.
@@ -52,10 +66,12 @@ export function parseBulk(text) {
 
 vocabRouter.get('/', async (req, res) => {
   const sets = await prisma.vocabSet.findMany({
-    where: { schoolId: req.user.schoolId },
+    where: visibleSets(req.user),
     orderBy: { createdAt: 'desc' },
-    select: { id: true, title: true, _count: { select: { cards: true } } }
+    select: { id: true, title: true, ownerId: true, _count: { select: { cards: true } } }
   })
+  // The personal set goes first.
+  sets.sort((a, b) => Number(Boolean(b.ownerId)) - Number(Boolean(a.ownerId)))
 
   const due = await prisma.cardReview.groupBy({
     by: ['cardId'],
@@ -64,7 +80,7 @@ vocabRouter.get('/', async (req, res) => {
   const dueIds = new Set(due.map((d) => d.cardId))
 
   const cards = await prisma.vocabCard.findMany({
-    where: { set: { schoolId: req.user.schoolId } },
+    where: { set: visibleSets(req.user) },
     select: { id: true, setId: true }
   })
 
@@ -86,6 +102,7 @@ vocabRouter.get('/', async (req, res) => {
     sets: sets.map((set) => ({
       id: set.id,
       title: set.title,
+      personal: Boolean(set.ownerId),
       total: set._count.cards,
       due: duePerSet[set.id] ?? 0
     }))
@@ -105,19 +122,52 @@ vocabRouter.post('/', requireRole('OWNER', 'TEACHER'), async (req, res) => {
 
 vocabRouter.get('/:id', async (req, res) => {
   const set = await prisma.vocabSet.findFirst({
-    where: { id: req.params.id, schoolId: req.user.schoolId },
+    where: { id: req.params.id, ...visibleSets(req.user) },
     include: { cards: { orderBy: { position: 'asc' } } }
   })
   if (!set) return res.status(404).json({ error: 'Set not found' })
 
-  res.json({ set: { id: set.id, title: set.title, cards: set.cards } })
+  res.json({ set: { id: set.id, title: set.title, personal: Boolean(set.ownerId), canEdit: mayEditSet(req.user, set), cards: set.cards } })
 })
 
-vocabRouter.delete('/:id', requireRole('OWNER', 'TEACHER'), async (req, res) => {
-  const set = await prisma.vocabSet.findFirst({
-    where: { id: req.params.id, schoolId: req.user.schoolId }
+// "My words": a word from the dictionary goes into the person's own set,
+// with its transcription, pronunciation and the senses as the translation.
+vocabRouter.post('/my/words', async (req, res) => {
+  const word = cleanWord(req.body?.word)
+  if (!word || word.length > 40) return res.status(400).json({ error: 'A single English word is expected' })
+
+  const set = await personalSet(req.user)
+  const existing = await prisma.vocabCard.findFirst({ where: { setId: set.id, term: { equals: word, mode: 'insensitive' } } })
+  if (existing) return res.json({ card: existing, setId: set.id, added: false })
+
+  let entry
+  try {
+    entry = await lookupEntry(word)
+  } catch (error) {
+    return res.status(502).json({ error: `Could not look the word up: ${error.message}` })
+  }
+  const translation = entry.senses?.length
+    ? entry.senses.map((s) => `${s.pos}: ${s.translations.slice(0, 4).join(', ')}`).join(' · ')
+    : entry.translation
+  const count = await prisma.vocabCard.count({ where: { setId: set.id } })
+  const card = await prisma.vocabCard.create({
+    data: {
+      setId: set.id,
+      term: word,
+      translation: translation.slice(0, 300),
+      transcription: entry.transcription,
+      audio: entry.audio,
+      position: count
+    }
   })
-  if (!set) return res.status(404).json({ error: 'Set not found' })
+  res.status(201).json({ card, setId: set.id, added: true })
+})
+
+vocabRouter.delete('/:id', async (req, res) => {
+  const set = await prisma.vocabSet.findFirst({
+    where: { id: req.params.id, ...visibleSets(req.user) }
+  })
+  if (!set || !mayEditSet(req.user, set)) return res.status(404).json({ error: 'Set not found' })
 
   await prisma.vocabSet.delete({ where: { id: set.id } })
   res.json({ ok: true })
@@ -125,17 +175,17 @@ vocabRouter.delete('/:id', requireRole('OWNER', 'TEACHER'), async (req, res) => 
 
 async function assertOwnedSet(req, res) {
   const set = await prisma.vocabSet.findFirst({
-    where: { id: req.params.id, schoolId: req.user.schoolId },
-    select: { id: true, _count: { select: { cards: true } } }
+    where: { id: req.params.id, ...visibleSets(req.user) },
+    select: { id: true, ownerId: true, _count: { select: { cards: true } } }
   })
-  if (!set) {
+  if (!set || !mayEditSet(req.user, set)) {
     res.status(404).json({ error: 'Set not found' })
     return null
   }
   return set
 }
 
-vocabRouter.post('/:id/cards', requireRole('OWNER', 'TEACHER'), async (req, res) => {
+vocabRouter.post('/:id/cards', async (req, res) => {
   const parsed = cardSchema.safeParse(req.body)
   if (!parsed.success) return res.status(400).json({ error: 'Invalid data' })
 
@@ -154,7 +204,7 @@ vocabRouter.post('/:id/cards', requireRole('OWNER', 'TEACHER'), async (req, res)
   res.status(201).json({ card })
 })
 
-vocabRouter.post('/:id/cards/bulk', requireRole('OWNER', 'TEACHER'), async (req, res) => {
+vocabRouter.post('/:id/cards/bulk', async (req, res) => {
   const parsed = bulkSchema.safeParse(req.body)
   if (!parsed.success) return res.status(400).json({ error: 'Invalid data' })
 
@@ -177,7 +227,7 @@ vocabRouter.post('/:id/cards/bulk', requireRole('OWNER', 'TEACHER'), async (req,
   res.status(201).json({ added: cards.length })
 })
 
-vocabRouter.delete('/:id/cards/:cardId', requireRole('OWNER', 'TEACHER'), async (req, res) => {
+vocabRouter.delete('/:id/cards/:cardId', async (req, res) => {
   const set = await assertOwnedSet(req, res)
   if (!set) return
 
@@ -188,7 +238,7 @@ vocabRouter.delete('/:id/cards/:cardId', requireRole('OWNER', 'TEACHER'), async 
 // Cards to study now: never seen, or due for review.
 vocabRouter.get('/:id/study', async (req, res) => {
   const set = await prisma.vocabSet.findFirst({
-    where: { id: req.params.id, schoolId: req.user.schoolId },
+    where: { id: req.params.id, ...visibleSets(req.user) },
     include: {
       cards: {
         orderBy: { position: 'asc' },
@@ -211,6 +261,8 @@ vocabRouter.get('/:id/study', async (req, res) => {
       term: card.term,
       translation: card.translation,
       example: card.example,
+      transcription: card.transcription,
+      audio: card.audio,
       streak: card.reviews[0]?.streak ?? 0
     }))
   })
@@ -226,7 +278,7 @@ vocabRouter.post('/cards/:cardId/review', async (req, res) => {
   if (!parsed.success) return res.status(400).json({ error: 'Invalid data' })
 
   const card = await prisma.vocabCard.findFirst({
-    where: { id: req.params.cardId, set: { schoolId: req.user.schoolId } }
+    where: { id: req.params.cardId, set: visibleSets(req.user) }
   })
   if (!card) return res.status(404).json({ error: 'Card not found' })
 
@@ -260,7 +312,7 @@ vocabRouter.post('/cards/:cardId/check', async (req, res) => {
   const answer = typeof req.body?.answer === 'string' ? req.body.answer : ''
 
   const card = await prisma.vocabCard.findFirst({
-    where: { id: req.params.cardId, set: { schoolId: req.user.schoolId } }
+    where: { id: req.params.cardId, set: visibleSets(req.user) }
   })
   if (!card) return res.status(404).json({ error: 'Card not found' })
 

@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, useCallback } from 'react'
 import '../styles/whiteboard.css'
-import { lookupWord, wordAt } from '../utils/dictionary'
+import { isEnglishWord, lookupWord, wordAt } from '../utils/dictionary'
+import WordCard from './WordCard'
 
 const COLORS = ['#111827', '#ef4444', '#16a34a', '#2563eb', '#f59e0b', '#9333ea']
 // Ink drawn while the board was dark, shown dark on the white board.
@@ -742,7 +743,7 @@ export async function exportBoardPdf(elements, title = 'Board') {
 
 // --- Component ----------------------------------------------------------------
 
-export default function Whiteboard({ socketRef, boardId, title, subtitle, onClose, backLabel = '← Back', onStartCall, onOpenWriting, canSpotlight = false, onUploadImage, onAssist, assistEnabled }) {
+export default function Whiteboard({ socketRef, boardId, title, subtitle, onClose, backLabel = '← Back', onStartCall, onOpenWriting, canSpotlight = false, onUploadImage, onAssist, assistEnabled, wordPicker = false }) {
   const [assisting, setAssisting] = useState(null)
   const [exporting, setExporting] = useState(false)
   const fileInputRef = useRef(null)
@@ -780,6 +781,9 @@ export default function Whiteboard({ socketRef, boardId, title, subtitle, onClos
 
   // Hover dictionary: the word under the pointer and its translation.
   const [tip, setTip] = useState(null) // { x, y, word, entry }
+  // A student's double-click on a word: the word card (with "Add to my words").
+  const [wordCard, setWordCard] = useState(null) // { word, x, y }
+  const editClickTimer = useRef(null)
   const tipTimer = useRef(null)
   const tipWordRef = useRef(null)
   const hoverDictionary = (event) => {
@@ -1446,6 +1450,18 @@ export default function Whiteboard({ socketRef, boardId, title, subtitle, onClos
     const point = toWorld(event)
     const target = [...elementsRef.current].reverse().find((element) => hitTest(element, point.x, point.y))
     if (target?.type === 'text' || target?.type === 'note') {
+      // For a student, a word under the double-click opens its card instead
+      // of the editor (a click on the selected text still edits it).
+      const word = wordPicker ? wordUnderPoint(target, point.x, point.y) : null
+      clearTimeout(editClickTimer.current)
+      if (word && isEnglishWord(word)) {
+        const rect = canvasRef.current.getBoundingClientRect()
+        tipWordRef.current = null; clearTimeout(tipTimer.current); setTip(null)
+        setWordCard({ word: word.toLowerCase(), x: Math.min(event.clientX - rect.left, rect.width - 300), y: event.clientY - rect.top + 14 })
+        selectedRef.current = []
+        scheduleRender()
+        return
+      }
       openEditor(target)
       return
     }
@@ -1686,7 +1702,10 @@ export default function Whiteboard({ socketRef, boardId, title, subtitle, onClos
     if (!pointer) return
 
     if (pointer.mode === 'move' && !pointer.moved && pointer.editOnClick) {
-      openEditor(pointer.editOnClick.target, { clientX: pointer.editOnClick.clientX, clientY: pointer.editOnClick.clientY })
+      const open = () => openEditor(pointer.editOnClick.target, { clientX: pointer.editOnClick.clientX, clientY: pointer.editOnClick.clientY })
+      // A student's second click may be the start of a double-click on a
+      // word: wait a moment, and let the double-click cancel the editor.
+      if (wordPicker) { clearTimeout(editClickTimer.current); editClickTimer.current = setTimeout(open, 280) } else open()
       return
     }
 
@@ -2135,8 +2154,12 @@ export default function Whiteboard({ socketRef, boardId, title, subtitle, onClos
     } else if (tool === 'select') {
       const items = selectedElements()
       if (!items.length) return null
-      box = unionBounds(items)
       const first = items.find((i) => i.type === 'text' || i.type === 'note')
+      // Pictures and shapes get no bar (Delete/⌘D still work); a cropped
+      // picture keeps one for Uncrop.
+      const cropped = items.length === 1 && items[0].type === 'image' && items[0].crop
+      if (!first && !cropped) return null
+      box = unionBounds(items)
       barColor = first?.color ?? null
     } else return null
     const wrapWidth = canvasRef.current?.getBoundingClientRect().width ?? 800
@@ -2206,7 +2229,9 @@ export default function Whiteboard({ socketRef, boardId, title, subtitle, onClos
           </div>
         ))}
 
-        {tip && (
+        {wordCard && <WordCard word={wordCard.word} x={wordCard.x} y={wordCard.y} onClose={() => setWordCard(null)} />}
+
+        {tip && !wordCard && (
           <div className="word-tip" style={{ left: tip.x + 12, top: tip.y + 16 }}>
             <strong>{tip.word}</strong>
             {tip.entry.transcription && <span className="muted"> {tip.entry.transcription}</span>}
@@ -2358,10 +2383,14 @@ export default function Whiteboard({ socketRef, boardId, title, subtitle, onClos
                 {selected?.type === 'image' && selected.crop && (
                   <button className="tool" onClick={resetCrop}>Uncrop</button>
                 )}
-                <button className="tool" onClick={duplicateSelection} title="Duplicate (⌘D)">Duplicate</button>
-                <button className="tool" onClick={() => remove(selectedRef.current)} title="Delete">
-                  Delete{selectedCount > 1 ? ` (${selectedCount})` : ''}
-                </button>
+                {showTextControls && (
+                  <>
+                    <button className="tool" onClick={duplicateSelection} title="Duplicate (⌘D)">Duplicate</button>
+                    <button className="tool" onClick={() => remove(selectedRef.current)} title="Delete">
+                      Delete{selectedCount > 1 ? ` (${selectedCount})` : ''}
+                    </button>
+                  </>
+                )}
               </div>
             )}
             {textInput && <span className="small-hint">⌘Enter to finish · Esc {textInput.id && !textInput.created ? 'to cancel' : 'to finish'}</span>}

@@ -607,6 +607,7 @@ export default function Call() {
               title="Writing"
               subtitle={writingChoices.find((c) => c.id === writingId)?.label ?? boards.find((b) => b.classroomId === writingId)?.student}
               onClose={closeWriting}
+              wordPicker={!isStaff}
               backLabel="← Back to video"
               embedded
             />
@@ -620,6 +621,7 @@ export default function Call() {
               backLabel="← Back to video"
               onOpenWriting={currentBoard?.studentId ? () => openWriting(currentBoard.classroomId) : (writingChoices.length === 1 ? () => openWriting(writingChoices[0].id) : undefined)}
               canSpotlight={isStaff}
+              wordPicker={!isStaff}
               onUploadImage={isStaff && currentBoard
                 ? async (dataUrl) => {
                     try {

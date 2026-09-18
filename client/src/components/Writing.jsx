@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { api } from '../api'
-import { lookupWord, wordAt } from '../utils/dictionary'
+import { isEnglishWord, lookupWord, wordAt } from '../utils/dictionary'
+import WordCard from './WordCard'
 import '../styles/writing.css'
 
 // A shared writing document with tracked changes, Google-Docs style.
@@ -145,7 +146,7 @@ function setCaret(root, offset) {
 
 const IMAGE_CHAR = '\uFFFC'
 
-export default function Writing({ socketRef, classroomId, user, title, subtitle, onClose, backLabel = '← Back', embedded = false }) {
+export default function Writing({ socketRef, classroomId, user, title, subtitle, onClose, backLabel = '← Back', embedded = false, wordPicker = false }) {
   const [runs, setRuns] = useState([])
   const [loaded, setLoaded] = useState(false)
   const [error, setError] = useState('')
@@ -349,6 +350,20 @@ export default function Writing({ socketRef, classroomId, user, title, subtitle,
     setPopover(null)
   }
 
+  // A student's double-click on a word opens its card ("Add to my words").
+  const [wordCard, setWordCard] = useState(null)
+  const handleDoubleClick = (event) => {
+    if (!wordPicker) return
+    const selection = window.getSelection()
+    const node = selection?.anchorNode
+    if (!node || node.nodeType !== Node.TEXT_NODE) return
+    const found = wordAt(node.textContent, Math.min(selection.anchorOffset, node.textContent.length - 1))
+    if (!found || !isEnglishWord(found.word)) return
+    const host = editorRef.current.parentElement.getBoundingClientRect()
+    setTip(null)
+    setWordCard({ word: found.word.toLowerCase(), x: Math.min(event.clientX - host.left, host.width - 300), y: event.clientY - host.top + 14 })
+  }
+
   // Hover dictionary over the document.
   const [tip, setTip] = useState(null)
   const tipTimer = useRef(null)
@@ -412,6 +427,7 @@ export default function Writing({ socketRef, classroomId, user, title, subtitle,
           suppressContentEditableWarning
           spellCheck={false}
           onClick={handleClick}
+          onDoubleClick={handleDoubleClick}
           onKeyDown={handleKeyDown}
           onPaste={handlePaste}
           onMouseMove={handleMouseMove}
@@ -430,7 +446,8 @@ export default function Writing({ socketRef, classroomId, user, title, subtitle,
           ))}
         </div>
 
-        {tip && (
+        {wordCard && <WordCard word={wordCard.word} x={wordCard.x} y={wordCard.y} onClose={() => setWordCard(null)} />}
+        {tip && !wordCard && (
           <div className="writing-popover word-tip" style={{ left: tip.x, top: tip.y }}>
             <span><strong>{tip.word}</strong>{tip.entry.transcription ? ` ${tip.entry.transcription}` : ''} — {tip.entry.translation}</span>
           </div>

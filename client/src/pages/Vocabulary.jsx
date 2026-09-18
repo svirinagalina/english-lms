@@ -56,6 +56,11 @@ export default function Vocabulary() {
           </form>
         )}
 
+        {!isStaff && !sets.some((set) => set.personal) && (
+          <p className="muted" style={{ marginBottom: 10 }}>
+            Double-click any word on the board or in Writing to hear it, see its meanings and add it to <strong>My words</strong>.
+          </p>
+        )}
         {sets.length === 0 && <p className="muted">No sets yet.</p>}
 
         <div className="list">
@@ -63,7 +68,7 @@ export default function Vocabulary() {
             <Link key={set.id} className="row unit-row" to={`/vocabulary/${set.id}`}>
               <div className="unit-main">
                 <strong>{set.title}</strong>
-                <div className="muted">{set.total} cards</div>
+                <div className="muted">{set.total} {set.total === 1 ? 'word' : 'words'}{set.personal ? ' · your own words, with pronunciation' : ''}</div>
               </div>
               {set.due > 0 && <span className="due-badge">{set.due} to review</span>}
             </Link>

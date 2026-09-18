@@ -1,5 +1,6 @@
 import { Router } from 'express'
 import { requireAuth } from '../auth.js'
+import { prisma } from '../db.js'
 import { assistantEnabled, translateWords } from '../assistant.js'
 
 // Hover dictionary: one English word → Russian, with IPA when the AI
@@ -24,48 +25,113 @@ const FIXED = {
 }
 const cache = new Map()
 const MAX_CACHE = 5000
+const USER_AGENT = 'AdventAcademyLMS/1.0 (https://lms.advent-academy.online)'
+
+// Russian senses per part of speech from Google's dictionary data:
+// [{ pos: 'noun', translations: ['учитель', 'преподаватель'] }, …]
+async function googleSenses(word) {
+  const url = `https://translate.googleapis.com/translate_a/single?client=gtx&sl=en&tl=ru&dt=t&dt=bd&q=${encodeURIComponent(word)}`
+  const response = await fetch(url, { signal: AbortSignal.timeout(6000) })
+  if (!response.ok) return { senses: [], main: null }
+  const data = await response.json()
+  const senses = Array.isArray(data?.[1])
+    ? data[1].map((entry) => ({ pos: entry[0], translations: (entry[1] ?? []).slice(0, 5) })).filter((s) => s.translations.length).slice(0, 4)
+    : []
+  return { senses, main: data?.[0]?.[0]?.[0] ?? null }
+}
+
+// IPA from the English section of the word's Wiktionary page (US
+// pronunciation when it is listed separately, else the first one).
+async function wiktionaryIpa(word) {
+  const url = `https://en.wiktionary.org/w/api.php?action=parse&page=${encodeURIComponent(word)}&prop=wikitext&format=json&formatversion=2&redirects=1`
+  const response = await fetch(url, { headers: { 'User-Agent': USER_AGENT }, signal: AbortSignal.timeout(6000) })
+  if (!response.ok) return null
+  const text = (await response.json())?.parse?.wikitext ?? ''
+  const english = text.split(/\n==[^=]/)[0] || text
+  const section = english.includes('==English==') ? english : (text.match(/==English==[\s\S]*?(?=\n==[^=]|$)/)?.[0] ?? '')
+  const found = [...section.matchAll(/\{\{IPA\|en\|([^}]*)\}\}/g)].map((m) => m[1])
+  if (!found.length) return null
+  const pick = found.find((f) => /a=[^|]*GA|a=[^|]*US/.test(f)) ?? found[0]
+  const phonemic = pick.split('|').find((part) => part.startsWith('/'))
+  return phonemic ?? null
+}
 
 async function lookup(word) {
-  if (assistantEnabled()) {
-    const [item] = await translateWords([word])
-    if (item) return { word, translation: item.translation, transcription: item.transcription }
-  }
-  // Without a key: Google's public translate endpoint, with its dictionary
-  // senses (a few per part of speech) — far better for single words than a
-  // translation-memory hit like "см." for "see".
-  try {
-    const url = `https://translate.googleapis.com/translate_a/single?client=gtx&sl=en&tl=ru&dt=t&dt=bd&q=${encodeURIComponent(word)}`
+  const [ai, google, ipa] = await Promise.all([
+    assistantEnabled() ? translateWords([word]).then(([item]) => item ?? null).catch(() => null) : null,
+    googleSenses(word).catch(() => ({ senses: [], main: null })),
+    wiktionaryIpa(word).catch(() => null)
+  ])
+  let translation = ai?.translation ?? null
+  if (!translation && google.senses.length) translation = google.senses.map((s) => `${s.pos}: ${s.translations.slice(0, 4).join(', ')}`).slice(0, 3).join(' · ')
+  if (!translation) translation = google.main
+  if (!translation) {
+    const url = `https://api.mymemory.translated.net/get?q=${encodeURIComponent(word)}&langpair=en|ru`
     const response = await fetch(url, { signal: AbortSignal.timeout(6000) })
-    if (response.ok) {
-      const data = await response.json()
-      const senses = Array.isArray(data?.[1])
-        ? data[1].map((entry) => `${entry[0]}: ${(entry[1] ?? []).slice(0, 4).join(', ')}`).slice(0, 3)
-        : []
-      const main = data?.[0]?.[0]?.[0]
-      const translation = senses.length ? senses.join(' · ') : main
-      if (translation) return { word, translation, transcription: null }
-    }
-  } catch { /* fall through */ }
-  const url = `https://api.mymemory.translated.net/get?q=${encodeURIComponent(word)}&langpair=en|ru`
-  const response = await fetch(url, { signal: AbortSignal.timeout(6000) })
-  if (!response.ok) throw new Error('Dictionary unavailable')
-  const data = await response.json()
-  const translation = data?.responseData?.translatedText
-  if (!translation || /MYMEMORY WARNING|QUERY LENGTH/i.test(translation)) throw new Error('No translation')
-  return { word, translation, transcription: null }
+    if (!response.ok) throw new Error('Dictionary unavailable')
+    const data = await response.json()
+    const text = data?.responseData?.translatedText
+    if (!text || /MYMEMORY WARNING|QUERY LENGTH/i.test(text)) throw new Error('No translation')
+    translation = text
+  }
+  return {
+    word,
+    translation,
+    transcription: ai?.transcription ?? ipa ?? null,
+    senses: google.senses,
+    audio: `/api/dictionary/audio?word=${encodeURIComponent(word)}`
+  }
+}
+
+export const cleanWord = (raw) => String(raw ?? '').trim().toLowerCase().replace(/[^a-z'’-]/g, '')
+
+// The full entry for a word, cached; used by the hover tip and "My words".
+export async function lookupEntry(word) {
+  if (FIXED[word]) return { word, translation: FIXED[word], transcription: null, senses: [], audio: `/api/dictionary/audio?word=${encodeURIComponent(word)}` }
+  if (cache.has(word)) return cache.get(word)
+  const entry = await lookup(word)
+  if (cache.size >= MAX_CACHE) cache.clear()
+  cache.set(word, entry)
+  return entry
 }
 
 dictionaryRouter.get('/', async (req, res) => {
-  const word = String(req.query.word ?? '').trim().toLowerCase().replace(/[^a-z'’-]/g, '')
+  const word = cleanWord(req.query.word)
   if (!word || word.length > 40) return res.status(400).json({ error: 'A single English word is expected' })
-  if (FIXED[word]) return res.json({ word, translation: FIXED[word], transcription: null })
-  if (cache.has(word)) return res.json(cache.get(word))
   try {
-    const entry = await lookup(word)
-    if (cache.size >= MAX_CACHE) cache.clear()
-    cache.set(word, entry)
-    res.json(entry)
+    const entry = await lookupEntry(word)
+    // Whether this person already has the word in their own vocabulary.
+    const saved = await prisma.vocabCard.findFirst({
+      where: { set: { ownerId: req.user.id }, term: { equals: word, mode: 'insensitive' } },
+      select: { id: true }
+    })
+    res.json({ ...entry, saved: Boolean(saved) })
   } catch (error) {
     res.status(502).json({ error: error.message })
+  }
+})
+
+// Pronunciation: Google's text-to-speech clip, fetched by the server (the
+// browser cannot load it directly) and kept in memory for repeat plays.
+const audioCache = new Map()
+const MAX_AUDIO_CACHE = 2000
+dictionaryRouter.get('/audio', async (req, res) => {
+  const word = cleanWord(req.query.word)
+  if (!word || word.length > 40) return res.status(400).end()
+  try {
+    let clip = audioCache.get(word)
+    if (!clip) {
+      const url = `https://translate.google.com/translate_tts?ie=UTF-8&q=${encodeURIComponent(word)}&tl=en&client=tw-ob`
+      const response = await fetch(url, { headers: { 'User-Agent': 'Mozilla/5.0' }, signal: AbortSignal.timeout(8000) })
+      if (!response.ok) return res.status(502).end()
+      clip = Buffer.from(await response.arrayBuffer())
+      if (audioCache.size >= MAX_AUDIO_CACHE) audioCache.clear()
+      audioCache.set(word, clip)
+    }
+    res.set('Content-Type', 'audio/mpeg')
+    res.set('Cache-Control', 'private, max-age=2592000')
+    res.send(clip)
+  } catch {
+    res.status(502).end()
   }
 })
