@@ -1039,3 +1039,8 @@ select.pill { padding: 0 16px; color: var(--text); border: none; }
 .check-info > div { display: grid; grid-template-columns: 130px 1fr; gap: 10px; }
 .check-info .small { font-size: 11px; word-break: break-all; }
 .check-link { text-align: center; text-decoration: underline; }
+.check-test { display: flex; flex-direction: column; gap: 8px; border-top: 1px solid var(--border); padding-top: 12px; }
+.check-stage { font-size: 18px; font-weight: 700; }
+.check-result { display: flex; flex-direction: column; gap: 6px; font-size: 14px; }
+.check-result > div { display: grid; grid-template-columns: 200px 1fr; gap: 10px; }
+@media (max-width: 720px) { .check-result > div, .check-info > div { grid-template-columns: 1fr; gap: 2px; } }

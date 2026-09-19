@@ -15,6 +15,9 @@ export default function AudioCheck() {
   const [levels, setLevels] = useState({ raw: 0, clean: 0 })
   const [peak, setPeak] = useState({ raw: 0, clean: 0 })
   const [listen, setListen] = useState(false)
+  // A guided test: three quiet seconds, then four of speech; averages of both.
+  const [test, setTest] = useState(null) // { stage: 'quiet' | 'speak' | 'done', left, quiet: {raw, clean}, speech: {raw, clean} }
+  const samplesRef = useRef([])
   const cleanedRef = useRef(null)
   const rawRef = useRef(null)
   const monitorRef = useRef(null)
@@ -66,6 +69,7 @@ export default function AudioCheck() {
       const cleaned = cleanedRef.current
       if (!cleaned) return
       const { raw, clean } = cleaned.levels()
+      samplesRef.current.push({ raw, clean, at: performance.now() })
       setLevels({ raw, clean })
       setPeak((p) => ({ raw: Math.max(p.raw * 0.97, raw), clean: Math.max(p.clean * 0.97, clean) }))
     }, 100)
@@ -82,6 +86,27 @@ export default function AudioCheck() {
       video.srcObject = null
     }
   }, [listen, phase])
+
+  const average = (items) => {
+    if (!items.length) return { raw: 0, clean: 0 }
+    return { raw: items.reduce((a, s) => a + s.raw, 0) / items.length, clean: items.reduce((a, s) => a + s.clean, 0) / items.length }
+  }
+  const runTest = async () => {
+    const wait = (ms) => new Promise((r) => setTimeout(r, ms))
+    const stage = async (name, seconds) => {
+      for (let left = seconds; left > 0; left--) { setTest((t) => ({ ...(t ?? {}), stage: name, left })); await wait(1000) }
+    }
+    setTest({ stage: 'quiet', left: 3 })
+    await wait(500); samplesRef.current = []
+    await stage('quiet', 3)
+    const quiet = average(samplesRef.current)
+    samplesRef.current = []
+    await stage('speak', 5)
+    // Speech is judged on the louder half of the samples (the words, not the pauses).
+    const spoken = [...samplesRef.current].sort((a, b) => b.raw - a.raw).slice(0, Math.max(1, Math.floor(samplesRef.current.length / 2)))
+    const speech = average(spoken)
+    setTest({ stage: 'done', quiet, speech })
+  }
 
   const bar = (rms) => `${Math.max(2, Math.min(100, (db(rms) + 60) / 60 * 100))}%`
   const reduction = peak.raw > 0.001 && peak.clean >= 0 ? Math.max(0, db(peak.raw) - db(Math.max(peak.clean, 1e-6))) : null
@@ -120,6 +145,26 @@ export default function AudioCheck() {
                 {reduction >= 15 ? ' — the engine is working.' : reduction >= 5 ? ' — working, the room is fairly quiet.' : ' — little to remove right now, or the engine is not doing its job; keep quiet for a few seconds and watch the bars.'}
               </p>
             )}
+            <div className="check-test">
+              {!test || test.stage === 'done' ? (
+                <button className="ghost" onClick={runTest}>Run the guided test (8 seconds)</button>
+              ) : (
+                <p className="check-stage">{test.stage === 'quiet' ? `Keep quiet… ${test.left}` : `Now speak, a full sentence… ${test.left}`}</p>
+              )}
+              {test?.stage === 'done' && (
+                <div className="check-result">
+                  <div><span className="muted">Room noise (you were quiet)</span><span className="mono">{db(test.quiet.raw).toFixed(0)} dB → {db(test.quiet.clean).toFixed(0)} dB, cut by {Math.max(0, db(test.quiet.raw) - db(test.quiet.clean)).toFixed(0)} dB</span></div>
+                  <div><span className="muted">Your voice</span><span className="mono">{db(test.speech.raw).toFixed(0)} dB → {db(test.speech.clean).toFixed(0)} dB, {Math.max(0, db(test.speech.raw) - db(test.speech.clean)).toFixed(0)} dB lost</span></div>
+                  <p>
+                    {db(test.quiet.raw) - db(test.quiet.clean) >= 10 && db(test.speech.raw) - db(test.speech.clean) <= 8
+                      ? 'Good: the noise goes, the voice stays. This is what the others hear in a call.'
+                      : db(test.speech.raw) - db(test.speech.clean) > 8
+                        ? 'The voice is being cut too much — the engine is over-suppressing. Send this screenshot to Galina\'s developer.'
+                        : 'Little noise to remove in this room; the voice is intact.'}
+                  </p>
+                </div>
+              )}
+            </div>
             <label className="check-listen">
               <input type="checkbox" checked={listen} onChange={(e) => setListen(e.target.checked)} />
               Play the cleaned sound back to me (use headphones, or it will howl)
