@@ -31,8 +31,10 @@ async function openSession(classroomId, { counted = true } = {}) {
     orderBy: { startedAt: 'desc' }
   })
 
-  if (recent && !recent.endedAt) return recent
-  if (recent?.endedAt && Date.now() - recent.endedAt.getTime() < SESSION_RESUME_MS) {
+  // A reconnect continues the session — but a trial never merges into a
+  // paid lesson or the other way round.
+  if (recent && !recent.endedAt && recent.counted === counted) return recent
+  if (recent?.endedAt && recent.counted === counted && Date.now() - recent.endedAt.getTime() < SESSION_RESUME_MS) {
     return prisma.session.update({ where: { id: recent.id }, data: { endedAt: null } })
   }
 

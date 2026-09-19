@@ -20,7 +20,7 @@ const STOP = new Set(('a an the and or but so if then than that this these those
 
 const clean = (text) => String(text ?? '').replace(/\{\{#[0-9a-f]{6}:([^}]*)\}\}/gi, '$1').replace(/\*\*|__/g, '')
 
-const isLessonHeading = (t) => /^—\s*(Lesson|Homework|Speaking)/i.test(t.trim())
+const isLessonHeading = (t) => /^—\s*(Lesson|Homework|Speaking|Placement)/i.test(t.trim())
 
 function wordsFrom(texts) {
   const seen = new Map()

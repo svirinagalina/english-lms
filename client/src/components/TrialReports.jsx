@@ -24,12 +24,19 @@ export default function TrialReports({ classroomId, canEdit = false }) {
     const prev = current.answers?.[String(n)] ?? null
     const next = prev === value ? null : value
     setData((d) => ({ ...d, reports: d.reports.map((r) => (r.id === current.id ? { ...r, answers: { ...(r.answers ?? {}), [n]: next } } : r)) }))
-    try { await api.updateTrial(current.id, { answers: { [String(n)]: next } }) } catch (err) { setError(err.message) }
+    try {
+      const { report } = await api.updateTrial(current.id, { answers: { [String(n)]: next } })
+      // The server's estimate follows the marks.
+      setData((d) => ({ ...d, reports: d.reports.map((r) => (r.id === report.id ? { ...r, estimate: report.estimate } : r)) }))
+    } catch (err) { setError(err.message) }
   }
   const markAll = async (value) => {
     const answers = Object.fromEntries(items.map((i) => [String(i.n), value]))
     setData((d) => ({ ...d, reports: d.reports.map((r) => (r.id === current.id ? { ...r, answers } : r)) }))
-    try { await api.updateTrial(current.id, { answers }) } catch (err) { setError(err.message) }
+    try {
+      const { report } = await api.updateTrial(current.id, { answers })
+      setData((d) => ({ ...d, reports: d.reports.map((r) => (r.id === report.id ? { ...r, estimate: report.estimate } : r)) }))
+    } catch (err) { setError(err.message) }
   }
   const saveField = async (field, value) => {
     setData((d) => ({ ...d, reports: d.reports.map((r) => (r.id === current.id ? { ...r, [field]: value } : r)) }))
