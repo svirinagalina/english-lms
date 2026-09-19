@@ -308,6 +308,7 @@ export default function Call() {
   const blurOutRef = useRef(null) // { canvas, track }
   const blurStreamRef = useRef(null)
   const tinyRef = useRef(null)
+  const frameRef = useRef(null)
   // The camera as it should go out right now: blurred if the blur is on.
   const outgoingCameraTrack = () => blurOutRef.current?.track ?? localStreamRef.current?.getVideoTracks()[0]
 
@@ -627,6 +628,12 @@ export default function Call() {
       const height = Math.round(srcH * (width / srcW))
       if (canvas.width !== width || canvas.height !== height) { canvas.width = width; canvas.height = height }
       if (background.width !== width || background.height !== height) { background.width = width; background.height = height }
+      // The camera frame is copied to a plain canvas first: Safari ignores the
+      // compositing mode when a <video> is drawn directly, which put the whole
+      // sharp frame over the blur on iPhones. A canvas composites correctly.
+      const frame = frameRef.current ?? (frameRef.current = document.createElement('canvas'))
+      if (frame.width !== width || frame.height !== height) { frame.width = width; frame.height = height }
+      frame.getContext('2d').drawImage(results.image, 0, 0, width, height)
 
       // The blurred frame goes on its own canvas, the person (cut out by the
       // mask) on top. Blurring happens at the video's own resolution, and the
@@ -645,7 +652,7 @@ export default function Call() {
       } else if (CANVAS_FILTER) {
         bg.save()
         bg.filter = `blur(${blurAmount}px)`
-        bg.drawImage(results.image, -margin, -margin, width + 2 * margin, height + 2 * margin)
+        bg.drawImage(frame, -margin, -margin, width + 2 * margin, height + 2 * margin)
         bg.restore()
       } else {
         // No canvas filter (older Safari): shrink the frame and stretch it
@@ -655,7 +662,7 @@ export default function Call() {
         tiny.width = Math.max(8, Math.round(width / factor)); tiny.height = Math.max(8, Math.round(height / factor))
         const t = tiny.getContext('2d')
         t.imageSmoothingEnabled = true
-        t.drawImage(results.image, 0, 0, tiny.width, tiny.height)
+        t.drawImage(frame, 0, 0, tiny.width, tiny.height)
         bg.imageSmoothingEnabled = true
         bg.drawImage(tiny, -margin, -margin, width + 2 * margin, height + 2 * margin)
       }
@@ -666,7 +673,7 @@ export default function Call() {
       ctx.imageSmoothingEnabled = true
       ctx.drawImage(results.segmentationMask, 0, 0, width, height)
       ctx.globalCompositeOperation = 'source-in'
-      ctx.drawImage(results.image, 0, 0, width, height)
+      ctx.drawImage(frame, 0, 0, width, height)
       ctx.restore()
 
       // The same picture, composed on one canvas, is what goes out.
