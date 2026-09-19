@@ -68,7 +68,8 @@ export default function AudioCheck() {
     const timer = setInterval(() => {
       const cleaned = cleanedRef.current
       if (!cleaned) return
-      const { raw, clean } = cleaned.levels()
+      const { raw, out } = cleaned.levels()
+      const clean = out ?? 0
       samplesRef.current.push({ raw, clean, at: performance.now() })
       setLevels({ raw, clean })
       setPeak((p) => ({ raw: Math.max(p.raw * 0.97, raw), clean: Math.max(p.clean * 0.97, clean) }))

@@ -15,6 +15,50 @@ let gtcrnBinary = null
 let contextPromise = null
 let audioContext = null
 
+// A gentle gate after the denoiser: what it leaves of a fan or a hiss sits
+// around -60 dBFS, faint but audible with a phone at the ear in a quiet
+// room. Below the threshold the gain eases to zero; a voice opens it in a
+// few milliseconds and keeps it open through the pauses between words.
+const GATE_SOURCE = `
+class QuietGate extends AudioWorkletProcessor {
+  constructor(options) {
+    super()
+    const o = options.processorOptions || {}
+    this.open = Math.pow(10, (o.openDb ?? -48) / 20)
+    this.close = Math.pow(10, (o.closeDb ?? -54) / 20)
+    this.holdBlocks = Math.ceil((o.holdMs ?? 400) * sampleRate / 1000 / 128)
+    this.attack = Math.exp(-1 / (sampleRate / 128 * (o.attackMs ?? 5) / 1000))
+    this.release = Math.exp(-1 / (sampleRate / 128 * (o.releaseMs ?? 150) / 1000))
+    this.gain = 0
+    this.hold = 0
+    this.isOpen = false
+  }
+  process(inputs, outputs) {
+    const input = inputs[0]
+    const output = outputs[0]
+    if (!input || !input[0] || !output || !output[0]) return true
+    const x = input[0]
+    let sum = 0
+    for (let i = 0; i < x.length; i++) sum += x[i] * x[i]
+    const rms = Math.sqrt(sum / x.length)
+    if (rms > this.open) { this.isOpen = true; this.hold = this.holdBlocks }
+    else if (rms < this.close) { if (this.hold > 0) this.hold--; else this.isOpen = false }
+    const target = this.isOpen ? 1 : 0
+    const coef = target > this.gain ? this.attack : this.release
+    this.gain = target + (this.gain - target) * coef
+    if (this.gain < 0.001) this.gain = 0
+    for (let c = 0; c < output.length; c++) {
+      const src = input[c] || x
+      const dst = output[c]
+      for (let i = 0; i < dst.length; i++) dst[i] = src[i] * this.gain
+    }
+    return true
+  }
+}
+registerProcessor('quiet-gate', QuietGate)
+`
+const gateModuleUrl = typeof Blob !== 'undefined' ? URL.createObjectURL(new Blob([GATE_SOURCE], { type: 'application/javascript' })) : null
+
 // RNNoise works on 48 kHz mono frames; the context is pinned to that rate
 // and the browser resamples the microphone into it.
 function createContext() {
@@ -53,7 +97,7 @@ async function context() {
         loadRnnoise({ url: wasmUrl, simdUrl: simdWasmUrl }),
         loadGtcrn({ url: gtcrnWasmUrl })
       ])
-      await Promise.all([ctx.audioWorklet.addModule(workletUrl), ctx.audioWorklet.addModule(gtcrnWorkletUrl)])
+      await Promise.all([ctx.audioWorklet.addModule(workletUrl), ctx.audioWorklet.addModule(gtcrnWorkletUrl), ctx.audioWorklet.addModule(gateModuleUrl)])
       return ctx
     })().catch((err) => { contextPromise = null; throw err })
   }
@@ -90,17 +134,21 @@ async function buildDenoiser(micTrack, engine) {
   const node = engine === 'gtcrn'
     ? new GtcrnWorkletNode(ctx, { wasmBinary: gtcrnBinary, maxChannels: 1 })
     : new RnnoiseWorkletNode(ctx, { wasmBinary, maxChannels: 1 })
+  const gate = new AudioWorkletNode(ctx, 'quiet-gate', { processorOptions: { openDb: -48, closeDb: -54, holdMs: 400 } })
   const destination = ctx.createMediaStreamDestination()
-  for (const n of [source, node, destination]) {
+  for (const n of [source, node, gate, destination]) {
     try { n.channelCount = 1; n.channelCountMode = 'explicit' } catch { /* a browser that will not let this be set keeps its default */ }
   }
   // Meters on both sides of the denoiser, so a silent output can be noticed.
   const rawMeter = ctx.createAnalyser(); rawMeter.fftSize = 512
   const cleanMeter = ctx.createAnalyser(); cleanMeter.fftSize = 512
+  const outMeter = ctx.createAnalyser(); outMeter.fftSize = 512
   source.connect(rawMeter)
   source.connect(node)
-  node.connect(cleanMeter)
-  node.connect(destination)
+  node.connect(cleanMeter) // the denoiser's own output, before the gate: the watchdog judges this
+  node.connect(gate)
+  gate.connect(outMeter)
+  gate.connect(destination)
   const track = destination.stream.getAudioTracks()[0]
   const rms = (meter) => {
     const data = new Float32Array(meter.fftSize)
@@ -116,11 +164,11 @@ async function buildDenoiser(micTrack, engine) {
   return {
     track,
     engine,
-    levels: () => ({ raw: rms(rawMeter), clean: rms(cleanMeter), state: ctx.state }),
+    levels: () => ({ raw: rms(rawMeter), clean: rms(cleanMeter), out: rms(outMeter), state: ctx.state }),
     resume: () => ctx.resume().catch(() => {}),
     stop() {
       ctx.removeEventListener('statechange', onState)
-      try { source.disconnect(); node.disconnect(); node.destroy?.() } catch { /* already gone */ }
+      try { source.disconnect(); node.disconnect(); gate.disconnect(); node.destroy?.() } catch { /* already gone */ }
       track.stop()
     }
   }

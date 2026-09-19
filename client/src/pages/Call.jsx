@@ -151,7 +151,7 @@ export default function Call() {
     let ticks = 0
     const timer = setInterval(async () => {
       if (denoiserRef.current !== cleaned) { clearInterval(timer); return }
-      const { raw, clean, state } = cleaned.levels()
+      const { raw, clean, out, state } = cleaned.levels()
       ticks += 1
       if (ticks === 20 || ticks % 30 === 0) {
         const senders = Object.values(connectionsRef.current).map((pc) => pc.getSenders().find((sd) => sd.track?.kind === 'audio')?.track)
@@ -168,7 +168,7 @@ export default function Call() {
           }
         } catch { /* stats unavailable */ }
         report(token, 'noise.health', cleaned.engine, {
-          raw: Number(raw.toFixed(4)), clean: Number(clean.toFixed(5)), state,
+          raw: Number(raw.toFixed(4)), clean: Number(clean.toFixed(5)), out: Number((out ?? 0).toFixed(5)), state,
           peers: senders.length,
           sendingCleaned: senders.length ? senders.every((t) => t === cleaned.track) : null,
           senderLabels: senders.map((t) => t?.label?.slice(0, 18) ?? 'none').join(','),
