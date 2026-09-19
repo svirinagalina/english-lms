@@ -210,7 +210,7 @@ const Controls = forwardRef(function Controls({
                 </div>
               </>
             )}
-            {!phone && onBackgroundChange && (
+            {onBackgroundChange && (
               <>
                 <div className="more-label">Background</div>
                 <div className="bg-picker">
@@ -231,7 +231,7 @@ const Controls = forwardRef(function Controls({
                 </div>
               </>
             )}
-            {!phone && (
+            {(
             <div className="blur-control">
               {background === 'blur' && <div className="more-label">Blur strength</div>}
               {background === 'blur' && (

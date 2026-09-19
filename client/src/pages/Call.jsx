@@ -68,7 +68,8 @@ const ICE_SERVERS = [
 const AUDIO_CONSTRAINTS = { echoCancellation: true, noiseSuppression: true, autoGainControl: true, channelCount: { ideal: 1 } }
 // The blur pipeline: frames per second the mask is computed at, and the
 // width the outgoing picture is composed at.
-const BLUR_FPS = 15
+// Phones get a lighter tick: the model is the same, the battery is not.
+const BLUR_FPS = isHandheld() ? 12 : 15
 const OUT_WIDTH = 640
 const RECONNECTING = 'Connection lost — reconnecting…'
 
@@ -98,6 +99,7 @@ export default function Call() {
     if (!scene) return
     let cancelled = false
     const image = new Image()
+    image.focusX = scene.focusX ?? 0.5
     image.onload = () => { if (!cancelled) bgImageRef.current = image }
     image.src = scene.src
     return () => { cancelled = true; bgImageRef.current = null }
@@ -603,7 +605,9 @@ export default function Call() {
         // A picture behind the person, cropped to cover the frame.
         const scale = Math.max(width / picture.naturalWidth, height / picture.naturalHeight)
         const sw = width / scale, sh = height / scale
-        bg.drawImage(picture, (picture.naturalWidth - sw) / 2, (picture.naturalHeight - sh) / 2, sw, sh, 0, 0, width, height)
+        const focusX = picture.focusX ?? 0.5
+        const sx = Math.min(Math.max(0, picture.naturalWidth * focusX - sw / 2), picture.naturalWidth - sw)
+        bg.drawImage(picture, sx, (picture.naturalHeight - sh) / 2, sw, sh, 0, 0, width, height)
       } else if (CANVAS_FILTER) {
         bg.save()
         bg.filter = `blur(${blurAmount}px)`
@@ -906,8 +910,7 @@ export default function Call() {
             )}
             {blurStatus && <span className="preview-note">{blurStatus}</span>}
           </div>
-          {!phone && (
-            <>
+          <>
               <div className="more-label">Background</div>
               <div className="bg-picker">
                 <button type="button" className={`bg-thumb plain ${background === 'none' ? 'active' : ''}`} onClick={() => setBackground('none')}>None</button>
@@ -918,8 +921,7 @@ export default function Call() {
                   </button>
                 ))}
               </div>
-            </>
-          )}
+          </>
           <button onClick={() => { if (!phone) primeDenoiser(); setJoined(true) }} autoFocus>Join call</button>
           <Link className="ghost button" to="/classroom">Back</Link>
         </div>
