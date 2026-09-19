@@ -1,6 +1,7 @@
 import { forwardRef, useEffect, useRef, useState } from 'react'
 import { REACTIONS } from './Reactions'
 import { isMobile } from '../utils/device'
+import { BACKGROUNDS } from '../backgrounds'
 
 // Phones have no screen sharing, and keep the browser's own noise/blur handling.
 const canShareScreen = typeof navigator !== 'undefined' && Boolean(navigator.mediaDevices?.getDisplayMedia) && !isMobile()
@@ -23,6 +24,9 @@ const Controls = forwardRef(function Controls({
   onBlurToggle,
   // Students get Blur in the row next to Mic (the teacher has it under More).
   blurInRow = false,
+  // 'none' | 'blur' | a picture id from BACKGROUNDS.
+  background = 'none',
+  onBackgroundChange,
   blurAmount,
   onBlurChange,
   boards = [],
@@ -206,15 +210,31 @@ const Controls = forwardRef(function Controls({
                 </div>
               </>
             )}
+            {!phone && onBackgroundChange && (
+              <>
+                <div className="more-label">Background</div>
+                <div className="bg-picker">
+                  <button type="button" className={`bg-thumb plain ${background === 'none' ? 'active' : ''}`} onClick={() => onBackgroundChange('none')} title="Your room as it is">None</button>
+                  <button type="button" className={`bg-thumb plain ${background === 'blur' ? 'active' : ''}`} onClick={() => onBackgroundChange('blur')} title="Blur your room">Blur</button>
+                  {BACKGROUNDS.map((scene) => (
+                    <button
+                      key={scene.id}
+                      type="button"
+                      className={`bg-thumb ${background === scene.id ? 'active' : ''}`}
+                      style={{ backgroundImage: `url(${scene.src})` }}
+                      onClick={() => onBackgroundChange(scene.id)}
+                      title={scene.label}
+                    >
+                      <span>{scene.label}</span>
+                    </button>
+                  ))}
+                </div>
+              </>
+            )}
             {!phone && (
             <div className="blur-control">
-              {!blurInRow && (
-                <button className={`pill ${isBlurEnabled ? 'on' : ''}`} onClick={onBlurToggle}>
-                  {isBlurEnabled ? 'Background blur: ON' : 'Background blur: OFF'}
-                </button>
-              )}
-              {blurInRow && isBlurEnabled && <div className="more-label">Blur strength</div>}
-              {isBlurEnabled && (
+              {background === 'blur' && <div className="more-label">Blur strength</div>}
+              {background === 'blur' && (
                 <input
                   type="range"
                   min="4"

@@ -11,6 +11,7 @@ import Writing from '../components/Writing'
 import { videoProcessor } from '../utils/videoProcessor'
 import { denoiseTrack, primeDenoiser, isDenoiserSupported } from '../utils/noiseSuppressor'
 import { isMobile, useNarrow } from '../utils/device'
+import { BACKGROUNDS } from '../backgrounds'
 
 // Older Safari cannot blur inside a canvas; there the layer is blurred by CSS.
 const CANVAS_FILTER = typeof CanvasRenderingContext2D !== 'undefined' && 'filter' in CanvasRenderingContext2D.prototype
@@ -81,7 +82,22 @@ export default function Call() {
   const [peers, setPeers] = useState({})
   const [screenStream, setScreenStream] = useState(null)
   // Blur is on from the start; it can be switched off in the call.
-  const [isBlurEnabled, setIsBlurEnabled] = useState(() => !isMobile())
+  // What stands behind the person: nothing, a blur, or one of the pictures.
+  const [background, setBackground] = useState(() => (isMobile() ? 'none' : 'blur'))
+  const isBlurEnabled = background !== 'none'
+  const setIsBlurEnabled = (on) => setBackground(on ? 'blur' : 'none')
+  // The chosen picture, once loaded; frames read it directly.
+  const bgImageRef = useRef(null)
+  useEffect(() => {
+    const scene = BACKGROUNDS.find((b) => b.id === background)
+    bgImageRef.current = null
+    if (!scene) return
+    let cancelled = false
+    const image = new Image()
+    image.onload = () => { if (!cancelled) bgImageRef.current = image }
+    image.src = scene.src
+    return () => { cancelled = true; bgImageRef.current = null }
+  }, [background])
   const [blurAmount, setBlurAmount] = useState(20)
   const [copied, setCopied] = useState(false)
   const [micOn, setMicOn] = useState(true)
@@ -526,7 +542,13 @@ export default function Call() {
       // rim that would let the sharp video underneath show through.
       const bg = background.getContext('2d')
       const margin = blurAmount * 2
-      if (CANVAS_FILTER) {
+      const picture = bgImageRef.current
+      if (picture) {
+        // A picture behind the person, cropped to cover the frame.
+        const scale = Math.max(width / picture.naturalWidth, height / picture.naturalHeight)
+        const sw = width / scale, sh = height / scale
+        bg.drawImage(picture, (picture.naturalWidth - sw) / 2, (picture.naturalHeight - sh) / 2, sw, sh, 0, 0, width, height)
+      } else if (CANVAS_FILTER) {
         bg.save()
         bg.filter = `blur(${blurAmount}px)`
         bg.drawImage(results.image, -margin, -margin, width + 2 * margin, height + 2 * margin)
@@ -633,7 +655,7 @@ export default function Call() {
       videoProcessor.onFrame = null
       if (animationRef.current) cancelAnimationFrame(animationRef.current)
     }
-  }, [isBlurEnabled, blurAmount])
+  }, [isBlurEnabled, blurAmount, background])
 
   const toggleTrack = (kind) => () => {
     localStreamRef.current?.getTracks().filter((t) => t.kind === kind).forEach((t) => { t.enabled = !t.enabled })
@@ -962,7 +984,9 @@ export default function Call() {
         onCloseBoard={closeBoard}
         isBlurEnabled={isBlurEnabled}
         blurInRow={!isStaff}
-        onBlurToggle={() => setIsBlurEnabled((v) => !v)}
+        onBlurToggle={() => setBackground((b) => (b === 'none' ? 'blur' : 'none'))}
+        background={background}
+        onBackgroundChange={setBackground}
         blurAmount={blurAmount}
         onBlurChange={setBlurAmount}
       />
