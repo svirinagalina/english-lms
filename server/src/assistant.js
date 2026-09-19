@@ -72,3 +72,23 @@ export async function classifyMistakeWithAi(said, correct) {
     user: `Said: ${said}\nCorrect: ${correct}`
   })
 }
+
+const JudgeSchema = z.object({ correct: z.boolean(), feedback: z.string() })
+
+// Judges a drill answer the way a teacher would: the grammar point behind
+// the mistake must be fixed; other correct wordings count. Feedback is one
+// short sentence in Russian.
+export async function judgeAnswer({ said, correct, answer, topic }) {
+  return structured({
+    name: 'judge',
+    schema: JudgeSchema,
+    maxTokens: 300,
+    system:
+      'You check a Russian-speaking learner\'s attempt to correct their own earlier mistake in English. You are given the sentence as they said it (wrong), ' +
+      'the teacher\'s correct version, the grammar point behind the mistake, and the learner\'s new attempt. Mark the attempt correct if it fixes that grammar point ' +
+      'and is a natural, grammatically correct English sentence with the same meaning — it does not have to match the teacher\'s wording (synonyms, contractions, ' +
+      'a different but correct tense form where the meaning allows, minor punctuation are fine). Mark it wrong if the original mistake is still there or a new grammar error appears; ' +
+      'ignore spelling slips of one letter unless they change the word. Give one short sentence of feedback in Russian (keep grammar terms in English): what was fixed, or what is still wrong and how to say it.',
+    user: `Said (wrong): ${said}\nTeacher's correct version: ${correct}\nGrammar point: ${topic || '—'}\nLearner's attempt: ${answer}`
+  })
+}

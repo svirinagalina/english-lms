@@ -86,6 +86,9 @@ export default function MistakeNotebook({ classroomId, canEdit = false, boardLin
                         <div className="notebook-meta">
                           {m.labels.map((l) => <span key={l} className="mistake-tag">{l}</span>)}
                           {m.practicedCorrect > 0 && <span className="muted">drilled right {m.practicedCorrect}×</span>}
+                          {m.units?.length > 0 && (
+                            <span className="muted">practise: {m.units.map((u, i) => <span key={u.id}>{i > 0 && ', '}<Link to={`/practice/${u.id}`}>{u.title}</Link></span>)}</span>
+                          )}
                           {boardLink && m.boardId && m.elementId && (
                             <Link className="muted" to={boardLink(m)}>on the board</Link>
                           )}

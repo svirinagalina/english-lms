@@ -19,7 +19,7 @@ export default function MistakePractice() {
   }, [])
   useEffect(() => { if (!result) inputRef.current?.focus() }, [index, result])
 
-  if (error) return <div className="centered"><div className="card"><p className="error">{error}</p><Link className="button" to="/practice">Back</Link></div></div>
+  if (error) return <div className="centered"><div className="card"><p className="error">{error}</p><Link className="button" to="/">Back</Link></div></div>
   if (!queue) return <div className="centered">Loading…</div>
 
   const current = queue[index]
@@ -46,7 +46,7 @@ export default function MistakePractice() {
     <div className="page practice-page">
       <header className="topbar">
         <div className="row-actions">
-          <Link className="ghost back-link" to="/practice">← Back</Link>
+          <Link className="ghost back-link" to="/">← Back</Link>
           <strong>My mistakes</strong>
         </div>
         <div className="muted">{queue.length ? `${Math.min(index + 1, queue.length)} of ${queue.length}` : ''}</div>
@@ -56,7 +56,7 @@ export default function MistakePractice() {
         <div className="card done-card">
           <h2>Nothing to drill yet</h2>
           <p className="muted">Mistakes your teacher notes during lessons will appear here.</p>
-          <Link className="button" to="/practice">Back to practice</Link>
+          <Link className="button" to="/">Back</Link>
         </div>
       ) : finished ? (
         <div className="card done-card">
@@ -64,7 +64,7 @@ export default function MistakePractice() {
           <p className="muted">Right: {stats.right} · Missed: {stats.wrong}</p>
           <div className="row-actions" style={{ justifyContent: 'center' }}>
             <button onClick={() => { setIndex(0); setStats({ right: 0, wrong: 0 }) }}>Once more</button>
-            <Link className="button" to="/practice">Back to units</Link>
+            <Link className="button" to="/">Back</Link>
           </div>
         </div>
       ) : (
@@ -99,6 +99,12 @@ export default function MistakePractice() {
                   <strong>Not quite</strong>
                   <div className="expected">{result.expected}</div>
                 </>
+              )}
+              {result.feedback && <div className="muted" style={{ marginTop: 6 }}>{result.feedback}</div>}
+              {current.units?.length > 0 && (
+                <div className="muted" style={{ marginTop: 6 }}>
+                  Practise this: {current.units.map((u, i) => <span key={u.id}>{i > 0 && ' · '}<Link to={`/practice/${u.id}`}>{u.title}</Link></span>)}
+                </div>
               )}
               <div className="row-actions">
                 {!result.correct && <button className="ghost" onClick={tryAgain}>Try again</button>}

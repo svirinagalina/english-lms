@@ -4,7 +4,8 @@ import { prisma } from '../db.js'
 import { requireAuth } from '../auth.js'
 import { accessibleClassroom } from './classrooms.js'
 import { classifyMistake, topicLabel } from '../errorAnalysis.js'
-import { assistantEnabled, classifyMistakeWithAi } from '../assistant.js'
+import { assistantEnabled, classifyMistakeWithAi, judgeAnswer } from '../assistant.js'
+import { unitsForTopics } from '../topicUnits.js'
 import { checkAnswer } from '../answerCheck.js'
 
 // The mistake notebook: written on the board during a lesson, kept per
@@ -34,8 +35,9 @@ const mistakeSchema = z.object({
   elementId: z.string().max(64).optional()
 })
 
-const view = (m) => ({
+const view = (m, units = []) => ({
   id: m.id,
+  units,
   said: m.said,
   correct: m.correct,
   topics: m.topics,
@@ -52,8 +54,11 @@ const view = (m) => ({
 mistakesRouter.get('/classroom/:id', async (req, res) => {
   const classroom = await accessibleClassroom(req.user, req.params.id)
   if (!classroom) return res.status(404).json({ error: 'Classroom not found' })
-  const mistakes = await prisma.lessonMistake.findMany({ where: { classroomId: classroom.id }, orderBy: { createdAt: 'desc' } })
-  res.json({ mistakes: mistakes.map(view) })
+  // A student sees their whole notebook (every classroom); a teacher this classroom's.
+  const where = req.user.role === 'STUDENT' ? { studentId: req.user.id } : { classroomId: classroom.id }
+  const mistakes = await prisma.lessonMistake.findMany({ where, orderBy: { createdAt: 'desc' } })
+  const units = await unitsForTopics(req.user.schoolId, mistakes.flatMap((m) => m.topics))
+  res.json({ mistakes: mistakes.map((m) => view(m, m.topics.flatMap((t) => units.get(t) ?? []).filter((u, i, a) => a.findIndex((x) => x.id === u.id) === i).slice(0, 2))) })
 })
 
 mistakesRouter.post('/classroom/:id', async (req, res) => {
@@ -106,11 +111,13 @@ mistakesRouter.get('/practice', async (req, res) => {
   if (req.user.role !== 'STUDENT') return res.json({ exercises: [] })
   const mistakes = await prisma.lessonMistake.findMany({ where: { studentId: req.user.id } })
   mistakes.sort((a, b) => (a.lastPracticedAt?.getTime() ?? 0) - (b.lastPracticedAt?.getTime() ?? 0) || b.createdAt - a.createdAt)
+  const units = await unitsForTopics(req.user.schoolId, mistakes.flatMap((m) => m.topics))
   res.json({
     exercises: mistakes.map((m) => ({
       id: m.id,
       said: m.said,
       labels: m.topics.map(topicLabel),
+      units: m.topics.flatMap((t) => units.get(t) ?? []).filter((u, i, a) => a.findIndex((x) => x.id === u.id) === i).slice(0, 2),
       practicedCorrect: m.practicedCorrect,
       createdAt: m.createdAt
     }))
@@ -121,10 +128,21 @@ mistakesRouter.post('/practice/:id/attempt', async (req, res) => {
   const mistake = await prisma.lessonMistake.findFirst({ where: { id: req.params.id, studentId: req.user.id } })
   if (!mistake) return res.status(404).json({ error: 'Not found' })
   const answer = typeof req.body?.answer === 'string' ? req.body.answer : ''
-  const result = checkAnswer(answer, [mistake.correct], { prompt: mistake.said })
+  // Exact or near-exact match first (free); otherwise the AI judges the
+  // grammar point, so a correct wording that differs from the teacher's counts.
+  let result = checkAnswer(answer, [mistake.correct], { prompt: mistake.said })
+  let feedback = ''
+  if (!result.correct && assistantEnabled() && answer.trim()) {
+    try {
+      const verdict = await judgeAnswer({ said: mistake.said, correct: mistake.correct, answer, topic: mistake.topics.map(topicLabel).join(', ') })
+      if (verdict) { result = { correct: verdict.correct }; feedback = verdict.feedback }
+    } catch (error) {
+      console.error('Drill judge failed:', error.message)
+    }
+  }
   await prisma.lessonMistake.update({
     where: { id: mistake.id },
     data: { lastPracticedAt: new Date(), ...(result.correct ? { practicedCorrect: { increment: 1 } } : {}) }
   })
-  res.json({ correct: result.correct, expected: mistake.correct })
+  res.json({ correct: result.correct, expected: mistake.correct, feedback })
 })
