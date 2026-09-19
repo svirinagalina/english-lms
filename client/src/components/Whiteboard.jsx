@@ -2190,13 +2190,18 @@ const Whiteboard = forwardRef(function Whiteboard({ socketRef, boardId, title, s
     if (!canvas || !elementsRef.current.length) return
     const rect = canvas.getBoundingClientRect()
     const box = unionBounds(elementsRef.current)
-    const pad = 60
-    const scale = Math.min(maxScale, Math.max(MIN_SCALE,
-      Math.min((rect.width - pad * 2) / Math.max(box.w, 1), (rect.height - pad * 2) / Math.max(box.h, 1))))
+    // A phone fits the content's width only — fitting everything would make
+    // the text unreadable — and shows its end, where the latest lesson is.
+    const phone = rect.width < 720
+    const pad = phone ? 16 : 60
+    const scale = Math.min(maxScale, Math.max(MIN_SCALE, phone
+      ? (rect.width - pad * 2) / Math.max(box.w, 1)
+      : Math.min((rect.width - pad * 2) / Math.max(box.w, 1), (rect.height - pad * 2) / Math.max(box.h, 1))))
+    const overflow = phone && box.h * scale > rect.height - pad * 2
     viewRef.current = {
       scale,
       x: (rect.width - box.w * scale) / 2 - box.x * scale,
-      y: (rect.height - box.h * scale) / 2 - box.y * scale
+      y: overflow ? rect.height - 170 - (box.y + box.h) * scale : (rect.height - box.h * scale) / 2 - box.y * scale
     }
     scheduleRender()
     bump()

@@ -219,7 +219,7 @@ textarea:focus { outline: none; border-color: var(--accent); }
   font-size: 14px;
 }
 
-.lesson-page { height: 100vh; display: flex; flex-direction: column; position: relative; }
+.lesson-page { height: 100vh; height: 100dvh; display: flex; flex-direction: column; position: relative; }
 .lesson-page .topbar { padding: 14px 20px; }
 
 .view-pane { flex: 1; display: flex; flex-direction: column; min-height: 0; position: relative; }
@@ -237,7 +237,9 @@ textarea:focus { outline: none; border-color: var(--accent); }
   background: rgba(234, 179, 8, 0.12);
   border-bottom-color: rgba(234, 179, 8, 0.35);
   color: #fde68a;
+  display: flex; align-items: flex-start; gap: 10px;
 }
+.banner-close { margin-left: auto; background: transparent; border: none; color: inherit; font-size: 18px; line-height: 1; padding: 0 2px; cursor: pointer; }
 
 .stage { flex: 1; display: flex; gap: 8px; padding: 8px; overflow: hidden; }
 
@@ -919,7 +921,9 @@ select.pill { padding: 0 16px; color: var(--text); border: none; }
   .lesson-page.board-mode .more-menu { top: auto; bottom: calc(100% + 8px); }
   .stage.board-mode .tiles { top: 64px; right: 8px; width: 110px; bottom: auto; max-height: 40vh; }
   .stage.board-mode .board-corner-right { display: none; }
-  .lesson-page.board-mode .banner { top: 64px; left: 8px; right: 130px; max-width: none; }
+  .lesson-page.board-mode .banner { top: 64px; left: 8px; right: 130px; max-width: none; background: #3d3a1e; border: 1px solid rgba(234, 179, 8, 0.35); }
+  .lesson-page.board-mode .call-chat { top: auto; bottom: 216px; left: 8px; right: 8px; max-height: 50vh; }
+  .lesson-page.writing-mode .call-chat { bottom: 66px; }
 }
 
 /* The trial offer on the student's Payment page: ivory cards, green ink. */
@@ -938,3 +942,59 @@ select.pill { padding: 0 16px; color: var(--text); border: none; }
 .trial-offer .offer-plan ul { margin: 0 0 12px; padding-left: 20px; font-size: 14px; display: flex; flex-direction: column; gap: 3px; color: #14453f; }
 .trial-offer .offer-pay { display: block; width: 100%; text-align: center; box-sizing: border-box; }
 .trial-offer .offer-plan .small-hint { color: #5f7a74; }
+
+/* --- Phones: one scrollable row of section links, actions under the text --- */
+@media (max-width: 720px) {
+  .topbar .nav-links { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; max-width: 100%; padding-bottom: 2px; gap: 4px; }
+  .topbar .nav-links::-webkit-scrollbar { display: none; }
+  .topbar .nav-links .nav-link, .topbar .nav-links button { flex-shrink: 0; }
+  .topbar .nav-identity > div { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .row > .row-actions, .row-main > .row-actions { flex-basis: 100%; justify-content: flex-start; }
+  .row > .unit-main, .row-main > div:first-child { flex-basis: 100%; }
+  .row-actions button, .row-actions .button { flex: 1 1 auto; min-width: 0; white-space: nowrap; }
+  .tiles-grid { grid-template-columns: 1fr; }
+  .paid-badge { white-space: normal; }
+}
+
+/* Phones, video mode: the other person fills the screen, you are a small
+   picture-in-picture at the top right; several peers stack. */
+@media (max-width: 720px) {
+  .lesson-page .topbar { padding: 10px 12px; }
+  .stage:not(.board-mode):not(.with-screen) { padding: 0; }
+  .stage:not(.board-mode):not(.with-screen) .tiles { position: relative; display: flex; flex-direction: column; gap: 6px; }
+  .stage:not(.board-mode):not(.with-screen) .tiles.has-peers .video-tile.local {
+    position: absolute; top: 10px; right: 10px; width: 110px; z-index: 3;
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.4); border-radius: 10px;
+  }
+  .stage:not(.board-mode):not(.with-screen) .tiles.has-peers .remote-tile { aspect-ratio: 3 / 4; flex: 1 1 auto; min-height: 45vh; }
+  .stage:not(.board-mode):not(.with-screen) .tiles:not(.has-peers) .video-tile.local { aspect-ratio: 3 / 4; }
+  .controls { padding: 10px 8px calc(10px + env(safe-area-inset-bottom)); gap: 8px; }
+  .controls .round { min-width: 0; height: 40px; padding: 0 12px; font-size: 13px; }
+  .controls .pill { height: 40px; font-size: 13px; padding: 0 12px; }
+  .call-chat { left: 8px; right: 8px; width: auto; bottom: 90px; top: auto; max-height: 60vh; }
+  /* Leave and the invite link are in the controls row / under More. */
+  .lesson-page .topbar > .row-actions:last-child { display: none; }
+  .lesson-page .topbar .nav-identity { flex-basis: auto; }
+  /* The More menu spans the screen above the controls instead of hanging off one button. */
+  .lesson-page .more-wrap { position: static; }
+  .lesson-page .more-menu, .lesson-page.board-mode .more-menu {
+    position: fixed; left: 8px; right: 8px; top: auto; bottom: 74px; transform: none;
+    min-width: 0; max-height: calc(100vh - 120px); overflow-y: auto;
+  }
+  /* The controls are transformed, so "fixed" is relative to them: just above the row. */
+  .lesson-page.board-mode .more-menu { bottom: calc(100% + 8px); left: 0; right: 0; }
+  /* Writing on a phone: no dock, so the controls sit at the bottom, the tiles
+     above them; the bar's tools scroll sideways in one row. */
+  .lesson-page.writing-mode .controls { bottom: 10px; }
+  .lesson-page.writing-mode .stage.board-mode .tiles { top: auto; bottom: 66px; right: 8px; width: 96px; max-height: 45vh; }
+  .lesson-page.writing-mode .banner { top: 96px; right: 8px; }
+  .writing-bar { padding: 8px 10px; gap: 6px; }
+  .writing-bar > .row-actions { flex-basis: 100%; flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; justify-content: flex-start; }
+  .writing-bar > .row-actions::-webkit-scrollbar { display: none; }
+  .writing-bar > .row-actions .tool { flex: 0 0 auto; }
+  .writing-bar .tool { flex-shrink: 0; }
+  .writing-page-wrap { padding: 12px 8px 80px; }
+  .writing-page { padding: 24px 20px; font-size: 16px; min-height: 55vh; }
+  .writing-hint { display: none; }
+  .more-tools .round { flex: 1 1 auto; height: 40px; }
+}

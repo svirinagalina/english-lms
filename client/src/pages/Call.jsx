@@ -10,7 +10,7 @@ import Whiteboard from '../components/Whiteboard'
 import Writing from '../components/Writing'
 import { videoProcessor } from '../utils/videoProcessor'
 import { denoiseTrack } from '../utils/noiseSuppressor'
-import { isMobile } from '../utils/device'
+import { isMobile, useNarrow } from '../utils/device'
 
 // Older Safari cannot blur inside a canvas; there the layer is blurred by CSS.
 const CANVAS_FILTER = typeof CanvasRenderingContext2D !== 'undefined' && 'filter' in CanvasRenderingContext2D.prototype
@@ -117,6 +117,9 @@ export default function Call() {
   }
   // Phones may refuse to play the others' sound until a tap: an overlay asks for one.
   const [needsTap, setNeedsTap] = useState(false)
+  // Phones: the compact controls row (Leave included) in video mode too.
+  const narrow = useNarrow()
+  const [warningHidden, setWarningHidden] = useState(false)
   const [unlockTick, setUnlockTick] = useState(0)
   const unlockPlayback = () => {
     // Inside the tap: play every remote element now, and let the tiles retry.
@@ -167,6 +170,23 @@ export default function Call() {
   // a gesture on the page, and it lets people settle the camera first.
   const canJoin = Boolean(user && call && joined)
 
+  // A phone must not dim and lock mid-lesson: hold a screen wake lock while
+  // in the call, and take it again when the tab comes back to the front.
+  useEffect(() => {
+    if (!canJoin || !navigator.wakeLock) return
+    let lock = null
+    const acquire = async () => {
+      try { lock = await navigator.wakeLock.request('screen') } catch { /* not allowed: nothing to do */ }
+    }
+    const onVisible = () => { if (document.visibilityState === 'visible') acquire() }
+    acquire()
+    document.addEventListener('visibilitychange', onVisible)
+    return () => {
+      document.removeEventListener('visibilitychange', onVisible)
+      lock?.release().catch(() => {})
+    }
+  }, [canJoin])
+
   useEffect(() => {
     if (!canJoin) return
     let disposed = false
@@ -208,6 +228,7 @@ export default function Call() {
           // A busy or missing camera must not take the microphone down with it.
           raw = await navigator.mediaDevices.getUserMedia({ audio: audioConstraints })
           setMediaWarning(`Camera is not available (${err?.name === 'NotAllowedError' ? 'not allowed' : err?.message ?? err}) — joining with sound only.`)
+          setCameraOn(false)
         }
         if (disposed) { raw.getTracks().forEach((t) => t.stop()); return }
         rawMicRef.current = raw.getAudioTracks()[0] ?? null
@@ -232,6 +253,9 @@ export default function Call() {
         if (localVideoRef.current) localVideoRef.current.srcObject = stream
       } catch {
         setMediaWarning('Camera and microphone are off — others will not see or hear you.')
+        setCameraOn(false)
+        setMicOn(false)
+        micOnRef.current = false
       }
       if (disposed) return
       setStatus('connecting')
@@ -650,7 +674,7 @@ export default function Call() {
   const leaveTo = call.classroomId ? `/classroom/${call.classroomId}` : '/classroom'
 
   return (
-    <div className={`lesson-page ${boardId || writingId ? 'board-mode' : ''}`}>
+    <div className={`lesson-page ${boardId || writingId ? 'board-mode' : ''} ${writingId ? 'writing-mode' : ''}`}>
       <header className="topbar">
         <div className="nav-identity row-actions">
           <Link className="ghost back-link" to={leaveTo}>← Back</Link>
@@ -668,7 +692,12 @@ export default function Call() {
       {status === 'requesting-media' && (
         <div className="banner">Waiting for camera and microphone access — please allow it in the browser prompt.</div>
       )}
-      {status !== 'requesting-media' && mediaWarning && <div className="banner warning">{mediaWarning}</div>}
+      {status !== 'requesting-media' && mediaWarning && !warningHidden && (
+        <div className="banner warning">
+          {mediaWarning}
+          <button className="banner-close" onClick={() => setWarningHidden(true)} title="Hide">×</button>
+        </div>
+      )}
       {blurStatus && <div className="banner">{blurStatus}</div>}
 
       <div className="view-pane">
@@ -749,14 +778,14 @@ export default function Call() {
 
       <Controls
         ref={controlsRef}
-        compact={Boolean(boardId || writingId)}
+        compact={Boolean(boardId || writingId) || narrow}
         onReact={(emoji) => socketRef.current?.emit('reaction', { emoji })}
         onSticker={boardId && !writingId ? (sticker) => boardRef.current?.addSticker(sticker) : undefined}
         onToggleCamera={toggleTrack('video')}
         onToggleMicrophone={toggleTrack('audio')}
         cameraOn={cameraOn}
         micOn={micOn}
-        onLeave={boardId || writingId ? () => navigate(leaveTo) : undefined}
+        onLeave={boardId || writingId || narrow ? () => navigate(leaveTo) : undefined}
         onCopyLink={copyLink}
         copied={copied}
         chatOpen={chatOpen}

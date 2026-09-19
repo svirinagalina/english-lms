@@ -155,7 +155,7 @@ export default function VideoGrid({
         </div>
       )}
 
-      <div className="tiles">
+      <div className={`tiles ${Object.keys(peers).length ? 'has-peers' : ''}`}>
         <div className="video-tile local">
           <video ref={localVideoRef} autoPlay muted playsInline />
           <canvas

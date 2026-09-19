@@ -1,5 +1,10 @@
 import { forwardRef, useEffect, useRef, useState } from 'react'
 import { REACTIONS } from './Reactions'
+import { isMobile } from '../utils/device'
+
+// Phones have no screen sharing, and keep the browser's own noise/blur handling.
+const canShareScreen = typeof navigator !== 'undefined' && Boolean(navigator.mediaDevices?.getDisplayMedia) && !isMobile()
+const phone = isMobile()
 
 // Stickers for the board: two praise pills, drawn on the canvas.
 export const STICKERS = [
@@ -79,13 +84,15 @@ const Controls = forwardRef(function Controls({
   // Screen, board, chat — in the row, or under More when compact.
   const tools = (
     <>
-      <button
-        className={`round ${hasScreenStream ? 'on' : ''}`}
-        onClick={onShareScreen}
-        title={hasScreenStream ? 'Stop sharing your screen' : 'Share your screen'}
-      >
-        {hasScreenStream ? 'Stop screen' : 'Screen'}
-      </button>
+      {canShareScreen && (
+        <button
+          className={`round ${hasScreenStream ? 'on' : ''}`}
+          onClick={onShareScreen}
+          title={hasScreenStream ? 'Stop sharing your screen' : 'Share your screen'}
+        >
+          {hasScreenStream ? 'Stop screen' : 'Screen'}
+        </button>
+      )}
 
       {boards.length > 0 && (
         boardId && writingId ? (
@@ -189,6 +196,7 @@ const Controls = forwardRef(function Controls({
                 </div>
               </>
             )}
+            {!phone && (
             <button
               className={`pill ${noiseSuppression ? 'on' : ''}`}
               onClick={onNoiseToggle}
@@ -196,6 +204,8 @@ const Controls = forwardRef(function Controls({
             >
               {noiseSuppression ? 'Noise reduction: ON' : 'Noise reduction: OFF'}
             </button>
+            )}
+            {!phone && (
             <div className="blur-control">
               <button className={`pill ${isBlurEnabled ? 'on' : ''}`} onClick={onBlurToggle}>
                 {isBlurEnabled ? 'Background blur: ON' : 'Background blur: OFF'}
@@ -211,6 +221,7 @@ const Controls = forwardRef(function Controls({
                 />
               )}
             </div>
+            )}
             {onCopyLink && (
               <button className="pill" onClick={onCopyLink} title="Copy the link to send to the student">
                 {copied ? 'Link copied' : 'Copy invite link'}
