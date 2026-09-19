@@ -334,13 +334,23 @@ export default function Call() {
           rawTrack.addEventListener('ended', () => { if (!disposed && rawMicRef.current === rawTrack) reacquireMic() })
         }
         const stream = new MediaStream(raw.getVideoTracks())
+        // The own picture (and its blur) starts at once; the audio joins the
+        // stream as soon as the denoiser is ready.
+        if (localVideoRef.current) localVideoRef.current.srcObject = stream
         // Outgoing audio: the neural denoiser's output when available.
         let audio = rawMicRef.current
         // Phones keep the browser's own noise suppression: the worklet's
         // audio path is unreliable on iOS. Desktop gets the neural denoiser.
         if (audio && !isMobile() && isDenoiserSupported()) {
           try {
-            const cleaned = await denoiseTrack(audio)
+            // A stalled download must not hold the call: after a few seconds
+            // the plain microphone goes out (the browser's own filter is on it).
+            let late = false
+            const cleaned = await Promise.race([
+              denoiseTrack(audio).then((c) => { if (late) c.stop(); return c }),
+              new Promise((_, reject) => setTimeout(() => { late = true; reject(new Error('took too long to load')) }, 10000))
+            ])
+            if (disposed) { cleaned.stop(); return }
             denoiserRef.current = cleaned
             audio = cleaned.track
             watchDenoiser(cleaned)
@@ -350,7 +360,6 @@ export default function Call() {
         }
         if (audio) stream.addTrack(audio)
         localStreamRef.current = stream
-        if (localVideoRef.current) localVideoRef.current.srcObject = stream
       } catch {
         setMediaWarning('Camera and microphone are off — others will not see or hear you.')
         setCameraOn(false)
@@ -523,10 +532,22 @@ export default function Call() {
       setMediaWarning(`Blur could not ${stage}: ${err?.message ?? String(err)}`)
       setIsBlurEnabled(false)
     }
+    let watchdog = null
     const loop = async () => {
       if (cancelled) return
+      // No camera at all: nothing to blur, and nothing to complain about.
+      if (localStreamRef.current && !localStreamRef.current.getVideoTracks().length) { cancelled = true; setIsBlurEnabled(false); return }
       const video = localVideoRef.current
       if (video && video.readyState >= 2) {
+        // The camera shows a picture: from here the model has a few seconds
+        // to produce frames, otherwise the blur is switched off with a reason.
+        if (!watchdog) {
+          watchdog = setTimeout(() => {
+            if (!cancelled && frames === 0) {
+              fail('start', new Error(`no frames were processed (camera ${video?.videoWidth ?? 0}×${video?.videoHeight ?? 0}, ready ${video?.readyState ?? '?'})`))
+            }
+          }, 8000)
+        }
         try {
           if (await videoProcessor.send(video)) {
             frames += 1
@@ -539,9 +560,9 @@ export default function Call() {
       }
       if (!cancelled) animationRef.current = requestAnimationFrame(loop)
     }
-    // The runtime and model are a few megabytes: say so while they load,
-    // and only once they are in, treat "no frames" as a failure.
-    let watchdog = null
+    // The runtime and model are a few megabytes: say so while they load.
+    // Until the camera shows a picture there is nothing to blur and nothing
+    // to complain about (the join screen, a call without a camera).
     if (!hasWebGL()) {
       fail('start', new Error('WebGL is disabled in this browser; the blur needs it'))
     } else {
@@ -551,14 +572,6 @@ export default function Call() {
           if (cancelled) return
           setBlurStatus('')
           loop()
-          watchdog = setTimeout(() => {
-            if (!cancelled && frames === 0) {
-              const video = localVideoRef.current
-              // No camera at all: nothing to blur, and nothing to complain about.
-              if (localStreamRef.current && !localStreamRef.current.getVideoTracks().length) { cancelled = true; setIsBlurEnabled(false); return }
-              fail('start', new Error(`no frames were processed (camera ${video?.videoWidth ?? 0}×${video?.videoHeight ?? 0}, ready ${video?.readyState ?? '?'})`))
-            }
-          }, 8000)
         })
         .catch((err) => fail('start', err))
     }
