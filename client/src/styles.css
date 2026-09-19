@@ -798,9 +798,9 @@ select.pill { padding: 0 16px; color: var(--text); border: none; }
 }
 .more-menu .pill, .more-menu .blur-control { width: 100%; }
 /* Background thumbnails under More: None, Blur and the pictures. */
-.bg-picker { display: grid; grid-template-columns: repeat(5, 1fr); gap: 6px; }
+.bg-picker { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
 .bg-thumb {
-  position: relative; height: 44px; padding: 0; border-radius: 8px; border: 2px solid transparent;
+  position: relative; height: 52px; padding: 0; border-radius: 8px; border: 2px solid transparent;
   background: #1f5c52 center / cover no-repeat; color: var(--text); font-size: 11px; font-weight: 600; cursor: pointer; overflow: hidden;
 }
 .bg-thumb span { position: absolute; left: 0; right: 0; bottom: 0; padding: 2px 0; background: rgba(0, 0, 0, 0.45); font-size: 10px; }
