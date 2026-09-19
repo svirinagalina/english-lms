@@ -1022,3 +1022,20 @@ select.pill { padding: 0 16px; color: var(--text); border: none; }
 .link-button { background: none; border: none; padding: 0; color: var(--accent); font: inherit; text-decoration: underline; cursor: pointer; }
 @media (max-width: 720px) { .video-tile.preview { aspect-ratio: 1 / 1; } .join-card { padding: 24px 20px; } }
 .more-status { font-size: 12px; color: var(--muted); text-align: center; padding: 2px 0; }
+
+/* Microphone check: two level bars and the engine's state. */
+.audio-check { display: flex; flex-direction: column; gap: 16px; max-width: 640px; }
+.audio-check > button { align-self: flex-start; }
+.meters { display: flex; flex-direction: column; gap: 14px; background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 16px; }
+.meter-label { display: flex; justify-content: space-between; font-size: 13px; margin-bottom: 6px; }
+.meter-track { height: 14px; border-radius: 7px; background: var(--bg); overflow: hidden; }
+.meter-fill { height: 100%; border-radius: 7px; transition: width 80ms linear; }
+.meter-fill.raw { background: #fca5a5; }
+.meter-fill.clean { background: #86efac; }
+.mono { font-variant-numeric: tabular-nums; }
+.check-verdict { font-size: 14px; }
+.check-listen { display: flex; gap: 8px; align-items: center; font-size: 13px; color: var(--muted); }
+.check-info { display: flex; flex-direction: column; gap: 6px; font-size: 13px; }
+.check-info > div { display: grid; grid-template-columns: 130px 1fr; gap: 10px; }
+.check-info .small { font-size: 11px; word-break: break-all; }
+.check-link { text-align: center; text-decoration: underline; }

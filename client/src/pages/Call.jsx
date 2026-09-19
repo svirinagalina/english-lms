@@ -929,6 +929,7 @@ export default function Call() {
           </>
           <button onClick={() => { primeDenoiser(); setJoined(true) }} autoFocus>Join call</button>
           <Link className="ghost button" to="/classroom">Back</Link>
+          <Link className="muted check-link" to="/audio-check">Check my microphone and noise removal</Link>
         </div>
       </div>
     )
