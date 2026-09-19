@@ -64,7 +64,6 @@ export default function VideoGrid({
   drawingCanvasRef,
   processingCanvasRef,
   backgroundCanvasRef,
-  cssBlur,
   isBlurEnabled,
   socketRef,
   onPlaybackBlocked,
@@ -161,7 +160,6 @@ export default function VideoGrid({
           <canvas
             ref={backgroundCanvasRef}
             className={isBlurEnabled ? 'blur-layer' : 'blur-layer hidden'}
-            style={cssBlur ? { filter: `blur(${Math.min(cssBlur, 24) / 2}px)`, transform: 'scale(1.25)' } : undefined}
           />
           <canvas
             ref={processingCanvasRef}

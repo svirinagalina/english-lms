@@ -234,6 +234,13 @@ export default function Call() {
   const processingCanvasRef = useRef(null)
   const backgroundCanvasRef = useRef(null)
   const animationRef = useRef(null)
+  // The blurred picture is what the others get: a canvas track replaces
+  // the camera on every connection while the blur is on.
+  const blurOutRef = useRef(null) // { canvas, track }
+  const blurStreamRef = useRef(null)
+  const tinyRef = useRef(null)
+  // The camera as it should go out right now: blurred if the blur is on.
+  const outgoingCameraTrack = () => blurOutRef.current?.track ?? localStreamRef.current?.getVideoTracks()[0]
 
   useEffect(() => {
     if (!user) return
@@ -277,7 +284,7 @@ export default function Call() {
       // While the screen is being shared, a newcomer gets the screen in the
       // camera's place, like everyone else.
       const screen = screenStreamRef.current?.getVideoTracks()[0]
-      if (stream) stream.getTracks().forEach((track) => pc.addTrack(track.kind === 'video' && screen ? screen : track, stream))
+      if (stream) stream.getTracks().forEach((track) => pc.addTrack(track.kind === 'video' ? (screen ?? blurOutRef.current?.track ?? track) : track, stream))
       // Without a camera or microphone of our own we still need to receive
       // theirs: an offer with no media lines would carry nothing back.
       for (const kind of ['audio', 'video']) {
@@ -482,9 +489,23 @@ export default function Call() {
       rawMicRef.current?.stop()
       denoiserRef.current?.stop()
       denoiserRef.current = null
+      blurOutRef.current?.track.stop()
+      blurOutRef.current = null
       if (animationRef.current) cancelAnimationFrame(animationRef.current)
     }
   }, [canJoin, token])
+
+  // Blur off: the plain camera goes out again and the canvas track is dropped.
+  useEffect(() => {
+    if (isBlurEnabled) return
+    const out = blurOutRef.current
+    if (!out) return
+    blurOutRef.current = null
+    blurStreamRef.current = null
+    if (!screenStreamRef.current) swapOutgoingVideo(localStreamRef.current?.getVideoTracks()[0])
+    out.track.stop()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isBlurEnabled])
 
   useEffect(() => {
     if (!isBlurEnabled) return
@@ -511,7 +532,16 @@ export default function Call() {
         bg.drawImage(results.image, -margin, -margin, width + 2 * margin, height + 2 * margin)
         bg.restore()
       } else {
-        bg.drawImage(results.image, 0, 0, width, height)
+        // No canvas filter (older Safari): shrink the frame and stretch it
+        // back with smoothing, which softens it much like a blur.
+        const tiny = tinyRef.current ?? (tinyRef.current = document.createElement('canvas'))
+        const factor = Math.max(4, blurAmount / 2)
+        tiny.width = Math.max(8, Math.round(width / factor)); tiny.height = Math.max(8, Math.round(height / factor))
+        const t = tiny.getContext('2d')
+        t.imageSmoothingEnabled = true
+        t.drawImage(results.image, 0, 0, tiny.width, tiny.height)
+        bg.imageSmoothingEnabled = true
+        bg.drawImage(tiny, -margin, -margin, width + 2 * margin, height + 2 * margin)
       }
 
       const ctx = canvas.getContext('2d')
@@ -522,6 +552,26 @@ export default function Call() {
       ctx.globalCompositeOperation = 'source-in'
       ctx.drawImage(results.image, 0, 0, width, height)
       ctx.restore()
+
+      // The same picture, composed on one canvas, is what goes out.
+      let out = blurOutRef.current
+      if (!out) {
+        const outCanvas = document.createElement('canvas')
+        outCanvas.width = width; outCanvas.height = height
+        const outStream = outCanvas.captureStream?.(30)
+        const track = outStream?.getVideoTracks()[0]
+        if (track) {
+          out = blurOutRef.current = { canvas: outCanvas, track }
+          blurStreamRef.current = outStream
+          if (!screenStreamRef.current) swapOutgoingVideo(track)
+        }
+      }
+      if (out) {
+        if (out.canvas.width !== width || out.canvas.height !== height) { out.canvas.width = width; out.canvas.height = height }
+        const o = out.canvas.getContext('2d')
+        o.drawImage(background, 0, 0, width, height)
+        o.drawImage(canvas, 0, 0, width, height)
+      }
     }
     // A frame that fails stops the blur and says why, instead of leaving the
     // toggle on with nothing happening.
@@ -611,7 +661,7 @@ export default function Call() {
     screenStreamRef.current = null
     stream?.getTracks().forEach((t) => t.stop())
     setScreenStream(null)
-    await swapOutgoingVideo(localStreamRef.current?.getVideoTracks()[0])
+    await swapOutgoingVideo(outgoingCameraTrack())
     socketRef.current?.emit('screen-share-stop')
   }
   const shareScreen = async () => {
@@ -871,7 +921,6 @@ export default function Call() {
           drawingCanvasRef={drawingCanvasRef}
           processingCanvasRef={processingCanvasRef}
           backgroundCanvasRef={backgroundCanvasRef}
-          cssBlur={CANVAS_FILTER ? 0 : blurAmount}
           isBlurEnabled={isBlurEnabled}
           socketRef={socketRef}
         />
