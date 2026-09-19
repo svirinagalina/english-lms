@@ -14,23 +14,57 @@ class VideoProcessor {
     this.input = document.createElement('canvas')
     this.mask = document.createElement('canvas')
     this.busy = false
+    this.maskStats = []
+    this.switching = false
+    this.delegate = null
+    this.vision = null
   }
 
   async initialize() {
     if (this.initialized) return
-    const vision = await FilesetResolver.forVisionTasks('/mediapipe/wasm')
-    const options = (delegate) => ({
-      baseOptions: { modelAssetPath: '/mediapipe/selfie_segmenter.tflite', delegate },
+    this.vision = await FilesetResolver.forVisionTasks('/mediapipe/wasm')
+    // Safari's WebGL gives the GPU path a mask that is all person or all
+    // background (the blur then shows nothing): iPhones and iPads run the
+    // model on the CPU from the start; elsewhere the GPU is tried first.
+    this.delegate = /iPhone|iPad|iPod/i.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1) ? 'CPU' : 'GPU'
+    await this.createSegmenter(this.delegate)
+    this.initialized = true
+    this.maskStats = []
+  }
+
+  async createSegmenter(delegate) {
+    const options = (d) => ({
+      baseOptions: { modelAssetPath: '/mediapipe/selfie_segmenter.tflite', delegate: d },
       runningMode: 'VIDEO',
       outputCategoryMask: false,
       outputConfidenceMasks: true
     })
     try {
-      this.segmenter = await ImageSegmenter.createFromOptions(vision, options('GPU'))
+      this.segmenter = await ImageSegmenter.createFromOptions(this.vision, options(delegate))
+      this.delegate = delegate
     } catch {
-      this.segmenter = await ImageSegmenter.createFromOptions(vision, options('CPU'))
+      this.segmenter = await ImageSegmenter.createFromOptions(this.vision, options('CPU'))
+      this.delegate = 'CPU'
     }
-    this.initialized = true
+  }
+
+  // A mask that never varies (all person, or all background) over the first
+  // seconds means the GPU path is broken on this device: switch to the CPU once.
+  checkMask(values) {
+    if (this.switching) return
+    let sum = 0
+    for (let i = 0; i < values.length; i += 7) sum += values[i]
+    const mean = sum / Math.ceil(values.length / 7)
+    this.lastMaskMean = mean
+    this.maskStats.push(mean)
+    if (this.maskStats.length < 30) return
+    if (this.delegate !== 'GPU') { this.maskStats = []; return }
+    const flat = this.maskStats.every((m) => m > 0.985) || this.maskStats.every((m) => m < 0.015)
+    this.maskStats = []
+    if (!flat) { this.delegate = 'GPU-ok'; return }
+    this.switching = true
+    console.warn('Blur: the GPU mask is flat on this device, switching to the CPU')
+    this.createSegmenter('CPU').finally(() => { this.switching = false })
   }
 
   // Runs one frame and hands back { image, segmentationMask } — the mask is a
@@ -52,6 +86,7 @@ class VideoProcessor {
       const confidence = result.confidenceMasks?.[0]
       if (confidence) {
         const values = confidence.getAsFloat32Array()
+        this.checkMask(values)
         const ctx = this.mask.getContext('2d')
         const pixels = ctx.createImageData(width, height)
         const data = pixels.data

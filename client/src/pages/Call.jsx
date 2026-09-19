@@ -718,7 +718,11 @@ export default function Call() {
             frames += 1
             if (frames === 1) {
               setMediaWarning((w) => (w.startsWith('Blur') ? '' : w))
-              report(token, 'blur.on', background, { camera: `${video.videoWidth}x${video.videoHeight}`, sending: Boolean(blurOutRef.current) })
+              report(token, 'blur.on', background, { camera: `${video.videoWidth}x${video.videoHeight}`, sending: Boolean(blurOutRef.current), delegate: videoProcessor.delegate ?? null })
+            }
+            if (frames === 45) {
+              // Three seconds in: is the mask telling person from room?
+              report(token, 'blur.mask', background, { delegate: videoProcessor.delegate ?? null, maskMean: Number((videoProcessor.lastMaskMean ?? -1).toFixed(3)), sending: Boolean(blurOutRef.current) })
             }
           }
         } catch (err) {
