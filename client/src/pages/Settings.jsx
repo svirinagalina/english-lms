@@ -18,9 +18,11 @@ export default function Settings() {
   const [stripe, setStripe] = useState({ configured: false, keyHint: null, fromEnv: false })
   const [stripeKey, setStripeKey] = useState('')
   const [stripeNotice, setStripeNotice] = useState('')
+  const [stripeError, setStripeError] = useState('')
+  const [stripeBusy, setStripeBusy] = useState(false)
   const saveStripe = async (event) => {
     event.preventDefault()
-    setStripeNotice('')
+    setStripeNotice(''); setStripeError(''); setStripeBusy(true)
     try {
       const { configured } = await api.saveStripeKey(stripeKey.trim())
       setStripeKey('')
@@ -28,7 +30,9 @@ export default function Settings() {
       setStripeNotice(configured ? 'Saved. Students now get a checkout page with the amount filled in.' : 'Key removed.')
       api.offerLinks().then(({ stripe }) => setStripe(stripe)).catch(() => {})
     } catch (err) {
-      setStripeNotice(err.message)
+      setStripeError(err.message)
+    } finally {
+      setStripeBusy(false)
     }
   }
 
@@ -164,9 +168,10 @@ export default function Settings() {
               Stripe secret key {stripe.configured && <span className="muted">(leave empty and save to remove)</span>}
               <input type="password" placeholder="sk_live_…" value={stripeKey} onChange={(e) => setStripeKey(e.target.value)} autoComplete="new-password" spellCheck={false} />
             </label>
+            {stripeError && <div className="error">{stripeError}</div>}
+            {stripeNotice && <div className="notice">{stripeNotice}</div>}
             <div className="editor-actions">
-              <button type="submit">Save</button>
-              {stripeNotice && <span className="muted">{stripeNotice}</span>}
+              <button type="submit" disabled={stripeBusy || !stripeKey.trim()}>{stripeBusy ? 'Saving…' : 'Save'}</button>
             </div>
           </form>
         )}

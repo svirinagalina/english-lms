@@ -31,7 +31,8 @@ settingsRouter.get('/offer', (req, res) => res.json({ links: offerLinks(), strip
 // checkout page with the exact amount already filled in.
 settingsRouter.put('/stripe', async (req, res) => {
   const key = typeof req.body?.key === 'string' ? req.body.key.trim() : ''
-  if (key && !/^(sk|rk)_(live|test)_/.test(key)) return res.status(400).json({ error: 'A Stripe secret key starts with "sk_live_" or "sk_test_"' })
+  if (key && /^pk_/.test(key)) return res.status(400).json({ error: 'This is the publishable key (pk_…). The platform needs the Secret key — it starts with sk_live_' })
+  if (key && !/^(sk|rk)_(live|test)_/.test(key)) return res.status(400).json({ error: 'A Stripe secret key starts with "sk_live_" (or "sk_test_" for test mode)' })
   await saveStripeKey(key || null)
   res.json({ configured: Boolean(stripeKey()) })
 })
