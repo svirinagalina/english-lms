@@ -59,3 +59,30 @@
   .report { box-shadow: none; border-radius: 0; padding: 10mm 8mm; }
   .focus-card, .report-block { break-inside: avoid; }
 }
+
+/* The offer at the end */
+.report-offer { padding: 26px 0 10px; }
+.offer-kicker { text-transform: uppercase; letter-spacing: .08em; font-size: 11px; color: #b5539a; font-weight: 700; margin-bottom: 6px; }
+.report-offer h2 { font-size: 22px; margin-bottom: 8px; }
+.report-offer h3 { font-size: 16px; margin: 22px 0 6px; }
+.offer-ribbon { display: inline-block; margin: 8px 0 14px; padding: 8px 14px; border-radius: 10px; background: #fff3fa; border: 1px solid #f4b9d9; font-weight: 600; }
+.offer-facts { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 10px; margin: 0; }
+.offer-facts > div { background: #fff; border: 1px solid #e6e0d6; border-radius: 10px; padding: 10px 12px; }
+.offer-facts dt { font-size: 11px; text-transform: uppercase; letter-spacing: .04em; color: #5f7a74; }
+.offer-facts dd { margin: 4px 0 0; font-weight: 600; font-size: 14px; }
+.offer-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 10px; }
+.offer-card { background: #fff; border: 1px solid #e6e0d6; border-radius: 10px; padding: 10px 12px; }
+.offer-card strong { display: block; margin-bottom: 2px; }
+.offer-card p { margin: 0; font-size: 13px; color: #5f7a74; }
+.offer-plans { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 14px; }
+.offer-plan { position: relative; background: #fff; border: 1px solid #e6e0d6; border-radius: 14px; padding: 18px 16px 14px; }
+.offer-plan.mine { border: 2px solid #f4b9d9; box-shadow: 0 10px 30px rgba(244, 185, 217, 0.35); }
+.offer-badge { position: absolute; top: -11px; left: 14px; background: #14453f; color: #fcfbf6; font-size: 11px; font-weight: 700; padding: 3px 10px; border-radius: 10px; }
+.offer-plan-name { font-size: 20px; font-weight: 800; }
+.offer-price { margin: 10px 0; font-size: 14px; }
+.offer-price s { color: #5f7a74; }
+.offer-price strong { font-size: 22px; color: #14453f; }
+.offer-plan ul { margin: 0; padding-left: 20px; font-size: 14px; display: flex; flex-direction: column; gap: 3px; }
+.offer-cta { display: inline-block; margin: 8px 0 6px; padding: 14px 22px; border-radius: 12px; background: #f4b9d9; color: #14453f; font-weight: 800; text-decoration: none; font-size: 16px; }
+.offer-cta:hover { filter: brightness(1.05); }
+@media print { .offer-cta { border: 2px solid #14453f; } }

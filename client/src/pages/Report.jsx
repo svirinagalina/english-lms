@@ -3,6 +3,7 @@ import { Link, useParams } from 'react-router-dom'
 import { api } from '../api'
 import { useAuth } from '../AuthContext'
 import { Logo } from '../components/Brand'
+import { OFFER, formatRub } from '../offer'
 import '../styles/report.css'
 
 // The level report after a trial lesson: a branded, printable page in
@@ -27,6 +28,11 @@ export default function Report() {
   const marked = report.items.filter((i) => i.result)
   const levelBase = g.level.replace('+', '')
   const LEVEL_NAMES = { A1: 'Beginner', A2: 'Pre-Intermediate', B1: 'Intermediate', B2: 'Upper-Intermediate', C1: 'Advanced' }
+  // The discount runs for a few days from publication (Moscow time).
+  const since = new Date(report.publishedAt ?? report.updatedAt)
+  const until = new Date(since.getTime() + OFFER.discountDays * 24 * 60 * 60 * 1000)
+  const deadline = `${until.toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit', timeZone: 'Europe/Moscow' })}, ${until.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Moscow' })} МСК`
+  const withGalina = /галин|galin/i.test(report.teacher ?? '')
 
   return (
     <div className="report-page">
@@ -139,6 +145,49 @@ export default function Report() {
             </table>
           </section>
         )}
+
+        <section className="report-offer">
+          <div className="offer-kicker">После бесплатного урока · индивидуальное обучение</div>
+          <h2>Урок закончился. Дальше — план, собранный под ваши ошибки</h2>
+          <p>Преподаватель уже услышал, как вы говорите, и увидел, где рассыпается грамматика. Следующий шаг — занятия один на один два раза в неделю по этому плану, а не по программе группы.</p>
+          <div className="offer-ribbon">⏳ Скидка {OFFER.discountPercent}% на первую покупку — {OFFER.discountDays} дня, до {deadline}</div>
+
+          <dl className="offer-facts">
+            <div><dt>Формат</dt><dd>{OFFER.format}</dd></div>
+            <div><dt>Между занятиями</dt><dd>{OFFER.between}</dd></div>
+            <div><dt>Ваш уровень по итогам урока</dt><dd>{g.level}</dd></div>
+            <div><dt>Повторяющиеся ошибки</dt><dd>{[...(g.focusTopics ?? []), ...(g.mistakeTopics ?? [])].slice(0, 3).join(' · ') || '—'}</dd></div>
+            <div><dt>Скидка для вас</dt><dd>{OFFER.discountPercent}% на первую покупку, {OFFER.discountDays} дня</dd></div>
+          </dl>
+
+          <h3>Почему не группа</h3>
+          <p className="muted">Правила вы уже учили. В разговоре — паузы и самопоправки. Вот где обычно теряется результат.</p>
+          <div className="offer-grid">
+            {OFFER.whyNotGroup.map((w) => <div key={w.title} className="offer-card"><strong>{w.title}</strong><p>{w.text}</p></div>)}
+          </div>
+
+          <h3>Форматы и цены</h3>
+          <p className="muted">План под ваши ошибки, отчёт после каждого урока, тренажёр между занятиями — в обоих форматах. Разница в том, кто ведёт.</p>
+          <div className="offer-plans">
+            {[OFFER.mentor, OFFER.expert].map((plan) => {
+              const mine = plan === (withGalina ? OFFER.expert : OFFER.mentor)
+              return (
+                <div key={plan.name} className={`offer-plan ${mine ? 'mine' : ''}`}>
+                  {mine && <div className="offer-badge">Ваш преподаватель с сегодняшнего урока</div>}
+                  <div className="offer-plan-name">{plan.name}</div>
+                  <div className="muted">{plan.line}</div>
+                  <div className="offer-price"><s>{formatRub(plan.price)}/мес</s> <strong>≈{formatRub(plan.discounted)}</strong> /мес</div>
+                  <ul>{plan.includes.map((i) => <li key={i}>{i}</li>)}</ul>
+                </div>
+              )
+            })}
+          </div>
+          <p className="muted">Есть ещё «{OFFER.solo.name}» — {formatRub(OFFER.solo.price)}/мес {OFFER.solo.line}.</p>
+          <p className="muted">Отчёт после каждого урока и голосовой тренажёр между занятиями — входят в оба формата с преподавателем, не дополнительно.</p>
+          <p><strong>{OFFER.guarantee}</strong></p>
+          <a className="offer-cta" href={OFFER.ctaLink}>{OFFER.ctaText}</a>
+          <div className="muted small-hint">Через {OFFER.discountDays} дня скидка сгорает и не восстанавливается.</div>
+        </section>
 
         <footer className="report-foot">
           <div>Advent Academy · lms.advent-academy.online</div>
