@@ -1,11 +1,11 @@
 import { forwardRef, useEffect, useRef, useState } from 'react'
 import { REACTIONS } from './Reactions'
-import { isMobile } from '../utils/device'
+import { isHandheld } from '../utils/device'
 import { BACKGROUNDS } from '../backgrounds'
 
 // Phones have no screen sharing, and keep the browser's own noise/blur handling.
-const canShareScreen = typeof navigator !== 'undefined' && Boolean(navigator.mediaDevices?.getDisplayMedia) && !isMobile()
-const phone = isMobile()
+const canShareScreen = typeof navigator !== 'undefined' && Boolean(navigator.mediaDevices?.getDisplayMedia) && !isHandheld()
+const phone = isHandheld()
 
 // Stickers for the board: two praise pills, drawn on the canvas.
 export const STICKERS = [

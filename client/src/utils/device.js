@@ -19,3 +19,9 @@ export const isMobile = () =>
   (typeof navigator !== 'undefined' && (/Android|iPhone|iPad|iPod/i.test(navigator.userAgent) ||
     (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1))) ||
   (typeof window !== 'undefined' && window.matchMedia?.('(pointer: coarse)').matches && window.innerWidth < 900)
+
+// Phones and tablets by make, regardless of window size: for features the
+// device itself lacks (screen sharing) or cannot carry (the blur model).
+export const isHandheld = () =>
+  typeof navigator !== 'undefined' && (/Android|iPhone|iPad|iPod/i.test(navigator.userAgent) ||
+    (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1))

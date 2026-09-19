@@ -10,7 +10,7 @@ import Whiteboard from '../components/Whiteboard'
 import Writing from '../components/Writing'
 import { videoProcessor } from '../utils/videoProcessor'
 import { denoiseTrack, primeDenoiser, isDenoiserSupported } from '../utils/noiseSuppressor'
-import { isMobile, useNarrow } from '../utils/device'
+import { isMobile, isHandheld, useNarrow } from '../utils/device'
 import { BACKGROUNDS } from '../backgrounds'
 
 // Older Safari cannot blur inside a canvas; there the layer is blurred by CSS.
@@ -83,7 +83,7 @@ export default function Call() {
   const [screenStream, setScreenStream] = useState(null)
   // Blur is on from the start; it can be switched off in the call.
   // What stands behind the person: nothing, a blur, or one of the pictures.
-  const [background, setBackground] = useState(() => (isMobile() ? 'none' : 'blur'))
+  const [background, setBackground] = useState(() => (isHandheld() ? 'none' : 'blur'))
   const isBlurEnabled = background !== 'none'
   const setIsBlurEnabled = (on) => setBackground(on ? 'blur' : 'none')
   // The chosen picture, once loaded; frames read it directly.
@@ -189,7 +189,7 @@ export default function Call() {
     rawMicRef.current = rawTrack
     rawTrack.addEventListener('ended', () => { if (rawMicRef.current === rawTrack) reacquireMic() })
     let track = rawTrack
-    if (!isMobile() && isDenoiserSupported()) {
+    if (!isHandheld() && isDenoiserSupported()) {
       denoiserRef.current?.stop()
       denoiserRef.current = null
       try {
@@ -409,7 +409,7 @@ export default function Call() {
         let audio = rawMicRef.current
         // Phones keep the browser's own noise suppression: the worklet's
         // audio path is unreliable on iOS. Desktop gets the neural denoiser.
-        if (audio && !isMobile() && isDenoiserSupported()) {
+        if (audio && !isHandheld() && isDenoiserSupported()) {
           try {
             // A stalled download must not hold the call: after a few seconds
             // the plain microphone goes out (the browser's own filter is on it).
@@ -870,7 +870,7 @@ export default function Call() {
   if (!call) return <div className="centered">Loading…</div>
 
   if (!joined) {
-    const phone = isMobile()
+    const phone = isHandheld()
     return (
       <div className="auth-page">
         <div className="card join-card">
