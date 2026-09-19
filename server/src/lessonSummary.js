@@ -1,6 +1,7 @@
 import { z } from 'zod'
 import { prisma } from './db.js'
 import { assistantEnabled } from './assistant.js'
+import { structured } from './llm.js'
 import { lookupEntry } from './routes/dictionary.js'
 import { topicLabel } from './errorAnalysis.js'
 import { loadBoard } from './boardStore.js'
@@ -50,18 +51,15 @@ const AiSchema = z.object({
 })
 
 async function askAi({ texts, words, mistakes }) {
-  const { default: Anthropic } = await import('@anthropic-ai/sdk')
-  const { zodOutputFormat } = await import('@anthropic-ai/sdk/helpers/zod')
-  const client = new Anthropic()
   const material = [
     'BOARD TEXT FROM THE LESSON:', ...texts.slice(0, 80),
     '', 'NEW WORDS:', words.join(', '),
     '', 'MISTAKES NOTED (said → correct):', ...mistakes.map((m) => `${m.said} → ${m.correct}`)
   ].join('\n')
-  const response = await client.messages.parse({
-    model: 'claude-opus-5',
-    max_tokens: 3000,
-    thinking: { type: 'adaptive' },
+  return structured({
+    name: 'lesson_summary',
+    schema: AiSchema,
+    maxTokens: 3000,
     system:
       'You help a teacher of English who works one-to-one with Russian-speaking learners. From the material of one lesson ' +
       '(text written on the whiteboard, new words, mistakes), produce: (1) topics — the grammar or language topics the lesson ' +
@@ -71,10 +69,8 @@ async function askAi({ texts, words, mistakes }) {
       'conversation. Questions must be natural, answerable in a few sentences, not personal (nothing about family, health, ' +
       'money, relationships, beliefs or private life) — everyday situations, opinions on neutral things, hypotheticals. ' +
       'Match the level suggested by the material. Plain text, no numbering.',
-    messages: [{ role: 'user', content: material }],
-    output_config: { format: zodOutputFormat(AiSchema) }
+    user: material
   })
-  return response.parsed_output ?? null
 }
 
 // Builds (or rebuilds) the summary of one session. Safe to call again.

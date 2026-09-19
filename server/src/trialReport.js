@@ -1,6 +1,7 @@
 import { z } from 'zod'
 import { prisma } from './db.js'
 import { assistantEnabled } from './assistant.js'
+import { structured } from './llm.js'
 import { TEST_ITEMS, LEVELS, estimateLevel } from './placementTest.js'
 import { topicLabel } from './errorAnalysis.js'
 
@@ -61,9 +62,6 @@ export async function buildTrialReport(reportId) {
   let generated = null
   if (assistantEnabled()) {
     try {
-      const { default: Anthropic } = await import('@anthropic-ai/sdk')
-      const { zodOutputFormat } = await import('@anthropic-ai/sdk/helpers/zod')
-      const client = new Anthropic()
       const material = [
         `Student: ${report.classroom.student?.name ?? 'student'}. Teacher's level assessment: ${report.teacherLevel ?? 'not given'}; test estimate: ${estimate.estimated}${estimate.plus ? '+' : ''} (A1 ${estimate.rates.A1 ?? '-'}%, A2 ${estimate.rates.A2 ?? '-'}%, B1 ${estimate.rates.B1 ?? '-'}%, B2 ${estimate.rates.B2 ?? '-'}%).`,
         `Teacher's comments: ${report.comments || '—'}`,
@@ -73,10 +71,10 @@ export async function buildTrialReport(reportId) {
         '', 'MISTAKES NOTED IN LESSONS (said → correct):', ...mistakes.slice(0, 15).map((m) => `${m.said} → ${m.correct}`),
         '', 'TEXTBOOK CHAPTERS THAT COVER THE WEAK TOPICS:', ...units
       ].join('\n')
-      const response = await client.messages.parse({
-        model: 'claude-opus-5',
-        max_tokens: 4000,
-        thinking: { type: 'adaptive' },
+      const ai = await structured({
+        name: 'trial_report',
+        schema: AiSchema,
+        maxTokens: 4000,
         system:
           'You write a level report for an adult Russian-speaking learner of English after a trial lesson at Advent Academy (a private English school, warm and professional tone, no bureaucratic language). ' +
           'Write in Russian; keep grammar terms in English (Present Perfect, Second Conditional…). Address the student as «вы». Be specific: name the exact points, quote the test sentences as examples. ' +
@@ -84,10 +82,8 @@ export async function buildTrialReport(reportId) {
           'focus (up to 5 grammar points that need attention, each with why it matters and one example sentence from the test in English with the correct form); ' +
           'recommendations (3–5 practical pieces of advice: what to practise and how, which textbook chapters, habits — concrete, no platitudes); plan (3–5 steps for the first month of lessons). ' +
           'Never mention that the report was generated automatically.',
-        messages: [{ role: 'user', content: material }],
-        output_config: { format: zodOutputFormat(AiSchema) }
+        user: material
       })
-      const ai = response.parsed_output
       if (ai) generated = { ...ai, withAi: true }
     } catch (error) {
       console.error('Trial report AI step failed:', error.message)
