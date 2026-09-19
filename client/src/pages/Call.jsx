@@ -10,6 +10,7 @@ import Whiteboard from '../components/Whiteboard'
 import Writing from '../components/Writing'
 import { videoProcessor } from '../utils/videoProcessor'
 import { denoiseTrack } from '../utils/noiseSuppressor'
+import { isMobile } from '../utils/device'
 
 // Older Safari cannot blur inside a canvas; there the layer is blurred by CSS.
 const CANVAS_FILTER = typeof CanvasRenderingContext2D !== 'undefined' && 'filter' in CanvasRenderingContext2D.prototype
@@ -77,16 +78,52 @@ export default function Call() {
   const [peers, setPeers] = useState({})
   const [screenStream, setScreenStream] = useState(null)
   // Blur is on from the start; it can be switched off in the call.
-  const [isBlurEnabled, setIsBlurEnabled] = useState(true)
+  const [isBlurEnabled, setIsBlurEnabled] = useState(() => !isMobile())
   const [blurAmount, setBlurAmount] = useState(20)
   const [copied, setCopied] = useState(false)
   const [micOn, setMicOn] = useState(true)
   const [cameraOn, setCameraOn] = useState(true)
   const micOnRef = useRef(true)
   const [joined, setJoined] = useState(false)
-  const [noiseSuppression, setNoiseSuppression] = useState(true)
+  const [noiseSuppression, setNoiseSuppression] = useState(() => !isMobile())
   const rawMicRef = useRef(null)
   const denoiserRef = useRef(null)
+  // If the denoiser's output stays silent while the microphone has sound,
+  // the others hear nothing: fall back to the plain microphone.
+  const watchDenoiser = (cleaned) => {
+    let silent = 0
+    let checks = 0
+    const timer = setInterval(async () => {
+      if (denoiserRef.current !== cleaned) { clearInterval(timer); return }
+      const { raw, clean, state } = cleaned.levels()
+      checks++
+      if (raw > 0.01 && clean < 0.0005) silent++; else silent = 0
+      if (silent >= 3 || state !== 'running') {
+        clearInterval(timer)
+        const rawTrack = rawMicRef.current
+        if (!rawTrack) return
+        for (const pc of Object.values(connectionsRef.current)) {
+          const sender = pc.getSenders().find((s) => s.track?.kind === 'audio')
+          if (sender) await sender.replaceTrack(rawTrack).catch(() => {})
+        }
+        const stream = localStreamRef.current
+        if (stream) { stream.getAudioTracks().forEach((t) => stream.removeTrack(t)); stream.addTrack(rawTrack) }
+        rawTrack.enabled = micOnRef.current
+        setNoiseSuppression(false)
+        setMediaWarning('Noise reduction went silent and was switched off — the others hear your plain microphone.')
+      }
+      if (checks >= 60) clearInterval(timer)
+    }, 1000)
+  }
+  // Phones may refuse to play the others' sound until a tap: an overlay asks for one.
+  const [needsTap, setNeedsTap] = useState(false)
+  const [unlockTick, setUnlockTick] = useState(0)
+  const unlockPlayback = () => {
+    // Inside the tap: play every remote element now, and let the tiles retry.
+    document.querySelectorAll('.remote-tile video, .screen-area video').forEach((v) => v.play().catch(() => {}))
+    setNeedsTap(false)
+    setUnlockTick((n) => n + 1)
+  }
   const [blurStatus, setBlurStatus] = useState('')
   // The student's board, shown inside the call for everyone in it.
   // Boards this person may show in the call (students' boards, own boards).
@@ -177,11 +214,14 @@ export default function Call() {
         const stream = new MediaStream(raw.getVideoTracks())
         // Outgoing audio: the neural denoiser's output when available.
         let audio = rawMicRef.current
-        if (audio) {
+        // Phones keep the browser's own noise suppression: the worklet's
+        // audio path is unreliable on iOS. Desktop gets the neural denoiser.
+        if (audio && !isMobile()) {
           try {
             const cleaned = await denoiseTrack(audio)
             denoiserRef.current = cleaned
             audio = cleaned.track
+            watchDenoiser(cleaned)
           } catch (err) {
             console.error('Noise suppressor unavailable, using the plain microphone:', err)
             setNoiseSuppression(false)
@@ -276,8 +316,9 @@ export default function Call() {
         setMediaWarning((w) => (w === RECONNECTING ? '' : w))
         socket.emit('join-call', token, async (response) => {
           if (response?.error) { setError(response.error); return }
-          if (response.boardId) setBoardId(response.boardId)
-          if (response.docId) setWritingId(response.docId)
+          // Phones start with the video; the board and writing are under More.
+          if (response.boardId && !isMobile()) setBoardId(response.boardId)
+          if (response.docId && !isMobile()) setWritingId(response.docId)
           for (const peer of response.peers) {
             setPeers((prev) => ({ ...prev, [peer.id]: { name: peer.name, stream: prev[peer.id]?.stream ?? null, muted: Boolean(peer.muted), sharing: Boolean(peer.sharing), userId: peer.userId } }))
             const pc = createConnection(peer.id, peer.name)
@@ -481,6 +522,8 @@ export default function Call() {
   const autoOpened = useRef(false)
   useEffect(() => {
     if (status !== 'live' || autoOpened.current) return
+    // On a phone the call starts with the video; the board is under More.
+    if (isMobile() && !requestedBoard) { autoOpened.current = true; return }
     const wanted = requestedBoard && isStaff
       ? boards.find((b) => b.id === requestedBoard)
       : call?.classroomId ? boards.find((b) => b.classroomId === call.classroomId) : null
@@ -532,6 +575,7 @@ export default function Call() {
     if (!boardId || writingId) return
     const align = () => {
       const controls = controlsRef.current
+      if (window.innerWidth <= 720) { if (controls) { controls.style.left = ''; controls.style.transform = '' } return }
       const chip = document.querySelector('.board-chip')
       const zoom = document.querySelector('.board-corner-right')
       if (!controls) return
@@ -629,6 +673,11 @@ export default function Call() {
 
       <div className="view-pane">
         <Reactions socketRef={socketRef} ready={status === 'live'} />
+        {needsTap && (
+          <button className="tap-to-hear" onClick={unlockPlayback}>
+            🔊 Tap to hear and see the others
+          </button>
+        )}
         <VideoGrid
           peers={peers}
           micOn={micOn}
@@ -681,6 +730,8 @@ export default function Call() {
             </>
           ) : null}
           screenStream={screenStream}
+          onPlaybackBlocked={() => setNeedsTap(true)}
+          unlockTick={unlockTick}
           localVideoRef={localVideoRef}
           screenVideoRef={screenVideoRef}
           drawingCanvasRef={drawingCanvasRef}

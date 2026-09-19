@@ -280,7 +280,7 @@ select.tool { appearance: auto; padding: 5px 8px; }
 /* Narrow windows: the zoom controls drop under the name chip, the dock's
    groups wrap into rows, and the chip never runs under the controls. */
 @media (max-width: 720px) {
-  .board-chip { max-width: calc(100vw - 24px); }
+  .board-chip, .stage.board-mode .board-chip { max-width: calc(100vw - 140px); }
   .board-corner-right { top: 60px; }
   /* A compact dock: each group is one row that scrolls sideways. */
   .board-dock { gap: 6px; padding: 6px 8px; width: calc(100% - 16px); flex-direction: column; align-items: stretch; }

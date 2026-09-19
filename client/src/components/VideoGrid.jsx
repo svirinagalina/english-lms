@@ -15,20 +15,21 @@ function MutedIcon() {
   )
 }
 
-function PeerVideo({ stream, name, muted }) {
+function PeerVideo({ stream, name, muted, onBlocked, unlockTick }) {
   const ref = useRef(null)
 
   // Attach after mount, not during render: a peer whose stream is already
-  // known when its tile first appears would otherwise never get it.
+  // known when its tile first appears would otherwise never get it. A phone
+  // may refuse to play sound without a tap: the page then asks for one.
   useEffect(() => {
     const video = ref.current
     if (!video) return
     if (video.srcObject !== stream) video.srcObject = stream
-    if (stream) video.play().catch(() => { /* autoplay policy: retried on the next click */ })
-  }, [stream])
+    if (stream) video.play().catch((err) => { if (err?.name === 'NotAllowedError') onBlocked?.() })
+  }, [stream, unlockTick])
 
   return (
-    <div className="video-tile">
+    <div className="video-tile remote-tile">
       <video ref={ref} autoPlay playsInline />
       <span className="tile-label">{name ?? 'Participant'}</span>
       {muted && <MutedIcon />}
@@ -37,14 +38,14 @@ function PeerVideo({ stream, name, muted }) {
 }
 
 // Someone else's shared screen, large.
-function RemoteScreen({ stream, name }) {
+function RemoteScreen({ stream, name, unlockTick }) {
   const ref = useRef(null)
   useEffect(() => {
     const video = ref.current
     if (!video) return
     if (video.srcObject !== stream) video.srcObject = stream
     if (stream) video.play().catch(() => {})
-  }, [stream])
+  }, [stream, unlockTick])
   return (
     <>
       <video ref={ref} autoPlay playsInline />
@@ -65,7 +66,9 @@ export default function VideoGrid({
   backgroundCanvasRef,
   cssBlur,
   isBlurEnabled,
-  socketRef
+  socketRef,
+  onPlaybackBlocked,
+  unlockTick = 0
 }) {
   const sharingPeer = Object.values(peers).find((p) => p.sharing && p.stream) ?? null
   const drawing = useRef(false)
@@ -129,7 +132,7 @@ export default function VideoGrid({
       {board && !sharingPeer && !screenStream && <div className="board-area">{board}</div>}
       {sharingPeer && !screenStream && (
         <div className="screen-area">
-          <RemoteScreen stream={sharingPeer.stream} name={sharingPeer.name} />
+          <RemoteScreen stream={sharingPeer.stream} name={sharingPeer.name} unlockTick={unlockTick} />
         </div>
       )}
       {screenStream && (
@@ -169,7 +172,7 @@ export default function VideoGrid({
         </div>
 
         {Object.entries(peers).map(([peerId, peer]) => (
-          <PeerVideo key={peerId} stream={peer.stream} name={peer.name} muted={peer.muted} />
+          <PeerVideo key={peerId} stream={peer.stream} name={peer.name} muted={peer.muted} onBlocked={onPlaybackBlocked} unlockTick={unlockTick} />
         ))}
       </div>
     </div>

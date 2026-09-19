@@ -907,3 +907,17 @@ select.pill { padding: 0 16px; color: var(--text); border: none; }
 .trial-assess textarea { font: inherit; padding: 8px 10px; border-radius: 8px; border: 1px solid var(--border); background: var(--bg); color: var(--text); }
 .active-tab { border-color: var(--accent) !important; }
 @media (max-width: 720px) { .trial-assess { grid-template-columns: 1fr; } .trial-item { grid-template-columns: 24px 1fr; } .trial-marks { grid-column: 2; } }
+.tap-to-hear {
+  position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%);
+  z-index: 50; padding: 16px 22px; font-size: 16px; border-radius: 14px;
+  box-shadow: 0 10px 30px rgba(0,0,0,.4);
+}
+
+/* Phones in board mode: controls above the dock, no zoom group, small tiles. */
+@media (max-width: 720px) {
+  .lesson-page.board-mode .controls { top: auto; bottom: 150px; left: 50%; right: auto; transform: translateX(-50%) !important; }
+  .lesson-page.board-mode .more-menu { top: auto; bottom: calc(100% + 8px); }
+  .stage.board-mode .tiles { top: 64px; right: 8px; width: 110px; bottom: auto; max-height: 40vh; }
+  .stage.board-mode .board-corner-right { display: none; }
+  .lesson-page.board-mode .banner { top: 64px; left: 8px; right: 130px; max-width: none; }
+}
