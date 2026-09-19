@@ -66,6 +66,10 @@ const ICE_SERVERS = [
 // The browser's own processing first (echo, gain, its noise filter), one
 // channel: the neural denoiser then works on top of that.
 const AUDIO_CONSTRAINTS = { echoCancellation: true, noiseSuppression: true, autoGainControl: true, channelCount: { ideal: 1 } }
+// The blur pipeline: frames per second the mask is computed at, and the
+// width the outgoing picture is composed at.
+const BLUR_FPS = 15
+const OUT_WIDTH = 640
 const RECONNECTING = 'Connection lost — reconnecting…'
 
 export default function Call() {
@@ -282,6 +286,7 @@ export default function Call() {
   const joinedRef = useRef(false)
   joinedRef.current = joined
   const [previewState, setPreviewState] = useState('idle') // idle | asking | ready | denied
+  const [previewTry, setPreviewTry] = useState(0)
   useEffect(() => {
     if (!user || !call || joined) return
     let disposed = false
@@ -297,7 +302,10 @@ export default function Call() {
       previewRawRef.current = raw
       if (!disposed) {
         setPreviewState(raw ? 'ready' : 'denied')
-        if (raw && localVideoRef.current) localVideoRef.current.srcObject = new MediaStream(raw.getVideoTracks())
+        if (raw && localVideoRef.current) {
+          localVideoRef.current.srcObject = new MediaStream(raw.getVideoTracks())
+          localVideoRef.current.play().catch(() => {})
+        }
       }
     })().finally(() => { previewPendingRef.current = null })
     return () => {
@@ -306,7 +314,7 @@ export default function Call() {
       if (!joinedRef.current) { previewRawRef.current?.getTracks().forEach((t) => t.stop()); previewRawRef.current = null }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user?.id, call?.id, joined])
+  }, [user?.id, Boolean(call), joined, previewTry])
 
   // A phone must not dim and lock mid-lesson: hold a screen wake lock while
   // in the call, and take it again when the tab comes back to the front.
@@ -404,7 +412,7 @@ export default function Call() {
         const stream = new MediaStream(raw.getVideoTracks())
         // The own picture (and its blur) starts at once; the audio joins the
         // stream as soon as the denoiser is ready.
-        if (localVideoRef.current) localVideoRef.current.srcObject = stream
+        if (localVideoRef.current) { localVideoRef.current.srcObject = stream; localVideoRef.current.play().catch(() => {}) }
         // Outgoing audio: the neural denoiser's output when available.
         let audio = rawMicRef.current
         // Phones keep the browser's own noise suppression: the worklet's
@@ -576,8 +584,11 @@ export default function Call() {
       const background = backgroundCanvasRef.current
       const video = localVideoRef.current
       if (!canvas || !background || !video) return
-      const width = video.videoWidth || 640
-      const height = video.videoHeight || 480
+      // Composed at call resolution, not the camera's: blurring a 720p frame
+      // every tick is what made laptops crawl, and the call sends 640 wide.
+      const srcW = video.videoWidth || 640, srcH = video.videoHeight || 480
+      const width = Math.min(srcW, OUT_WIDTH)
+      const height = Math.round(srcH * (width / srcW))
       if (canvas.width !== width || canvas.height !== height) { canvas.width = width; canvas.height = height }
       if (background.width !== width || background.height !== height) { background.width = width; background.height = height }
 
@@ -625,7 +636,7 @@ export default function Call() {
       if (!out) {
         const outCanvas = document.createElement('canvas')
         outCanvas.width = width; outCanvas.height = height
-        const outStream = outCanvas.captureStream?.(30)
+        const outStream = outCanvas.captureStream?.(BLUR_FPS)
         const track = outStream?.getVideoTracks()[0]
         if (track) {
           track.enabled = localStreamRef.current?.getVideoTracks()[0]?.enabled ?? true
@@ -651,8 +662,14 @@ export default function Call() {
       setIsBlurEnabled(false)
     }
     let watchdog = null
+    let lastTick = 0
     const loop = async () => {
       if (cancelled) return
+      // About 15 frames a second is plenty for a mask; the browser's own
+      // 60 Hz tick would run the model four times as often for nothing.
+      const now = performance.now()
+      if (now - lastTick < 1000 / BLUR_FPS) { animationRef.current = requestAnimationFrame(loop); return }
+      lastTick = now
       // No camera at all: nothing to blur, and nothing to complain about.
       if (localStreamRef.current && !localStreamRef.current.getVideoTracks().length) { cancelled = true; setIsBlurEnabled(false); return }
       const video = localVideoRef.current
@@ -881,7 +898,12 @@ export default function Call() {
             <canvas ref={backgroundCanvasRef} className={isBlurEnabled ? 'blur-layer' : 'blur-layer hidden'} />
             <canvas ref={processingCanvasRef} className={isBlurEnabled ? 'blur-layer' : 'blur-layer hidden'} />
             {previewState === 'asking' && <span className="preview-note">Allow the camera and microphone in the browser prompt…</span>}
-            {previewState === 'denied' && <span className="preview-note">Camera and microphone are off — the others will not see or hear you.</span>}
+            {previewState === 'denied' && (
+              <span className="preview-note">
+                Camera and microphone are off — the others will not see or hear you.{' '}
+                <button type="button" className="link-button" onClick={() => setPreviewTry((n) => n + 1)}>Try again</button>
+              </span>
+            )}
             {blurStatus && <span className="preview-note">{blurStatus}</span>}
           </div>
           {!phone && (

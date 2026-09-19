@@ -1019,3 +1019,4 @@ select.pill { padding: 0 16px; color: var(--text); border: none; }
   background: rgba(15, 55, 49, 0.85); font-size: 13px; color: var(--text); text-align: center;
 }
 .join-card .bg-picker { grid-template-columns: repeat(3, 1fr); }
+.link-button { background: none; border: none; padding: 0; color: var(--accent); font: inherit; text-decoration: underline; cursor: pointer; }
