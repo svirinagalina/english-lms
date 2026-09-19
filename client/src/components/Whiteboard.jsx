@@ -1408,8 +1408,8 @@ const Whiteboard = forwardRef(function Whiteboard({ socketRef, boardId, title, s
   // Splits the selected text objects into words/phrases: one per line, or comma-separated.
   const selectedWords = () =>
     selectedElements()
-      .filter((item) => item.type === 'text')
-      .flatMap((item) => item.text.split(/[\n,;]+/))
+      .filter((item) => item.type === 'text' || item.type === 'note')
+      .flatMap((item) => String(item.text ?? '').split('\n').map((line) => textRuns(line).map((run) => run.text).join('')).flatMap((line) => line.split(/[,;]+/)))
       .map((w) => w.trim())
       .filter(Boolean)
 

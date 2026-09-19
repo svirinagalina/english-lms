@@ -561,6 +561,7 @@ export default function Call() {
         const outStream = outCanvas.captureStream?.(30)
         const track = outStream?.getVideoTracks()[0]
         if (track) {
+          track.enabled = localStreamRef.current?.getVideoTracks()[0]?.enabled ?? true
           out = blurOutRef.current = { canvas: outCanvas, track }
           blurStreamRef.current = outStream
           if (!screenStreamRef.current) swapOutgoingVideo(track)
@@ -644,7 +645,10 @@ export default function Call() {
       setMicOn(next)
       socketRef.current?.emit('mic:state', { muted: !next })
     } else {
-      setCameraOn((v) => !v)
+      // The blurred picture goes dark with the camera, not frozen on a frame.
+      const next = !cameraOn
+      if (blurOutRef.current) blurOutRef.current.track.enabled = next
+      setCameraOn(next)
     }
   }
 
