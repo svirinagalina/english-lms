@@ -1021,3 +1021,4 @@ select.pill { padding: 0 16px; color: var(--text); border: none; }
 .join-card .bg-picker { grid-template-columns: repeat(3, 1fr); }
 .link-button { background: none; border: none; padding: 0; color: var(--accent); font: inherit; text-decoration: underline; cursor: pointer; }
 @media (max-width: 720px) { .video-tile.preview { aspect-ratio: 1 / 1; } .join-card { padding: 24px 20px; } }
+.more-status { font-size: 12px; color: var(--muted); text-align: center; padding: 2px 0; }

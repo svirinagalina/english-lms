@@ -29,6 +29,12 @@ function createContext() {
 
 // Starts the audio engine. Called inside the "Join call" click as well, because
 // Safari only lets a context run when it was created or resumed in a gesture.
+// Fetches the wasm and worklet files ahead of time (no audio engine yet).
+export function preloadDenoiser() {
+  if (!isDenoiserSupported()) return
+  context().catch(() => {})
+}
+
 export function primeDenoiser() {
   try {
     if (!audioContext) audioContext = createContext()
@@ -74,6 +80,9 @@ async function buildDenoiser(micTrack, engine) {
   const ctx = await context()
   if (ctx.state !== 'running') await ctx.resume()
   if (ctx.state !== 'running') throw new Error('the audio engine is paused by the browser')
+  // Both models expect 48 kHz; a browser that refused that rate (some
+  // phones follow the hardware) gets the plain microphone instead.
+  if (Math.round(ctx.sampleRate) !== 48000) throw new Error(`the audio engine runs at ${ctx.sampleRate} Hz, not 48000`)
 
   const source = ctx.createMediaStreamSource(new MediaStream([micTrack]))
   // One channel end to end: a stereo microphone is mixed down before the

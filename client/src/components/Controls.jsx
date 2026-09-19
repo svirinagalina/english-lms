@@ -27,6 +27,8 @@ const Controls = forwardRef(function Controls({
   // 'none' | 'blur' | a picture id from BACKGROUNDS.
   background = 'none',
   onBackgroundChange,
+  // 'starting' | 'on' | 'browser': whether the neural noise removal is on the microphone.
+  noiseState,
   blurAmount,
   onBlurChange,
   boards = [],
@@ -245,6 +247,11 @@ const Controls = forwardRef(function Controls({
                 />
               )}
             </div>
+            )}
+            {noiseState && (
+              <div className="more-status" title="Background noise (keyboard, fan, street) is removed from your microphone before it is sent">
+                {noiseState === 'on' ? 'Noise removal: on' : noiseState === 'starting' ? 'Noise removal: starting…' : 'Noise removal: browser only'}
+              </div>
             )}
             {onCopyLink && (
               <button className="pill" onClick={onCopyLink} title="Copy the link to send to the student">

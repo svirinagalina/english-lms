@@ -9,7 +9,7 @@ import Reactions from '../components/Reactions'
 import Whiteboard from '../components/Whiteboard'
 import Writing from '../components/Writing'
 import { videoProcessor } from '../utils/videoProcessor'
-import { denoiseTrack, primeDenoiser, isDenoiserSupported } from '../utils/noiseSuppressor'
+import { denoiseTrack, primeDenoiser, preloadDenoiser, isDenoiserSupported } from '../utils/noiseSuppressor'
 import { isMobile, isHandheld, useNarrow } from '../utils/device'
 import { BACKGROUNDS } from '../backgrounds'
 
@@ -134,6 +134,7 @@ export default function Call() {
     denoiserRef.current = null
     cleaned?.stop()
     await swapOutgoingAudio(rawTrack)
+    setNoiseState('browser')
     // The browser's own suppression is still on the plain microphone, so
     // nothing changes for the person: no message, only a note in the console.
     console.warn(`Noise removal ${reason}; the plain microphone is sent instead.`)
@@ -194,19 +195,28 @@ export default function Call() {
     if (!rawTrack) return
     rawMicRef.current = rawTrack
     rawTrack.addEventListener('ended', () => { if (rawMicRef.current === rawTrack) reacquireMic() })
-    let track = rawTrack
-    if (!isHandheld() && isDenoiserSupported()) {
-      denoiserRef.current?.stop()
-      denoiserRef.current = null
-      try {
-        const cleaned = await denoiseTrack(rawTrack)
-        denoiserRef.current = cleaned
-        track = cleaned.track
-        watchDenoiser(cleaned)
-      } catch (err) { console.warn('Noise removal unavailable, using the plain microphone:', err) }
-    }
+    denoiserRef.current?.stop()
+    denoiserRef.current = null
     rawTrack.enabled = micOnRef.current
-    await swapOutgoingAudio(track)
+    await swapOutgoingAudio(rawTrack)
+    startDenoiser(rawTrack, () => false)
+  }
+  // Builds the denoiser for `rawTrack` in the background and swaps its output
+  // in when ready; on every failure the plain microphone simply stays.
+  const [noiseState, setNoiseState] = useState('starting') // starting | on | browser
+  const startDenoiser = (rawTrack, isDisposed) => {
+    if (!isDenoiserSupported()) { setNoiseState('browser'); return }
+    setNoiseState('starting')
+    denoiseTrack(rawTrack).then(async (cleaned) => {
+      if (isDisposed() || rawMicRef.current !== rawTrack) { cleaned.stop(); return }
+      denoiserRef.current = cleaned
+      await swapOutgoingAudio(cleaned.track)
+      watchDenoiser(cleaned)
+      setNoiseState('on')
+    }).catch((err) => {
+      console.warn('Noise removal unavailable, using the plain microphone:', err)
+      setNoiseState('browser')
+    })
   }
   // Phones may refuse to play the others' sound until a tap: an overlay asks for one.
   const [needsTap, setNeedsTap] = useState(false)
@@ -293,6 +303,9 @@ export default function Call() {
     if (!user || !call || joined) return
     let disposed = false
     setPreviewState('asking')
+    // The denoiser's files start downloading now, so they are in by the time
+    // the person joins — they are small, but the link may be slow.
+    preloadDenoiser()
     previewPendingRef.current = (async () => {
       let raw = null
       try {
@@ -415,27 +428,11 @@ export default function Call() {
         // The own picture (and its blur) starts at once; the audio joins the
         // stream as soon as the denoiser is ready.
         if (localVideoRef.current) { localVideoRef.current.srcObject = stream; localVideoRef.current.play().catch(() => {}) }
-        // Outgoing audio: the neural denoiser's output when available.
-        let audio = rawMicRef.current
-        // Phones keep the browser's own noise suppression: the worklet's
-        // audio path is unreliable on iOS. Desktop gets the neural denoiser.
-        if (audio && !isHandheld() && isDenoiserSupported()) {
-          try {
-            // A stalled download must not hold the call: after a few seconds
-            // the plain microphone goes out (the browser's own filter is on it).
-            let late = false
-            const cleaned = await Promise.race([
-              denoiseTrack(audio).then((c) => { if (late) c.stop(); return c }),
-              new Promise((_, reject) => setTimeout(() => { late = true; reject(new Error('took too long to load')) }, 10000))
-            ])
-            if (disposed) { cleaned.stop(); return }
-            denoiserRef.current = cleaned
-            audio = cleaned.track
-            watchDenoiser(cleaned)
-          } catch (err) {
-            console.error('Noise suppressor unavailable, using the plain microphone:', err)
-          }
-        }
+        // Outgoing audio: the plain microphone right away (the browser's own
+        // filter is on it), replaced by the neural denoiser's output as soon
+        // as that is ready — however long its files take on a slow link.
+        const audio = rawMicRef.current
+        if (audio) startDenoiser(audio, () => disposed)
         if (audio) stream.addTrack(audio)
         localStreamRef.current = stream
       } catch {
@@ -930,7 +927,7 @@ export default function Call() {
                 ))}
               </div>
           </>
-          <button onClick={() => { if (!phone) primeDenoiser(); setJoined(true) }} autoFocus>Join call</button>
+          <button onClick={() => { primeDenoiser(); setJoined(true) }} autoFocus>Join call</button>
           <Link className="ghost button" to="/classroom">Back</Link>
         </div>
       </div>
@@ -1086,6 +1083,7 @@ export default function Call() {
         onBlurToggle={() => setBackground((b) => (b === 'none' ? 'blur' : 'none'))}
         background={background}
         onBackgroundChange={setBackground}
+        noiseState={noiseState}
         blurAmount={blurAmount}
         onBlurChange={setBlurAmount}
       />
