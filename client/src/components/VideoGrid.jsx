@@ -61,8 +61,14 @@ function PeerVideo({ stream, name, muted, onBlocked, unlockTick }) {
         api.diag({ kind: 'receive.on', message: cleaned.engine, details: { peer: name ?? '' } })
         // Output gone quiet while the other side is audible: back to the plain sound.
         let silent = 0
+        let ticks = 0
         watchdog = setInterval(() => {
           const { raw, clean, state } = cleaned.levels()
+          ticks += 1
+          // What actually arrives from this peer, and whether only the cleaned copy is audible.
+          if (ticks === 15 || ticks % 30 === 0) {
+            api.diag({ kind: 'receive.health', message: cleaned.engine, details: { peer: name ?? '', incoming: Number(raw.toFixed(4)), cleaned: Number(clean.toFixed(5)), state, videoMuted: Boolean(video.muted), audioPaused: Boolean(audio.paused), audioVolume: audio.volume } })
+          }
           if (state !== 'running') cleaned.resume()
           silent = raw > 0.003 && clean < 1e-6 ? silent + 1 : 0
           if (silent >= 3) {

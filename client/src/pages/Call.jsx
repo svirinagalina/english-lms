@@ -14,7 +14,8 @@ import { isMobile, isHandheld, useNarrow } from '../utils/device'
 import { BACKGROUNDS } from '../backgrounds'
 
 // Older Safari cannot blur inside a canvas; there the layer is blurred by CSS.
-const CANVAS_FILTER = typeof CanvasRenderingContext2D !== 'undefined' && 'filter' in CanvasRenderingContext2D.prototype
+const SAFARI = typeof navigator !== 'undefined' && /Safari/i.test(navigator.userAgent) && !/Chrome|Chromium|CriOS|Edg/i.test(navigator.userAgent)
+const CANVAS_FILTER = typeof CanvasRenderingContext2D !== 'undefined' && 'filter' in CanvasRenderingContext2D.prototype && !SAFARI
 
 // Floating chat panel for the call.
 function CallChat({ messages, onSend, onClose }) {
@@ -105,6 +106,7 @@ export default function Call() {
     const image = new Image()
     image.focusX = scene.focusX ?? 0.5
     image.onload = () => { if (!cancelled) bgImageRef.current = image }
+    image.onerror = () => { if (!cancelled) report(token, 'blur.picture-failed', scene.src) }
     image.src = scene.src
     return () => { cancelled = true; bgImageRef.current = null }
   }, [background])
@@ -151,12 +153,14 @@ export default function Call() {
       if (denoiserRef.current !== cleaned) { clearInterval(timer); return }
       const { raw, clean, state } = cleaned.levels()
       ticks += 1
-      if (ticks === 20 || ticks % 120 === 0) {
+      if (ticks === 20 || ticks % 30 === 0) {
         const senders = Object.values(connectionsRef.current).map((pc) => pc.getSenders().find((sd) => sd.track?.kind === 'audio')?.track)
         report(token, 'noise.health', cleaned.engine, {
           raw: Number(raw.toFixed(4)), clean: Number(clean.toFixed(5)), state,
           peers: senders.length,
-          sendingCleaned: senders.every((t) => t === cleaned.track),
+          sendingCleaned: senders.length ? senders.every((t) => t === cleaned.track) : null,
+          senderLabels: senders.map((t) => t?.label?.slice(0, 18) ?? 'none').join(','),
+          streamAudio: localStreamRef.current?.getAudioTracks().map((t) => t.label.slice(0, 18)).join(',') ?? '',
           micOn: micOnRef.current
         })
       }
@@ -722,7 +726,7 @@ export default function Call() {
             }
             if (frames === 45) {
               // Three seconds in: is the mask telling person from room?
-              report(token, 'blur.mask', background, { delegate: videoProcessor.delegate ?? null, maskMean: Number((videoProcessor.lastMaskMean ?? -1).toFixed(3)), sending: Boolean(blurOutRef.current) })
+              report(token, 'blur.mask', background, { delegate: videoProcessor.delegate ?? null, maskMean: Number((videoProcessor.lastMaskMean ?? -1).toFixed(3)), sending: Boolean(blurOutRef.current), picture: Boolean(bgImageRef.current), filter: CANVAS_FILTER })
             }
           }
         } catch (err) {
