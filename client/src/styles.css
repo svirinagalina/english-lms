@@ -1010,3 +1010,12 @@ select.pill { padding: 0 16px; color: var(--text); border: none; }
   .writing-hint { display: none; }
   .more-tools .round { flex: 1 1 auto; height: 40px; }
 }
+
+/* The join screen: the own picture with the background choice, before the call. */
+.join-card { max-width: 460px; }
+.video-tile.preview { width: 100%; aspect-ratio: 4 / 3; background: #0f3731; }
+.video-tile.preview .preview-note {
+  position: absolute; left: 12px; right: 12px; bottom: 12px; padding: 8px 10px; border-radius: 8px;
+  background: rgba(15, 55, 49, 0.85); font-size: 13px; color: var(--text); text-align: center;
+}
+.join-card .bg-picker { grid-template-columns: repeat(3, 1fr); }

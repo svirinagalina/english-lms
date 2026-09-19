@@ -272,6 +272,37 @@ export default function Call() {
   // a gesture on the page, and it lets people settle the camera first.
   const canJoin = Boolean(user && call && joined)
 
+  // Before joining, the camera and microphone are already taken and shown in
+  // the own tile, so the person can check the picture and pick a background.
+  // The same stream is used for the call itself.
+  const previewRawRef = useRef(null)
+  const joinedRef = useRef(false)
+  joinedRef.current = joined
+  const [previewState, setPreviewState] = useState('idle') // idle | asking | ready | denied
+  useEffect(() => {
+    if (!user || !call || joined) return
+    let disposed = false
+    setPreviewState('asking')
+    ;(async () => {
+      let raw = null
+      try {
+        raw = await navigator.mediaDevices.getUserMedia({ audio: AUDIO_CONSTRAINTS, video: true })
+      } catch {
+        try { raw = await navigator.mediaDevices.getUserMedia({ audio: AUDIO_CONSTRAINTS }) } catch { /* nothing at all */ }
+      }
+      if (disposed) { raw?.getTracks().forEach((t) => t.stop()); return }
+      previewRawRef.current = raw
+      setPreviewState(raw ? 'ready' : 'denied')
+      if (raw && localVideoRef.current) localVideoRef.current.srcObject = new MediaStream(raw.getVideoTracks())
+    })()
+    return () => {
+      disposed = true
+      // Leaving the page without joining: let the devices go.
+      if (!joinedRef.current) { previewRawRef.current?.getTracks().forEach((t) => t.stop()); previewRawRef.current = null }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user, call, joined])
+
   // A phone must not dim and lock mid-lesson: hold a screen wake lock while
   // in the call, and take it again when the tab comes back to the front.
   useEffect(() => {
@@ -341,13 +372,20 @@ export default function Call() {
       setStatus('requesting-media')
       try {
         const audioConstraints = AUDIO_CONSTRAINTS
-        let raw
-        try {
-          raw = await navigator.mediaDevices.getUserMedia({ audio: audioConstraints, video: true })
-        } catch (err) {
-          // A busy or missing camera must not take the microphone down with it.
-          raw = await navigator.mediaDevices.getUserMedia({ audio: audioConstraints })
-          setMediaWarning(`Camera is not available (${err?.name === 'NotAllowedError' ? 'not allowed' : err?.message ?? err}) — joining with sound only.`)
+        let raw = previewRawRef.current
+        previewRawRef.current = null
+        if (raw && !raw.getTracks().some((t) => t.readyState === 'live')) raw = null
+        if (!raw) {
+          try {
+            raw = await navigator.mediaDevices.getUserMedia({ audio: audioConstraints, video: true })
+          } catch (err) {
+            // A busy or missing camera must not take the microphone down with it.
+            raw = await navigator.mediaDevices.getUserMedia({ audio: audioConstraints })
+            setMediaWarning(`Camera is not available (${err?.name === 'NotAllowedError' ? 'not allowed' : err?.message ?? err}) — joining with sound only.`)
+            setCameraOn(false)
+          }
+        } else if (!raw.getVideoTracks().length) {
+          setMediaWarning('Camera is not available — joining with sound only.')
           setCameraOn(false)
         }
         if (disposed) { raw.getTracks().forEach((t) => t.stop()); return }
@@ -825,13 +863,35 @@ export default function Call() {
   if (!call) return <div className="centered">Loading…</div>
 
   if (!joined) {
+    const phone = isMobile()
     return (
       <div className="auth-page">
-        <div className="card">
+        <div className="card join-card">
           <h1>{call.title ?? 'Video call'}</h1>
           <p className="muted">{call.host} · {call.schoolName}</p>
-          <p className="muted">Your camera and microphone switch on when you join.</p>
-          <button onClick={() => { if (!isMobile()) primeDenoiser(); setJoined(true) }} autoFocus>Join call</button>
+          <div className={`video-tile local preview ${previewState}`}>
+            <video ref={localVideoRef} autoPlay muted playsInline />
+            <canvas ref={backgroundCanvasRef} className={isBlurEnabled ? 'blur-layer' : 'blur-layer hidden'} />
+            <canvas ref={processingCanvasRef} className={isBlurEnabled ? 'blur-layer' : 'blur-layer hidden'} />
+            {previewState === 'asking' && <span className="preview-note">Allow the camera and microphone in the browser prompt…</span>}
+            {previewState === 'denied' && <span className="preview-note">Camera and microphone are off — the others will not see or hear you.</span>}
+            {blurStatus && <span className="preview-note">{blurStatus}</span>}
+          </div>
+          {!phone && (
+            <>
+              <div className="more-label">Background</div>
+              <div className="bg-picker">
+                <button type="button" className={`bg-thumb plain ${background === 'none' ? 'active' : ''}`} onClick={() => setBackground('none')}>None</button>
+                <button type="button" className={`bg-thumb plain ${background === 'blur' ? 'active' : ''}`} onClick={() => setBackground('blur')}>Blur</button>
+                {BACKGROUNDS.map((scene) => (
+                  <button key={scene.id} type="button" className={`bg-thumb ${background === scene.id ? 'active' : ''}`} style={{ backgroundImage: `url(${scene.src})` }} onClick={() => setBackground(scene.id)} title={scene.label}>
+                    <span>{scene.label}</span>
+                  </button>
+                ))}
+              </div>
+            </>
+          )}
+          <button onClick={() => { if (!phone) primeDenoiser(); setJoined(true) }} autoFocus disabled={previewState === 'asking'}>Join call</button>
           <Link className="ghost button" to="/classroom">Back</Link>
         </div>
       </div>
