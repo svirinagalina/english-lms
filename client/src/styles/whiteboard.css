@@ -336,3 +336,12 @@ select.tool { appearance: auto; padding: 5px 8px; }
   .mistakes-panel, .stage.board-mode .mistakes-panel { right: 8px; left: 8px; width: auto; top: 64px; bottom: 216px; padding: 10px 12px; }
   .mistakes-panel > p.muted { display: none; }
 }
+
+/* A short confirmation at the top centre of the board. */
+.board-toast {
+  position: absolute; top: 64px; left: 50%; transform: translateX(-50%);
+  z-index: 6; padding: 8px 14px; border-radius: 999px;
+  background: #0f3731; color: var(--text); border: 1px solid var(--border);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.3); font-size: 13px; white-space: nowrap; max-width: calc(100vw - 24px);
+  overflow: hidden; text-overflow: ellipsis; pointer-events: none;
+}

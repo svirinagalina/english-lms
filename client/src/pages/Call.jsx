@@ -142,6 +142,12 @@ export default function Call() {
   const [boardId, setBoardId] = useState(null)
   const isStaff = user && user.role !== 'STUDENT'
   const isStaffRef = useRef(isStaff)
+  // Questions on the board need the AI assistant to be configured.
+  const [assistEnabled, setAssistEnabled] = useState(false)
+  useEffect(() => {
+    if (!isStaff) return
+    api.assistStatus().then(({ enabled }) => setAssistEnabled(enabled)).catch(() => {})
+  }, [isStaff])
   isStaffRef.current = isStaff
   const boardsRef = useRef([])
 
@@ -742,6 +748,19 @@ export default function Call() {
               focusElementId={searchParams.get('focus')}
               onMistake={isStaff && currentBoard?.studentId ? (body) => api.addMistake(currentBoard.classroomId, { ...body, boardId }) : undefined}
               onMistakeRemoved={isStaff ? (elementId) => api.deleteMistakeByElement(elementId).catch(() => {}) : undefined}
+              onAddWords={currentBoard?.classroomId ? (words) => api.addBoardWords(words, currentBoard.classroomId) : undefined}
+              assistEnabled={assistEnabled}
+              onAssist={isStaff
+                ? async (mode, words) => {
+                    try {
+                      const { items } = await api.assist(mode, words)
+                      return items
+                    } catch (err) {
+                      setError(err.message)
+                      return null
+                    }
+                  }
+                : undefined}
               onUploadImage={isStaff && currentBoard
                 ? async (dataUrl) => {
                     try {

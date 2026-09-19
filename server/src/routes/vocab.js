@@ -163,6 +163,50 @@ vocabRouter.post('/my/words', async (req, res) => {
   res.status(201).json({ card, setId: set.id, added: true })
 })
 
+// Words picked on a board go into a student's "My words": the teacher's pick
+// lands in the classroom student's set, a student's pick in their own.
+vocabRouter.post('/board-words', async (req, res) => {
+  // A word or a short phrase ("give up"), letters only.
+  const cleanTerm = (raw) => String(raw ?? '').trim().toLowerCase().replace(/[^a-z'’ -]/g, '').replace(/\s+/g, ' ').trim()
+  const words = [...new Set((Array.isArray(req.body?.words) ? req.body.words : [req.body?.words]).map(cleanTerm).filter((w) => w && w.length <= 40))].slice(0, 20)
+  if (!words.length) return res.status(400).json({ error: 'Select an English word first' })
+
+  let target = req.user
+  if (req.user.role !== 'STUDENT') {
+    const classroom = await prisma.classroom.findFirst({
+      where: { id: String(req.body?.classroomId ?? ''), schoolId: req.user.schoolId },
+      include: { student: { select: { id: true, name: true, schoolId: true } } }
+    })
+    if (!classroom?.student) return res.status(404).json({ error: 'This board has no student' })
+    target = classroom.student
+  }
+  const set = await personalSet(target)
+
+  let added = 0
+  const skipped = []
+  for (const word of words) {
+    const existing = await prisma.vocabCard.findFirst({ where: { setId: set.id, term: { equals: word, mode: 'insensitive' } } })
+    if (existing) continue
+    let entry
+    try {
+      entry = await lookupEntry(word)
+    } catch {
+      skipped.push(word)
+      continue
+    }
+    if (!entry?.translation && !entry?.senses?.length) { skipped.push(word); continue }
+    const translation = entry.senses?.length
+      ? entry.senses.map((s) => `${s.pos}: ${s.translations.slice(0, 4).join(', ')}`).join(' · ')
+      : entry.translation
+    const count = await prisma.vocabCard.count({ where: { setId: set.id } })
+    await prisma.vocabCard.create({
+      data: { setId: set.id, term: word, translation: String(translation).slice(0, 300), transcription: entry.transcription, audio: entry.audio, position: count }
+    })
+    added += 1
+  }
+  res.json({ added, skipped, setId: set.id, student: target.id === req.user.id ? null : target.name })
+})
+
 vocabRouter.patch('/:id', async (req, res) => {
   const parsed = setSchema.safeParse(req.body)
   if (!parsed.success) return res.status(400).json({ error: 'Invalid data' })

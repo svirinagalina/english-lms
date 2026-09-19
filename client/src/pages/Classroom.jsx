@@ -265,6 +265,7 @@ export default function Classroom() {
                   }
                 }
               : undefined}
+            onAddWords={!isPersonal ? (words) => api.addBoardWords(words, id) : undefined}
             assistEnabled={assistEnabled}
             onAssist={isStaff
               ? async (mode, words) => {

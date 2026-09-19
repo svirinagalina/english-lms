@@ -797,7 +797,7 @@ export async function exportBoardPdf(elements, title = 'Board') {
 
 // --- Component ----------------------------------------------------------------
 
-const Whiteboard = forwardRef(function Whiteboard({ socketRef, boardId, title, subtitle, onClose, backLabel = '← Back', onStartCall, onOpenWriting, canSpotlight = false, onUploadImage, onAssist, assistEnabled, wordPicker = false, focusElementId = null, onMistake, onMistakeRemoved, insertBlock = null, onInserted }, ref) {
+const Whiteboard = forwardRef(function Whiteboard({ socketRef, boardId, title, subtitle, onClose, backLabel = '← Back', onStartCall, onOpenWriting, canSpotlight = false, onUploadImage, onAssist, assistEnabled, wordPicker = false, focusElementId = null, onMistake, onMistakeRemoved, insertBlock = null, onInserted, onAddWords }, ref) {
   const [assisting, setAssisting] = useState(null)
   const [exporting, setExporting] = useState(false)
   const fileInputRef = useRef(null)
@@ -837,6 +837,8 @@ const Whiteboard = forwardRef(function Whiteboard({ socketRef, boardId, title, s
   const [tip, setTip] = useState(null) // { x, y, word, entry }
   // A student's double-click on a word: the word card (with "Add to my words").
   const [wordCard, setWordCard] = useState(null) // { word, x, y }
+  const [toast, setToast] = useState(null) // a short confirmation, e.g. a word added to the vocabulary
+  const [addingWords, setAddingWords] = useState(false)
   // The Mistakes panel: rows typed during the lesson; each saved row becomes
   // a red note on the board (so the student sees it at once) and a notebook entry.
   const [mistakesOpen, setMistakesOpen] = useState(false)
@@ -1021,8 +1023,12 @@ const Whiteboard = forwardRef(function Whiteboard({ socketRef, boardId, title, s
       if (focus) {
         const rect = canvasRef.current?.getBoundingClientRect() ?? { width: 800 }
         viewRef.current = { scale: 1, x: Math.max(40, (rect.width - 600) / 2) - focus.x, y: 80 - focus.y }
-      } else if (elementsRef.current.length) fitAll(1)
-      else viewRef.current = { x: 0, y: 0, scale: 1 }
+      } else if (elementsRef.current.length) {
+        // The canvas may not have its size yet on the first paint: fit once it does.
+        const rect = canvasRef.current?.getBoundingClientRect()
+        if (rect && rect.width > 50) fitAll(1)
+        else requestAnimationFrame(() => fitAll(1))
+      } else viewRef.current = { x: 0, y: 0, scale: 1 }
       scheduleRender()
       bump()
     })
@@ -1354,6 +1360,47 @@ const Whiteboard = forwardRef(function Whiteboard({ socketRef, boardId, title, s
     if (!items.length) return
     pasteCountRef.current = 0
     pasteElements(items)
+  }
+
+  // --- Vocabulary ---------------------------------------------------------------
+
+  const showToast = (text) => {
+    setToast(text)
+    clearTimeout(showToast.timer)
+    showToast.timer = setTimeout(() => setToast(null), 3500)
+  }
+
+  // The highlighted word while editing, or the selected texts' items
+  // (one per line or comma) — short ones only, so a sentence is never added whole.
+  const wordsToAdd = () => {
+    if (textInput) {
+      const selection = window.getSelection()
+      const text = editorHasSelection() ? selection.toString() : ''
+      const term = text.trim().replace(/\s+/g, ' ')
+      return term && term.split(' ').length <= 4 ? [term] : []
+    }
+    return selectedWords().map((w) => w.replace(/^[^a-zA-Z]+|[^a-zA-Z]+$/g, '')).filter((w) => w && w.split(/\s+/).length <= 4)
+  }
+
+  const addWordsToVocabulary = async () => {
+    if (!onAddWords || addingWords) return
+    const words = wordsToAdd()
+    if (!words.length) { showToast(textInput ? 'Highlight a word first' : 'No short words here to add'); return }
+    setAddingWords(true)
+    try {
+      const result = await onAddWords(words)
+      if (!result) return
+      const where = result.student ? `${result.student}'s vocabulary` : 'My words'
+      const parts = []
+      if (result.added) parts.push(`Added ${result.added} ${result.added === 1 ? 'word' : 'words'} to ${where}`)
+      else parts.push(`Already in ${where}`)
+      if (result.skipped?.length) parts.push(`no entry: ${result.skipped.join(', ')}`)
+      showToast(parts.join(' · '))
+    } catch (err) {
+      showToast(err.message)
+    } finally {
+      setAddingWords(false)
+    }
   }
 
   // --- AI assist ----------------------------------------------------------------
@@ -2383,6 +2430,7 @@ const Whiteboard = forwardRef(function Whiteboard({ socketRef, boardId, title, s
         ))}
 
         {wordCard && <WordCard word={wordCard.word} x={wordCard.x} y={wordCard.y} onClose={() => setWordCard(null)} />}
+        {toast && <div className="board-toast">{toast}</div>}
 
         {mistakesOpen && onMistake && (
           <div className="mistakes-panel" onPointerDown={(e) => e.stopPropagation()}>
@@ -2618,19 +2666,23 @@ const Whiteboard = forwardRef(function Whiteboard({ socketRef, boardId, title, s
               <div className="text-toolbar-group">
                 <button
                   className="tool assist"
-                  onClick={() => runAssist('translate')}
-                  disabled={Boolean(assisting) || !assistEnabled}
-                  title={assistEnabled ? 'Translate the selected words with transcription' : 'AI assistant is not configured'}
-                >
-                  {assisting === 'translate' ? 'Translating…' : 'Translate'}
-                </button>
-                <button
-                  className="tool assist"
                   onClick={() => runAssist('questions')}
                   disabled={Boolean(assisting) || !assistEnabled}
                   title={assistEnabled ? 'Make a practice question for each word' : 'AI assistant is not configured'}
                 >
                   {assisting === 'questions' ? 'Writing…' : 'Questions'}
+                </button>
+              </div>
+            )}
+            {onAddWords && (textInput || textLike.length > 0) && (
+              <div className="text-toolbar-group">
+                <button
+                  className="tool"
+                  onClick={addWordsToVocabulary}
+                  disabled={addingWords}
+                  title={textInput ? 'Put the highlighted word into the vocabulary' : 'Put these words into the vocabulary (one per line or comma)'}
+                >
+                  {addingWords ? 'Adding…' : '+ Vocabulary'}
                 </button>
               </div>
             )}
@@ -2663,6 +2715,17 @@ const Whiteboard = forwardRef(function Whiteboard({ socketRef, boardId, title, s
               maxWidth: textInput.w ? undefined : '70vw'
             }}
             onInput={syncEditor}
+            onClick={(e) => {
+              // A triple-click selects the whole text, not just one line
+              // (the browser stops at line breaks).
+              if (e.detail >= 3) {
+                const range = document.createRange()
+                range.selectNodeContents(e.currentTarget)
+                const selection = window.getSelection()
+                selection.removeAllRanges()
+                selection.addRange(range)
+              }
+            }}
             onBlur={(e) => {
               // Clicking the text toolbar must not close the editor.
               if (e.relatedTarget?.closest?.('.text-toolbar')) { requestAnimationFrame(() => e.target.focus({ preventScroll: true })); return }

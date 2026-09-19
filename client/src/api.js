@@ -92,6 +92,7 @@ export const api = {
   getCall: (token) => request(`/calls/token/${token}`),
   iceServers: () => request('/calls/ice'),
   addMyWord: (word) => request('/vocab/my/words', { method: 'POST', body: { word } }),
+  addBoardWords: (words, classroomId) => request('/vocab/board-words', { method: 'POST', body: { words, classroomId } }),
   dictionary: (word) => request(`/dictionary?word=${encodeURIComponent(word)}`),
   uploadWritingImage: (classroomId, data) =>
     request(`/classrooms/${classroomId}/writing/images`, { method: 'POST', body: { data } }),
