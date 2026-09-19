@@ -17,7 +17,7 @@ function MutedIcon() {
   )
 }
 
-function PeerVideo({ stream, name, muted, onBlocked, unlockTick }) {
+function PeerVideo({ stream, name, muted, onBlocked, unlockTick, getPeerConnection }) {
   const ref = useRef(null)
   const audioRef = useRef(null)
   // The other side's sound is cleaned here as well, before it is played:
@@ -67,7 +67,19 @@ function PeerVideo({ stream, name, muted, onBlocked, unlockTick }) {
           ticks += 1
           // What actually arrives from this peer, and whether only the cleaned copy is audible.
           if (ticks === 15 || ticks % 30 === 0) {
-            api.diag({ kind: 'receive.health', message: cleaned.engine, details: { peer: name ?? '', incoming: Number(raw.toFixed(4)), cleaned: Number(clean.toFixed(5)), state, videoMuted: Boolean(video.muted), audioPaused: Boolean(audio.paused), audioVolume: audio.volume } })
+            // The browser's own figure for what arrives on this track (inbound-rtp),
+            // independent of the audio engine's meter.
+            ;(async () => {
+              let inbound = null
+              try {
+                const pc = getPeerConnection?.()
+                if (pc) {
+                  const stats = await pc.getStats()
+                  stats.forEach((item) => { if (item.type === 'inbound-rtp' && item.kind === 'audio') inbound = { level: item.audioLevel ?? null, energy: item.totalAudioEnergy ?? null, packets: item.packetsReceived ?? null } })
+                }
+              } catch { /* stats unavailable */ }
+              api.diag({ kind: 'receive.health', message: cleaned.engine, details: { peer: name ?? '', incoming: Number(raw.toFixed(4)), cleaned: Number(clean.toFixed(5)), state, videoMuted: Boolean(video.muted), audioPaused: Boolean(audio.paused), audioVolume: audio.volume, inLevel: inbound?.level ?? null, inEnergy: inbound?.energy ?? null, inPackets: inbound?.packets ?? null } })
+            })()
           }
           if (state !== 'running') cleaned.resume()
           silent = raw > 0.003 && clean < 1e-6 ? silent + 1 : 0
@@ -131,7 +143,8 @@ export default function VideoGrid({
   isBlurEnabled,
   socketRef,
   onPlaybackBlocked,
-  unlockTick = 0
+  unlockTick = 0,
+  connectionsRef
 }) {
   const sharingPeer = Object.values(peers).find((p) => p.sharing && p.stream) ?? null
   const drawing = useRef(false)
@@ -234,7 +247,7 @@ export default function VideoGrid({
         </div>
 
         {Object.entries(peers).map(([peerId, peer]) => (
-          <PeerVideo key={peerId} stream={peer.stream} name={peer.name} muted={peer.muted} onBlocked={onPlaybackBlocked} unlockTick={unlockTick} />
+          <PeerVideo key={peerId} stream={peer.stream} name={peer.name} muted={peer.muted} onBlocked={onPlaybackBlocked} unlockTick={unlockTick} getPeerConnection={() => connectionsRef?.current?.[peerId]} />
         ))}
       </div>
     </div>

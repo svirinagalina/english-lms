@@ -75,7 +75,7 @@ const OUT_WIDTH = 640
 // A line in the server log about what this device did: enough to read a
 // failure without asking the person for screenshots.
 const deviceLine = () => `${navigator.userAgent.slice(0, 160)} · ${screen.width}x${screen.height} · cores ${navigator.hardwareConcurrency ?? '?'}`
-const report = (call, kind, message, details) => api.diag({ kind, message, details, device: deviceLine(), call })
+const report = (call, kind, message, details, thumb) => api.diag({ kind, message, details, device: deviceLine(), call, thumb })
 const RECONNECTING = 'Connection lost — reconnecting…'
 
 export default function Call() {
@@ -155,12 +155,25 @@ export default function Call() {
       ticks += 1
       if (ticks === 20 || ticks % 30 === 0) {
         const senders = Object.values(connectionsRef.current).map((pc) => pc.getSenders().find((sd) => sd.track?.kind === 'audio')?.track)
+        // Independent of our meters: the level the browser itself reports for
+        // the audio it encodes and sends.
+        let sent = null
+        try {
+          const pc = Object.values(connectionsRef.current)[0]
+          if (pc) {
+            const stats = await pc.getStats()
+            stats.forEach((item) => {
+              if (item.type === 'media-source' && item.kind === 'audio') sent = { level: item.audioLevel ?? null, energy: item.totalAudioEnergy ?? null, id: item.trackIdentifier?.slice(0, 8) ?? null }
+            })
+          }
+        } catch { /* stats unavailable */ }
         report(token, 'noise.health', cleaned.engine, {
           raw: Number(raw.toFixed(4)), clean: Number(clean.toFixed(5)), state,
           peers: senders.length,
           sendingCleaned: senders.length ? senders.every((t) => t === cleaned.track) : null,
           senderLabels: senders.map((t) => t?.label?.slice(0, 18) ?? 'none').join(','),
           streamAudio: localStreamRef.current?.getAudioTracks().map((t) => t.label.slice(0, 18)).join(',') ?? '',
+          sentLevel: sent?.level ?? null, sentEnergy: sent?.energy ?? null, sentTrack: sent?.id ?? null, cleanedId: cleaned.track.id.slice(0, 8),
           micOn: micOnRef.current
         })
       }
@@ -725,8 +738,18 @@ export default function Call() {
               report(token, 'blur.on', background, { camera: `${video.videoWidth}x${video.videoHeight}`, sending: Boolean(blurOutRef.current), delegate: videoProcessor.delegate ?? null })
             }
             if (frames === 45) {
-              // Three seconds in: is the mask telling person from room?
-              report(token, 'blur.mask', background, { delegate: videoProcessor.delegate ?? null, maskMean: Number((videoProcessor.lastMaskMean ?? -1).toFixed(3)), sending: Boolean(blurOutRef.current), picture: Boolean(bgImageRef.current), filter: CANVAS_FILTER })
+              // Three seconds in: is the mask telling person from room? And a
+              // thumbnail of what was composed, so the result can be seen in the log.
+              let thumb
+              try {
+                const out = blurOutRef.current?.canvas
+                if (out) {
+                  const t = document.createElement('canvas'); t.width = 96; t.height = Math.round(96 * out.height / out.width)
+                  t.getContext('2d').drawImage(out, 0, 0, t.width, t.height)
+                  thumb = t.toDataURL('image/jpeg', 0.5).split(',')[1]
+                }
+              } catch { /* no thumbnail */ }
+              report(token, 'blur.mask', background, { delegate: videoProcessor.delegate ?? null, maskMean: Number((videoProcessor.lastMaskMean ?? -1).toFixed(3)), sending: Boolean(blurOutRef.current), picture: Boolean(bgImageRef.current), filter: CANVAS_FILTER }, thumb)
             }
           }
         } catch (err) {
@@ -1071,6 +1094,7 @@ export default function Call() {
           screenStream={screenStream}
           onPlaybackBlocked={() => setNeedsTap(true)}
           unlockTick={unlockTick}
+          connectionsRef={connectionsRef}
           localVideoRef={localVideoRef}
           screenVideoRef={screenVideoRef}
           drawingCanvasRef={drawingCanvasRef}
