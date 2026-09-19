@@ -21,6 +21,8 @@ const Controls = forwardRef(function Controls({
   hasScreenStream,
   isBlurEnabled,
   onBlurToggle,
+  // Students get Blur in the row next to Mic (the teacher has it under More).
+  blurInRow = false,
   blurAmount,
   onBlurChange,
   boards = [],
@@ -53,7 +55,7 @@ const Controls = forwardRef(function Controls({
     document.addEventListener('pointerdown', close)
     return () => document.removeEventListener('pointerdown', close)
   }, [moreOpen])
-  const moreActive = isBlurEnabled || (compact && (hasScreenStream || (unread > 0 && !chatOpen)))
+  const moreActive = (isBlurEnabled && !blurInRow) || (compact && (hasScreenStream || (unread > 0 && !chatOpen)))
 
   // Writing: in the row in both layouts (next to Cam and Mic when compact).
   const writing = (
@@ -144,6 +146,16 @@ const Controls = forwardRef(function Controls({
         Mic
       </button>
 
+      {blurInRow && !phone && (
+        <button
+          className={`round ${isBlurEnabled ? 'on' : ''}`}
+          onClick={onBlurToggle}
+          title={isBlurEnabled ? 'Turn background blur off' : 'Blur your background'}
+        >
+          Blur
+        </button>
+      )}
+
       {compact && (
         writingId ? (
           // On Writing the button reads "Board": one click back to the board.
@@ -196,9 +208,12 @@ const Controls = forwardRef(function Controls({
             )}
             {!phone && (
             <div className="blur-control">
-              <button className={`pill ${isBlurEnabled ? 'on' : ''}`} onClick={onBlurToggle}>
-                {isBlurEnabled ? 'Background blur: ON' : 'Background blur: OFF'}
-              </button>
+              {!blurInRow && (
+                <button className={`pill ${isBlurEnabled ? 'on' : ''}`} onClick={onBlurToggle}>
+                  {isBlurEnabled ? 'Background blur: ON' : 'Background blur: OFF'}
+                </button>
+              )}
+              {blurInRow && isBlurEnabled && <div className="more-label">Blur strength</div>}
               {isBlurEnabled && (
                 <input
                   type="range"

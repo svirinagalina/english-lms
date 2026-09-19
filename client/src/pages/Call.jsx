@@ -961,6 +961,7 @@ export default function Call() {
         onOpenBoard={openBoard}
         onCloseBoard={closeBoard}
         isBlurEnabled={isBlurEnabled}
+        blurInRow={!isStaff}
         onBlurToggle={() => setIsBlurEnabled((v) => !v)}
         blurAmount={blurAmount}
         onBlurChange={setBlurAmount}

@@ -611,6 +611,9 @@ select.pill { padding: 0 16px; color: var(--text); border: none; }
 .lesson-page.board-mode { position: relative; }
 .lesson-page.board-mode .topbar { display: none; }
 .lesson-page.board-mode .banner { position: absolute; top: 60px; left: 12px; z-index: 5; border-radius: 8px; max-width: min(50vw, 520px); font-size: 13px; }
+/* Over the white board the banner needs a solid ground to stay readable. */
+.lesson-page.board-mode .banner { background: #14453f; border: 1px solid rgba(252, 251, 246, 0.2); }
+.lesson-page.board-mode .banner.warning { background: #3d3a1e; border-color: rgba(234, 179, 8, 0.35); }
 .stage.board-mode { padding: 0; gap: 0; position: relative; }
 .stage.board-mode .board-area { position: absolute; inset: 0; border: none; border-radius: 0; }
 .stage.board-mode .tiles {
