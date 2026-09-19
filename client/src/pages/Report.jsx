@@ -1,9 +1,10 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { api } from '../api'
 import { useAuth } from '../AuthContext'
 import { Logo } from '../components/Brand'
 import { OFFER, formatRub, discountDeadline } from '../offer'
+import { downloadReportPdf } from '../utils/reportPdf'
 import '../styles/report.css'
 
 // The level report after a trial lesson: a branded, printable page in
@@ -13,6 +14,19 @@ export default function Report() {
   const { user } = useAuth()
   const [report, setReport] = useState(null)
   const [error, setError] = useState('')
+  const [saving, setSaving] = useState(false)
+  const articleRef = useRef(null)
+  const savePdf = async () => {
+    if (!articleRef.current) return
+    setSaving(true)
+    try {
+      await downloadReportPdf(articleRef.current, `Advent Academy — ${report.student} — план.pdf`)
+    } catch (err) {
+      setError(`Could not build the PDF: ${err.message}`)
+    } finally {
+      setSaving(false)
+    }
+  }
 
   useEffect(() => {
     api.trialReport(id).then(({ report }) => setReport(report)).catch((err) => setError(err.message))
@@ -36,11 +50,12 @@ export default function Report() {
         <Link className="ghost back-link" to={isStaff ? `/classroom/${report.classroomId}` : '/'}>← Back</Link>
         <div className="row-actions">
           {isStaff && !report.publishedAt && <span className="paid-badge mid">Draft — the student does not see it yet</span>}
+          <button className="ghost" onClick={savePdf} disabled={saving}>{saving ? 'Готовим PDF…' : 'Скачать PDF'}</button>
           {!isStaff && <Link className="button" to="/billing">Перейти к оплате</Link>}
         </div>
       </div>
 
-      <article className="report">
+      <article className="report" ref={articleRef}>
         <header className="report-head">
           <div className="report-brand">
             <Logo />
