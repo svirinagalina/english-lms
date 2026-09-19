@@ -9,7 +9,7 @@ import Reactions from '../components/Reactions'
 import Whiteboard from '../components/Whiteboard'
 import Writing from '../components/Writing'
 import { videoProcessor } from '../utils/videoProcessor'
-import { denoiseTrack } from '../utils/noiseSuppressor'
+import { denoiseTrack, primeDenoiser, isDenoiserSupported } from '../utils/noiseSuppressor'
 import { isMobile, useNarrow } from '../utils/device'
 
 // Older Safari cannot blur inside a canvas; there the layer is blurred by CSS.
@@ -62,6 +62,9 @@ const ICE_SERVERS = [
   { urls: 'stun:stun1.l.google.com:19302' }
 ]
 
+// The browser's own processing first (echo, gain, its noise filter), one
+// channel: the neural denoiser then works on top of that.
+const AUDIO_CONSTRAINTS = { echoCancellation: true, noiseSuppression: true, autoGainControl: true, channelCount: { ideal: 1 } }
 const RECONNECTING = 'Connection lost — reconnecting…'
 
 export default function Call() {
@@ -86,40 +89,112 @@ export default function Call() {
   const micOnRef = useRef(true)
   const [joined, setJoined] = useState(false)
   const [noiseSuppression, setNoiseSuppression] = useState(() => !isMobile())
+  const noiseOnRef = useRef(noiseSuppression)
+  noiseOnRef.current = noiseSuppression
   const rawMicRef = useRef(null)
   const denoiserRef = useRef(null)
-  // If the denoiser's output stays silent while the microphone has sound,
-  // the others hear nothing: fall back to the plain microphone.
+  // If the denoiser's output stays silent while the microphone has sound —
+  // or the browser sends silence from it — the others hear nothing: fall
+  // back to the plain microphone. Checked for the whole call: the engine can
+  // also die later, when a headset connects or the tab is interrupted.
+  // Sends `track` instead of the current microphone audio on every connection
+  // and in the local stream (the tile stays muted, so nothing is heard twice).
+  const swapOutgoingAudio = async (track) => {
+    track.enabled = micOnRef.current
+    for (const pc of Object.values(connectionsRef.current)) {
+      const sender = pc.getSenders().find((s) => s.track?.kind === 'audio')
+      if (sender) await sender.replaceTrack(track).catch(() => {})
+    }
+    const stream = localStreamRef.current
+    if (stream) { stream.getAudioTracks().forEach((t) => { if (t !== track) stream.removeTrack(t) }); if (!stream.getAudioTracks().includes(track)) stream.addTrack(track) }
+  }
+  const fallbackToRawMic = async (reason) => {
+    const cleaned = denoiserRef.current
+    const rawTrack = rawMicRef.current
+    if (!rawTrack) return
+    denoiserRef.current = null
+    cleaned?.stop()
+    await swapOutgoingAudio(rawTrack)
+    setNoiseSuppression(false)
+    setMediaWarning(`Noise reduction ${reason} and was switched off — the others hear your plain microphone.`)
+  }
   const watchDenoiser = (cleaned) => {
     let silent = 0
-    let checks = 0
+    let lastEnergy = null
+    denoiserSilenceRef.current = 0
     const timer = setInterval(async () => {
       if (denoiserRef.current !== cleaned) { clearInterval(timer); return }
       const { raw, clean, state } = cleaned.levels()
-      checks++
-      if (raw > 0.01 && clean < 0.0005) silent++; else silent = 0
-      if (silent >= 3 || state !== 'running') {
-        clearInterval(timer)
-        const rawTrack = rawMicRef.current
-        if (!rawTrack) return
-        for (const pc of Object.values(connectionsRef.current)) {
-          const sender = pc.getSenders().find((s) => s.track?.kind === 'audio')
-          if (sender) await sender.replaceTrack(rawTrack).catch(() => {})
+      if (state !== 'running') { cleaned.resume(); return }
+      // Exact zeros mean the worklet is not processing at all; RNNoise on
+      // pure noise still leaves a faint, non-zero signal.
+      let broken = raw > 0.003 && clean < 1e-6
+      // What the browser actually sends: the audio energy in the outgoing
+      // track must grow while the microphone hears something.
+      if (!broken && raw > 0.02) {
+        const pc = Object.values(connectionsRef.current)[0]
+        if (pc) {
+          try {
+            const stats = await pc.getStats()
+            let energy = null
+            stats.forEach((item) => { if (item.type === 'media-source' && item.kind === 'audio' && typeof item.totalAudioEnergy === 'number') energy = item.totalAudioEnergy })
+            if (energy !== null) {
+              if (lastEnergy !== null && energy <= lastEnergy) broken = true
+              lastEnergy = energy
+            }
+          } catch { /* stats unavailable: only the meters decide */ }
         }
-        const stream = localStreamRef.current
-        if (stream) { stream.getAudioTracks().forEach((t) => stream.removeTrack(t)); stream.addTrack(rawTrack) }
-        rawTrack.enabled = micOnRef.current
-        setNoiseSuppression(false)
-        setMediaWarning('Noise reduction went silent and was switched off — the others hear your plain microphone.')
       }
-      if (checks >= 60) clearInterval(timer)
+      silent = broken ? silent + 1 : 0
+      if (silent >= 3) {
+        clearInterval(timer)
+        // The main engine went quiet: try the lighter one before giving up.
+        if (cleaned.engine === 'gtcrn' && rawMicRef.current) {
+          try {
+            const next = await denoiseTrack(rawMicRef.current, { engine: 'rnnoise' })
+            await swapOutgoingAudio(next.track)
+            cleaned.stop()
+            denoiserRef.current = next
+            watchDenoiser(next)
+            return
+          } catch { /* fall through to the plain microphone */ }
+        }
+        fallbackToRawMic('went silent')
+      }
     }, 1000)
+  }
+  // A microphone that goes away (unplugged, a headset switched off) is taken
+  // again from whatever the browser now offers, through the denoiser as before.
+  const reacquireMic = async () => {
+    let raw
+    try {
+      raw = await navigator.mediaDevices.getUserMedia({ audio: AUDIO_CONSTRAINTS })
+    } catch { return }
+    const rawTrack = raw.getAudioTracks()[0]
+    if (!rawTrack) return
+    rawMicRef.current = rawTrack
+    rawTrack.addEventListener('ended', () => { if (rawMicRef.current === rawTrack) reacquireMic() })
+    let track = rawTrack
+    if (denoiserRef.current || (noiseOnRef.current && !isMobile() && isDenoiserSupported())) {
+      denoiserRef.current?.stop()
+      denoiserRef.current = null
+      try {
+        const cleaned = await denoiseTrack(rawTrack)
+        denoiserRef.current = cleaned
+        track = cleaned.track
+        watchDenoiser(cleaned)
+      } catch { setNoiseSuppression(false) }
+    }
+    rawTrack.enabled = micOnRef.current
+    await swapOutgoingAudio(track)
   }
   // Phones may refuse to play the others' sound until a tap: an overlay asks for one.
   const [needsTap, setNeedsTap] = useState(false)
   // Phones: the compact controls row (Leave included) in video mode too.
   const narrow = useNarrow()
   const [warningHidden, setWarningHidden] = useState(false)
+  // A new warning shows even after an earlier one was dismissed.
+  useEffect(() => { setWarningHidden(false) }, [mediaWarning])
   const [unlockTick, setUnlockTick] = useState(0)
   const unlockPlayback = () => {
     // Inside the tap: play every remote element now, and let the tiles retry.
@@ -217,6 +292,24 @@ export default function Call() {
       pc.onicecandidate = (event) => {
         if (event.candidate) socketRef.current.emit('ice-candidate', { to: peerId, candidate: event.candidate })
       }
+      // A dropped path (Wi-Fi to mobile data, a router hiccup) gets a fresh
+      // ICE round instead of a dead call: a "disconnected" that lasts, or a
+      // "failed", sends a restart offer. Both sides may try; glare is handled.
+      let restartTimer = null
+      const restart = async () => {
+        if (connectionsRef.current[peerId] !== pc || pc.signalingState === 'closed') return
+        try {
+          pc.restartIce?.()
+          const offer = await pc.createOffer({ iceRestart: true })
+          await pc.setLocalDescription(offer)
+          socketRef.current?.emit('offer', { to: peerId, offer })
+        } catch (err) { console.error('ICE restart failed:', err) }
+      }
+      pc.oniceconnectionstatechange = () => {
+        clearTimeout(restartTimer)
+        if (pc.iceConnectionState === 'failed') restart()
+        else if (pc.iceConnectionState === 'disconnected') restartTimer = setTimeout(() => { if (pc.iceConnectionState === 'disconnected') restart() }, 4000)
+      }
       connectionsRef.current[peerId] = pc
       return pc
     }
@@ -226,7 +319,7 @@ export default function Call() {
       try { iceServers = (await api.iceServers()).iceServers } catch { /* STUN only */ }
       setStatus('requesting-media')
       try {
-        const audioConstraints = { echoCancellation: true, noiseSuppression: true, autoGainControl: true }
+        const audioConstraints = AUDIO_CONSTRAINTS
         let raw
         try {
           raw = await navigator.mediaDevices.getUserMedia({ audio: audioConstraints, video: true })
@@ -238,12 +331,16 @@ export default function Call() {
         }
         if (disposed) { raw.getTracks().forEach((t) => t.stop()); return }
         rawMicRef.current = raw.getAudioTracks()[0] ?? null
+        if (rawMicRef.current) {
+          const rawTrack = rawMicRef.current
+          rawTrack.addEventListener('ended', () => { if (!disposed && rawMicRef.current === rawTrack) reacquireMic() })
+        }
         const stream = new MediaStream(raw.getVideoTracks())
         // Outgoing audio: the neural denoiser's output when available.
         let audio = rawMicRef.current
         // Phones keep the browser's own noise suppression: the worklet's
         // audio path is unreliable on iOS. Desktop gets the neural denoiser.
-        if (audio && !isMobile()) {
+        if (audio && !isMobile() && isDenoiserSupported()) {
           try {
             const cleaned = await denoiseTrack(audio)
             denoiserRef.current = cleaned
@@ -253,7 +350,7 @@ export default function Call() {
             console.error('Noise suppressor unavailable, using the plain microphone:', err)
             setNoiseSuppression(false)
           }
-        }
+        } else setNoiseSuppression(false)
         if (audio) stream.addTrack(audio)
         localStreamRef.current = stream
         if (localVideoRef.current) localVideoRef.current.srcObject = stream
@@ -279,13 +376,18 @@ export default function Call() {
           if (socket.id < from) return
           await pc.setLocalDescription({ type: 'rollback' })
         }
-        await pc.setRemoteDescription(new RTCSessionDescription(offer))
-        const answer = await pc.createAnswer()
-        await pc.setLocalDescription(answer)
-        socket.emit('answer', { to: from, answer })
+        try {
+          await pc.setRemoteDescription(new RTCSessionDescription(offer))
+          const answer = await pc.createAnswer()
+          await pc.setLocalDescription(answer)
+          socket.emit('answer', { to: from, answer })
+        } catch (err) { console.error('Offer rejected:', err) }
       })
       socket.on('answer', async ({ from, answer }) => {
-        await connectionsRef.current[from]?.setRemoteDescription(new RTCSessionDescription(answer))
+        const pc = connectionsRef.current[from]
+        // A late answer to an offer that was rolled back or replaced is ignored.
+        if (!pc || pc.signalingState !== 'have-local-offer') return
+        try { await pc.setRemoteDescription(new RTCSessionDescription(answer)) } catch (err) { console.error('Answer rejected:', err) }
       })
       socket.on('ice-candidate', async ({ from, candidate }) => {
         const pc = connectionsRef.current[from]
@@ -495,17 +597,14 @@ export default function Call() {
     try {
       let track = raw
       if (next) {
-        if (!denoiserRef.current) denoiserRef.current = await denoiseTrack(raw)
+        if (!denoiserRef.current) {
+          const cleaned = await denoiseTrack(raw)
+          denoiserRef.current = cleaned
+          watchDenoiser(cleaned)
+        }
         track = denoiserRef.current.track
       }
-      const stream = localStreamRef.current
-      const old = stream?.getAudioTracks()[0]
-      track.enabled = micOnRef.current
-      for (const pc of Object.values(connectionsRef.current)) {
-        const sender = pc.getSenders().find((s) => s.track?.kind === 'audio')
-        if (sender) await sender.replaceTrack(track)
-      }
-      if (stream) { if (old && old !== track) stream.removeTrack(old); if (!stream.getAudioTracks().includes(track)) stream.addTrack(track) }
+      await swapOutgoingAudio(track)
       setNoiseSuppression(next)
     } catch (err) {
       setMediaWarning(`Noise reduction is not available here: ${err?.message ?? err}`)
@@ -669,7 +768,7 @@ export default function Call() {
           <h1>{call.title ?? 'Video call'}</h1>
           <p className="muted">{call.host} · {call.schoolName}</p>
           <p className="muted">Your camera and microphone switch on when you join.</p>
-          <button onClick={() => setJoined(true)} autoFocus>Join call</button>
+          <button onClick={() => { if (!isMobile()) primeDenoiser(); setJoined(true) }} autoFocus>Join call</button>
           <Link className="ghost button" to="/classroom">Back</Link>
         </div>
       </div>
