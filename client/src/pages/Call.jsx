@@ -667,6 +667,7 @@ export default function Call() {
     }
     let watchdog = null
     let lastTick = 0
+    let lastPlayNudge = 0
     const loop = async () => {
       if (cancelled) return
       // About 15 frames a second is plenty for a mask; the browser's own
@@ -677,16 +678,23 @@ export default function Call() {
       // No camera at all: nothing to blur, and nothing to complain about.
       if (localStreamRef.current && !localStreamRef.current.getVideoTracks().length) { cancelled = true; setIsBlurEnabled(false); return }
       const video = localVideoRef.current
-      if (video && video.readyState >= 2) {
-        // The camera shows a picture: from here the model has a few seconds
-        // to produce frames, otherwise the blur is switched off with a reason.
-        if (!watchdog) {
-          watchdog = setTimeout(() => {
-            if (!cancelled && frames === 0) {
-              fail('start', new Error(`no frames were processed (camera ${video?.videoWidth ?? 0}×${video?.videoHeight ?? 0}, ready ${video?.readyState ?? '?'})`))
-            }
-          }, 8000)
-        }
+      const liveCamera = localStreamRef.current?.getVideoTracks().some((t) => t.readyState === 'live')
+        || video?.srcObject?.getVideoTracks?.().some((t) => t.readyState === 'live')
+      // A camera that is live but shows no picture (a phone that paused the
+      // element, a tab that came back): nudge it to play, and if it never
+      // does, say so rather than sit with the toggle on and nothing happening.
+      if (video && liveCamera && !watchdog) {
+        watchdog = setTimeout(() => {
+          if (!cancelled && frames === 0) {
+            fail('start', new Error(`no frames were processed (camera ${video?.videoWidth ?? 0}×${video?.videoHeight ?? 0}, ready ${video?.readyState ?? '?'}, ${video?.paused ? 'paused' : 'playing'})`))
+          }
+        }, 12000)
+      }
+      if (video && liveCamera && (video.readyState < 2 || video.paused) && now - lastPlayNudge > 2000) {
+        lastPlayNudge = now
+        video.play().catch(() => {})
+      }
+      if (video && video.readyState >= 2 && video.videoWidth) {
         try {
           if (await videoProcessor.send(video)) {
             frames += 1

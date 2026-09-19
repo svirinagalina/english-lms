@@ -6,6 +6,7 @@ import { createServer } from 'http'
 import { Server } from 'socket.io'
 import cors from 'cors'
 import cookieParser from 'cookie-parser'
+import fs from 'node:fs'
 import path from 'path'
 import { fileURLToPath } from 'url'
 
@@ -73,9 +74,30 @@ if (process.env.NODE_ENV === 'production') {
     '../public'
   )
 
+  // A brotli twin made at build time is sent when the browser takes it:
+  // a fifth of the bytes for scripts and the 12 MB blur runtime, which
+  // matters on slow routes and phones. The proxy leaves it untouched.
+  const TYPES = { '.js': 'text/javascript', '.css': 'text/css', '.wasm': 'application/wasm', '.tflite': 'application/octet-stream', '.svg': 'image/svg+xml', '.json': 'application/json', '.html': 'text/html' }
+  const precompressed = (dir) => (req, res, next) => {
+    if (req.method !== 'GET' && req.method !== 'HEAD') return next()
+    if (!/\bbr\b/.test(req.headers['accept-encoding'] ?? '')) return next()
+    const ext = path.extname(req.path)
+    if (!TYPES[ext]) return next()
+    const file = path.join(dir, path.normalize(req.path))
+    if (!file.startsWith(dir)) return next()
+    fs.stat(`${file}.br`, (err, info) => {
+      if (err || !info.isFile()) return next()
+      res.set('Content-Encoding', 'br')
+      res.set('Content-Type', `${TYPES[ext]}${ext === '.js' || ext === '.css' || ext === '.html' ? '; charset=utf-8' : ''}`)
+      res.set('Vary', 'Accept-Encoding')
+      res.sendFile(`${file}.br`, { maxAge: req.path.startsWith('/assets/') ? 31536000000 : req.path.startsWith('/mediapipe/') ? 2592000000 : 0, immutable: req.path.startsWith('/assets/') })
+    })
+  }
+  app.use(precompressed(clientDist))
   // Hashed assets and the blur model/runtime never change under one name.
   app.use('/assets', express.static(path.join(clientDist, 'assets'), { maxAge: '365d', immutable: true }))
   app.use('/mediapipe', express.static(path.join(clientDist, 'mediapipe'), { maxAge: '30d' }))
+  app.use('/backgrounds', express.static(path.join(clientDist, 'backgrounds'), { maxAge: '7d' }))
   // The page itself must never be cached, or a browser keeps running an
   // old bundle after a deploy.
   app.use(express.static(clientDist, { index: false }))
