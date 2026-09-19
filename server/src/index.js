@@ -24,6 +24,8 @@ import { dictionaryRouter } from './routes/dictionary.js'
 import { mistakesRouter } from './routes/mistakes.js'
 import { lessonsRouter } from './routes/lessons.js'
 import { trialsRouter } from './routes/trials.js'
+import { settingsRouter } from './routes/settings.js'
+import { loadAiSettings } from './settings.js'
 import { setupSignaling } from './signaling.js'
 import { flushBoards } from './boardStore.js'
 import { flushDocuments } from './docStore.js'
@@ -53,6 +55,7 @@ app.use('/api/dictionary', dictionaryRouter)
 app.use('/api/mistakes', mistakesRouter)
 app.use('/api/lessons', lessonsRouter)
 app.use('/api/trials', trialsRouter)
+app.use('/api/settings', settingsRouter)
 
 app.get('/api/health', (req, res) => res.json({ ok: true }))
 
@@ -94,6 +97,9 @@ const io = new Server(httpServer, {
   cors: { origin: clientOrigin, credentials: true }
 })
 setupSignaling(io)
+
+// The AI key saved from the Settings page, before the first request.
+loadAiSettings().catch((error) => console.error('Could not load AI settings:', error.message))
 
 const port = process.env.PORT ?? 4000
 httpServer.listen(port, () => {

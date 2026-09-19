@@ -353,6 +353,14 @@ model TrialReport {
   @@index([studentId])
 }
 
+// Platform-wide settings kept out of the environment: the AI key (encrypted
+// with the server secret), the provider and the model, set from the Settings page.
+model PlatformSetting {
+  key       String   @id
+  value     String
+  updatedAt DateTime @updatedAt
+}
+
 model Session {
   id        String    @id @default(cuid())
   startedAt DateTime  @default(now())

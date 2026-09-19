@@ -35,6 +35,7 @@ export default function Nav({ title, back }) {
 
   if (admin) {
     links.push({ to: '/people', label: 'People' }, { to: '/billing', label: 'Payments' }, { to: '/content', label: 'Content' })
+    if (user.role === 'OWNER') links.push({ to: '/settings', label: 'Settings' })
   }
 
   return (

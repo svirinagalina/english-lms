@@ -16,6 +16,7 @@ import VocabSet from './pages/VocabSet'
 import People from './pages/People'
 import Billing from './pages/Billing'
 import Report from './pages/Report'
+import Settings from './pages/Settings'
 import Join from './pages/Join'
 import Stats from './pages/Stats'
 import Call from './pages/Call'
@@ -94,6 +95,7 @@ export default function App() {
       <Route path="/progress/:id" element={<RequireAuth><Stats /></RequireAuth>} />
       <Route path="/billing" element={<RequireAuth><Billing /></RequireAuth>} />
       <Route path="/report/:id" element={<RequireAuth><Report /></RequireAuth>} />
+      <Route path="/settings" element={<RequireAuth roles={['OWNER']}><Settings /></RequireAuth>} />
       <Route path="/content" element={<RequireAuth roles={['OWNER', 'PARTNER']}><Content /></RequireAuth>} />
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>

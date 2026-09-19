@@ -1,27 +1,42 @@
-// One door to the language model: OpenAI when OPENAI_API_KEY is set,
-// otherwise Claude when ANTHROPIC_API_KEY is set. Every feature asks for a
-// structured answer (a zod schema), so switching providers changes nothing else.
+// One door to the language model: OpenAI or Claude, whichever key is
+// configured (in the environment, or saved from the Settings page). Every
+// feature asks for a structured answer (a zod schema), so the provider is
+// interchangeable.
+import { aiConfig } from './settings.js'
 
-export const llmEnabled = () => Boolean(process.env.OPENAI_API_KEY || process.env.ANTHROPIC_API_KEY)
-export const llmProvider = () => (process.env.OPENAI_API_KEY ? 'openai' : process.env.ANTHROPIC_API_KEY ? 'anthropic' : null)
+export const llmEnabled = () => Boolean(aiConfig())
+export const llmProvider = () => aiConfig()?.provider ?? null
 
-const OPENAI_MODEL = () => process.env.OPENAI_MODEL || 'gpt-5.5'
-const ANTHROPIC_MODEL = () => process.env.ANTHROPIC_MODEL || 'claude-opus-5'
+const DEFAULT_MODEL = { openai: 'gpt-5.5', anthropic: 'claude-opus-5' }
 
-let openai = null
-let anthropic = null
+const clients = new Map() // provider+key → client
+
+async function clientFor(config) {
+  const id = `${config.provider}:${config.key.slice(-8)}`
+  if (clients.has(id)) return clients.get(id)
+  let client
+  if (config.provider === 'openai') {
+    const { default: OpenAI } = await import('openai')
+    client = new OpenAI({ apiKey: config.key })
+  } else {
+    const { default: Anthropic } = await import('@anthropic-ai/sdk')
+    client = new Anthropic({ apiKey: config.key })
+  }
+  clients.set(id, client)
+  return client
+}
 
 // Returns the parsed object matching `schema`, or null.
 export async function structured({ system, user, schema, name = 'result', maxTokens = 3000 }) {
-  const provider = llmProvider()
-  if (!provider) throw new Error('No AI key is configured')
+  const config = aiConfig()
+  if (!config) throw new Error('No AI key is configured')
+  const model = config.model || DEFAULT_MODEL[config.provider]
+  const client = await clientFor(config)
 
-  if (provider === 'openai') {
-    const { default: OpenAI } = await import('openai')
+  if (config.provider === 'openai') {
     const { zodTextFormat } = await import('openai/helpers/zod')
-    openai ??= new OpenAI()
-    const response = await openai.responses.parse({
-      model: OPENAI_MODEL(),
+    const response = await client.responses.parse({
+      model,
       instructions: system,
       input: user,
       max_output_tokens: maxTokens,
@@ -30,15 +45,26 @@ export async function structured({ system, user, schema, name = 'result', maxTok
     return response.output_parsed ?? null
   }
 
-  const { default: Anthropic } = await import('@anthropic-ai/sdk')
   const { zodOutputFormat } = await import('@anthropic-ai/sdk/helpers/zod')
-  anthropic ??= new Anthropic()
-  const response = await anthropic.messages.parse({
-    model: ANTHROPIC_MODEL(),
+  const response = await client.messages.parse({
+    model,
     max_tokens: maxTokens,
     system,
     messages: [{ role: 'user', content: user }],
     output_config: { format: zodOutputFormat(schema) }
   })
   return response.parsed_output ?? null
+}
+
+// A tiny round trip to prove a key works; returns the model's one-word answer.
+export async function testConnection() {
+  const { z } = await import('zod')
+  const out = await structured({
+    name: 'ping',
+    schema: z.object({ answer: z.string() }),
+    maxTokens: 50,
+    system: 'Reply with the single word "ready".',
+    user: 'ping'
+  })
+  return out?.answer ?? ''
 }
