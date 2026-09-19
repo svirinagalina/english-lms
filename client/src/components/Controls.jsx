@@ -23,8 +23,6 @@ const Controls = forwardRef(function Controls({
   onBlurToggle,
   blurAmount,
   onBlurChange,
-  noiseSuppression,
-  onNoiseToggle,
   boards = [],
   boardId,
   // The board to go back to with one click (the last one opened, or the student's).
@@ -46,7 +44,7 @@ const Controls = forwardRef(function Controls({
   onReact,
   onSticker
 }, ref) {
-  // The rarely used controls live behind "More": noise reduction, blur, the link.
+  // The rarely used controls live behind "More": blur and the invite link.
   const [moreOpen, setMoreOpen] = useState(false)
   const moreRef = useRef(null)
   useEffect(() => {
@@ -55,7 +53,7 @@ const Controls = forwardRef(function Controls({
     document.addEventListener('pointerdown', close)
     return () => document.removeEventListener('pointerdown', close)
   }, [moreOpen])
-  const moreActive = noiseSuppression || isBlurEnabled || (compact && (hasScreenStream || (unread > 0 && !chatOpen)))
+  const moreActive = isBlurEnabled || (compact && (hasScreenStream || (unread > 0 && !chatOpen)))
 
   // Writing: in the row in both layouts (next to Cam and Mic when compact).
   const writing = (
@@ -161,7 +159,7 @@ const Controls = forwardRef(function Controls({
       )}
       {!compact && tools}
       <div className="more-wrap" ref={moreRef}>
-        <button className={`round ${moreOpen ? 'on' : ''}`} onClick={() => setMoreOpen((v) => !v)} title={compact ? 'Screen, board, chat, noise reduction, blur, invite link' : 'Noise reduction, blur, invite link'}>
+        <button className={`round ${moreOpen ? 'on' : ''}`} onClick={() => setMoreOpen((v) => !v)} title={compact ? 'Screen, board, chat, blur, invite link' : 'Blur, invite link'}>
           More{compact && unread > 0 && !chatOpen ? ` (${unread})` : moreActive && !moreOpen ? ' •' : ''}
         </button>
         {moreOpen && (
@@ -195,15 +193,6 @@ const Controls = forwardRef(function Controls({
                   ))}
                 </div>
               </>
-            )}
-            {!phone && (
-            <button
-              className={`pill ${noiseSuppression ? 'on' : ''}`}
-              onClick={onNoiseToggle}
-              title="Filter out background noise from your microphone"
-            >
-              {noiseSuppression ? 'Noise reduction: ON' : 'Noise reduction: OFF'}
-            </button>
             )}
             {!phone && (
             <div className="blur-control">

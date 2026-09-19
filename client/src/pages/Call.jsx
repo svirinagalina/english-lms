@@ -88,9 +88,6 @@ export default function Call() {
   const [cameraOn, setCameraOn] = useState(true)
   const micOnRef = useRef(true)
   const [joined, setJoined] = useState(false)
-  const [noiseSuppression, setNoiseSuppression] = useState(() => !isMobile())
-  const noiseOnRef = useRef(noiseSuppression)
-  noiseOnRef.current = noiseSuppression
   const rawMicRef = useRef(null)
   const denoiserRef = useRef(null)
   // If the denoiser's output stays silent while the microphone has sound —
@@ -115,8 +112,9 @@ export default function Call() {
     denoiserRef.current = null
     cleaned?.stop()
     await swapOutgoingAudio(rawTrack)
-    setNoiseSuppression(false)
-    setMediaWarning(`Noise reduction ${reason} and was switched off — the others hear your plain microphone.`)
+    // The browser's own suppression is still on the plain microphone, so
+    // nothing changes for the person: no message, only a note in the console.
+    console.warn(`Noise removal ${reason}; the plain microphone is sent instead.`)
   }
   const watchDenoiser = (cleaned) => {
     let silent = 0
@@ -175,7 +173,7 @@ export default function Call() {
     rawMicRef.current = rawTrack
     rawTrack.addEventListener('ended', () => { if (rawMicRef.current === rawTrack) reacquireMic() })
     let track = rawTrack
-    if (denoiserRef.current || (noiseOnRef.current && !isMobile() && isDenoiserSupported())) {
+    if (!isMobile() && isDenoiserSupported()) {
       denoiserRef.current?.stop()
       denoiserRef.current = null
       try {
@@ -183,7 +181,7 @@ export default function Call() {
         denoiserRef.current = cleaned
         track = cleaned.track
         watchDenoiser(cleaned)
-      } catch { setNoiseSuppression(false) }
+      } catch (err) { console.warn('Noise removal unavailable, using the plain microphone:', err) }
     }
     rawTrack.enabled = micOnRef.current
     await swapOutgoingAudio(track)
@@ -348,9 +346,8 @@ export default function Call() {
             watchDenoiser(cleaned)
           } catch (err) {
             console.error('Noise suppressor unavailable, using the plain microphone:', err)
-            setNoiseSuppression(false)
           }
-        } else setNoiseSuppression(false)
+        }
         if (audio) stream.addTrack(audio)
         localStreamRef.current = stream
         if (localVideoRef.current) localVideoRef.current.srcObject = stream
@@ -585,29 +582,6 @@ export default function Call() {
       socketRef.current?.emit('mic:state', { muted: !next })
     } else {
       setCameraOn((v) => !v)
-    }
-  }
-
-  // Switches the outgoing audio between the denoised track and the plain
-  // microphone; the microphone itself stays open.
-  const toggleNoiseSuppression = async () => {
-    const next = !noiseSuppression
-    const raw = rawMicRef.current
-    if (!raw) return
-    try {
-      let track = raw
-      if (next) {
-        if (!denoiserRef.current) {
-          const cleaned = await denoiseTrack(raw)
-          denoiserRef.current = cleaned
-          watchDenoiser(cleaned)
-        }
-        track = denoiserRef.current.track
-      }
-      await swapOutgoingAudio(track)
-      setNoiseSuppression(next)
-    } catch (err) {
-      setMediaWarning(`Noise reduction is not available here: ${err?.message ?? err}`)
     }
   }
 
@@ -924,8 +898,6 @@ export default function Call() {
         onBlurToggle={() => setIsBlurEnabled((v) => !v)}
         blurAmount={blurAmount}
         onBlurChange={setBlurAmount}
-        noiseSuppression={noiseSuppression}
-        onNoiseToggle={toggleNoiseSuppression}
       />
     </div>
   )
