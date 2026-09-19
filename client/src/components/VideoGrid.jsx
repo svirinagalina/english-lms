@@ -1,4 +1,6 @@
 import { useEffect, useRef } from 'react'
+import { denoiseTrack } from '../utils/noiseSuppressor'
+import { api } from '../api'
 
 // A crossed-out microphone, shown on a tile whose owner is muted.
 function MutedIcon() {
@@ -17,6 +19,10 @@ function MutedIcon() {
 
 function PeerVideo({ stream, name, muted, onBlocked, unlockTick }) {
   const ref = useRef(null)
+  const audioRef = useRef(null)
+  // The other side's sound is cleaned here as well, before it is played:
+  // whatever their microphone path did, the room noise stops at this end.
+  const cleanedRef = useRef(null)
 
   // Attach after mount, not during render: a peer whose stream is already
   // known when its tile first appears would otherwise never get it. A phone
@@ -26,11 +32,63 @@ function PeerVideo({ stream, name, muted, onBlocked, unlockTick }) {
     if (!video) return
     if (video.srcObject !== stream) video.srcObject = stream
     if (stream) video.play().catch((err) => { if (err?.name === 'NotAllowedError') onBlocked?.() })
+    audioRef.current?.play().catch((err) => { if (err?.name === 'NotAllowedError') onBlocked?.() })
   }, [stream, unlockTick])
+
+  useEffect(() => {
+    if (!stream) return
+    let gone = false
+    let watchdog = null
+    const teardown = () => {
+      clearInterval(watchdog)
+      cleanedRef.current?.stop(); cleanedRef.current = null
+      if (audioRef.current) audioRef.current.srcObject = null
+      if (ref.current) ref.current.muted = false
+    }
+    const attach = async () => {
+      const track = stream.getAudioTracks()[0]
+      if (!track || cleanedRef.current) return
+      try {
+        const cleaned = await denoiseTrack(track)
+        if (gone || stream.getAudioTracks()[0] !== track) { cleaned.stop(); return }
+        cleanedRef.current = cleaned
+        const audio = audioRef.current
+        const video = ref.current
+        if (!audio || !video) { cleaned.stop(); cleanedRef.current = null; return }
+        audio.srcObject = new MediaStream([cleaned.track])
+        video.muted = true
+        audio.play().catch((err) => { if (err?.name === 'NotAllowedError') onBlocked?.() })
+        api.diag({ kind: 'receive.on', message: cleaned.engine, details: { peer: name ?? '' } })
+        // Output gone quiet while the other side is audible: back to the plain sound.
+        let silent = 0
+        watchdog = setInterval(() => {
+          const { raw, clean, state } = cleaned.levels()
+          if (state !== 'running') cleaned.resume()
+          silent = raw > 0.003 && clean < 1e-6 ? silent + 1 : 0
+          if (silent >= 3) {
+            api.diag({ kind: 'receive.silent', message: cleaned.engine, details: { raw: Number(raw.toFixed(4)), clean: Number(clean.toFixed(6)), state } })
+            teardown()
+          }
+        }, 1000)
+      } catch (err) {
+        api.diag({ kind: 'receive.failed', message: String(err?.message ?? err) })
+      }
+    }
+    attach()
+    // The audio track often arrives after the video one, on the same stream.
+    const onAdd = () => attach()
+    stream.addEventListener('addtrack', onAdd)
+    return () => {
+      gone = true
+      stream.removeEventListener('addtrack', onAdd)
+      teardown()
+    }
+  }, [stream])
 
   return (
     <div className="video-tile remote-tile">
       <video ref={ref} autoPlay playsInline />
+      <audio ref={audioRef} autoPlay />
       <span className="tile-label">{name ?? 'Participant'}</span>
       {muted && <MutedIcon />}
     </div>

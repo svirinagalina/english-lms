@@ -71,6 +71,10 @@ const AUDIO_CONSTRAINTS = { echoCancellation: true, noiseSuppression: true, auto
 // Phones get a lighter tick: the model is the same, the battery is not.
 const BLUR_FPS = isHandheld() ? 12 : 15
 const OUT_WIDTH = 640
+// A line in the server log about what this device did: enough to read a
+// failure without asking the person for screenshots.
+const deviceLine = () => `${navigator.userAgent.slice(0, 160)} · ${screen.width}x${screen.height} · cores ${navigator.hardwareConcurrency ?? '?'}`
+const report = (call, kind, message, details) => api.diag({ kind, message, details, device: deviceLine(), call })
 const RECONNECTING = 'Connection lost — reconnecting…'
 
 export default function Call() {
@@ -142,9 +146,20 @@ export default function Call() {
   const watchDenoiser = (cleaned) => {
     let silent = 0
     let lastEnergy = null
+    let ticks = 0
     const timer = setInterval(async () => {
       if (denoiserRef.current !== cleaned) { clearInterval(timer); return }
       const { raw, clean, state } = cleaned.levels()
+      ticks += 1
+      if (ticks === 20 || ticks % 120 === 0) {
+        const senders = Object.values(connectionsRef.current).map((pc) => pc.getSenders().find((sd) => sd.track?.kind === 'audio')?.track)
+        report(token, 'noise.health', cleaned.engine, {
+          raw: Number(raw.toFixed(4)), clean: Number(clean.toFixed(5)), state,
+          peers: senders.length,
+          sendingCleaned: senders.every((t) => t === cleaned.track),
+          micOn: micOnRef.current
+        })
+      }
       if (state !== 'running') { cleaned.resume(); return }
       // Exact zeros mean the worklet is not processing at all; RNNoise on
       // pure noise still leaves a faint, non-zero signal.
@@ -169,6 +184,7 @@ export default function Call() {
       silent = broken ? silent + 1 : 0
       if (silent >= 3) {
         clearInterval(timer)
+        report(token, 'noise.silent', cleaned.engine, { raw: Number(raw.toFixed(4)), clean: Number(clean.toFixed(6)), state })
         // The main engine went quiet: try the lighter one before giving up.
         if (cleaned.engine === 'gtcrn' && rawMicRef.current) {
           try {
@@ -207,15 +223,19 @@ export default function Call() {
   const startDenoiser = (rawTrack, isDisposed) => {
     if (!isDenoiserSupported()) { setNoiseState('browser'); return }
     setNoiseState('starting')
+    const t0 = performance.now()
     denoiseTrack(rawTrack).then(async (cleaned) => {
       if (isDisposed() || rawMicRef.current !== rawTrack) { cleaned.stop(); return }
       denoiserRef.current = cleaned
       await swapOutgoingAudio(cleaned.track)
       watchDenoiser(cleaned)
       setNoiseState('on')
+      const settings = rawTrack.getSettings?.() ?? {}
+      report(token, 'noise.on', cleaned.engine, { loadMs: Math.round(performance.now() - t0), sampleRate: settings.sampleRate ?? null, browserFilter: settings.noiseSuppression ?? null, echo: settings.echoCancellation ?? null, senders: Object.keys(connectionsRef.current).length })
     }).catch((err) => {
       console.warn('Noise removal unavailable, using the plain microphone:', err)
       setNoiseState('browser')
+      report(token, 'noise.failed', String(err?.message ?? err), { loadMs: Math.round(performance.now() - t0) })
     })
   }
   // Phones may refuse to play the others' sound until a tap: an overlay asks for one.
@@ -228,7 +248,7 @@ export default function Call() {
   const [unlockTick, setUnlockTick] = useState(0)
   const unlockPlayback = () => {
     // Inside the tap: play every remote element now, and let the tiles retry.
-    document.querySelectorAll('.remote-tile video, .screen-area video').forEach((v) => v.play().catch(() => {}))
+    document.querySelectorAll('.remote-tile video, .remote-tile audio, .screen-area video').forEach((v) => v.play().catch(() => {}))
     setNeedsTap(false)
     setUnlockTick((n) => n + 1)
   }
@@ -658,6 +678,7 @@ export default function Call() {
     let frames = 0
     const fail = (stage, err) => {
       console.error(`Blur ${stage}:`, err)
+      report(token, 'blur.failed', `${stage}: ${err?.message ?? err}`, { background, webgl: hasWebGL() })
       cancelled = true
       setMediaWarning(`Blur could not ${stage}: ${err?.message ?? String(err)}`)
       setIsBlurEnabled(false)
@@ -695,7 +716,10 @@ export default function Call() {
         try {
           if (await videoProcessor.send(video)) {
             frames += 1
-            if (frames === 1) setMediaWarning((w) => (w.startsWith('Blur') ? '' : w))
+            if (frames === 1) {
+              setMediaWarning((w) => (w.startsWith('Blur') ? '' : w))
+              report(token, 'blur.on', background, { camera: `${video.videoWidth}x${video.videoHeight}`, sending: Boolean(blurOutRef.current) })
+            }
           }
         } catch (err) {
           fail('process a frame', err)
