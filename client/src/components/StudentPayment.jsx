@@ -16,11 +16,17 @@ export default function StudentPayment() {
   const [note, setNote] = useState('')
   const [reporting, setReporting] = useState(false)
   const [reported, setReported] = useState(null)
-  const [chosen, setChosen] = useState('')
+  const [eur, setEur] = useState(null) // { rate, date }
 
   useEffect(() => {
-    api.myBilling().then(({ billing }) => { setBilling(billing); setReported(billing.paymentReportedAt) }).catch(() => setBilling(null))
+    api.myBilling().then(({ billing }) => {
+      setBilling(billing)
+      setReported(billing.paymentReportedAt)
+      if (billing.trial) api.eurRate().then(({ eur }) => setEur(eur)).catch(() => setEur(null))
+    }).catch(() => setBilling(null))
   }, [])
+  const inEur = (rub) => (eur ? Math.ceil((rub / eur.rate) * 100) / 100 : null)
+  const formatEur = (n) => `${n.toLocaleString('ru-RU', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €`
 
   if (!billing) return null
 
@@ -64,8 +70,9 @@ export default function StudentPayment() {
           </div>
           <div className="offer-plans">
             {OFFER.plans.map((plan) => {
-              const link = trial.links?.[plan.id]
+              const link = trial.links?.[plan.id] || OFFER.stripeLink
               const price = deadline.active ? plan.discounted : plan.price
+              const euros = inEur(price)
               return (
                 <div key={plan.id} className={`offer-plan ${plan.recommended ? 'mine' : ''}`}>
                   {plan.recommended && <div className="offer-badge">Рекомендуем</div>}
@@ -74,12 +81,23 @@ export default function StudentPayment() {
                   <div className="offer-price">
                     {deadline.active && <s>{formatRub(plan.price)}/мес</s>} <strong>{deadline.active ? '≈' : ''}{formatRub(price)}</strong> /мес
                   </div>
+                  {euros != null && (
+                    <div className="offer-eur">
+                      К оплате сегодня: <strong>{formatEur(euros)}</strong>
+                      <span className="muted"> · по курсу ЦБ РФ {eur.rate.toLocaleString('ru-RU', { maximumFractionDigits: 2 })} ₽/€ на {eur.date}</span>
+                    </div>
+                  )}
                   <ul>{plan.includes.map((i) => <li key={i}>{i}</li>)}</ul>
-                  {link
-                    ? <a className="button offer-pay" href={link} target="_blank" rel="noopener noreferrer">Оплатить {plan.name} — {formatRub(price)}</a>
-                    : <button className="offer-pay" disabled={reporting || chosen === plan.id} onClick={async () => { setChosen(plan.id); await report(`Выбран тариф ${plan.name} (${formatRub(price)}/мес)`) }}>
-                        {chosen === plan.id ? 'Заявка отправлена' : `Выбрать ${plan.name}`}
-                      </button>}
+                  <a
+                    className="button offer-pay"
+                    href={link}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    onClick={() => { report(`Переход к оплате: тариф ${plan.name}, ${formatRub(price)}${euros != null ? ` ≈ ${formatEur(euros)}` : ''}`).catch(() => {}) }}
+                  >
+                    Оплатить {plan.name}{euros != null ? ` — ${formatEur(euros)}` : ''}
+                  </a>
+                  {euros != null && <div className="muted small-hint" style={{ marginTop: 6 }}>На странице оплаты введите сумму {formatEur(euros)}.</div>}
                 </div>
               )
             })}

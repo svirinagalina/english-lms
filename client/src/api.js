@@ -49,6 +49,7 @@ export const api = {
 
   myBilling: () => request('/billing/me'),
   billingStudents: () => request('/billing/students'),
+  eurRate: () => request('/billing/rates'),
   reportPayment: (note) => request('/billing/me/paid', { method: 'POST', body: { note } }),
   paymentSeen: (id) => request(`/billing/students/${id}/seen`, { method: 'POST' }),
   updateStudentBilling: (id, body) => request(`/billing/students/${id}`, { method: 'PATCH', body }),

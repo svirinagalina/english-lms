@@ -72,6 +72,38 @@ async function reachableStudent(user, id) {
   })
 }
 
+// The Bank of Russia's official EUR rate for today, so a rouble price can
+// be paid in euros at the day's rate. Official XML first, a JSON mirror as
+// fallback; cached for an hour.
+let rateCache = { at: 0, value: null }
+async function eurRate() {
+  if (Date.now() - rateCache.at < 60 * 60 * 1000 && rateCache.value) return rateCache.value
+  const parse = async () => {
+    try {
+      const res = await fetch('https://www.cbr.ru/scripts/XML_daily.asp', { signal: AbortSignal.timeout(6000) })
+      const buf = Buffer.from(await res.arrayBuffer())
+      const xml = new TextDecoder('windows-1251').decode(buf)
+      const date = xml.match(/ValCurs Date="([^"]+)"/)?.[1]
+      const m = xml.match(/<CharCode>EUR<\/CharCode>.*?<Value>([\d,]+)<\/Value>/s)
+      if (m) return { rate: Number(m[1].replace(',', '.')), date, source: 'cbr.ru' }
+    } catch { /* try the mirror */ }
+    const res = await fetch('https://www.cbr-xml-daily.ru/daily_json.js', { signal: AbortSignal.timeout(6000) })
+    const data = await res.json()
+    return { rate: data.Valute.EUR.Value, date: data.Date.slice(0, 10), source: 'cbr-xml-daily.ru' }
+  }
+  const value = await parse()
+  rateCache = { at: Date.now(), value }
+  return value
+}
+
+billingRouter.get('/rates', async (req, res) => {
+  try {
+    res.json({ eur: await eurRate() })
+  } catch (error) {
+    res.status(502).json({ error: 'The exchange rate is unavailable right now' })
+  }
+})
+
 // What the signed-in student needs in order to pay. A student who came
 // through a trial lesson (a published report) also gets the offer: the
 // plans with the discount deadline and the payment links from Settings.

@@ -922,17 +922,19 @@ select.pill { padding: 0 16px; color: var(--text); border: none; }
   .lesson-page.board-mode .banner { top: 64px; left: 8px; right: 130px; max-width: none; }
 }
 
-/* The trial offer on the student's Payment page (dark theme variant of the report's cards). */
+/* The trial offer on the student's Payment page: ivory cards, green ink. */
 .trial-offer { margin-bottom: 14px; }
 .trial-offer .offer-plans { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 14px; margin: 12px 0; }
-.trial-offer .offer-plan { position: relative; background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 18px 16px 14px; color: var(--text); }
-.trial-offer .offer-plan.mine { border: 2px solid var(--accent); }
+.trial-offer .offer-plan { position: relative; background: #fcfbf6; border: 1px solid #ece7dd; border-radius: 14px; padding: 18px 16px 14px; color: #14453f; }
+.trial-offer .offer-plan.mine { border: 2px solid var(--accent); box-shadow: 0 10px 30px rgba(244, 185, 217, 0.25); }
 .trial-offer .offer-badge { position: absolute; top: -11px; left: 14px; background: var(--accent); color: var(--accent-ink); font-size: 11px; font-weight: 700; padding: 3px 10px; border-radius: 10px; }
-.trial-offer .offer-plan-name { font-size: 20px; font-weight: 800; }
-.trial-offer .offer-price { margin: 10px 0; font-size: 14px; }
-.trial-offer .offer-price s { color: var(--muted); }
-.trial-offer .offer-price strong { font-size: 22px; }
-.trial-offer .offer-plan ul { margin: 0 0 12px; padding-left: 20px; font-size: 14px; display: flex; flex-direction: column; gap: 3px; }
-.trial-offer .offer-pay { width: 100%; text-align: center; }
-.trial-offer .offer-price strong, .trial-offer .offer-plan-name, .trial-offer .offer-plan ul { color: var(--text); }
-.trial-offer .offer-price s, .trial-offer .offer-plan .muted { color: var(--muted); }
+.trial-offer .offer-plan-name { font-size: 20px; font-weight: 800; color: #14453f; }
+.trial-offer .offer-plan .muted { color: #5f7a74; }
+.trial-offer .offer-price { margin: 10px 0 4px; font-size: 14px; color: #14453f; }
+.trial-offer .offer-price s { color: #5f7a74; }
+.trial-offer .offer-price strong { font-size: 22px; color: #14453f; }
+.trial-offer .offer-eur { font-size: 13px; color: #14453f; margin-bottom: 10px; }
+.trial-offer .offer-eur strong { font-size: 15px; }
+.trial-offer .offer-plan ul { margin: 0 0 12px; padding-left: 20px; font-size: 14px; display: flex; flex-direction: column; gap: 3px; color: #14453f; }
+.trial-offer .offer-pay { display: block; width: 100%; text-align: center; box-sizing: border-box; }
+.trial-offer .offer-plan .small-hint { color: #5f7a74; }
