@@ -5,7 +5,7 @@ import { requireAuth } from '../auth.js'
 import { accessibleClassroom } from './classrooms.js'
 import { classifyMistake, topicLabel } from '../errorAnalysis.js'
 import { assistantEnabled, classifyMistakeWithAi, judgeAnswer } from '../assistant.js'
-import { unitsForTopics } from '../topicUnits.js'
+import { unitsForTopics, unitsForMistake } from '../topicUnits.js'
 import { checkAnswer } from '../answerCheck.js'
 
 // The mistake notebook: written on the board during a lesson, kept per
@@ -58,7 +58,9 @@ mistakesRouter.get('/classroom/:id', async (req, res) => {
   const where = req.user.role === 'STUDENT' ? { studentId: req.user.id } : { classroomId: classroom.id }
   const mistakes = await prisma.lessonMistake.findMany({ where, orderBy: { createdAt: 'desc' } })
   const units = await unitsForTopics(req.user.schoolId, mistakes.flatMap((m) => m.topics))
-  res.json({ mistakes: mistakes.map((m) => view(m, m.topics.flatMap((t) => units.get(t) ?? []).filter((u, i, a) => a.findIndex((x) => x.id === u.id) === i).slice(0, 2))) })
+  const views = []
+  for (const m of mistakes) views.push(view(m, await unitsForMistake(req.user.schoolId, m.correct, m.topics, units)))
+  res.json({ mistakes: views })
 })
 
 mistakesRouter.post('/classroom/:id', async (req, res) => {
@@ -112,16 +114,18 @@ mistakesRouter.get('/practice', async (req, res) => {
   const mistakes = await prisma.lessonMistake.findMany({ where: { studentId: req.user.id } })
   mistakes.sort((a, b) => (a.lastPracticedAt?.getTime() ?? 0) - (b.lastPracticedAt?.getTime() ?? 0) || b.createdAt - a.createdAt)
   const units = await unitsForTopics(req.user.schoolId, mistakes.flatMap((m) => m.topics))
-  res.json({
-    exercises: mistakes.map((m) => ({
+  const exercises = []
+  for (const m of mistakes) {
+    exercises.push({
       id: m.id,
       said: m.said,
       labels: m.topics.map(topicLabel),
-      units: m.topics.flatMap((t) => units.get(t) ?? []).filter((u, i, a) => a.findIndex((x) => x.id === u.id) === i).slice(0, 2),
+      units: await unitsForMistake(req.user.schoolId, m.correct, m.topics, units),
       practicedCorrect: m.practicedCorrect,
       createdAt: m.createdAt
-    }))
-  })
+    })
+  }
+  res.json({ exercises })
 })
 
 mistakesRouter.post('/practice/:id/attempt', async (req, res) => {
