@@ -276,6 +276,9 @@ export default function Call() {
   // the own tile, so the person can check the picture and pick a background.
   // The same stream is used for the call itself.
   const previewRawRef = useRef(null)
+  // The request in flight, so a join while the prompt is still open waits
+  // for its answer instead of asking a second time.
+  const previewPendingRef = useRef(null)
   const joinedRef = useRef(false)
   joinedRef.current = joined
   const [previewState, setPreviewState] = useState('idle') // idle | asking | ready | denied
@@ -283,25 +286,27 @@ export default function Call() {
     if (!user || !call || joined) return
     let disposed = false
     setPreviewState('asking')
-    ;(async () => {
+    previewPendingRef.current = (async () => {
       let raw = null
       try {
         raw = await navigator.mediaDevices.getUserMedia({ audio: AUDIO_CONSTRAINTS, video: true })
       } catch {
         try { raw = await navigator.mediaDevices.getUserMedia({ audio: AUDIO_CONSTRAINTS }) } catch { /* nothing at all */ }
       }
-      if (disposed) { raw?.getTracks().forEach((t) => t.stop()); return }
+      if (disposed && !joinedRef.current) { raw?.getTracks().forEach((t) => t.stop()); return }
       previewRawRef.current = raw
-      setPreviewState(raw ? 'ready' : 'denied')
-      if (raw && localVideoRef.current) localVideoRef.current.srcObject = new MediaStream(raw.getVideoTracks())
-    })()
+      if (!disposed) {
+        setPreviewState(raw ? 'ready' : 'denied')
+        if (raw && localVideoRef.current) localVideoRef.current.srcObject = new MediaStream(raw.getVideoTracks())
+      }
+    })().finally(() => { previewPendingRef.current = null })
     return () => {
       disposed = true
       // Leaving the page without joining: let the devices go.
       if (!joinedRef.current) { previewRawRef.current?.getTracks().forEach((t) => t.stop()); previewRawRef.current = null }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user, call, joined])
+  }, [user?.id, call?.id, joined])
 
   // A phone must not dim and lock mid-lesson: hold a screen wake lock while
   // in the call, and take it again when the tab comes back to the front.
@@ -372,6 +377,8 @@ export default function Call() {
       setStatus('requesting-media')
       try {
         const audioConstraints = AUDIO_CONSTRAINTS
+        if (previewPendingRef.current) await previewPendingRef.current
+        if (disposed) return
         let raw = previewRawRef.current
         previewRawRef.current = null
         if (raw && !raw.getTracks().some((t) => t.readyState === 'live')) raw = null
@@ -891,7 +898,7 @@ export default function Call() {
               </div>
             </>
           )}
-          <button onClick={() => { if (!phone) primeDenoiser(); setJoined(true) }} autoFocus disabled={previewState === 'asking'}>Join call</button>
+          <button onClick={() => { if (!phone) primeDenoiser(); setJoined(true) }} autoFocus>Join call</button>
           <Link className="ghost button" to="/classroom">Back</Link>
         </div>
       </div>
