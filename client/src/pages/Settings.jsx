@@ -15,6 +15,22 @@ export default function Settings() {
   const [error, setError] = useState('')
   const [links, setLinks] = useState({ solo: '', mentor: '' })
   const [linksNotice, setLinksNotice] = useState('')
+  const [stripe, setStripe] = useState({ configured: false, keyHint: null, fromEnv: false })
+  const [stripeKey, setStripeKey] = useState('')
+  const [stripeNotice, setStripeNotice] = useState('')
+  const saveStripe = async (event) => {
+    event.preventDefault()
+    setStripeNotice('')
+    try {
+      const { configured } = await api.saveStripeKey(stripeKey.trim())
+      setStripeKey('')
+      setStripe((s) => ({ ...s, configured, keyHint: configured ? '…saved' : null }))
+      setStripeNotice(configured ? 'Saved. Students now get a checkout page with the amount filled in.' : 'Key removed.')
+      api.offerLinks().then(({ stripe }) => setStripe(stripe)).catch(() => {})
+    } catch (err) {
+      setStripeNotice(err.message)
+    }
+  }
 
   const refresh = () => api.aiSettings().then(({ ai }) => {
     setAi(ai)
@@ -23,7 +39,7 @@ export default function Settings() {
   }).catch((err) => setError(err.message))
   useEffect(() => {
     refresh()
-    api.offerLinks().then(({ links }) => setLinks({ solo: links.solo ?? '', mentor: links.mentor ?? '' })).catch(() => {})
+    api.offerLinks().then(({ links, stripe }) => { setLinks({ solo: links.solo ?? '', mentor: links.mentor ?? '' }); if (stripe) setStripe(stripe) }).catch(() => {})
   }, [])
   const saveLinks = async (event) => {
     event.preventDefault()
@@ -131,6 +147,31 @@ export default function Settings() {
           </form>
         )}
       </section>
+      <section>
+        <h2>Stripe — online payment</h2>
+        <p className="muted" style={{ marginBottom: 12 }}>
+          With the secret key from Stripe (Developers → API keys → <strong>Secret key</strong>, starts with <code>sk_live_</code>) the platform opens a checkout page with the exact amount in euros already filled in — the student never types a sum. Stored encrypted, never shown again.
+        </p>
+        <div className="row" style={{ marginBottom: 12 }}>
+          <div>
+            <strong>{stripe.configured ? 'Configured' : 'Not configured'}</strong>
+            <div className="muted">{stripe.configured ? `Key ending ${stripe.keyHint}${stripe.fromEnv ? ' · set on the server' : ''}` : 'Until then the plan buttons open the payment link and ask the student to enter the amount.'}</div>
+          </div>
+        </div>
+        {!stripe.fromEnv && (
+          <form className="billing-editor" onSubmit={saveStripe} autoComplete="off">
+            <label>
+              Stripe secret key {stripe.configured && <span className="muted">(leave empty and save to remove)</span>}
+              <input type="password" placeholder="sk_live_…" value={stripeKey} onChange={(e) => setStripeKey(e.target.value)} autoComplete="new-password" spellCheck={false} />
+            </label>
+            <div className="editor-actions">
+              <button type="submit">Save</button>
+              {stripeNotice && <span className="muted">{stripeNotice}</span>}
+            </div>
+          </form>
+        )}
+      </section>
+
       <section>
         <h2>Trial offer — payment links</h2>
         <p className="muted" style={{ marginBottom: 12 }}>

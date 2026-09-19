@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useSearchParams } from 'react-router-dom'
 import { api } from '../api'
 import { PackageBadge } from './PackageBadge'
 import { OFFER, formatRub, discountDeadline } from '../offer'
@@ -17,6 +17,39 @@ export default function StudentPayment() {
   const [reporting, setReporting] = useState(false)
   const [reported, setReported] = useState(null)
   const [eur, setEur] = useState(null) // { rate, date }
+  const [paying, setPaying] = useState('')
+  const [payError, setPayError] = useState('')
+  const [searchParams, setSearchParams] = useSearchParams()
+  const [paidResult, setPaidResult] = useState(null)
+
+  // Back from Stripe: confirm the payment and thank the student.
+  useEffect(() => {
+    const sessionId = searchParams.get('session_id')
+    if (searchParams.get('paid') === '1' && sessionId) {
+      api.verifyCheckout(sessionId).then((r) => { setPaidResult(r); if (r.paid) setReported(new Date().toISOString()) }).catch((err) => setPaidResult({ paid: false, error: err.message }))
+      setSearchParams({}, { replace: true })
+    } else if (searchParams.get('paid') === '0') {
+      setSearchParams({}, { replace: true })
+    }
+  }, [])
+
+  // Stripe Checkout with the amount already filled in; if online payment is
+  // not set up yet, the plain link with the amount to enter.
+  const pay = async (plan, link, price, euros) => {
+    setPaying(plan.id); setPayError('')
+    try {
+      const { url } = await api.checkout(plan.id)
+      window.location.assign(url)
+    } catch (err) {
+      if (/not set up/i.test(err.message)) {
+        report(`Переход к оплате: тариф ${plan.name}, ${formatRub(price)}${euros != null ? ` ≈ ${formatEur(euros)}` : ''}`).catch(() => {})
+        window.open(link, '_blank', 'noopener')
+      } else {
+        setPayError(err.message)
+      }
+      setPaying('')
+    }
+  }
 
   useEffect(() => {
     api.myBilling().then(({ billing }) => {
@@ -88,20 +121,19 @@ export default function StudentPayment() {
                     </div>
                   )}
                   <ul>{plan.includes.map((i) => <li key={i}>{i}</li>)}</ul>
-                  <a
-                    className="button offer-pay"
-                    href={link}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    onClick={() => { report(`Переход к оплате: тариф ${plan.name}, ${formatRub(price)}${euros != null ? ` ≈ ${formatEur(euros)}` : ''}`).catch(() => {}) }}
-                  >
-                    Оплатить {plan.name}{euros != null ? ` — ${formatEur(euros)}` : ''}
-                  </a>
-                  {euros != null && <div className="muted small-hint" style={{ marginTop: 6 }}>На странице оплаты введите сумму {formatEur(euros)}.</div>}
+                  <button className="offer-pay" disabled={paying === plan.id} onClick={() => pay(plan, link, price, euros)}>
+                    {paying === plan.id ? 'Открываем оплату…' : `Оплатить ${plan.name}${euros != null ? ` — ${formatEur(euros)}` : ''}`}
+                  </button>
                 </div>
               )
             })}
           </div>
+          {payError && <div className="error">{payError}</div>}
+          {paidResult && (
+            paidResult.paid
+              ? <div className="notice">Оплата получена — спасибо! Преподаватель добавит уроки в ваш пакет.</div>
+              : <div className="error">{paidResult.error ? `Не удалось проверить оплату: ${paidResult.error}` : 'Оплата не завершена. Попробуйте ещё раз.'}</div>
+          )}
           <p className="muted small-hint">{OFFER.expertNote}</p>
           <p className="muted small-hint">{OFFER.guarantee}</p>
         </div>

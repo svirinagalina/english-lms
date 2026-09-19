@@ -3,7 +3,8 @@ import { z } from 'zod'
 import { prisma } from '../db.js'
 import { requireAuth, requireRole, isAdmin } from '../auth.js'
 import { sendPaymentReportedEmail } from '../mailer.js'
-import { offerLinks } from '../settings.js'
+import { offerLinks, stripeKey } from '../settings.js'
+import { OFFER_PLANS, discountActive } from '../offer.js'
 
 export const billingRouter = Router()
 
@@ -95,6 +96,80 @@ async function eurRate() {
   rateCache = { at: Date.now(), value }
   return value
 }
+
+// --- Stripe Checkout with the exact amount -------------------------------------
+// The plan's rouble price (discounted while the trial window is open) is
+// converted to euros at today's Bank of Russia rate and a Checkout Session
+// is created for that amount, so the student never types a sum.
+const stripeCall = async (path, params) => {
+  const key = stripeKey()
+  if (!key) throw new Error('Stripe is not configured')
+  const response = await fetch(`https://api.stripe.com/v1${path}`, {
+    method: params ? 'POST' : 'GET',
+    headers: { Authorization: `Bearer ${key}`, ...(params ? { 'Content-Type': 'application/x-www-form-urlencoded' } : {}) },
+    body: params ? new URLSearchParams(params).toString() : undefined,
+    signal: AbortSignal.timeout(15000)
+  })
+  const data = await response.json()
+  if (!response.ok) throw new Error(data?.error?.message ?? `Stripe returned ${response.status}`)
+  return data
+}
+
+billingRouter.post('/checkout', async (req, res) => {
+  if (req.user.role !== 'STUDENT') return res.status(403).json({ error: 'Students only' })
+  if (!stripeKey()) return res.status(503).json({ error: 'Online payment is not set up yet — use the link and enter the amount' })
+  const plan = OFFER_PLANS.find((p) => p.id === req.body?.plan)
+  if (!plan) return res.status(400).json({ error: 'Unknown plan' })
+  const trial = await prisma.trialReport.findFirst({ where: { studentId: req.user.id, publishedAt: { not: null } }, orderBy: { publishedAt: 'desc' } })
+  if (!trial) return res.status(403).json({ error: 'The offer is for students after a trial lesson' })
+  const student = await prisma.user.findUnique({ where: { id: req.user.id }, select: { email: true, name: true } })
+  const rub = discountActive(trial.publishedAt) ? plan.discounted : plan.price
+  let rate
+  try { rate = await eurRate() } catch { return res.status(502).json({ error: 'The exchange rate is unavailable right now, try again in a minute' }) }
+  const cents = Math.ceil((rub / rate.rate) * 100)
+  const origin = process.env.CLIENT_ORIGIN ?? `${req.protocol}://${req.get('host')}`
+  try {
+    const session = await stripeCall('/checkout/sessions', {
+      mode: 'payment',
+      'line_items[0][price_data][currency]': 'eur',
+      'line_items[0][price_data][unit_amount]': String(cents),
+      'line_items[0][price_data][product_data][name]': `Advent Academy — тариф «${plan.name}»`,
+      'line_items[0][price_data][product_data][description]': `${rub.toLocaleString('ru-RU')} ₽ по курсу ЦБ РФ ${rate.rate} ₽/€ на ${rate.date}`,
+      'line_items[0][quantity]': '1',
+      customer_email: student.email,
+      client_reference_id: req.user.id,
+      'metadata[studentId]': req.user.id,
+      'metadata[plan]': plan.id,
+      'metadata[rub]': String(rub),
+      success_url: `${origin}/billing?paid=1&session_id={CHECKOUT_SESSION_ID}`,
+      cancel_url: `${origin}/billing?paid=0`
+    })
+    res.json({ url: session.url, amount: cents / 100, currency: 'EUR', rub, rate })
+  } catch (error) {
+    res.status(502).json({ error: `Stripe: ${error.message}` })
+  }
+})
+
+// Back from Stripe: confirm the session was paid, and note it for the teacher.
+billingRouter.get('/checkout/verify', async (req, res) => {
+  const id = typeof req.query.session_id === 'string' ? req.query.session_id : ''
+  if (!id || !stripeKey()) return res.status(400).json({ error: 'No session' })
+  try {
+    const session = await stripeCall(`/checkout/sessions/${encodeURIComponent(id)}`)
+    if (session.client_reference_id !== req.user.id) return res.status(404).json({ error: 'Not your payment' })
+    const paid = session.payment_status === 'paid'
+    if (paid) {
+      const student = await prisma.user.findUnique({ where: { id: req.user.id }, select: { id: true, name: true, paymentReportedAt: true, studentLinks: { select: { teacher: { select: { email: true } } } } } })
+      const note = `Оплачено через Stripe: тариф ${session.metadata?.plan ?? ''}, ${(session.amount_total / 100).toFixed(2)} ${String(session.currency).toUpperCase()} (${session.metadata?.rub ?? ''} ₽)`
+      await prisma.user.update({ where: { id: req.user.id }, data: { paymentReportedAt: new Date() } })
+      const teachers = [...new Set(student.studentLinks.map((l) => l.teacher.email))]
+      if (teachers.length) sendPaymentReportedEmail({ to: teachers, studentName: student.name, note }).catch(() => {})
+    }
+    res.json({ paid, amount: session.amount_total / 100, currency: session.currency })
+  } catch (error) {
+    res.status(502).json({ error: `Stripe: ${error.message}` })
+  }
+})
 
 billingRouter.get('/rates', async (req, res) => {
   try {

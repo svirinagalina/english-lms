@@ -23,8 +23,16 @@ export function decrypt(packed) {
 
 // In-memory copy, so the rest of the server can ask synchronously.
 const ai = { provider: null, key: null, model: null, loaded: false }
-// Payment links for the trial offer's plans (Stripe payment links etc.).
+// Payment links for the trial offer's plans (Stripe payment links etc.),
+// and the Stripe secret key for creating checkout sessions with the exact amount.
 const offer = { solo: null, mentor: null }
+const stripe = { key: null }
+export const stripeKey = () => process.env.STRIPE_SECRET_KEY || stripe.key
+export async function saveStripeKey(key) {
+  if (key) await prisma.platformSetting.upsert({ where: { key: 'stripe.key' }, create: { key: 'stripe.key', value: encrypt(key) }, update: { value: encrypt(key) } })
+  else await prisma.platformSetting.deleteMany({ where: { key: 'stripe.key' } })
+  return loadAiSettings()
+}
 export const offerLinks = () => ({ ...offer })
 export async function saveOfferLinks({ solo, mentor }) {
   const writes = []
@@ -36,10 +44,11 @@ export async function saveOfferLinks({ solo, mentor }) {
 }
 
 export async function loadAiSettings() {
-  const rows = await prisma.platformSetting.findMany({ where: { key: { in: ['ai.provider', 'ai.key', 'ai.model', 'offer.solo', 'offer.mentor'] } } })
+  const rows = await prisma.platformSetting.findMany({ where: { key: { in: ['ai.provider', 'ai.key', 'ai.model', 'offer.solo', 'offer.mentor', 'stripe.key'] } } })
   const map = Object.fromEntries(rows.map((r) => [r.key, r.value]))
   offer.solo = map['offer.solo'] || null
   offer.mentor = map['offer.mentor'] || null
+  try { stripe.key = map['stripe.key'] ? decrypt(map['stripe.key']) : null } catch { stripe.key = null }
   ai.provider = map['ai.provider'] ?? null
   ai.model = map['ai.model'] || null
   try { ai.key = map['ai.key'] ? decrypt(map['ai.key']) : null } catch { ai.key = null }

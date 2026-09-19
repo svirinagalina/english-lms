@@ -1,7 +1,7 @@
 import { Router } from 'express'
 import { z } from 'zod'
 import { requireAuth, requireRole } from '../auth.js'
-import { aiConfig, saveAiSettings, clearAiKey, offerLinks, saveOfferLinks } from '../settings.js'
+import { aiConfig, saveAiSettings, clearAiKey, offerLinks, saveOfferLinks, stripeKey, saveStripeKey } from '../settings.js'
 import { testConnection } from '../llm.js'
 
 // Platform settings — the owner only. The key is never sent back, only
@@ -25,7 +25,16 @@ const linkSchema = z.object({
   solo: z.string().trim().url().startsWith('https://').or(z.literal('')).optional(),
   mentor: z.string().trim().url().startsWith('https://').or(z.literal('')).optional()
 })
-settingsRouter.get('/offer', (req, res) => res.json({ links: offerLinks() }))
+settingsRouter.get('/offer', (req, res) => res.json({ links: offerLinks(), stripe: { configured: Boolean(stripeKey()), keyHint: stripeKey() ? `…${stripeKey().slice(-4)}` : null, fromEnv: Boolean(process.env.STRIPE_SECRET_KEY) } }))
+
+// The Stripe secret key (sk_live_… / sk_test_…): lets the platform open a
+// checkout page with the exact amount already filled in.
+settingsRouter.put('/stripe', async (req, res) => {
+  const key = typeof req.body?.key === 'string' ? req.body.key.trim() : ''
+  if (key && !/^(sk|rk)_(live|test)_/.test(key)) return res.status(400).json({ error: 'A Stripe secret key starts with "sk_live_" or "sk_test_"' })
+  await saveStripeKey(key || null)
+  res.json({ configured: Boolean(stripeKey()) })
+})
 settingsRouter.put('/offer', async (req, res) => {
   const parsed = linkSchema.safeParse(req.body)
   if (!parsed.success) return res.status(400).json({ error: 'Links must start with https://' })
