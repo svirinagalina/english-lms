@@ -23,6 +23,7 @@ import { contentRouter } from './routes/content.js'
 import { dictionaryRouter } from './routes/dictionary.js'
 import { mistakesRouter } from './routes/mistakes.js'
 import { lessonsRouter } from './routes/lessons.js'
+import { trialsRouter } from './routes/trials.js'
 import { setupSignaling } from './signaling.js'
 import { flushBoards } from './boardStore.js'
 import { flushDocuments } from './docStore.js'
@@ -51,6 +52,7 @@ app.use('/api/content', contentRouter)
 app.use('/api/dictionary', dictionaryRouter)
 app.use('/api/mistakes', mistakesRouter)
 app.use('/api/lessons', lessonsRouter)
+app.use('/api/trials', trialsRouter)
 
 app.get('/api/health', (req, res) => res.json({ ok: true }))
 

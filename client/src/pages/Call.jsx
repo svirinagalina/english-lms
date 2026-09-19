@@ -661,6 +661,7 @@ export default function Call() {
               // Writing is in the call controls; the chip stays lean.
               canSpotlight={isStaff}
               wordPicker={!isStaff}
+              focusElementId={searchParams.get('focus')}
               onMistake={isStaff && currentBoard?.studentId ? (body) => api.addMistake(currentBoard.classroomId, { ...body, boardId }) : undefined}
               onMistakeRemoved={isStaff ? (elementId) => api.deleteMistakeByElement(elementId).catch(() => {}) : undefined}
               onUploadImage={isStaff && currentBoard

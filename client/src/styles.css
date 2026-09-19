@@ -886,3 +886,24 @@ select.pill { padding: 0 16px; color: var(--text); border: none; }
 .sticker-preview:hover { transform: rotate(0deg) scale(1.08) !important; }
 .sticker-preview .sparkle { color: #fff; font-size: 14px; }
 .sticker-preview .sparkle.small { font-size: 9px; align-self: flex-start; }
+
+/* Trial lesson: marking the placement test */
+.trial-items { display: flex; flex-direction: column; gap: 4px; }
+.trial-item { display: grid; grid-template-columns: 28px 1fr auto; gap: 10px; align-items: center; padding: 6px 10px; border-radius: 8px; background: var(--surface); border: 1px solid var(--border); }
+.trial-item.ok { border-color: rgba(34,197,94,.4); }
+.trial-item.partly { border-color: rgba(234,179,8,.5); }
+.trial-item.no { border-color: rgba(239,68,68,.5); }
+.trial-n { color: var(--muted); font-size: 12px; text-align: right; }
+.trial-text { font-size: 14px; min-width: 0; }
+.trial-text .muted { font-size: 12px; }
+.trial-topic { opacity: .7; }
+.trial-marks { display: flex; gap: 4px; }
+.trial-marks button { width: 32px; height: 28px; padding: 0; border-radius: 6px; background: transparent; border: 1px solid var(--border); color: var(--text); font-size: 14px; }
+.trial-marks button.on.ok { background: rgba(34,197,94,.25); border-color: #22c55e; }
+.trial-marks button.on.partly { background: rgba(234,179,8,.25); border-color: #eab308; }
+.trial-marks button.on.no { background: rgba(239,68,68,.25); border-color: #ef4444; }
+.trial-assess { display: grid; grid-template-columns: 200px 1fr; gap: 12px; margin-top: 14px; }
+.trial-assess label { display: flex; flex-direction: column; gap: 4px; font-size: 13px; }
+.trial-assess textarea { font: inherit; padding: 8px 10px; border-radius: 8px; border: 1px solid var(--border); background: var(--bg); color: var(--text); }
+.active-tab { border-color: var(--accent) !important; }
+@media (max-width: 720px) { .trial-assess { grid-template-columns: 1fr; } .trial-item { grid-template-columns: 24px 1fr; } .trial-marks { grid-column: 2; } }

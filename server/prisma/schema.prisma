@@ -276,6 +276,7 @@ model Classroom {
   // Boards that live elsewhere but are shared into this space as well.
   sharedBoards Board[] @relation("BoardShares")
   mistakes     LessonMistake[]
+  trialReports TrialReport[]
   calls    Call[]
 
   @@unique([teacherId, studentId])
@@ -329,6 +330,29 @@ model LessonSummary {
   @@index([studentId])
 }
 
+// A trial lesson: the placement test results as the teacher marked them,
+// the teacher's assessment, and the generated report for the student.
+model TrialReport {
+  id          String   @id @default(cuid())
+  classroomId String
+  classroom   Classroom @relation(fields: [classroomId], references: [id], onDelete: Cascade)
+  studentId   String
+  teacherId   String
+  callId      String?
+  // { "1": "ok" | "partly" | "no", … }
+  answers      Json     @default("{}")
+  teacherLevel String?
+  comments     String?
+  // The report: { level, plus, summary, strengths[], focus[], recommendations[], plan[], withAi }
+  generated    Json?
+  publishedAt  DateTime?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@index([classroomId])
+  @@index([studentId])
+}
+
 model Session {
   id        String    @id @default(cuid())
   startedAt DateTime  @default(now())
@@ -378,6 +402,8 @@ model Call {
   id        String    @id @default(cuid())
   token     String    @unique
   title     String?
+  // LESSON, or TRIAL — a trial lesson's session does not use up paid lessons.
+  kind      String    @default("LESSON")
   createdAt DateTime  @default(now())
   endedAt   DateTime?
 

@@ -25,7 +25,7 @@ function readTokenCookie(cookieHeader) {
   return null
 }
 
-async function openSession(classroomId) {
+async function openSession(classroomId, { counted = true } = {}) {
   const recent = await prisma.session.findFirst({
     where: { classroomId },
     orderBy: { startedAt: 'desc' }
@@ -36,7 +36,13 @@ async function openSession(classroomId) {
     return prisma.session.update({ where: { id: recent.id }, data: { endedAt: null } })
   }
 
-  return prisma.session.create({ data: { classroomId } })
+  // A trial lesson is held but never uses up a paid lesson.
+  return prisma.session.create({ data: { classroomId, counted } })
+}
+
+// Lets a route push an element onto a board everyone watching sees at once.
+export function broadcastBoardAdd(boardId, element) {
+  for (const socket of boardWatchers.get(boardId) ?? []) socket.emit('board:add', element)
 }
 
 async function closeSession(classroomId) {
@@ -166,8 +172,8 @@ export function setupSignaling(io) {
       const profile = await prisma.user.findUnique({ where: { id: user.id }, select: { name: true } })
       socket.data.name = profile?.name ?? 'Participant'
 
-      // Calls tied to a student's classroom count as lessons.
-      if (call.classroom) await openSession(call.classroom.id)
+      // Calls tied to a student's classroom count as lessons (trials do not).
+      if (call.classroom) await openSession(call.classroom.id, { counted: call.kind !== 'TRIAL' })
 
       // Join and list the others without an await in between (see above).
       const roomId = `call:${call.token}`

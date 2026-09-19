@@ -10,6 +10,7 @@ import { SiteFooter } from '../components/Brand'
 import BoardRow from '../components/BoardRow'
 import MistakeNotebook from '../components/MistakeNotebook'
 import LessonSummaries from '../components/LessonSummaries'
+import TrialReports from '../components/TrialReports'
 import ActivityHeatmap from '../components/ActivityHeatmap'
 
 function PackagePanel({ classroom, onChanged }) {
@@ -162,6 +163,17 @@ export default function Classroom() {
     }
   }
 
+  const startTrial = async () => {
+    setStarting(true)
+    try {
+      const { call, boardId, focusId } = await api.startTrial(id)
+      navigate(`/call/${call.token}?board=${boardId}&focus=${focusId}`)
+    } catch (err) {
+      setError(err.message)
+      setStarting(false)
+    }
+  }
+
   const addBoard = async (event) => {
     event.preventDefault()
     try {
@@ -285,9 +297,12 @@ export default function Classroom() {
           )}
         </div>
         {isStaff && !isPersonal && (
-          <button onClick={startCall} disabled={starting}>
-            {starting ? 'Starting…' : 'Start a call'}
-          </button>
+          <div className="row-actions">
+            <button className="ghost" onClick={startTrial} disabled={starting} title="A call with the placement test on the board; not counted as a paid lesson">Trial lesson</button>
+            <button onClick={startCall} disabled={starting}>
+              {starting ? 'Starting…' : 'Start a call'}
+            </button>
+          </div>
         )}
       </div>
 
@@ -352,6 +367,8 @@ export default function Classroom() {
           boardLink={(m) => `/classroom/${id}?board=${m.boardId}&focus=${m.elementId}`}
         />
       )}
+
+      {!isPersonal && <TrialReports classroomId={id} canEdit={isStaff} />}
 
       {!isPersonal && <LessonSummaries classroomId={id} canEdit={isStaff} student={!isStaff} />}
 

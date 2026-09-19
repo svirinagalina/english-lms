@@ -1,0 +1,61 @@
+/* The level report: a light document on the platform's dark page, printable. */
+.report-page { max-width: 860px; margin: 0 auto; padding: 24px 16px 60px; }
+.report-toolbar { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-bottom: 16px; flex-wrap: wrap; }
+.report {
+  background: #fcfbf6; color: #14453f;
+  border-radius: 18px; padding: 40px 44px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.35);
+  font-size: 15px; line-height: 1.55;
+}
+.report .muted { color: #5f7a74; }
+.report h2 { font-size: 18px; margin: 0 0 10px; color: #14453f; }
+.report-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 20px; padding-bottom: 20px; border-bottom: 2px solid #f4b9d9; }
+.report-brand { display: flex; align-items: center; gap: 10px; }
+.report-brand svg { width: 34px; height: 54px; }
+.report-brand svg path { stroke: #14453f; }
+.report-brand strong { display: block; font-size: 18px; line-height: 1.1; }
+.report-brand small { color: #5f7a74; font-size: 12px; }
+.report-meta { text-align: right; }
+.report-kicker { text-transform: uppercase; letter-spacing: .08em; font-size: 11px; color: #b5539a; font-weight: 700; }
+.report-meta h1 { font-size: 28px; margin: 4px 0 2px; }
+.report-level { display: grid; grid-template-columns: 180px 1fr; gap: 24px; align-items: center; padding: 26px 0; border-bottom: 1px solid #e6e0d6; }
+.level-badge { display: flex; flex-direction: column; align-items: center; justify-content: center; aspect-ratio: 1; border-radius: 50%; background: linear-gradient(135deg, #ffd5ed, #f4b9d9); color: #14453f; box-shadow: 0 10px 30px rgba(244, 185, 217, 0.5); }
+.level-code { font-size: 46px; font-weight: 800; line-height: 1; }
+.level-name { font-size: 12px; font-weight: 600; margin-top: 6px; text-align: center; padding: 0 12px; }
+.level-scale { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-top: 12px; }
+.scale-bar { height: 8px; background: #ece7dd; border-radius: 4px; overflow: hidden; }
+.scale-fill { height: 100%; background: #14453f; border-radius: 4px; }
+.scale-step.current .scale-fill { background: #b5539a; }
+.scale-label { font-size: 12px; color: #5f7a74; margin-top: 4px; }
+.scale-step.current .scale-label { color: #b5539a; font-weight: 700; }
+.report-block { padding: 22px 0; border-bottom: 1px solid #e6e0d6; }
+.report-list { margin: 0; padding-left: 22px; display: flex; flex-direction: column; gap: 6px; }
+.report-list.good li::marker { color: #16a34a; }
+.report-list.plan li::marker { color: #b5539a; font-weight: 700; }
+.focus-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 12px; }
+.focus-card { background: #fff; border: 1px solid #e6e0d6; border-left: 4px solid #f4b9d9; border-radius: 10px; padding: 12px 14px; }
+.focus-card strong { display: block; margin-bottom: 4px; }
+.focus-card p { margin: 0 0 8px; font-size: 14px; }
+.focus-example { font-size: 13px; background: #fff3fa; border-radius: 6px; padding: 6px 8px; color: #14453f; }
+.report-table { width: 100%; border-collapse: collapse; font-size: 13px; margin-top: 8px; }
+.report-table td { padding: 6px 8px; border-bottom: 1px solid #ece7dd; vertical-align: top; }
+.report-table td.n { color: #5f7a74; width: 28px; }
+.report-table td.topic { color: #5f7a74; width: 190px; }
+.report-table td.mark { width: 30px; text-align: center; font-weight: 700; }
+.report-table tr.ok td.mark { color: #16a34a; }
+.report-table tr.partly td.mark { color: #ca8a04; }
+.report-table tr.no td.mark { color: #dc2626; }
+.report-foot { display: flex; justify-content: space-between; padding-top: 20px; font-size: 13px; color: #5f7a74; }
+@media (max-width: 720px) {
+  .report { padding: 24px 18px; }
+  .report-head, .report-level { grid-template-columns: 1fr; display: grid; }
+  .report-meta { text-align: left; }
+  .level-badge { width: 140px; }
+}
+@media print {
+  body { background: #fff; }
+  .no-print, .site-footer, .update-toast { display: none !important; }
+  .report-page { padding: 0; max-width: none; }
+  .report { box-shadow: none; border-radius: 0; padding: 10mm 8mm; }
+  .focus-card, .report-block { break-inside: avoid; }
+}

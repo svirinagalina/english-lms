@@ -57,6 +57,17 @@ export default function Classrooms() {
     }
   }
 
+  const startTrial = async (classroom) => {
+    setStartingFor(classroom.id)
+    try {
+      const { call, boardId, focusId } = await api.startTrial(classroom.id)
+      navigate(`/call/${call.token}?board=${boardId}&focus=${focusId}`)
+    } catch (err) {
+      setError(err.message)
+      setStartingFor(null)
+    }
+  }
+
   const addBoard = async (event) => {
     event.preventDefault()
     try {
@@ -112,6 +123,7 @@ export default function Classrooms() {
               {isStaff && (
                 <div className="row-actions">
                   <button className="ghost" onClick={() => navigate(`/classroom/${classroom.id}`)}>Open</button>
+                  <button className="ghost" onClick={() => startTrial(classroom)} disabled={startingFor === classroom.id} title="A call with the placement test on the board; not counted as a paid lesson">Trial lesson</button>
                   <button onClick={() => startLesson(classroom)} disabled={startingFor === classroom.id}>
                     {startingFor === classroom.id ? 'Starting…' : 'Start lesson'}
                   </button>
