@@ -9,6 +9,7 @@ import { buildTrialReport } from '../trialReport.js'
 import { addElement } from '../boardStore.js'
 import { broadcastBoardAdd } from '../signaling.js'
 import { assistantEnabled } from '../assistant.js'
+import { sendTrialReportEmail } from '../mailer.js'
 
 // Trial lessons: a call that opens on the student's board with the
 // placement test laid out, then the teacher's marks and the level report.
@@ -139,8 +140,26 @@ trialsRouter.post('/:id/publish', requireRole('OWNER', 'TEACHER'), async (req, r
   const report = await teacherReport(req, res)
   if (!report) return
   if (!report.generated) return res.status(400).json({ error: 'Generate the report first' })
-  const updated = await prisma.trialReport.update({ where: { id: report.id }, data: { publishedAt: req.body?.unpublish ? null : new Date() } })
-  res.json({ report: view(updated) })
+  const publishing = !req.body?.unpublish
+  const updated = await prisma.trialReport.update({ where: { id: report.id }, data: { publishedAt: publishing ? new Date() : null } })
+  // The student gets the report by email the moment it is published.
+  let mailed = false
+  if (publishing) {
+    const student = await prisma.user.findUnique({ where: { id: report.studentId }, select: { email: true, name: true } })
+    if (student) {
+      const origin = originOf(req)
+      const result = await sendTrialReportEmail({
+        to: student.email,
+        name: student.name,
+        level: updated.generated?.level ?? '',
+        summary: updated.generated?.summary ?? '',
+        reportLink: `${origin}/report/${updated.id}`,
+        paymentLink: `${origin}/billing`
+      })
+      mailed = result.sent
+    }
+  }
+  res.json({ report: view(updated), mailed })
 })
 
 trialsRouter.delete('/:id', requireRole('OWNER', 'TEACHER'), async (req, res) => {

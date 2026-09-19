@@ -62,6 +62,7 @@ export const api = {
   unitProgress: (id) => request(`/units/${id}/progress`),
 
   listVocabSets: () => request('/vocab'),
+  dueWords: () => request('/vocab/review/due'),
   createVocabSet: (body) => request('/vocab', { method: 'POST', body }),
   getVocabSet: (id) => request(`/vocab/${id}`),
   deleteVocabSet: (id) => request(`/vocab/${id}`, { method: 'DELETE' }),
@@ -105,6 +106,8 @@ export const api = {
   submitMistakeAttempt: (id, answer) => request(`/mistakes/practice/${id}/attempt`, { method: 'POST', body: { answer } }),
   activityMe: () => request('/stats/activity/me'),
   aiSettings: () => request('/settings/ai'),
+  offerLinks: () => request('/settings/offer'),
+  saveOfferLinks: (body) => request('/settings/offer', { method: 'PUT', body }),
   saveAiSettings: (body) => request('/settings/ai', { method: 'PUT', body }),
   clearAiSettings: () => request('/settings/ai', { method: 'DELETE' }),
   testAiSettings: () => request('/settings/ai/test', { method: 'POST' }),

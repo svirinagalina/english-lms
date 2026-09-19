@@ -73,7 +73,7 @@ export default function StudentHome({ classrooms }) {
             )}
           </Link>
 
-          <Link className="tile" to={words ? `/vocabulary/${words.id}` : '/vocabulary'}>
+          <Link className="tile" to={due > 0 ? '/vocabulary?review=1' : (words ? `/vocabulary/${words.id}` : '/vocabulary')}>
             <span className="tile-kicker">Vocabulary</span>
             <strong>{due > 0 ? `${due} ${due === 1 ? 'word' : 'words'} to review` : 'All words reviewed'}</strong>
             <span className="muted">
@@ -106,7 +106,12 @@ export default function StudentHome({ classrooms }) {
         </div>
       </section>
       <section>
-        <h2>Your activity</h2>
+        <div className="row-main" style={{ marginBottom: 8 }}>
+          <h2 style={{ margin: 0 }}>Your activity</h2>
+          {billing?.trial?.reportId && (
+            <Link className="button" to={`/report/${billing.trial.reportId}`}>Study plan</Link>
+          )}
+        </div>
         <ActivityHeatmap />
       </section>
     </>

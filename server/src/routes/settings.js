@@ -1,7 +1,7 @@
 import { Router } from 'express'
 import { z } from 'zod'
 import { requireAuth, requireRole } from '../auth.js'
-import { aiConfig, saveAiSettings, clearAiKey } from '../settings.js'
+import { aiConfig, saveAiSettings, clearAiKey, offerLinks, saveOfferLinks } from '../settings.js'
 import { testConnection } from '../llm.js'
 
 // Platform settings — the owner only. The key is never sent back, only
@@ -19,6 +19,19 @@ const view = () => {
 }
 
 settingsRouter.get('/ai', (req, res) => res.json(view()))
+
+// Payment links for the trial offer (Solo / Mentor). https only.
+const linkSchema = z.object({
+  solo: z.string().trim().url().startsWith('https://').or(z.literal('')).optional(),
+  mentor: z.string().trim().url().startsWith('https://').or(z.literal('')).optional()
+})
+settingsRouter.get('/offer', (req, res) => res.json({ links: offerLinks() }))
+settingsRouter.put('/offer', async (req, res) => {
+  const parsed = linkSchema.safeParse(req.body)
+  if (!parsed.success) return res.status(400).json({ error: 'Links must start with https://' })
+  await saveOfferLinks(parsed.data)
+  res.json({ links: offerLinks() })
+})
 
 const aiSchema = z.object({
   provider: z.enum(['openai', 'anthropic']),

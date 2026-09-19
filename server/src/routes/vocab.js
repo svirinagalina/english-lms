@@ -245,6 +245,35 @@ vocabRouter.delete('/:id/cards/:cardId', async (req, res) => {
 })
 
 // Cards to study now: never seen, or due for review.
+// Everything due today across all the sets this person sees — the
+// spaced-repetition queue: never-seen cards first, then the most overdue.
+vocabRouter.get('/review/due', async (req, res) => {
+  const cards = await prisma.vocabCard.findMany({
+    where: { set: visibleSets(req.user) },
+    include: { reviews: { where: { studentId: req.user.id } }, set: { select: { id: true, title: true, ownerId: true } } }
+  })
+  const now = new Date()
+  const due = cards
+    .filter((card) => { const r = card.reviews[0]; return !r || r.dueAt <= now })
+    .sort((a, b) => {
+      const ra = a.reviews[0], rb = b.reviews[0]
+      if (!ra && rb) return -1
+      if (ra && !rb) return 1
+      if (!ra && !rb) return 0
+      return ra.dueAt - rb.dueAt
+    })
+    .slice(0, 60)
+  res.json({
+    title: 'Words to review',
+    cards: due.map((card) => ({
+      id: card.id, term: card.term, translation: card.translation, example: card.example,
+      transcription: card.transcription, audio: card.audio,
+      streak: card.reviews[0]?.streak ?? 0, set: card.set.title, personal: Boolean(card.set.ownerId)
+    })),
+    scheduled: cards.length - due.length
+  })
+})
+
 vocabRouter.get('/:id/study', async (req, res) => {
   const set = await prisma.vocabSet.findFirst({
     where: { id: req.params.id, ...visibleSets(req.user) },

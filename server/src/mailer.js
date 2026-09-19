@@ -114,3 +114,23 @@ export function sendPasswordResetEmail({ to, name, link }) {
   const text = `Someone asked to reset the password for your Advent Academy account. If it was you, open this link within an hour: ${link}\nIf not, ignore this letter.`
   return send({ to, subject: 'Reset your Advent Academy password', html, text })
 }
+
+// The trial-lesson report, sent when the teacher publishes it.
+export function sendTrialReportEmail({ to, name, level, summary, reportLink, paymentLink }) {
+  const html = `
+<div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;max-width:560px;margin:0 auto;padding:32px 24px;color:#14453f">
+  <div style="font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:#b5539a;font-weight:700">Advent Academy</div>
+  <h1 style="font-size:22px;margin:8px 0 16px">${escapeHtml(name)}, ваш отчёт по пробному уроку готов</h1>
+  ${level ? `<p style="font-size:15px;line-height:1.55;margin:0 0 12px">Ваш уровень сейчас: <strong>${escapeHtml(level)}</strong>.</p>` : ''}
+  ${summary ? `<p style="font-size:15px;line-height:1.55;margin:0 0 20px">${escapeHtml(summary)}</p>` : ''}
+  <p style="margin:0 0 12px">
+    <a href="${escapeHtml(reportLink)}" style="display:inline-block;background:#14453f;color:#fff;text-decoration:none;padding:12px 22px;border-radius:8px;font-weight:600;font-size:15px">Открыть отчёт и план</a>
+  </p>
+  <p style="margin:0 0 24px">
+    <a href="${escapeHtml(paymentLink)}" style="display:inline-block;background:#f4b9d9;color:#14453f;text-decoration:none;padding:12px 22px;border-radius:8px;font-weight:600;font-size:15px">Перейти к оплате</a>
+  </p>
+  <p style="font-size:13px;color:#5f7a74;line-height:1.5;margin:0">В отчёте — что уже получается, темы для внимания, рекомендации и план на первый месяц. Скидка 5% на первую покупку действует 3 дня.</p>
+</div>`
+  const text = `${name}, ваш отчёт по пробному уроку готов.${level ? ` Ваш уровень сейчас: ${level}.` : ''}\n${summary}\n\nОткрыть отчёт: ${reportLink}\nПерейти к оплате: ${paymentLink}\n\nСкидка 5% на первую покупку действует 3 дня.`
+  return send({ to, subject: 'Ваш отчёт по пробному уроку — Advent Academy', html, text })
+}

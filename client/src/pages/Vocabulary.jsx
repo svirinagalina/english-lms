@@ -1,9 +1,10 @@
 import { useEffect, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useSearchParams } from 'react-router-dom'
 import { useAuth } from '../AuthContext'
 import { api } from '../api'
 import Nav from '../components/Nav'
 import { SiteFooter } from '../components/Brand'
+import { Study } from './VocabSet'
 
 export default function Vocabulary() {
   const { user } = useAuth()
@@ -23,6 +24,8 @@ export default function Vocabulary() {
     refresh().finally(() => setLoading(false))
   }, [])
 
+  const [searchParams] = useSearchParams()
+  const [reviewing, setReviewing] = useState(searchParams.get('review') === '1')
   const [renaming, setRenaming] = useState(null)
   const [titleDraft, setTitleDraft] = useState('')
   const saveTitle = async (id) => {
@@ -59,11 +62,42 @@ export default function Vocabulary() {
 
   if (loading) return <div className="centered">Loading…</div>
 
+  const due = sets.reduce((n, s) => n + s.due, 0)
+  const total = sets.reduce((n, s) => n + s.total, 0)
+
+  if (reviewing) {
+    return (
+      <div className="page practice-page">
+        <header className="topbar">
+          <div className="row-actions">
+            <button className="ghost back-link" onClick={() => { setReviewing(false); refresh() }}>← Back</button>
+            <strong>Words to review</strong>
+          </div>
+        </header>
+        <Study loader={api.dueWords} onExit={() => { setReviewing(false); refresh() }} />
+      </div>
+    )
+  }
+
   return (
     <div className="page">
       <Nav title="Vocabulary" />
 
       {error && <div className="error">{error}</div>}
+
+      {total > 0 && (
+        <section>
+          <div className="row">
+            <div>
+              <strong>{due > 0 ? `${due} ${due === 1 ? 'word is' : 'words are'} due for review` : 'Nothing due today'}</strong>
+              <div className="muted">
+                Spaced repetition: a word you knew comes back in 1, then 3, 7, 14 and 30 days; a word you missed comes back tomorrow. {total} words in all.
+              </div>
+            </div>
+            {due > 0 && <button onClick={() => setReviewing(true)}>Review now</button>}
+          </div>
+        </section>
+      )}
 
       <section>
         {isStaff && (

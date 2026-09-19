@@ -23,10 +23,23 @@ export function decrypt(packed) {
 
 // In-memory copy, so the rest of the server can ask synchronously.
 const ai = { provider: null, key: null, model: null, loaded: false }
+// Payment links for the trial offer's plans (Stripe payment links etc.).
+const offer = { solo: null, mentor: null }
+export const offerLinks = () => ({ ...offer })
+export async function saveOfferLinks({ solo, mentor }) {
+  const writes = []
+  const put = (k, v) => writes.push(prisma.platformSetting.upsert({ where: { key: k }, create: { key: k, value: v ?? '' }, update: { value: v ?? '' } }))
+  if (solo !== undefined) put('offer.solo', solo)
+  if (mentor !== undefined) put('offer.mentor', mentor)
+  await prisma.$transaction(writes)
+  return loadAiSettings()
+}
 
 export async function loadAiSettings() {
-  const rows = await prisma.platformSetting.findMany({ where: { key: { in: ['ai.provider', 'ai.key', 'ai.model'] } } })
+  const rows = await prisma.platformSetting.findMany({ where: { key: { in: ['ai.provider', 'ai.key', 'ai.model', 'offer.solo', 'offer.mentor'] } } })
   const map = Object.fromEntries(rows.map((r) => [r.key, r.value]))
+  offer.solo = map['offer.solo'] || null
+  offer.mentor = map['offer.mentor'] || null
   ai.provider = map['ai.provider'] ?? null
   ai.model = map['ai.model'] || null
   try { ai.key = map['ai.key'] ? decrypt(map['ai.key']) : null } catch { ai.key = null }

@@ -13,13 +13,29 @@ export default function Settings() {
   const [busy, setBusy] = useState('')
   const [notice, setNotice] = useState('')
   const [error, setError] = useState('')
+  const [links, setLinks] = useState({ solo: '', mentor: '' })
+  const [linksNotice, setLinksNotice] = useState('')
 
   const refresh = () => api.aiSettings().then(({ ai }) => {
     setAi(ai)
     if (ai.provider) setProvider(ai.provider)
     setModel(ai.model ?? '')
   }).catch((err) => setError(err.message))
-  useEffect(() => { refresh() }, [])
+  useEffect(() => {
+    refresh()
+    api.offerLinks().then(({ links }) => setLinks({ solo: links.solo ?? '', mentor: links.mentor ?? '' })).catch(() => {})
+  }, [])
+  const saveLinks = async (event) => {
+    event.preventDefault()
+    setLinksNotice('')
+    try {
+      const { links: saved } = await api.saveOfferLinks({ solo: links.solo.trim(), mentor: links.mentor.trim() })
+      setLinks({ solo: saved.solo ?? '', mentor: saved.mentor ?? '' })
+      setLinksNotice('Saved.')
+    } catch (err) {
+      setLinksNotice(err.message)
+    }
+  }
 
   const save = async (event) => {
     event.preventDefault()
@@ -114,6 +130,26 @@ export default function Settings() {
             </div>
           </form>
         )}
+      </section>
+      <section>
+        <h2>Trial offer — payment links</h2>
+        <p className="muted" style={{ marginBottom: 12 }}>
+          Students who came through a trial lesson see the Solo and Mentor plans on their Payment page. Paste a payment link (e.g. Stripe) for each plan; without a link the plan shows a “Choose” button that sends you a note instead.
+        </p>
+        <form className="billing-editor" onSubmit={saveLinks}>
+          <label>
+            Solo — payment link
+            <input type="url" placeholder="https://buy.stripe.com/…" value={links.solo} onChange={(e) => setLinks({ ...links, solo: e.target.value })} />
+          </label>
+          <label>
+            Mentor — payment link
+            <input type="url" placeholder="https://buy.stripe.com/…" value={links.mentor} onChange={(e) => setLinks({ ...links, mentor: e.target.value })} />
+          </label>
+          <div className="editor-actions">
+            <button type="submit">Save links</button>
+            {linksNotice && <span className="muted">{linksNotice}</span>}
+          </div>
+        </form>
       </section>
       <SiteFooter />
     </div>

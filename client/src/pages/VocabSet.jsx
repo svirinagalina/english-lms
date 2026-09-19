@@ -3,7 +3,7 @@ import { Link, useNavigate, useParams } from 'react-router-dom'
 import { api } from '../api'
 import { PlayButton } from '../components/WordCard'
 
-function Study({ setId, onExit }) {
+export function Study({ setId, loader, onExit }) {
   const [cards, setCards] = useState(null)
   const [index, setIndex] = useState(0)
   const [mode, setMode] = useState('flip')
@@ -14,8 +14,8 @@ function Study({ setId, onExit }) {
   const inputRef = useRef(null)
 
   useEffect(() => {
-    api.studyVocab(setId).then(({ cards }) => setCards(cards))
-  }, [setId])
+    ;(loader ? loader() : api.studyVocab(setId)).then(({ cards }) => setCards(cards))
+  }, [setId, loader])
 
   useEffect(() => {
     if (mode === 'write' && !verdict) inputRef.current?.focus()

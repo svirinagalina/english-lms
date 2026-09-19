@@ -3,6 +3,7 @@ import { z } from 'zod'
 import { prisma } from '../db.js'
 import { requireAuth, requireRole, isAdmin } from '../auth.js'
 import { sendPaymentReportedEmail } from '../mailer.js'
+import { offerLinks } from '../settings.js'
 
 export const billingRouter = Router()
 
@@ -71,7 +72,9 @@ async function reachableStudent(user, id) {
   })
 }
 
-// What the signed-in student needs in order to pay.
+// What the signed-in student needs in order to pay. A student who came
+// through a trial lesson (a published report) also gets the offer: the
+// plans with the discount deadline and the payment links from Settings.
 billingRouter.get('/me', async (req, res) => {
   const user = await prisma.user.findUnique({
     where: { id: req.user.id },
@@ -81,6 +84,7 @@ billingRouter.get('/me', async (req, res) => {
 
   const { school, ...student } = user
   const view = await withPackage(student)
+  const trial = await prisma.trialReport.findFirst({ where: { studentId: user.id, publishedAt: { not: null } }, orderBy: { publishedAt: 'desc' }, select: { id: true, publishedAt: true, generated: true } })
   res.json({
     billing: {
       priceAmount: view.priceAmount,
@@ -89,7 +93,8 @@ billingRouter.get('/me', async (req, res) => {
       package: view.package,
       paymentReportedAt: view.paymentReportedAt,
       paymentDetails: school.paymentDetails,
-      schoolName: school.name
+      schoolName: school.name,
+      trial: trial ? { reportId: trial.id, publishedAt: trial.publishedAt, level: trial.generated?.level ?? null, links: offerLinks() } : null
     }
   })
 })
