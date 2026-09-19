@@ -119,7 +119,6 @@ export default function Call() {
   const watchDenoiser = (cleaned) => {
     let silent = 0
     let lastEnergy = null
-    denoiserSilenceRef.current = 0
     const timer = setInterval(async () => {
       if (denoiserRef.current !== cleaned) { clearInterval(timer); return }
       const { raw, clean, state } = cleaned.levels()
@@ -127,9 +126,10 @@ export default function Call() {
       // Exact zeros mean the worklet is not processing at all; RNNoise on
       // pure noise still leaves a faint, non-zero signal.
       let broken = raw > 0.003 && clean < 1e-6
-      // What the browser actually sends: the audio energy in the outgoing
-      // track must grow while the microphone hears something.
-      if (!broken && raw > 0.02) {
+      // What the browser actually sends: while our cleaned output clearly has
+      // sound, the energy of the outgoing track must grow (a Safari quirk
+      // can leave a Web Audio track silent on the wire).
+      if (!broken && clean > 0.005) {
         const pc = Object.values(connectionsRef.current)[0]
         if (pc) {
           try {

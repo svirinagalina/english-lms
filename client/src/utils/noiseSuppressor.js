@@ -78,16 +78,13 @@ async function buildDenoiser(micTrack, engine) {
   const source = ctx.createMediaStreamSource(new MediaStream([micTrack]))
   // One channel end to end: a stereo microphone is mixed down before the
   // denoiser, never sent with one silent side.
-  source.channelCount = 1
-  source.channelCountMode = 'explicit'
   const node = engine === 'gtcrn'
     ? new GtcrnWorkletNode(ctx, { wasmBinary: gtcrnBinary, maxChannels: 1 })
     : new RnnoiseWorkletNode(ctx, { wasmBinary, maxChannels: 1 })
-  node.channelCount = 1
-  node.channelCountMode = 'explicit'
   const destination = ctx.createMediaStreamDestination()
-  destination.channelCount = 1
-  destination.channelCountMode = 'explicit'
+  for (const n of [source, node, destination]) {
+    try { n.channelCount = 1; n.channelCountMode = 'explicit' } catch { /* a browser that will not let this be set keeps its default */ }
+  }
   // Meters on both sides of the denoiser, so a silent output can be noticed.
   const rawMeter = ctx.createAnalyser(); rawMeter.fftSize = 512
   const cleanMeter = ctx.createAnalyser(); cleanMeter.fftSize = 512
