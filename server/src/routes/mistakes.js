@@ -4,7 +4,7 @@ import { prisma } from '../db.js'
 import { requireAuth } from '../auth.js'
 import { accessibleClassroom } from './classrooms.js'
 import { classifyMistake, topicLabel } from '../errorAnalysis.js'
-import { assistantEnabled, classifyMistakeWithAi, judgeAnswer } from '../assistant.js'
+import { assistantEnabled, classifyMistakeWithAi, judgeAnswer, draftMistakePrompt } from '../assistant.js'
 import { unitsForTopics, unitsForMistake } from '../topicUnits.js'
 import { checkAnswer } from '../answerCheck.js'
 
@@ -35,9 +35,23 @@ const mistakeSchema = z.object({
   elementId: z.string().max(64).optional()
 })
 
+// The drill task, written by the AI when the key is there (once, then kept).
+async function promptFor(mistake) {
+  if (mistake.prompt) return mistake.prompt
+  if (!assistantEnabled()) return null
+  try {
+    const prompt = await draftMistakePrompt({ said: mistake.said, correct: mistake.correct, topic: mistake.topics.map(topicLabel).join(', ') })
+    if (prompt) { await prisma.lessonMistake.update({ where: { id: mistake.id }, data: { prompt } }); return prompt }
+  } catch (error) {
+    console.error('Drill prompt failed:', error.message)
+  }
+  return null
+}
+
 const view = (m, units = []) => ({
   id: m.id,
   units,
+  prompt: m.prompt,
   said: m.said,
   correct: m.correct,
   topics: m.topics,
@@ -75,6 +89,8 @@ mistakesRouter.post('/classroom/:id', async (req, res) => {
     data: { said, correct, topics, classroomId: classroom.id, studentId: classroom.studentId, teacherId: req.user.id, boardId, elementId }
   })
   res.status(201).json({ mistake: view(mistake) })
+  // The drill task can wait a second; the teacher's panel must not.
+  promptFor(mistake).catch(() => {})
 })
 
 mistakesRouter.patch('/:id', async (req, res) => {
@@ -85,8 +101,9 @@ mistakesRouter.patch('/:id', async (req, res) => {
   if (!parsed.success) return res.status(400).json({ error: 'Both sentences are needed' })
   const { said, correct } = parsed.data
   const topics = await topicsFor(said, correct)
-  const mistake = await prisma.lessonMistake.update({ where: { id: existing.id }, data: { said, correct, topics } })
+  const mistake = await prisma.lessonMistake.update({ where: { id: existing.id }, data: { said, correct, topics, prompt: null } })
   res.json({ mistake: view(mistake) })
+  promptFor(mistake).catch(() => {})
 })
 
 mistakesRouter.delete('/:id', async (req, res) => {
@@ -114,11 +131,15 @@ mistakesRouter.get('/practice', async (req, res) => {
   const mistakes = await prisma.lessonMistake.findMany({ where: { studentId: req.user.id } })
   mistakes.sort((a, b) => (a.lastPracticedAt?.getTime() ?? 0) - (b.lastPracticedAt?.getTime() ?? 0) || b.createdAt - a.createdAt)
   const units = await unitsForTopics(req.user.schoolId, mistakes.flatMap((m) => m.topics))
+  let drafted = 0
   const exercises = []
   for (const m of mistakes) {
+    let prompt = m.prompt
+    if (!prompt && drafted < 8) { prompt = await promptFor(m); drafted++ }
     exercises.push({
       id: m.id,
       said: m.said,
+      prompt,
       labels: m.topics.map(topicLabel),
       units: await unitsForMistake(req.user.schoolId, m.correct, m.topics, units),
       practicedCorrect: m.practicedCorrect,
@@ -138,7 +159,7 @@ mistakesRouter.post('/practice/:id/attempt', async (req, res) => {
   let feedback = ''
   if (!result.correct && assistantEnabled() && answer.trim()) {
     try {
-      const verdict = await judgeAnswer({ said: mistake.said, correct: mistake.correct, answer, topic: mistake.topics.map(topicLabel).join(', ') })
+      const verdict = await judgeAnswer({ said: mistake.said, correct: mistake.correct, answer, topic: mistake.topics.map(topicLabel).join(', '), prompt: mistake.prompt })
       if (verdict) { result = { correct: verdict.correct }; feedback = verdict.feedback }
     } catch (error) {
       console.error('Drill judge failed:', error.message)

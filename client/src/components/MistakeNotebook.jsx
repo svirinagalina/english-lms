@@ -83,6 +83,7 @@ export default function MistakeNotebook({ classroomId, canEdit = false, boardLin
                       <>
                         <div className="said">✗ {m.said}</div>
                         <div className="correct">✓ {m.correct}</div>
+                        {m.prompt && <div className="muted" style={{ fontSize: 13 }}>Задание для дрилла: {m.prompt}</div>}
                         <div className="notebook-meta">
                           {m.labels.map((l) => <span key={l} className="mistake-tag">{l}</span>)}
                           {m.practicedCorrect > 0 && <span className="muted">drilled right {m.practicedCorrect}×</span>}

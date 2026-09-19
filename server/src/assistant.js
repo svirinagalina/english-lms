@@ -78,17 +78,38 @@ const JudgeSchema = z.object({ correct: z.boolean(), feedback: z.string() })
 // Judges a drill answer the way a teacher would: the grammar point behind
 // the mistake must be fixed; other correct wordings count. Feedback is one
 // short sentence in Russian.
-export async function judgeAnswer({ said, correct, answer, topic }) {
+export async function judgeAnswer({ said, correct, answer, topic, prompt }) {
   return structured({
     name: 'judge',
     schema: JudgeSchema,
     maxTokens: 300,
     system:
       'You check a Russian-speaking learner\'s attempt to correct their own earlier mistake in English. You are given the sentence as they said it (wrong), ' +
-      'the teacher\'s correct version, the grammar point behind the mistake, and the learner\'s new attempt. Mark the attempt correct if it fixes that grammar point ' +
+      'the teacher\'s correct version, the grammar point behind the mistake, the task (a Russian sentence to translate, when given) and the learner\'s new attempt. Mark the attempt correct if it fixes that grammar point, ' +
+      'renders the task\'s meaning (including its context, e.g. a duration requires Present Perfect Continuous) ' +
       'and is a natural, grammatically correct English sentence with the same meaning — it does not have to match the teacher\'s wording (synonyms, contractions, ' +
       'a different but correct tense form where the meaning allows, minor punctuation are fine). Mark it wrong if the original mistake is still there or a new grammar error appears; ' +
       'ignore spelling slips of one letter unless they change the word. Give one short sentence of feedback in Russian (keep grammar terms in English): what was fixed, or what is still wrong and how to say it.',
-    user: `Said (wrong): ${said}\nTeacher's correct version: ${correct}\nGrammar point: ${topic || '—'}\nLearner's attempt: ${answer}`
+    user: `${prompt ? `Task (Russian sentence to translate): ${prompt}\n` : ''}Said (wrong): ${said}\nTeacher's correct version: ${correct}\nGrammar point: ${topic || '—'}\nLearner's attempt: ${answer}`
   })
+}
+
+const PromptSchema = z.object({ prompt: z.string() })
+
+// A drill task for one mistake: a Russian sentence the learner translates,
+// whose natural English is exactly the teacher's correct version — with
+// the minimal context the tense needs (duration, a moment in the past…).
+export async function draftMistakePrompt({ said, correct, topic }) {
+  const out = await structured({
+    name: 'drill_prompt',
+    schema: PromptSchema,
+    maxTokens: 200,
+    system:
+      'You write a translation task for a Russian-speaking learner of English. Given the teacher\'s correct English sentence (and the learner\'s earlier wrong version and the grammar point), ' +
+      'write ONE Russian sentence whose natural English translation is exactly the correct sentence, in exactly that tense/structure. If the English form only makes sense with context ' +
+      '(Present Perfect Continuous needs a duration, Past Continuous needs a moment, Third Conditional needs the past), add that minimal context to the Russian sentence in brackets, e.g. "Она работает (уже два часа)." ' +
+      'Natural Russian, no explanations, no English.',
+    user: `Correct English: ${correct}\nLearner said (wrong): ${said}\nGrammar point: ${topic || '—'}`
+  })
+  return out?.prompt?.trim() || null
 }

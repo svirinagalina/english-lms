@@ -74,14 +74,21 @@ export default function MistakePractice() {
           </div>
           <form className="drill" onSubmit={submit}>
             <div className="muted" style={{ marginBottom: 4 }}>
-              You said this on {new Date(current.createdAt).toLocaleDateString()}
+              {new Date(current.createdAt).toLocaleDateString()}
               {current.labels.length > 0 && ` · ${current.labels.join(', ')}`}
             </div>
-            <div className="drill-prompt said-prompt">✗ {current.said}</div>
+            {current.prompt ? (
+              <>
+                <div className="drill-prompt">{current.prompt}</div>
+                <div className="muted said-prompt" style={{ marginBottom: 8 }}>Вы сказали: ✗ {current.said}</div>
+              </>
+            ) : (
+              <div className="drill-prompt said-prompt">✗ {current.said}</div>
+            )}
             <input
               ref={inputRef}
               className="drill-input"
-              placeholder="How should it be?"
+              placeholder={current.prompt ? 'Скажите это по-английски…' : 'How should it be?'}
               value={answer}
               onChange={(e) => setAnswer(e.target.value)}
               disabled={Boolean(result)}
