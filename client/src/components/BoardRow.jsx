@@ -1,30 +1,31 @@
 import { useState } from 'react'
 import { api } from '../api'
 
-// One board in a list, with open/delete and an "assign to student" panel.
-// `targets` are the other classrooms the board can be copied or moved into.
+// One board in a list, with open/delete and who it belongs to.
+// `targets` are the students this board could be assigned to.
 export default function BoardRow({ board, classroomId, targets, canEdit, onOpen, onChanged }) {
   const [assigning, setAssigning] = useState(false)
-  const [targetId, setTargetId] = useState(targets[0]?.id ?? '')
-  const [busy, setBusy] = useState(false)
+  const [busy, setBusy] = useState(null) // the target id currently toggling
   const [notice, setNotice] = useState('')
 
-  const assign = async (mode) => {
-    if (!targetId) return
-    setBusy(true)
+  const currentIds = new Set([board.classroomId, ...(board.sharedWith?.map((c) => c.id) ?? [])].filter(Boolean))
+
+  const toggle = async (target, checked) => {
+    setBusy(target.id)
     setNotice('')
     try {
-      await api.assignBoard(classroomId, board.id, targetId, mode)
-      const target = targets.find((t) => t.id === targetId)
-      const verb = { copy: 'Copied', move: 'Moved', share: 'Shared with', unshare: 'No longer shared with' }[mode]
-      setNotice(`${verb} ${target?.label ?? 'the student'}`)
-      setAssigning(false)
+      const { displaced } = await api.assignBoard(classroomId, board.id, target.id, checked)
+      setNotice(
+        checked
+          ? displaced?.length ? `Assigned to ${target.label} · replaced “${displaced.join(', ')}”` : `Assigned to ${target.label}`
+          : `No longer with ${target.label}`
+      )
       await onChanged()
-      setTimeout(() => setNotice(''), 3000)
+      setTimeout(() => setNotice(''), 4000)
     } catch (err) {
       setNotice(err.message)
     } finally {
-      setBusy(false)
+      setBusy(null)
     }
   }
 
@@ -42,7 +43,7 @@ export default function BoardRow({ board, classroomId, targets, canEdit, onOpen,
           <div className="muted">
             Updated {new Date(board.updatedAt).toLocaleString()}
             {board.shared && ' · shared from another student'}
-            {board.sharedWith?.length > 0 && ` · also with ${board.sharedWith.join(', ')}`}
+            {board.sharedWith?.length > 0 && ` · also with ${board.sharedWith.map((c) => c.name).join(', ')}`}
           </div>
           {notice && <div className="muted" style={{ color: '#a5b4fc' }}>{notice}</div>}
         </div>
@@ -59,23 +60,25 @@ export default function BoardRow({ board, classroomId, targets, canEdit, onOpen,
 
       {assigning && (
         <div className="link-editor">
-          <div className="row-actions">
-            <select value={targetId} onChange={(e) => setTargetId(e.target.value)}>
-              {targets.map((target) => (
-                <option key={target.id} value={target.id}>{target.label}</option>
-              ))}
-            </select>
-            <button onClick={() => assign('share')} disabled={busy}>Share there</button>
-            <button className="ghost" onClick={() => assign('copy')} disabled={busy}>Copy there</button>
-            <button className="ghost" onClick={() => assign('move')} disabled={busy}>Move there</button>
-            {board.sharedWith?.length > 0 && (
-              <button className="ghost" onClick={() => assign('unshare')} disabled={busy}>Stop sharing there</button>
-            )}
-          </div>
-          <span className="muted">
-            Share attaches this same board to another student too — one board, everyone sees the same content.
-            Copy gives them their own copy; move takes it away from here.
+          <span className="muted" style={{ display: 'block', marginBottom: 8 }}>
+            Who this board belongs to. Checking a student gives them this board and takes away whatever they had before — a student is only ever on one board.
           </span>
+          <div className="assign-list">
+            {targets.map((target) => {
+              const checked = currentIds.has(target.id)
+              return (
+                <label key={target.id} className="assign-item">
+                  <input
+                    type="checkbox"
+                    checked={checked}
+                    disabled={busy === target.id}
+                    onChange={(e) => toggle(target, e.target.checked)}
+                  />
+                  {target.label}
+                </label>
+              )
+            })}
+          </div>
         </div>
       )}
     </div>

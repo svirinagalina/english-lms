@@ -29,7 +29,7 @@ export async function ensureClassroom(teacherId, studentId, schoolId) {
 
 // A teacher's own space: a classroom with no student, holding the boards they
 // keep for themselves. Never listed as a classroom; reached via /mine.
-async function ensurePersonalSpace(teacherId, schoolId) {
+export async function ensurePersonalSpace(teacherId, schoolId) {
   const existing = await prisma.classroom.findFirst({ where: { teacherId, studentId: null } })
   return existing ?? prisma.classroom.create({ data: { teacherId, studentId: null, schoolId } })
 }
@@ -158,11 +158,19 @@ classroomsRouter.get('/home', async (req, res) => {
 classroomsRouter.get('/mine', requireRole('OWNER', 'TEACHER'), async (req, res) => {
   const space = await ensurePersonalSpace(req.user.id, req.user.schoolId)
   const boards = await prisma.board.findMany({
-    where: { classroomId: space.id },
-    select: { id: true, title: true, createdAt: true, updatedAt: true },
+    where: { classroomId: space.id, scratch: false },
+    select: { id: true, title: true, createdAt: true, updatedAt: true, sharedWith: { select: { id: true, student: { select: { name: true } } } } },
     orderBy: { updatedAt: 'desc' }
   })
-  res.json({ classroom: { id: space.id, boards } })
+  res.json({
+    classroom: {
+      id: space.id,
+      boards: boards.map((board) => ({
+        ...board,
+        sharedWith: board.sharedWith.map((c) => ({ id: c.id, name: c.student?.name })).filter((c) => c.name)
+      }))
+    }
+  })
 })
 
 // Every board this person can open in a call: their students' boards
@@ -178,8 +186,8 @@ classroomsRouter.get('/boards', async (req, res) => {
     include: {
       student: { select: { id: true, name: true } },
       teacher: { select: { id: true, name: true } },
-      boards: { select: { id: true, title: true, updatedAt: true }, orderBy: { updatedAt: 'desc' } },
-      sharedBoards: { select: { id: true, title: true, updatedAt: true }, orderBy: { updatedAt: 'desc' } }
+      boards: { where: { scratch: false }, select: { id: true, title: true, updatedAt: true }, orderBy: { updatedAt: 'desc' } },
+      sharedBoards: { where: { scratch: false }, select: { id: true, title: true, updatedAt: true }, orderBy: { updatedAt: 'desc' } }
     }
   })
   const seen = new Set()
@@ -202,7 +210,9 @@ classroomsRouter.get('/:id', async (req, res) => {
   if (!classroom) return res.status(404).json({ error: 'Classroom not found' })
 
   // One board per student holds every lesson; it exists from the first visit.
-  if (classroom.student && !(await prisma.board.count({ where: { classroomId: classroom.id } }))) {
+  // A board already assigned (owned or shared in) counts, so a student who
+  // was given one of the teacher's boards never ends up with a second.
+  if (classroom.student && !(await prisma.board.count({ where: { OR: [{ classroomId: classroom.id }, { sharedWith: { some: { id: classroom.id } } }] } }))) {
     await prisma.board.create({
       data: { classroomId: classroom.id, title: `${classroom.student.name} — lessons`, elements: [] }
     })
@@ -214,7 +224,7 @@ classroomsRouter.get('/:id', async (req, res) => {
       orderBy: { startedAt: 'desc' }
     }),
     prisma.board.findMany({
-      where: { OR: [{ classroomId: classroom.id }, { sharedWith: { some: { id: classroom.id } } }] },
+      where: { scratch: false, OR: [{ classroomId: classroom.id }, { sharedWith: { some: { id: classroom.id } } }] },
       select: { id: true, title: true, createdAt: true, updatedAt: true, classroomId: true, sharedWith: { select: { id: true, student: { select: { name: true } } } } },
       orderBy: { createdAt: 'asc' }
     })
@@ -242,10 +252,11 @@ classroomsRouter.get('/:id', async (req, res) => {
         title: board.title,
         createdAt: board.createdAt,
         updatedAt: board.updatedAt,
+        classroomId: board.classroomId,
         // Shared in from another student's space, or shared out to others.
         // Who else a board is shared with is the teacher's business only.
         shared: board.classroomId !== classroom.id,
-        sharedWith: req.user.role === 'STUDENT' ? [] : board.sharedWith.map((c) => c.student?.name).filter(Boolean)
+        sharedWith: req.user.role === 'STUDENT' ? [] : board.sharedWith.map((c) => ({ id: c.id, name: c.student?.name })).filter((c) => c.name)
       }))
     }
   })
@@ -258,6 +269,9 @@ const boardSchema = z.object({ title: z.string().min(1).max(200) })
 classroomsRouter.post('/:id/boards', requireRole('OWNER', 'TEACHER'), async (req, res) => {
   const classroom = await accessibleClassroom(req.user, req.params.id)
   if (!classroom) return res.status(404).json({ error: 'Classroom not found' })
+  // A student's board comes from the teacher's own shelf via Assign, never
+  // created directly here — a student stays on exactly one board.
+  if (classroom.student) return res.status(400).json({ error: 'Create the board in My boards and assign it here' })
 
   const parsed = boardSchema.safeParse(req.body)
   const title = parsed.success ? parsed.data.title : `Board ${new Date().toLocaleDateString()}`
@@ -288,12 +302,13 @@ classroomsRouter.patch('/:id/boards/:boardId', requireRole('OWNER', 'TEACHER'), 
 
 const assignSchema = z.object({
   targetClassroomId: z.string(),
-  mode: z.enum(['copy', 'move', 'share', 'unshare'])
+  attach: z.boolean()
 })
 
-// Copies or moves a board into another classroom the teacher can access —
-// typically from their own boards into a student's space. Images keep their
-// stored paths, so no files are duplicated.
+// A board goes to exactly one place per student. Checking a student's name
+// attaches this board to them and detaches whatever board they had before
+// (moved back to the teacher's own boards, not deleted); unchecking detaches
+// this one. One board can be checked for several students at once.
 classroomsRouter.post('/:id/boards/:boardId/assign', requireRole('OWNER', 'TEACHER'), async (req, res) => {
   const parsed = assignSchema.safeParse(req.body)
   if (!parsed.success) return res.status(400).json({ error: 'Invalid data' })
@@ -302,40 +317,46 @@ classroomsRouter.post('/:id/boards/:boardId/assign', requireRole('OWNER', 'TEACH
   if (!source) return res.status(404).json({ error: 'Classroom not found' })
 
   const target = await accessibleClassroom(req.user, parsed.data.targetClassroomId)
-  if (!target) return res.status(404).json({ error: 'Target classroom not found' })
-  if (target.id === source.id) return res.status(400).json({ error: 'Board is already there' })
+  if (!target || !target.student) return res.status(404).json({ error: 'Student not found' })
 
   const board = await prisma.board.findFirst({
     where: { id: req.params.boardId, OR: [{ classroomId: source.id }, { sharedWith: { some: { id: source.id } } }] }
   })
   if (!board) return res.status(404).json({ error: 'Board not found' })
 
-  // Sharing keeps one board and attaches it to another student too.
-  if (parsed.data.mode === 'share' || parsed.data.mode === 'unshare') {
-    if (target.id === board.classroomId) return res.status(400).json({ error: 'Board already belongs there' })
-    const updated = await prisma.board.update({
-      where: { id: board.id },
-      data: { sharedWith: parsed.data.mode === 'share' ? { connect: { id: target.id } } : { disconnect: { id: target.id } } },
-      select: { id: true, title: true }
-    })
-    return res.json({ board: updated, mode: parsed.data.mode })
+  const home = await ensurePersonalSpace(req.user.id, req.user.schoolId)
+
+  if (!parsed.data.attach) {
+    if (board.classroomId === target.id) {
+      // It was this student's own board: back to the teacher's shelf, not deleted.
+      await prisma.board.update({ where: { id: board.id }, data: { classroomId: home.id } })
+      forgetBoard(board.id)
+    } else {
+      await prisma.board.update({ where: { id: board.id }, data: { sharedWith: { disconnect: { id: target.id } } } })
+    }
+    return res.json({ ok: true, displaced: [] })
   }
 
-  if (parsed.data.mode === 'move') {
-    const moved = await prisma.board.update({
-      where: { id: board.id },
-      data: { classroomId: target.id },
-      select: { id: true, title: true }
-    })
-    forgetBoard(board.id)
-    return res.json({ board: moved, mode: 'move' })
-  }
-
-  const copy = await prisma.board.create({
-    data: { classroomId: target.id, title: board.title, elements: board.elements },
-    select: { id: true, title: true }
+  // Whatever this student already has (besides this board) gets displaced first.
+  const others = await prisma.board.findMany({
+    where: { id: { not: board.id }, OR: [{ classroomId: target.id }, { sharedWith: { some: { id: target.id } } }] },
+    select: { id: true, title: true, classroomId: true }
   })
-  res.status(201).json({ board: copy, mode: 'copy' })
+  const displaced = []
+  for (const other of others) {
+    if (other.classroomId === target.id) {
+      await prisma.board.update({ where: { id: other.id }, data: { classroomId: home.id } })
+      forgetBoard(other.id)
+    } else {
+      await prisma.board.update({ where: { id: other.id }, data: { sharedWith: { disconnect: { id: target.id } } } })
+    }
+    displaced.push(other.title)
+  }
+
+  if (board.classroomId !== target.id) {
+    await prisma.board.update({ where: { id: board.id }, data: { sharedWith: { connect: { id: target.id } } } })
+  }
+  res.json({ ok: true, displaced })
 })
 
 classroomsRouter.delete('/:id/boards/:boardId', requireRole('OWNER', 'TEACHER'), async (req, res) => {

@@ -7,7 +7,8 @@ import {
   addElement,
   updateElement,
   deleteElement,
-  clearBoard
+  clearBoard,
+  forgetBoard
 } from './boardStore.js'
 import { loadDocument, replaceDocument, runsSchema } from './docStore.js'
 import { buildSummary } from './lessonSummary.js'
@@ -460,10 +461,22 @@ export function setupSignaling(io) {
       // link stays usable for 15 minutes in case someone reconnects.
       if (stillOnCall === 0 && socket.data.callId) {
         const callId = socket.data.callId
+        const hadClassroom = Boolean(classroomId)
         setTimeout(async () => {
           const still = [...(io.sockets.adapter.rooms.get(roomId) ?? [])].length
           if (still) return
           await prisma.call.updateMany({ where: { id: callId, endedAt: null }, data: { endedAt: new Date() } }).catch(() => {})
+          // A scratch board made for a boardless call (no student attached)
+          // was only ever for this one call: gone with it, not left behind
+          // cluttering the teacher's own boards.
+          const openBoardId = roomBoards.get(roomId)
+          if (!hadClassroom && openBoardId) {
+            const board = await prisma.board.findUnique({ where: { id: openBoardId }, select: { scratch: true } }).catch(() => null)
+            if (board?.scratch) {
+              await prisma.board.delete({ where: { id: openBoardId } }).catch(() => {})
+              forgetBoard(openBoardId)
+            }
+          }
           roomBoards.delete(roomId)
           roomDocs.delete(roomId)
         }, 15 * 60 * 1000)

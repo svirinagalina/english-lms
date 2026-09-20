@@ -877,16 +877,28 @@ export default function Call() {
   // join answer carries it), and from then on each side is on its own.
   const autoOpened = useRef(false)
   useEffect(() => {
-    if (status !== 'live' || autoOpened.current) return
+    if (status !== 'live' || autoOpened.current || !call) return
     // On a phone the call starts with the video; the board is under More.
     if (isMobile() && !requestedBoard) { autoOpened.current = true; return }
-    const wanted = requestedBoard && isStaff
-      ? boards.find((b) => b.id === requestedBoard)
-      : call?.classroomId ? boards.find((b) => b.classroomId === call.classroomId) : null
-    if (!wanted) return
-    autoOpened.current = true
-    setBoardId((current) => current ?? wanted.id)
-  }, [status, isStaff, call, boards, requestedBoard])
+    if (requestedBoard || call.classroomId) {
+      const wanted = requestedBoard && isStaff
+        ? boards.find((b) => b.id === requestedBoard)
+        : call.classroomId ? boards.find((b) => b.classroomId === call.classroomId) : null
+      if (!wanted) return
+      autoOpened.current = true
+      setBoardId((current) => current ?? wanted.id)
+      return
+    }
+    // A call with no student and no specific board requested: a fresh
+    // scratch board, so there is always something to write on — it goes
+    // away with the call instead of piling up in My boards.
+    if (isStaff) {
+      autoOpened.current = true
+      api.createScratchBoard(token)
+        .then(({ board }) => { setBoards((prev) => [...prev, board]); setBoardId((current) => current ?? board.id) })
+        .catch(() => { autoOpened.current = false })
+    }
+  }, [status, isStaff, call, boards, requestedBoard, token])
 
   // Classrooms whose writing can be opened here: the call's own, else the
   // one behind the open board, else those of the students present.

@@ -3,7 +3,7 @@ import { randomBytes, createHmac } from 'crypto'
 import { z } from 'zod'
 import { prisma } from '../db.js'
 import { requireAuth, requireRole } from '../auth.js'
-import { accessibleClassroom } from './classrooms.js'
+import { accessibleClassroom, ensurePersonalSpace } from './classrooms.js'
 
 export const callsRouter = Router()
 
@@ -90,6 +90,22 @@ callsRouter.post('/', requireRole('OWNER', 'TEACHER'), async (req, res) => {
   })
 
   res.status(201).json({ call: callView(call, originOf(req)) })
+})
+
+// A blank board for a call that has no student (a colleague or group call):
+// created on the teacher's own shelf, flagged scratch so it never shows in
+// My boards and is deleted once the call ends (see signaling.js).
+callsRouter.post('/:token/scratch-board', requireRole('OWNER', 'TEACHER'), async (req, res) => {
+  const call = await prisma.call.findUnique({ where: { token: req.params.token } })
+  if (!call || call.endedAt || call.schoolId !== req.user.schoolId) return res.status(404).json({ error: 'Call not found' })
+  if (call.classroomId) return res.status(400).json({ error: 'This call already has its own board' })
+
+  const home = await ensurePersonalSpace(req.user.id, req.user.schoolId)
+  const board = await prisma.board.create({
+    data: { classroomId: home.id, title: call.title ?? `Call — ${new Date().toLocaleDateString()}`, scratch: true },
+    select: { id: true, title: true, classroomId: true, createdAt: true, updatedAt: true }
+  })
+  res.status(201).json({ board })
 })
 
 // The lesson that is on right now for this person: for a student, an open

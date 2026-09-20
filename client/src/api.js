@@ -112,6 +112,7 @@ export const api = {
   uploadWritingImage: (classroomId, data) =>
     request(`/classrooms/${classroomId}/writing/images`, { method: 'POST', body: { data } }),
   createCall: (body) => request('/calls', { method: 'POST', body }),
+  createScratchBoard: (token) => request(`/calls/${token}/scratch-board`, { method: 'POST' }),
   listCalls: () => request('/calls'),
   endCall: (id) => request(`/calls/${id}/end`, { method: 'POST' }),
 
@@ -149,8 +150,8 @@ export const api = {
     request(`/classrooms/${id}/boards/${boardId}`, { method: 'PATCH', body: { title } }),
   uploadBoardImage: (id, boardId, data) =>
     request(`/classrooms/${id}/boards/${boardId}/images`, { method: 'POST', body: { data } }),
-  assignBoard: (id, boardId, targetClassroomId, mode) =>
-    request(`/classrooms/${id}/boards/${boardId}/assign`, { method: 'POST', body: { targetClassroomId, mode } }),
+  assignBoard: (id, boardId, targetClassroomId, attach) =>
+    request(`/classrooms/${id}/boards/${boardId}/assign`, { method: 'POST', body: { targetClassroomId, attach } }),
   deleteBoard: (id, boardId) =>
     request(`/classrooms/${id}/boards/${boardId}`, { method: 'DELETE' }),
   updateSession: (id, sessionId, body) =>

@@ -114,13 +114,10 @@ export default function Classroom() {
     if (isStaff) {
       api.assistStatus().then(({ enabled }) => setAssistEnabled(enabled)).catch(() => {})
 
-      // Where a board from here can go: my own boards, or another student.
-      Promise.all([api.myBoards(), api.listClassrooms()])
-        .then(([{ classroom: mine }, { classrooms }]) => {
-          setTargets([
-            { id: mine.id, label: 'My boards' },
-            ...classrooms.map((c) => ({ id: c.id, label: c.student.name }))
-          ].filter((t) => t.id !== id))
+      // Which students a board from here can be assigned to.
+      api.listClassrooms()
+        .then(({ classrooms }) => {
+          setTargets(classrooms.map((c) => ({ id: c.id, label: c.student.name })).filter((t) => t.id !== id))
           setMyStudents(classrooms.filter((c) => c.student && !c.former && c.teacher?.id === user.id).map((c) => ({ classroomId: c.id, name: c.student.name })))
         })
         .catch(() => {})
@@ -323,14 +320,14 @@ export default function Classroom() {
             : `One board for all lessons with ${user.role === 'STUDENT' ? 'your teacher' : 'the student'}: every lesson and its materials stay here. Open any time, not just during a call.`}
         </p>
 
-        {isStaff && (
+        {isStaff && isPersonal && (
           <form className="inline-form" onSubmit={addBoard}>
             <input
               placeholder="Board title, e.g. Present Perfect — 14 Sep"
               value={title}
               onChange={(e) => setTitle(e.target.value)}
             />
-            <button type="submit" className={isPersonal ? '' : 'ghost'}>{isPersonal ? 'New board' : 'Extra board'}</button>
+            <button type="submit">New board</button>
           </form>
         )}
 
