@@ -929,12 +929,12 @@ select.pill { padding: 0 16px; color: var(--text); border: none; }
 
 /* Phones in board mode: controls above the dock, no zoom group, small tiles. */
 @media (max-width: 720px) {
-  .lesson-page.board-mode .controls { top: auto; bottom: 150px; left: 50%; right: auto; transform: translateX(-50%) !important; }
+  .lesson-page.board-mode .controls { top: auto; bottom: calc(var(--dock-h, 150px) + 24px); left: 50%; right: auto; transform: translateX(-50%) !important; }
   .lesson-page.board-mode .more-menu { top: auto; bottom: calc(100% + 8px); }
   .stage.board-mode .tiles { top: 64px; right: 8px; width: 110px; bottom: auto; max-height: 40vh; }
   .stage.board-mode .board-corner-right { display: none; }
   .lesson-page.board-mode .banner { top: 64px; left: 8px; right: 130px; max-width: none; background: #3d3a1e; border: 1px solid rgba(234, 179, 8, 0.35); }
-  .lesson-page.board-mode .call-chat { top: auto; bottom: 216px; left: 8px; right: 8px; max-height: 50vh; }
+  .lesson-page.board-mode .call-chat { top: auto; bottom: calc(var(--dock-h, 150px) + 90px); left: 8px; right: 8px; max-height: 50vh; }
   .lesson-page.writing-mode .call-chat { bottom: 66px; }
 }
 

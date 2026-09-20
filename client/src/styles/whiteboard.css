@@ -271,8 +271,10 @@ select.tool { appearance: auto; padding: 5px 8px; }
   border-radius: 8px;
   box-shadow: 0 6px 20px rgba(0, 0, 0, 0.3);
   font-size: 13px;
-  pointer-events: none;
+  display: flex; flex-direction: column; gap: 6px;
 }
+.word-tip-head { display: flex; align-items: center; gap: 8px; }
+.word-tip-add { align-self: flex-start; font-size: 12px; padding: 4px 9px; }
 
 .peer-cursor { position: absolute; pointer-events: none; z-index: 3; display: flex; align-items: flex-start; gap: 2px; transform: translate(-1px, -1px); }
 .peer-cursor span { margin-top: 10px; padding: 2px 7px; border-radius: 999px; background: #f4b9d9; color: #14453f; font-size: 11px; font-weight: 600; white-space: nowrap; }
@@ -280,19 +282,23 @@ select.tool { appearance: auto; padding: 5px 8px; }
 /* Narrow windows: the zoom controls drop under the name chip, the dock's
    groups wrap into rows, and the chip never runs under the controls. */
 @media (max-width: 720px) {
-  .board-chip, .stage.board-mode .board-chip { max-width: calc(100vw - 130px); padding-left: 10px; }
+  .board-chip { max-width: calc(100vw - 24px); height: auto; flex-wrap: wrap; row-gap: 6px; padding: 8px 10px; }
+  .board-chip > strong { flex: 1 1 100px; }
+  .stage.board-mode .board-chip { max-width: calc(100vw - 130px); flex-wrap: nowrap; height: 44px; padding: 6px 8px 6px 10px; }
   /* The name gets the room: no subtitle, a shorter Spotlight label. */
   .stage.board-mode .board-chip > .muted { display: none; }
   .stage.board-mode .board-chip > strong { flex: 1 1 auto; }
   .board-chip .chip-call { padding: 0 8px; font-size: 11px; }
   .chip-back { padding-right: 8px; margin-right: 4px; }
-  .board-corner-right { top: 60px; }
+  /* Undo/zoom sit above the dock on a phone, clear of the wrapping chip. */
+  .board-corner-right { top: auto; bottom: calc(var(--dock-h, 150px) + 24px); right: 8px; }
   /* A compact dock: each group is one row that scrolls sideways. */
   .board-dock { gap: 6px; padding: 6px 8px; width: calc(100% - 16px); flex-direction: column; align-items: stretch; }
   .board-dock .dock-group { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; max-width: 100%; justify-content: flex-start; }
   .board-dock .dock-group::-webkit-scrollbar { display: none; }
-  /* The tool row is longer than the screen: fade its end as a hint to swipe. */
-  .board-dock .dock-group:first-child { -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 36px), transparent); mask-image: linear-gradient(to right, #000 calc(100% - 36px), transparent); padding-right: 24px; }
+  /* Every tool stays visible: the rows wrap instead of scrolling off screen. */
+  .board-dock .dock-group { flex-wrap: wrap; overflow: visible; }
+  .board-dock .tool { padding: 6px 9px; font-size: 12px; }
   .board-dock .dock-group + .dock-group { border-left: none; padding-left: 0; border-top: 1px solid var(--border); padding-top: 6px; }
   .board-dock .tool { flex-shrink: 0; padding: 6px 10px; font-size: 13px; }
   .board-hint { display: none; }
@@ -333,7 +339,7 @@ select.tool { appearance: auto; padding: 5px 8px; }
 .mistakes-item .correct { color: #86efac; font-weight: 600; }
 .stage.board-mode .mistakes-panel { right: 224px; top: 60px; }
 @media (max-width: 720px) {
-  .mistakes-panel, .stage.board-mode .mistakes-panel { right: 8px; left: 8px; width: auto; top: 64px; bottom: 216px; padding: 10px 12px; }
+  .mistakes-panel, .stage.board-mode .mistakes-panel { right: 8px; left: 8px; width: auto; top: 64px; bottom: calc(var(--dock-h, 150px) + 90px); padding: 10px 12px; }
   .mistakes-panel > p.muted { display: none; }
 }
 

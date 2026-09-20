@@ -1,7 +1,7 @@
 import { forwardRef, useCallback, useEffect, useImperativeHandle, useRef, useState } from 'react'
 import '../styles/whiteboard.css'
 import { isEnglishWord, lookupWord, wordAt } from '../utils/dictionary'
-import WordCard from './WordCard'
+import WordCard, { PlayButton } from './WordCard'
 
 const COLORS = ['#111827', '#ef4444', '#16a34a', '#2563eb', '#f59e0b', '#9333ea']
 // Ink drawn while the board was dark, shown dark on the white board.
@@ -859,7 +859,21 @@ const Whiteboard = forwardRef(function Whiteboard({ socketRef, boardId, title, s
     addBlock(insertBlock.title, insertBlock.lines, insertBlock.color ?? COLORS[3])
     onInserted?.()
   }, [insertBlock, loadedBoard, boardId])
+  // The dock's height, published as a CSS variable so the call controls on a
+  // phone sit just above it whatever rows it wraps into.
+  const dockRef = useRef(null)
+  useEffect(() => {
+    const dock = dockRef.current
+    if (!dock || typeof ResizeObserver === 'undefined') return
+    const publish = () => document.documentElement.style.setProperty('--dock-h', `${dock.offsetHeight}px`)
+    publish()
+    const observer = new ResizeObserver(publish)
+    observer.observe(dock)
+    return () => { observer.disconnect(); document.documentElement.style.removeProperty('--dock-h') }
+  })
   const tipTimer = useRef(null)
+  const tipHideTimer = useRef(null)
+  const tipHoverRef = useRef(false)
   const tipWordRef = useRef(null)
   const hoverDictionary = (event) => {
     if (pointerRef.current || textInput) return
@@ -867,12 +881,20 @@ const Whiteboard = forwardRef(function Whiteboard({ socketRef, boardId, title, s
     const target = [...elementsRef.current].reverse().find((e) => (e.type === 'text' || e.type === 'note') && hitTest(e, point.x, point.y))
     const word = target ? wordUnderPoint(target, point.x, point.y) : null
     if (!word) {
-      if (tipWordRef.current) { tipWordRef.current = null; clearTimeout(tipTimer.current); setTip(null) }
+      // Off the word: the card lingers a moment so the pointer can reach its
+      // play / add buttons; hovering the card itself keeps it (see onMouseEnter).
+      if (tipWordRef.current) {
+        tipWordRef.current = null
+        clearTimeout(tipTimer.current)
+        clearTimeout(tipHideTimer.current)
+        tipHideTimer.current = setTimeout(() => { if (!tipHoverRef.current) setTip(null) }, 450)
+      }
       return
     }
     if (word === tipWordRef.current) return
     tipWordRef.current = word
     clearTimeout(tipTimer.current)
+    clearTimeout(tipHideTimer.current)
     setTip(null)
     const rect = canvasRef.current.getBoundingClientRect()
     const at = { x: event.clientX - rect.left, y: event.clientY - rect.top }
@@ -2527,10 +2549,36 @@ const Whiteboard = forwardRef(function Whiteboard({ socketRef, boardId, title, s
         )}
 
         {tip && !wordCard && (
-          <div className="word-tip" style={{ left: tip.x + 12, top: tip.y + 16 }}>
-            <strong>{tip.word}</strong>
-            {tip.entry.transcription && <span className="muted"> {tip.entry.transcription}</span>}
+          <div
+            className="word-tip"
+            style={{ left: tip.x + 12, top: tip.y + 16 }}
+            onMouseEnter={() => { tipHoverRef.current = true; clearTimeout(tipHideTimer.current) }}
+            onMouseLeave={() => { tipHoverRef.current = false; setTip(null) }}
+          >
+            <div className="word-tip-head">
+              <strong>{tip.word}</strong>
+              {tip.entry.transcription && <span className="muted"> {tip.entry.transcription}</span>}
+              <PlayButton src={tip.entry.audio} small />
+            </div>
             <div>{tip.entry.translation}</div>
+            {onAddWords && (
+              <button
+                type="button"
+                className="tool word-tip-add"
+                disabled={addingWords}
+                onClick={async () => {
+                  const word = tip.word
+                  setAddingWords(true)
+                  try {
+                    const result = await onAddWords([word])
+                    const where = result?.student ? `${result.student}'s vocabulary` : 'My words'
+                    showToast(result?.added ? `“${word}” added to ${where}` : `“${word}” is already in ${where}`)
+                  } catch (err) { showToast(err.message) } finally { setAddingWords(false); setTip(null) }
+                }}
+              >
+                {addingWords ? 'Adding…' : '+ Vocabulary'}
+              </button>
+            )}
           </div>
         )}
 
@@ -2558,7 +2606,7 @@ const Whiteboard = forwardRef(function Whiteboard({ socketRef, boardId, title, s
             <button className="tool" onClick={cancelCrop}>Cancel</button>
           </div>
         ) : (
-          <div className="board-dock">
+          <div className="board-dock" ref={dockRef}>
             <div className="dock-group">
               {TOOLS.map((item) => (
                 <button
