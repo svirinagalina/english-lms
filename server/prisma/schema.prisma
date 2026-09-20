@@ -40,6 +40,8 @@ model User {
   name         String
   role         Role
   createdAt    DateTime @default(now())
+  // A small profile picture, served from /uploads/avatars.
+  avatar       String?
 
   // Per-student billing. Amount is in minor units (kopeks/cents) to avoid float rounding.
   priceAmount   Int?

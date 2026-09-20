@@ -92,6 +92,23 @@ callsRouter.post('/', requireRole('OWNER', 'TEACHER'), async (req, res) => {
   res.status(201).json({ call: callView(call, originOf(req)) })
 })
 
+// The lesson that is on right now for this person: for a student, an open
+// call on one of their classrooms started in the last three hours; for a
+// teacher, their own open call. The student's cabinet polls this so the
+// Join button appears the moment the teacher starts the lesson.
+callsRouter.get('/active', async (req, res) => {
+  const since = new Date(Date.now() - 3 * 60 * 60 * 1000)
+  const where = req.user.role === 'STUDENT'
+    ? { endedAt: null, createdAt: { gt: since }, classroom: { studentId: req.user.id } }
+    : { endedAt: null, createdAt: { gt: since }, hostId: req.user.id }
+  const call = await prisma.call.findFirst({
+    where: { ...where, schoolId: req.user.schoolId },
+    include: { host: { select: { id: true, name: true } } },
+    orderBy: { createdAt: 'desc' }
+  })
+  res.json({ call: call ? { ...callView(call, originOf(req)), kind: call.kind } : null })
+})
+
 callsRouter.get('/', requireRole('OWNER', 'TEACHER'), async (req, res) => {
   const calls = await prisma.call.findMany({
     where: { hostId: req.user.id, endedAt: null },

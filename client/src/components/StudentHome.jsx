@@ -4,6 +4,7 @@ import { api } from '../api'
 import { PackageBadge } from './PackageBadge'
 import ActivityHeatmap from './ActivityHeatmap'
 import Panel from './Panel'
+import LiveLesson from './LiveLesson'
 
 // The student's first screen: everything they might want is one click away.
 export default function StudentHome({ classrooms }) {
@@ -29,6 +30,7 @@ export default function StudentHome({ classrooms }) {
 
   return (
     <>
+      <LiveLesson />
       <section>
         <div className="tiles-grid">
           {classroom && (

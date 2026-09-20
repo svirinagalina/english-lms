@@ -101,6 +101,7 @@ export default function Classrooms() {
                 ? `last lesson ${new Date(classroom.lastSession).toLocaleDateString()}`
                 : 'no lessons yet'}
               {classroom.boards > 1 && ` · ${classroom.boards} boards`}
+              {classroom.former && ' · moved to another teacher — history only'}
             </div>
             {isStaff && classroom.progress && (
               <PackageBadge pkg={{ lessonsPaid: classroom.progress.lessonsPaid, held: classroom.progress.held, remaining: classroom.progress.remaining }} />

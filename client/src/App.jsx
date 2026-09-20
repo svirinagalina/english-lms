@@ -22,6 +22,7 @@ import Stats from './pages/Stats'
 import Call from './pages/Call'
 import Content from './pages/Content'
 import AudioCheck from './pages/AudioCheck'
+import Profile from './pages/Profile'
 
 function RequireAuth({ children, roles }) {
   const { user, loading } = useAuth()
@@ -96,6 +97,7 @@ export default function App() {
       <Route path="/progress/:id" element={<RequireAuth><Stats /></RequireAuth>} />
       <Route path="/billing" element={<RequireAuth><Billing /></RequireAuth>} />
       <Route path="/report/:id" element={<RequireAuth><Report /></RequireAuth>} />
+      <Route path="/profile" element={<RequireAuth><Profile /></RequireAuth>} />
       <Route path="/audio-check" element={<RequireAuth><AudioCheck /></RequireAuth>} />
       <Route path="/settings" element={<RequireAuth roles={['OWNER']}><Settings /></RequireAuth>} />
       <Route path="/content" element={<RequireAuth roles={['OWNER', 'PARTNER']}><Content /></RequireAuth>} />

@@ -104,9 +104,15 @@ classroomsRouter.get('/', async (req, res) => {
     orderBy: { createdAt: 'asc' }
   })
 
+  // A classroom whose teacher–student link was removed (the student moved to
+  // another teacher) is history: hidden unless lessons were held in it.
+  const linked = new Set(links.map((l) => `${l.teacherId}:${l.studentId}`))
+  const current = (classroom) => classroom.student === null || linked.has(`${classroom.teacherId}:${classroom.student.id}`)
+
   const view = (classroom) => ({
     id: classroom.id,
     teacher: classroom.teacher,
+    former: !current(classroom),
     student: classroom.student ? { id: classroom.student.id, name: classroom.student.name } : null,
     isTestRoom: classroom.student === null,
     boards: classroom._count.boards,
@@ -114,7 +120,7 @@ classroomsRouter.get('/', async (req, res) => {
     progress: packageProgress(classroom.student, classroom.sessions)
   })
 
-  res.json({ classrooms: classrooms.filter((c) => c.student !== null).map(view) })
+  res.json({ classrooms: classrooms.filter((c) => c.student !== null && (current(c) || c.sessions.length > 0)).map(view) })
 })
 
 // The student's home: the latest homework on their board, so it is one

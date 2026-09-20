@@ -93,6 +93,10 @@ export const api = {
   iceServers: () => request('/calls/ice'),
   addMyWord: (word) => request('/vocab/my/words', { method: 'POST', body: { word } }),
   addBoardWords: (words, classroomId) => request('/vocab/board-words', { method: 'POST', body: { words, classroomId } }),
+  activeCall: () => request('/calls/active'),
+  updateProfile: (body) => request('/profile', { method: 'PATCH', body }),
+  uploadAvatar: (data) => request('/profile/avatar', { method: 'POST', body: { data } }),
+  removeAvatar: () => request('/profile/avatar', { method: 'DELETE' }),
   diag: (event) => request('/diag', { method: 'POST', body: event }).catch(() => {}),
   dictionary: (word) => request(`/dictionary?word=${encodeURIComponent(word)}`),
   uploadWritingImage: (classroomId, data) =>

@@ -7,6 +7,7 @@ import Whiteboard from '../components/Whiteboard'
 import Writing from '../components/Writing'
 import Nav from '../components/Nav'
 import Panel from '../components/Panel'
+import LiveLesson from '../components/LiveLesson'
 import { SiteFooter } from '../components/Brand'
 import BoardRow from '../components/BoardRow'
 import MistakeNotebook from '../components/MistakeNotebook'
@@ -308,6 +309,8 @@ export default function Classroom() {
       </div>
 
       {error && <div className="error">{error}</div>}
+
+      {!isStaff && <LiveLesson classroomId={id} />}
 
       <Panel id={`room:boards:${id}`} title={isPersonal ? 'Boards' : 'Board'} count={classroom.boards.length} defaultOpen>
         <p className="muted" style={{ marginBottom: 10 }}>

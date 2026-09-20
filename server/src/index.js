@@ -27,6 +27,7 @@ import { lessonsRouter } from './routes/lessons.js'
 import { trialsRouter } from './routes/trials.js'
 import { settingsRouter } from './routes/settings.js'
 import { diagRouter } from './routes/diag.js'
+import { profileRouter } from './routes/profile.js'
 import { loadAiSettings } from './settings.js'
 import { setupSignaling } from './signaling.js'
 import { flushBoards } from './boardStore.js'
@@ -59,6 +60,7 @@ app.use('/api/lessons', lessonsRouter)
 app.use('/api/trials', trialsRouter)
 app.use('/api/settings', settingsRouter)
 app.use('/api/diag', diagRouter)
+app.use('/api/profile', profileRouter)
 
 app.get('/api/health', (req, res) => res.json({ ok: true }))
 

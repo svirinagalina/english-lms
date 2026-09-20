@@ -32,7 +32,8 @@ const publicUser = (user) => ({
   name: user.name,
   email: user.email,
   role: user.role,
-  schoolId: user.schoolId
+  schoolId: user.schoolId,
+  avatar: user.avatar ?? null
 })
 
 authRouter.get('/registration-status', async (req, res) => {
