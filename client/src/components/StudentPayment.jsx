@@ -191,7 +191,7 @@ export default function StudentPayment() {
             )}
             {details.note && <p className="muted pay-note">{details.note}</p>}
             {(details.card || details.link) && (
-              <button className="ghost small" onClick={() => copy(detailsAsText(details))}>Copy all details</button>
+              <button className="ghost compact" onClick={() => copy(detailsAsText(details))}>Copy all details</button>
             )}
           </div>
         </div>

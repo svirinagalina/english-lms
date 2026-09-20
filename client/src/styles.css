@@ -746,6 +746,7 @@ select.pill { padding: 0 16px; color: var(--text); border: none; }
   background: var(--accent); color: var(--accent-ink); border: none; cursor: pointer;
 }
 .play-word.small { width: 22px; height: 22px; }
+button.play-word, button.play-word.small { padding: 0; }
 .play-word.on { background: #22c55e; color: #052e16; }
 .play-word:hover { filter: brightness(1.08); }
 .word-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
@@ -1084,7 +1085,7 @@ select.pill { padding: 0 16px; color: var(--text); border: none; }
 .pay-label { font-size: 12px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); }
 .pay-card { font-size: 20px; font-weight: 700; letter-spacing: .06em; font-variant-numeric: tabular-nums; }
 .pay-note { white-space: pre-wrap; }
-button.small { padding: 6px 10px; font-size: 12px; align-self: flex-start; }
+button.compact { padding: 6px 10px; font-size: 12px; align-self: flex-start; }
 
 /* The live-lesson banner in a student's cabinet. */
 .live-lesson {

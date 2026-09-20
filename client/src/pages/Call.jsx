@@ -840,6 +840,10 @@ export default function Call() {
 
   boardsRef.current = boards
   const currentBoard = boards.find((b) => b.id === boardId) ?? null
+  // Mistakes and vocabulary go to the student of the lesson: the board's own
+  // student, or — on a teacher's own board used as material — the student
+  // this call was started for.
+  const lessonClassroomId = currentBoard?.studentId ? currentBoard.classroomId : (call?.classroomId ?? null)
 
   // A call started from a student's page opens that student's board as soon
   // as the teacher is in; a student joining later starts on it too (the
@@ -1067,9 +1071,9 @@ export default function Call() {
               canSpotlight={isStaff}
               wordPicker={!isStaff}
               focusElementId={searchParams.get('focus')}
-              onMistake={isStaff && currentBoard?.studentId ? (body) => api.addMistake(currentBoard.classroomId, { ...body, boardId }) : undefined}
+              onMistake={isStaff && lessonClassroomId ? (body) => api.addMistake(lessonClassroomId, { ...body, boardId }) : undefined}
               onMistakeRemoved={isStaff ? (elementId) => api.deleteMistakeByElement(elementId).catch(() => {}) : undefined}
-              onAddWords={currentBoard?.classroomId ? (words) => api.addBoardWords(words, currentBoard.classroomId) : undefined}
+              onAddWords={lessonClassroomId || currentBoard?.classroomId ? (words) => api.addBoardWords(words, lessonClassroomId ?? currentBoard.classroomId) : undefined}
               assistEnabled={assistEnabled}
               onAssist={isStaff
                 ? async (mode, words) => {
