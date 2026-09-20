@@ -82,6 +82,48 @@ export default function Classrooms() {
 
   if (loading) return <div className="centered">Loading…</div>
 
+  // An administrator gets every classroom of the school: their own students
+  // first, the other teachers' in a separate panel. A teacher only ever
+  // receives their own from the server.
+  const isAdmin = user.role === 'OWNER' || user.role === 'PARTNER'
+  const own = classrooms.filter((c) => user.role === 'STUDENT' || c.teacher?.id === user.id)
+  const others = isAdmin ? classrooms.filter((c) => c.teacher?.id !== user.id) : []
+  const otherTeachers = [...new Map(others.map((c) => [c.teacher.id, c.teacher])).values()]
+
+  const studentList = (items) => (
+    <div className="list">
+      {items.map((classroom) => (
+        <div key={classroom.id} className="row student-row">
+          <Link className="unit-main student-link" to={`/classroom/${classroom.id}`}>
+            <strong>{user.role === 'STUDENT' ? classroom.teacher.name : classroom.student.name}</strong>
+            <div className="muted">
+              {classroom.lastSession
+                ? `last lesson ${new Date(classroom.lastSession).toLocaleDateString()}`
+                : 'no lessons yet'}
+              {classroom.boards > 1 && ` · ${classroom.boards} boards`}
+            </div>
+            {isStaff && classroom.progress && (
+              <PackageBadge pkg={{ lessonsPaid: classroom.progress.lessonsPaid, held: classroom.progress.held, remaining: classroom.progress.remaining }} />
+            )}
+          </Link>
+          {isStaff && (
+            <div className="row-actions">
+              <button className="ghost" onClick={() => navigate(`/classroom/${classroom.id}`)}>Open</button>
+              {classroom.teacher?.id === user.id && (
+                <>
+                  <button className="ghost" onClick={() => startTrial(classroom)} disabled={startingFor === classroom.id} title="A call with the placement test on the board; not counted as a paid lesson">Trial lesson</button>
+                  <button onClick={() => startLesson(classroom)} disabled={startingFor === classroom.id}>
+                    {startingFor === classroom.id ? 'Starting…' : 'Start lesson'}
+                  </button>
+                </>
+              )}
+            </div>
+          )}
+        </div>
+      ))}
+    </div>
+  )
+
   return (
     <div className="page">
       <Nav title="Classroom" />
@@ -90,14 +132,14 @@ export default function Classrooms() {
 
       {!isStaff && <StudentHome classrooms={classrooms} />}
 
-      <Panel id="home:students" title={user.role === 'STUDENT' ? 'My teachers' : 'My students'} count={classrooms.length} defaultOpen={user.role === 'STUDENT'}>
+      <Panel id="home:students" title={user.role === 'STUDENT' ? 'My teachers' : 'My students'} count={own.length} defaultOpen={user.role === 'STUDENT'}>
         <p className="muted" style={{ marginBottom: 10 }}>
           {user.role === 'STUDENT'
             ? 'Boards and materials from your lessons.'
             : 'Start lesson opens a call on the student\'s board; the student joins from their cabinet or the link.'}
         </p>
 
-        {classrooms.length === 0 && (
+        {own.length === 0 && (
           <p className="muted">
             {user.role === 'STUDENT'
               ? 'You are not linked to a teacher yet.'
@@ -105,34 +147,22 @@ export default function Classrooms() {
           </p>
         )}
 
-        <div className="list">
-          {classrooms.map((classroom) => (
-            <div key={classroom.id} className="row student-row">
-              <Link className="unit-main student-link" to={`/classroom/${classroom.id}`}>
-                <strong>{user.role === 'STUDENT' ? classroom.teacher.name : classroom.student.name}</strong>
-                <div className="muted">
-                  {classroom.lastSession
-                    ? `last lesson ${new Date(classroom.lastSession).toLocaleDateString()}`
-                    : 'no lessons yet'}
-                  {classroom.boards > 1 && ` · ${classroom.boards} boards`}
-                </div>
-                {isStaff && classroom.progress && (
-                  <PackageBadge pkg={{ lessonsPaid: classroom.progress.lessonsPaid, held: classroom.progress.held, remaining: classroom.progress.remaining }} />
-                )}
-              </Link>
-              {isStaff && (
-                <div className="row-actions">
-                  <button className="ghost" onClick={() => navigate(`/classroom/${classroom.id}`)}>Open</button>
-                  <button className="ghost" onClick={() => startTrial(classroom)} disabled={startingFor === classroom.id} title="A call with the placement test on the board; not counted as a paid lesson">Trial lesson</button>
-                  <button onClick={() => startLesson(classroom)} disabled={startingFor === classroom.id}>
-                    {startingFor === classroom.id ? 'Starting…' : 'Start lesson'}
-                  </button>
-                </div>
-              )}
+        {studentList(own)}
+      </Panel>
+
+      {isAdmin && others.length > 0 && (
+        <Panel id="home:others" title="Other teachers\' students" count={others.length} hint="as administrator">
+          <p className="muted" style={{ marginBottom: 10 }}>
+            Students linked to other teachers. Only the administrator sees this list; each teacher sees their own students only.
+          </p>
+          {otherTeachers.map((teacher) => (
+            <div key={teacher.id} style={{ marginBottom: 14 }}>
+              <h3 className="group-title">{teacher.name}</h3>
+              {studentList(others.filter((c) => c.teacher.id === teacher.id))}
             </div>
           ))}
-        </div>
-      </Panel>
+        </Panel>
+      )}
 
       {isStaff && mine && (
         <Panel id="home:boards" title="My boards" count={mine.boards.length}>

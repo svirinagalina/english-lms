@@ -1073,3 +1073,4 @@ select.pill { padding: 0 16px; color: var(--text); border: none; }
 }
 .panel-body .row, .panel-body .tile { background: var(--bg); }
 .panel-body .row .row { background: var(--surface); }
+.group-title { font-size: 14px; color: var(--muted); font-weight: 600; margin: 4px 0 8px; text-transform: uppercase; letter-spacing: .04em; }
