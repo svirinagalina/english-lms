@@ -6,7 +6,7 @@ import { mkdir, writeFile, unlink, stat } from 'fs/promises'
 import { randomBytes } from 'crypto'
 import { fileURLToPath } from 'url'
 import { prisma } from '../db.js'
-import { requireAuth, requireRole } from '../auth.js'
+import { requireAuth, requireRole, isAdmin } from '../auth.js'
 
 // Textbooks: PDFs a teacher uploads once and opens on a board during lessons.
 // The files are copyrighted material, so they are never served as plain
@@ -18,11 +18,19 @@ const UPLOAD_ROOT = process.env.UPLOAD_DIR ?? path.resolve(path.dirname(fileURLT
 export const TEXTBOOK_DIR = path.join(UPLOAD_ROOT, 'textbooks')
 const MAX_PDF_BYTES = 80 * 1024 * 1024
 
-const view = (t) => ({ id: t.id, title: t.title, bytes: t.bytes, pages: t.pages, createdAt: t.createdAt })
+const view = (t, uploader) => ({ id: t.id, title: t.title, bytes: t.bytes, pages: t.pages, createdAt: t.createdAt, uploadedById: t.uploadedById, uploadedBy: uploader?.name ?? null })
+
+// Each teacher keeps their own books; the administrator sees every book of
+// the school with the teacher's name, and may delete any of them.
+const mine = (user) => (isAdmin(user) ? { schoolId: user.schoolId } : { schoolId: user.schoolId, uploadedById: user.id })
+const mayManage = (user, textbook) => isAdmin(user) || textbook.uploadedById === user.id
 
 textbooksRouter.get('/', async (req, res) => {
-  const textbooks = await prisma.textbook.findMany({ where: { schoolId: req.user.schoolId }, orderBy: { title: 'asc' } })
-  res.json({ textbooks: textbooks.map(view) })
+  const textbooks = await prisma.textbook.findMany({ where: mine(req.user), orderBy: { title: 'asc' } })
+  const ids = [...new Set(textbooks.map((t) => t.uploadedById).filter(Boolean))]
+  const people = ids.length ? await prisma.user.findMany({ where: { id: { in: ids } }, select: { id: true, name: true } }) : []
+  const byId = Object.fromEntries(people.map((p) => [p.id, p]))
+  res.json({ textbooks: textbooks.map((t) => view(t, byId[t.uploadedById])) })
 })
 
 // The PDF itself, as raw bytes: ?title=…&pages=… carry the name and page count.
@@ -44,7 +52,7 @@ textbooksRouter.post('/', requireRole('OWNER', 'TEACHER'), express.raw({ type: '
 
 textbooksRouter.patch('/:id', requireRole('OWNER', 'TEACHER'), async (req, res) => {
   const textbook = await prisma.textbook.findFirst({ where: { id: req.params.id, schoolId: req.user.schoolId } })
-  if (!textbook) return res.status(404).json({ error: 'Textbook not found' })
+  if (!textbook || !mayManage(req.user, textbook)) return res.status(404).json({ error: 'Textbook not found' })
   const title = String(req.body?.title ?? '').trim().slice(0, 200)
   if (!title) return res.status(400).json({ error: 'A title is needed' })
   const updated = await prisma.textbook.update({ where: { id: textbook.id }, data: { title } })
@@ -53,7 +61,7 @@ textbooksRouter.patch('/:id', requireRole('OWNER', 'TEACHER'), async (req, res) 
 
 textbooksRouter.get('/:id/file', async (req, res) => {
   const textbook = await prisma.textbook.findFirst({ where: { id: req.params.id, schoolId: req.user.schoolId } })
-  if (!textbook) return res.status(404).json({ error: 'Textbook not found' })
+  if (!textbook || (req.user.role === 'STUDENT') || !mayManage(req.user, textbook)) return res.status(404).json({ error: 'Textbook not found' })
   const file = path.join(UPLOAD_ROOT, textbook.file)
   let info
   try { info = await stat(file) } catch { return res.status(404).json({ error: 'The file is missing on the server' }) }
@@ -66,7 +74,7 @@ textbooksRouter.get('/:id/file', async (req, res) => {
 
 textbooksRouter.delete('/:id', requireRole('OWNER', 'TEACHER'), async (req, res) => {
   const textbook = await prisma.textbook.findFirst({ where: { id: req.params.id, schoolId: req.user.schoolId } })
-  if (!textbook) return res.status(404).json({ error: 'Textbook not found' })
+  if (!textbook || !mayManage(req.user, textbook)) return res.status(404).json({ error: 'Textbook not found' })
   await prisma.textbook.delete({ where: { id: textbook.id } })
   unlink(path.join(UPLOAD_ROOT, textbook.file)).catch(() => {})
   res.json({ ok: true })

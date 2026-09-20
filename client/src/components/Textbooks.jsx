@@ -2,12 +2,15 @@ import { useEffect, useRef, useState } from 'react'
 import { api } from '../api'
 import Panel from './Panel'
 import { pdfPageCount } from '../utils/pdf'
+import { useAuth } from '../AuthContext'
 
 const size = (bytes) => (bytes > 1e6 ? `${(bytes / 1e6).toFixed(1)} MB` : `${Math.round(bytes / 1e3)} KB`)
 
 // The school's textbooks: PDFs uploaded here, opened on any board during a
 // lesson through the Textbook tool.
 export default function Textbooks() {
+  const { user } = useAuth()
+  const admin = user.role === 'OWNER' || user.role === 'PARTNER'
   const [books, setBooks] = useState(null)
   const [uploading, setUploading] = useState('')
   const [error, setError] = useState('')
@@ -49,7 +52,8 @@ export default function Textbooks() {
   return (
     <Panel id="home:textbooks" title="Textbooks" count={books?.length ?? 0} defaultOpen={!books || books.length === 0} hint="PDFs for lessons">
       <p className="muted" style={{ marginBottom: 10 }}>
-        Upload a PDF once; in a lesson, the <strong>Textbook</strong> button on the board puts any page on the board, where you draw and write on it and the student sees it live. Files are visible only to signed-in people of the school.
+        Upload a PDF once; in a lesson, the <strong>Textbook</strong> button on the board puts any page on the board, where you draw and write on it and the student sees it live.
+        {admin ? ' As administrator you see every teacher\'s books and may delete any of them.' : ' Your books are yours alone; the administrator can see and remove them.'}
       </p>
       <div
         className={`dropzone ${over ? 'over' : ''} ${uploading ? 'busy' : ''}`}
@@ -80,7 +84,10 @@ export default function Textbooks() {
               <>
                 <div>
                   <strong>{book.title}</strong>
-                  <div className="muted">{book.pages ? `${book.pages} pages · ` : ''}{size(book.bytes)} · added {new Date(book.createdAt).toLocaleDateString()}</div>
+                  <div className="muted">
+                    {book.pages ? `${book.pages} pages · ` : ''}{size(book.bytes)} · added {new Date(book.createdAt).toLocaleDateString()}
+                    {admin && book.uploadedById !== user.id && book.uploadedBy && ` · ${book.uploadedBy}'s`}
+                  </div>
                 </div>
                 <div className="row-actions">
                   <a className="ghost button" href={api.textbookFileUrl(book.id)} target="_blank" rel="noreferrer">Open PDF</a>
