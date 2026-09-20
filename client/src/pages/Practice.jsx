@@ -63,13 +63,10 @@ export default function Practice() {
         </Panel>
       )}
 
-      {units.length === 0 && !error && (
-        <p className="muted" style={{ marginTop: 24 }}>
-          No units yet. The textbook has not been imported for this school.
-        </p>
-      )}
-
       <Panel id="practice:units" title="Grammar units" count={units.length} defaultOpen>
+        {units.length === 0 && !error && (
+          <p className="muted">No units yet. The textbook has not been imported for this school.</p>
+        )}
         <div className="list">
           {units.map((unit) => {
             const percent = unit.total ? Math.round((unit.solved / unit.total) * 100) : 0

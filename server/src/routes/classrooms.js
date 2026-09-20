@@ -225,7 +225,11 @@ classroomsRouter.get('/:id', async (req, res) => {
     }),
     prisma.board.findMany({
       where: { scratch: false, OR: [{ classroomId: classroom.id }, { sharedWith: { some: { id: classroom.id } } }] },
-      select: { id: true, title: true, createdAt: true, updatedAt: true, classroomId: true, sharedWith: { select: { id: true, student: { select: { name: true } } } } },
+      select: {
+        id: true, title: true, createdAt: true, updatedAt: true, classroomId: true,
+        sharedWith: { select: { id: true, student: { select: { name: true } } } },
+        classroom: { select: { student: { select: { name: true } } } }
+      },
       orderBy: { createdAt: 'asc' }
     })
   ])
@@ -253,9 +257,11 @@ classroomsRouter.get('/:id', async (req, res) => {
         createdAt: board.createdAt,
         updatedAt: board.updatedAt,
         classroomId: board.classroomId,
-        // Shared in from another student's space, or shared out to others.
-        // Who else a board is shared with is the teacher's business only.
+        // Shared in from the teacher's own shelf, or from another student's
+        // space, or shared out to others. Who else a board is shared with is
+        // the teacher's business only.
         shared: board.classroomId !== classroom.id,
+        ownerName: board.classroomId !== classroom.id ? (board.classroom.student?.name ?? null) : null,
         sharedWith: req.user.role === 'STUDENT' ? [] : board.sharedWith.map((c) => ({ id: c.id, name: c.student?.name })).filter((c) => c.name)
       }))
     }

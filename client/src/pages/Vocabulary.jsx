@@ -118,6 +118,8 @@ export default function Vocabulary() {
             Double-click any word on the board or in Writing to hear it, see its meanings and add it to <strong>My words</strong>.
           </p>
         )}
+      </section>
+      <Panel id="vocab:sets" title={isStaff ? 'Word sets' : 'My word sets'} count={sets.length} defaultOpen>
         {sets.length === 0 && (
           <p className="muted">
             {isStaff
@@ -125,9 +127,6 @@ export default function Vocabulary() {
               : 'No word sets yet. Words you save from the board or Writing will appear here as “My words”.'}
           </p>
         )}
-
-      </section>
-      <Panel id="vocab:sets" title={isStaff ? 'Word sets' : 'My word sets'} count={sets.length} defaultOpen>
         <div className="list">
           {sets.map((set) => (
             <div key={set.id} className="row set-row">

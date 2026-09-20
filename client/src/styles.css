@@ -964,6 +964,9 @@ button.play-word, button.play-word.small { padding: 0; }
 @media (max-width: 720px) {
   .topbar .nav-links { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; max-width: 100%; padding-bottom: 2px; gap: 4px; }
   .topbar .nav-links::-webkit-scrollbar { display: none; }
+  /* Sign out lives at the end of this row; fade the edge so a phone shows
+     there is more to scroll to, instead of a row that looks complete. */
+  .topbar .nav-links { -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 28px), transparent); mask-image: linear-gradient(to right, #000 calc(100% - 28px), transparent); padding-right: 20px; }
   .topbar .nav-links .nav-link, .topbar .nav-links button { flex-shrink: 0; }
   .topbar .nav-identity > div { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .row > .row-actions, .row-main > .row-actions { flex-basis: 100%; justify-content: flex-start; }

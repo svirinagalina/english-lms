@@ -42,7 +42,7 @@ export default function BoardRow({ board, classroomId, targets, canEdit, onOpen,
           <strong>{board.title}</strong>
           <div className="muted">
             Updated {new Date(board.updatedAt).toLocaleString()}
-            {board.shared && ' · shared from another student'}
+            {board.shared && (board.ownerName ? ` · shared from ${board.ownerName}'s board` : ' · from your own boards')}
             {board.sharedWith?.length > 0 && ` · also with ${board.sharedWith.map((c) => c.name).join(', ')}`}
           </div>
           {notice && <div className="muted" style={{ color: '#a5b4fc' }}>{notice}</div>}

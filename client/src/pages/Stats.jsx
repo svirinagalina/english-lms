@@ -32,9 +32,8 @@ function StudentList() {
       <Nav title="Progress" />
       {error && <div className="error">{error}</div>}
 
-      {students.length === 0 && <p className="muted" style={{ marginTop: 24 }}>No students yet. Once a student practises, their accuracy and weak topics show here.</p>}
-
       <Panel id="stats:students" title="Students" count={students.length} defaultOpen>
+        {students.length === 0 && <p className="muted">No students yet. Once a student practises, their accuracy and weak topics show here.</p>}
         <div className="list">
           {students.map((student) => (
             <Link key={student.id} className="row unit-row" to={`/progress/${student.id}`}>
