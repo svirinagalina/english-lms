@@ -115,6 +115,7 @@ export default function Call() {
   const [micOn, setMicOn] = useState(true)
   const [cameraOn, setCameraOn] = useState(true)
   const micOnRef = useRef(true)
+  const cameraOnRef = useRef(true)
   const [joined, setJoined] = useState(false)
   const rawMicRef = useRef(null)
   const denoiserRef = useRef(null)
@@ -457,6 +458,9 @@ export default function Call() {
           setCameraOn(false)
         }
         if (disposed) { raw.getTracks().forEach((t) => t.stop()); return }
+        // What was switched off on the preview stays off in the call.
+        raw.getVideoTracks().forEach((t) => { t.enabled = cameraOnRef.current })
+        raw.getAudioTracks().forEach((t) => { t.enabled = micOnRef.current })
         rawMicRef.current = raw.getAudioTracks()[0] ?? null
         if (rawMicRef.current) {
           const rawTrack = rawMicRef.current
@@ -802,6 +806,23 @@ export default function Call() {
     } else {
       // The blurred picture goes dark with the camera, not frozen on a frame.
       const next = !cameraOn
+      cameraOnRef.current = next
+      if (blurOutRef.current) blurOutRef.current.track.enabled = next
+      setCameraOn(next)
+    }
+  }
+  // On the join screen the same switches act on the preview stream.
+  const togglePreview = (kind) => {
+    const raw = previewRawRef.current
+    if (kind === 'audio') {
+      const next = !micOnRef.current
+      micOnRef.current = next
+      raw?.getAudioTracks().forEach((t) => { t.enabled = next })
+      setMicOn(next)
+    } else {
+      const next = !cameraOnRef.current
+      cameraOnRef.current = next
+      raw?.getVideoTracks().forEach((t) => { t.enabled = next })
       if (blurOutRef.current) blurOutRef.current.track.enabled = next
       setCameraOn(next)
     }
@@ -978,6 +999,13 @@ export default function Call() {
             <video ref={localVideoRef} autoPlay muted playsInline />
             <canvas ref={backgroundCanvasRef} className={isBlurEnabled ? 'blur-layer' : 'blur-layer hidden'} />
             <canvas ref={processingCanvasRef} className={isBlurEnabled ? 'blur-layer' : 'blur-layer hidden'} />
+            {previewState === 'ready' && !cameraOn && <span className="preview-off">Camera is off</span>}
+            {previewState === 'ready' && (
+              <div className="preview-switches">
+                <button type="button" className={`round ${cameraOn ? 'on' : 'off'}`} onClick={() => togglePreview('video')} title={cameraOn ? 'Turn camera off' : 'Turn camera on'}>Cam</button>
+                <button type="button" className={`round ${micOn ? 'on' : 'off'}`} onClick={() => togglePreview('audio')} title={micOn ? 'Mute microphone' : 'Unmute microphone'}>Mic</button>
+              </div>
+            )}
             {previewState === 'asking' && <span className="preview-note">Allow the camera and microphone in the browser prompt…</span>}
             {previewState === 'denied' && (
               <span className="preview-note">
