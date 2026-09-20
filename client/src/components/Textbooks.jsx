@@ -44,13 +44,25 @@ export default function Textbooks() {
     try { await api.renameTextbook(id, draft.trim()); setRenaming(null); await refresh() } catch (err) { setError(err.message) }
   }
 
+  const [over, setOver] = useState(false)
+
   return (
-    <Panel id="home:textbooks" title="Textbooks" count={books?.length ?? 0}>
+    <Panel id="home:textbooks" title="Textbooks" count={books?.length ?? 0} defaultOpen={!books || books.length === 0} hint="PDFs for lessons">
       <p className="muted" style={{ marginBottom: 10 }}>
         Upload a PDF once; in a lesson, the <strong>Textbook</strong> button on the board puts any page on the board, where you draw and write on it and the student sees it live. Files are visible only to signed-in people of the school.
       </p>
-      <div className="row-actions" style={{ marginBottom: 12 }}>
-        <button onClick={() => fileRef.current?.click()} disabled={Boolean(uploading)}>{uploading ? `Uploading ${uploading}…` : 'Upload a PDF'}</button>
+      <div
+        className={`dropzone ${over ? 'over' : ''} ${uploading ? 'busy' : ''}`}
+        onClick={() => !uploading && fileRef.current?.click()}
+        onDragOver={(e) => { e.preventDefault(); setOver(true) }}
+        onDragLeave={() => setOver(false)}
+        onDrop={(e) => { e.preventDefault(); setOver(false); upload(e.dataTransfer.files?.[0]) }}
+        role="button"
+        tabIndex={0}
+        onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); fileRef.current?.click() } }}
+      >
+        <strong>{uploading ? `Uploading ${uploading}…` : '+ Upload a PDF textbook'}</strong>
+        <span className="muted">{uploading ? 'A large book can take a minute.' : 'Click to choose a file on your computer, or drag a PDF here · up to 80 MB'}</span>
         <input ref={fileRef} type="file" accept="application/pdf,.pdf" hidden onChange={(e) => { upload(e.target.files?.[0]); e.target.value = '' }} />
       </div>
       {error && <div className="error" style={{ marginBottom: 10 }}>{error}</div>}
