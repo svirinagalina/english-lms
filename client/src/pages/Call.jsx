@@ -844,6 +844,12 @@ export default function Call() {
   // student, or — on a teacher's own board used as material — the student
   // this call was started for.
   const lessonClassroomId = currentBoard?.studentId ? currentBoard.classroomId : (call?.classroomId ?? null)
+  // On a board of my own (material, a group lesson) the student is chosen on
+  // the board: my students, the one this call was started for first.
+  const boardStudents = isStaff && currentBoard && !currentBoard.studentId
+    ? [...new Map(boards.filter((b) => b.studentId && b.teacherId === user.id).map((b) => [b.classroomId, { classroomId: b.classroomId, name: b.student }])).values()]
+        .sort((a, b) => (a.classroomId === call?.classroomId ? -1 : b.classroomId === call?.classroomId ? 1 : a.name.localeCompare(b.name)))
+    : null
 
   // A call started from a student's page opens that student's board as soon
   // as the teacher is in; a student joining later starts on it too (the
@@ -1071,9 +1077,10 @@ export default function Call() {
               canSpotlight={isStaff}
               wordPicker={!isStaff}
               focusElementId={searchParams.get('focus')}
-              onMistake={isStaff && lessonClassroomId ? (body) => api.addMistake(lessonClassroomId, { ...body, boardId }) : undefined}
+              onMistake={isStaff && (lessonClassroomId || boardStudents?.length) ? (body, chosen) => api.addMistake(chosen ?? lessonClassroomId, { ...body, boardId }) : undefined}
               onMistakeRemoved={isStaff ? (elementId) => api.deleteMistakeByElement(elementId).catch(() => {}) : undefined}
-              onAddWords={lessonClassroomId || currentBoard?.classroomId ? (words) => api.addBoardWords(words, lessonClassroomId ?? currentBoard.classroomId) : undefined}
+              onAddWords={lessonClassroomId || boardStudents?.length || currentBoard?.classroomId ? (words, chosen) => api.addBoardWords(words, chosen ?? lessonClassroomId ?? currentBoard.classroomId) : undefined}
+              students={boardStudents?.length ? boardStudents : null}
               assistEnabled={assistEnabled}
               onAssist={isStaff
                 ? async (mode, words) => {

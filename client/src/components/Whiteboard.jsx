@@ -797,7 +797,7 @@ export async function exportBoardPdf(elements, title = 'Board') {
 
 // --- Component ----------------------------------------------------------------
 
-const Whiteboard = forwardRef(function Whiteboard({ socketRef, boardId, title, subtitle, onClose, backLabel = '← Back', onStartCall, onOpenWriting, canSpotlight = false, onUploadImage, onAssist, assistEnabled, wordPicker = false, focusElementId = null, onMistake, onMistakeRemoved, insertBlock = null, onInserted, onAddWords }, ref) {
+const Whiteboard = forwardRef(function Whiteboard({ socketRef, boardId, title, subtitle, onClose, backLabel = '← Back', onStartCall, onOpenWriting, canSpotlight = false, onUploadImage, onAssist, assistEnabled, wordPicker = false, focusElementId = null, onMistake, onMistakeRemoved, insertBlock = null, onInserted, onAddWords, students = null }, ref) {
   const [assisting, setAssisting] = useState(null)
   const [exporting, setExporting] = useState(false)
   const fileInputRef = useRef(null)
@@ -838,6 +838,25 @@ const Whiteboard = forwardRef(function Whiteboard({ socketRef, boardId, title, s
   // A student's double-click on a word: the word card (with "Add to my words").
   const [wordCard, setWordCard] = useState(null) // { word, x, y }
   const [toast, setToast] = useState(null) // a short confirmation, e.g. a word added to the vocabulary
+  // A teacher's own board used with several students: mistakes and words go
+  // to the student chosen here (remembered per board).
+  const [target, setTarget] = useState(() => {
+    if (!students?.length) return null
+    try { const saved = localStorage.getItem(`board-target:${boardId}`); if (students.some((s) => s.classroomId === saved)) return saved } catch { /* private window */ }
+    return students.length === 1 ? students[0].classroomId : null
+  })
+  const chooseTarget = (classroomId) => {
+    setTarget(classroomId)
+    try { localStorage.setItem(`board-target:${boardId}`, classroomId) } catch { /* private window */ }
+  }
+  const targetName = students?.find((s) => s.classroomId === target)?.name ?? null
+  // Asks which student, when the board has several and none is chosen yet.
+  const [studentPrompt, setStudentPrompt] = useState(null) // { run: (classroomId) => void }
+  const withTarget = (run) => {
+    if (!students?.length) return run(null)
+    if (target) return run(target)
+    setStudentPrompt({ run: (classroomId) => { chooseTarget(classroomId); setStudentPrompt(null); run(classroomId) } })
+  }
   const [addingWords, setAddingWords] = useState(false)
   // The Mistakes panel: rows typed during the lesson; each saved row becomes
   // a red note on the board (so the student sees it at once) and a notebook entry.
@@ -1404,13 +1423,16 @@ const Whiteboard = forwardRef(function Whiteboard({ socketRef, boardId, title, s
     return selectedWords().map((w) => w.replace(/^[^a-zA-Z]+|[^a-zA-Z]+$/g, '')).filter((w) => w && w.split(/\s+/).length <= 4)
   }
 
-  const addWordsToVocabulary = async () => {
+  const addWordsToVocabulary = () => {
     if (!onAddWords || addingWords) return
     const words = wordsToAdd()
     if (!words.length) { showToast(textInput ? 'Highlight a word first' : 'No short words here to add'); return }
+    withTarget((classroomId) => addWordsTo(words, classroomId))
+  }
+  const addWordsTo = async (words, classroomId) => {
     setAddingWords(true)
     try {
-      const result = await onAddWords(words)
+      const result = await onAddWords(words, classroomId)
       if (!result) return
       const where = result.student ? `${result.student}'s vocabulary` : 'My words'
       const parts = []
@@ -2453,6 +2475,15 @@ const Whiteboard = forwardRef(function Whiteboard({ socketRef, boardId, title, s
 
         {wordCard && <WordCard word={wordCard.word} x={wordCard.x} y={wordCard.y} onClose={() => setWordCard(null)} />}
         {toast && <div className="board-toast">{toast}</div>}
+        {studentPrompt && (
+          <div className="board-toast student-prompt">
+            <span>Add to whose vocabulary?</span>
+            {students.map((s) => (
+              <button key={s.classroomId} type="button" className="tool" onClick={() => studentPrompt.run(s.classroomId)}>{s.name}</button>
+            ))}
+            <button type="button" className="chip-close" onClick={() => setStudentPrompt(null)} title="Cancel">×</button>
+          </div>
+        )}
 
         {mistakesOpen && onMistake && (
           <div className="mistakes-panel" onPointerDown={(e) => e.stopPropagation()}>
@@ -2460,6 +2491,15 @@ const Whiteboard = forwardRef(function Whiteboard({ socketRef, boardId, title, s
               <strong>Mistakes this lesson</strong>
               <button type="button" className="word-card-close" onClick={() => setMistakesOpen(false)} title="Close">×</button>
             </div>
+            {students?.length > 0 && (
+              <label className="mistakes-target">
+                <span className="muted">Student</span>
+                <select className="tool" value={target ?? ''} onChange={(e) => chooseTarget(e.target.value)}>
+                  {!target && <option value="">Choose…</option>}
+                  {students.map((s) => <option key={s.classroomId} value={s.classroomId}>{s.name}</option>)}
+                </select>
+              </label>
+            )}
             <p className="muted small-hint">Each saved line appears on the board for the student right away and goes into their notebook.</p>
             <form
               className="mistakes-rows"
@@ -2467,6 +2507,7 @@ const Whiteboard = forwardRef(function Whiteboard({ socketRef, boardId, title, s
                 e.preventDefault()
                 const filled = mistakeRows.map((r) => ({ said: r.said.trim(), correct: r.correct.trim() })).filter((r) => r.said && r.correct)
                 if (!filled.length || mistakeBusy) return
+                if (students?.length && !target) { setMistakeError('Choose the student first'); return }
                 setMistakeBusy(true)
                 setMistakeError('')
                 const rect = canvasRef.current.getBoundingClientRect()
@@ -2475,7 +2516,7 @@ const Whiteboard = forwardRef(function Whiteboard({ socketRef, boardId, title, s
                 try {
                   for (const { said, correct } of filled) {
                     const elementId = newId()
-                    const { mistake } = await onMistake({ said, correct, elementId })
+                    const { mistake } = await onMistake({ said, correct, elementId }, target)
                     const tag = mistake.labels?.length ? `\n{{#6b7280:${safe(mistake.labels.join(' · '))}}}` : ''
                     // Notes stack in a column left of the panel, so the teacher sees them too.
                     const stack = mistakeStackRef.current
@@ -2566,14 +2607,17 @@ const Whiteboard = forwardRef(function Whiteboard({ socketRef, boardId, title, s
                 type="button"
                 className="tool word-tip-add"
                 disabled={addingWords}
-                onClick={async () => {
+                onClick={() => {
                   const word = tip.word
-                  setAddingWords(true)
-                  try {
-                    const result = await onAddWords([word])
-                    const where = result?.student ? `${result.student}'s vocabulary` : 'My words'
-                    showToast(result?.added ? `“${word}” added to ${where}` : `“${word}” is already in ${where}`)
-                  } catch (err) { showToast(err.message) } finally { setAddingWords(false); setTip(null) }
+                  setTip(null)
+                  withTarget(async (classroomId) => {
+                    setAddingWords(true)
+                    try {
+                      const result = await onAddWords([word], classroomId)
+                      const where = result?.student ? `${result.student}'s vocabulary` : 'My words'
+                      showToast(result?.added ? `“${word}” added to ${where}` : `“${word}” is already in ${where}`)
+                    } catch (err) { showToast(err.message) } finally { setAddingWords(false) }
+                  })
                 }}
               >
                 {addingWords ? 'Adding…' : '+ Vocabulary'}

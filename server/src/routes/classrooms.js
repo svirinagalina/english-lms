@@ -190,6 +190,7 @@ classroomsRouter.get('/boards', async (req, res) => {
       classroomId: classroom.id,
       studentId: classroom.student?.id ?? null,
       student: classroom.student?.name ?? null,
+      teacherId: classroom.teacher?.id ?? null,
       owner: classroom.student ? null : classroom.teacher.name
     }))
   )

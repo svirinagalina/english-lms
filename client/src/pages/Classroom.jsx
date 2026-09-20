@@ -67,6 +67,8 @@ export default function Classroom() {
   const navigate = useNavigate()
   const [searchParams, setSearchParams] = useSearchParams()
   const [classroom, setClassroom] = useState(null)
+  // My students, for mistakes and words written on one of my own boards.
+  const [myStudents, setMyStudents] = useState([])
   const [error, setError] = useState('')
   const [openBoardId, setOpenBoardId] = useState(searchParams.get('board'))
   // Links within the page (a lesson summary, the homework tile) change ?board=.
@@ -114,12 +116,13 @@ export default function Classroom() {
 
       // Where a board from here can go: my own boards, or another student.
       Promise.all([api.myBoards(), api.listClassrooms()])
-        .then(([{ classroom: mine }, { classrooms }]) =>
+        .then(([{ classroom: mine }, { classrooms }]) => {
           setTargets([
             { id: mine.id, label: 'My boards' },
             ...classrooms.map((c) => ({ id: c.id, label: c.student.name }))
           ].filter((t) => t.id !== id))
-        )
+          setMyStudents(classrooms.filter((c) => c.student && !c.former && c.teacher?.id === user.id).map((c) => ({ classroomId: c.id, name: c.student.name })))
+        })
         .catch(() => {})
     }
 
@@ -253,7 +256,7 @@ export default function Classroom() {
             focusElementId={searchParams.get('focus')}
             insertBlock={insertBlock}
             onInserted={() => { setInsertBlock(null); setSearchParams((p) => { p.delete('summary'); p.set('board', openBoard.id); return p }, { replace: true }) }}
-            onMistake={isStaff && !isPersonal ? (body) => api.addMistake(id, { ...body, boardId: openBoard.id }) : undefined}
+            onMistake={isStaff && (!isPersonal || myStudents.length) ? (body, chosen) => api.addMistake(isPersonal ? chosen : id, { ...body, boardId: openBoard.id }) : undefined}
             onMistakeRemoved={isStaff && !isPersonal ? (elementId) => api.deleteMistakeByElement(elementId).catch(() => {}) : undefined}
             onUploadImage={isStaff
               ? async (dataUrl) => {
@@ -266,7 +269,8 @@ export default function Classroom() {
                   }
                 }
               : undefined}
-            onAddWords={!isPersonal ? (words) => api.addBoardWords(words, id) : undefined}
+            onAddWords={!isPersonal || myStudents.length ? (words, chosen) => api.addBoardWords(words, isPersonal ? chosen : id) : undefined}
+            students={isPersonal && myStudents.length ? myStudents : null}
             assistEnabled={assistEnabled}
             onAssist={isStaff
               ? async (mode, words) => {
