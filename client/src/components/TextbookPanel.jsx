@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { api } from '../api'
-import { renderPdfPage } from '../utils/pdf'
+import { renderPdfPage, pdfPageCount } from '../utils/pdf'
 
 // On the board: pick a textbook, see its pages, put one on the board as a
 // picture — then draw and write on it with the usual tools.
@@ -12,6 +12,26 @@ export default function TextbookPanel({ onInsert, onClose }) {
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
   const stripRef = useRef(null)
+  const fileRef = useRef(null)
+  const [uploading, setUploading] = useState('')
+  const [over, setOver] = useState(false)
+
+  // A PDF can be added right here, without leaving the lesson.
+  const upload = async (file) => {
+    if (!file) return
+    setError('')
+    if (file.type !== 'application/pdf' && !file.name.toLowerCase().endsWith('.pdf')) { setError('Only PDF files can be uploaded'); return }
+    if (file.size > 80 * 1024 * 1024) { setError('The file is larger than 80 MB'); return }
+    setUploading(file.name)
+    try {
+      let pages = null
+      try { pages = await pdfPageCount(await file.arrayBuffer()) } catch { /* the count is a nicety */ }
+      const { textbook } = await api.uploadTextbook(file, file.name.replace(/\.pdf$/i, ''), pages)
+      const { textbooks } = await api.textbooks()
+      setBooks(textbooks)
+      setBookId(textbook.id)
+    } catch (err) { setError(err.message) } finally { setUploading('') }
+  }
 
   useEffect(() => { api.textbooks().then(({ textbooks }) => setBooks(textbooks)).catch((err) => setError(err.message)) }, [])
   const book = books?.find((b) => b.id === bookId) ?? null
@@ -55,12 +75,26 @@ export default function TextbookPanel({ onInsert, onClose }) {
         <strong>Textbook</strong>
         <button type="button" className="word-card-close" onClick={onClose} title="Close">×</button>
       </div>
-      {books && books.length === 0 && <p className="muted">No textbooks yet — upload a PDF in the Textbooks section of your cabinet.</p>}
       {books && books.length > 0 && (
         <select className="tool" value={bookId} onChange={(e) => setBookId(e.target.value)}>
           <option value="">Choose a textbook…</option>
           {books.map((b) => <option key={b.id} value={b.id}>{b.title}{b.pages ? ` · ${b.pages} p.` : ''}</option>)}
         </select>
+      )}
+      {books && (!book || books.length === 0) && (
+        <div
+          className={`dropzone ${over ? 'over' : ''} ${uploading ? 'busy' : ''}`}
+          onClick={() => !uploading && fileRef.current?.click()}
+          onDragOver={(e) => { e.preventDefault(); setOver(true) }}
+          onDragLeave={() => setOver(false)}
+          onDrop={(e) => { e.preventDefault(); setOver(false); upload(e.dataTransfer.files?.[0]) }}
+          role="button"
+          tabIndex={0}
+        >
+          <strong>{uploading ? `Uploading ${uploading}…` : '+ Upload a PDF textbook'}</strong>
+          <span className="muted">{uploading ? 'A large book can take a minute.' : 'Click to choose a file, or drag a PDF here · up to 80 MB'}</span>
+          <input ref={fileRef} type="file" accept="application/pdf,.pdf" hidden onChange={(e) => { upload(e.target.files?.[0]); e.target.value = '' }} />
+        </div>
       )}
       {error && <div className="error">{error}</div>}
       {book && (
