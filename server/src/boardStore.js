@@ -82,9 +82,21 @@ export async function addElement(boardId, element) {
   const index = elements.findIndex((item) => item.id === element.id)
   if (index !== -1) elements[index] = element
   else if (elements.length >= MAX_ELEMENTS) return false
-  else elements.push(element)
+  else {
+    if (hasTwin(elements, element)) return false
+    elements.push(element)
+  }
   scheduleSave(boardId)
   return true
+}
+
+// A paste that fired several times stacks identical texts on one spot: a
+// text or note with the same words already sitting exactly there counts as
+// the same one. Short texts are left alone (two "A"s at one spot are legal).
+function hasTwin(elements, element) {
+  if (element.type !== 'text' && element.type !== 'note') return false
+  if (!element.text || element.text.length < 20) return false
+  return elements.some((item) => item.id !== element.id && item.type === element.type && item.text === element.text && item.x === element.x && item.y === element.y)
 }
 
 export async function updateElement(boardId, element) {
@@ -92,7 +104,7 @@ export async function updateElement(boardId, element) {
   const index = elements.findIndex((item) => item.id === element.id)
   // A live update can outrun the add that created the element; accept it.
   if (index === -1) {
-    if (elements.length >= MAX_ELEMENTS) return false
+    if (elements.length >= MAX_ELEMENTS || hasTwin(elements, element)) return false
     elements.push(element)
   } else {
     elements[index] = element
