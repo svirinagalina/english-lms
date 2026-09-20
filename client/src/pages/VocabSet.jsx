@@ -48,7 +48,7 @@ export function Study({ setId, loader, onExit, cram = false, onCram }) {
     return (
       <div className="card done-card">
         <h2>Session complete</h2>
-        <p className="muted">Knew: {stats.right} · Missed: {stats.wrong}{cram && " · practice, not counted for review"}</p>
+        <p className="muted">Knew: {stats.right} · Missed: {stats.wrong}{cram && ' · practice run, not counted for review'}</p>
         <button onClick={onExit}>Back to the set</button>
       </div>
     )

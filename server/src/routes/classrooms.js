@@ -330,7 +330,10 @@ classroomsRouter.post('/:id/boards/:boardId/assign', requireRole('OWNER', 'TEACH
   })
   if (!board) return res.status(404).json({ error: 'Board not found' })
 
-  const home = await ensurePersonalSpace(req.user.id, req.user.schoolId)
+  // A board that leaves a student goes back to that student's own teacher's
+  // shelf — not the acting admin's — so it stays visible to whoever actually
+  // owns it when an administrator is the one making the change.
+  const home = await ensurePersonalSpace(target.teacherId, target.schoolId)
 
   if (!parsed.data.attach) {
     if (board.classroomId === target.id) {
