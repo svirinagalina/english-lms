@@ -8,6 +8,7 @@ import BoardRow from '../components/BoardRow'
 import { PackageBadge } from '../components/PackageBadge'
 import StudentHome from '../components/StudentHome'
 import Panel from '../components/Panel'
+import Textbooks from '../components/Textbooks'
 
 export default function Classrooms() {
   const { user } = useAuth()
@@ -197,6 +198,8 @@ export default function Classrooms() {
           </div>
         </Panel>
       )}
+
+      {isStaff && <Textbooks />}
 
       {isStaff && (
         <section className="panel-like">

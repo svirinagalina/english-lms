@@ -28,6 +28,7 @@ import { trialsRouter } from './routes/trials.js'
 import { settingsRouter } from './routes/settings.js'
 import { diagRouter } from './routes/diag.js'
 import { profileRouter } from './routes/profile.js'
+import { textbooksRouter } from './routes/textbooks.js'
 import { loadAiSettings } from './settings.js'
 import { setupSignaling } from './signaling.js'
 import { flushBoards } from './boardStore.js'
@@ -61,6 +62,7 @@ app.use('/api/trials', trialsRouter)
 app.use('/api/settings', settingsRouter)
 app.use('/api/diag', diagRouter)
 app.use('/api/profile', profileRouter)
+app.use('/api/textbooks', textbooksRouter)
 
 app.get('/api/health', (req, res) => res.json({ ok: true }))
 
@@ -70,6 +72,9 @@ app.get('/api/version', (req, res) => res.json({ build: BUILD_ID }))
 
 const uploadDir = process.env.UPLOAD_DIR
   ?? path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../uploads')
+// Textbooks live in the uploads folder (the persistent volume) but are
+// copyrighted: they go out only through /api/textbooks/:id/file.
+app.use('/uploads/textbooks', (req, res) => res.status(404).end())
 app.use('/uploads', express.static(uploadDir, { maxAge: '30d', immutable: true }))
 
 if (process.env.NODE_ENV === 'production') {

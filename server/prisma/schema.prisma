@@ -19,6 +19,7 @@ model School {
   id        String   @id @default(cuid())
   name      String
   createdAt DateTime @default(now())
+  textbooks Textbook[]
 
   // Free-form transfer details shown only to signed-in students of this school.
   paymentDetails String?
@@ -499,4 +500,21 @@ model ApiToken {
   school   School @relation(fields: [schoolId], references: [id], onDelete: Cascade)
 
   @@index([userId])
+}
+
+// A PDF textbook uploaded by a teacher: its pages are put on a board as
+// pictures during a lesson, where they can be drawn and written on.
+model Textbook {
+  id         String   @id @default(cuid())
+  title      String
+  file       String   // path under the uploads folder (not served statically)
+  bytes      Int      @default(0)
+  pages      Int?
+  createdAt  DateTime @default(now())
+
+  schoolId String
+  school   School @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  uploadedById String?
+
+  @@index([schoolId])
 }

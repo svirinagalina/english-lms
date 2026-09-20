@@ -2,6 +2,7 @@ import { forwardRef, useCallback, useEffect, useImperativeHandle, useRef, useSta
 import '../styles/whiteboard.css'
 import { isEnglishWord, lookupWord, wordAt } from '../utils/dictionary'
 import WordCard, { PlayButton } from './WordCard'
+import TextbookPanel from './TextbookPanel'
 
 const COLORS = ['#111827', '#ef4444', '#16a34a', '#2563eb', '#f59e0b', '#9333ea']
 // Ink drawn while the board was dark, shown dark on the white board.
@@ -861,6 +862,7 @@ const Whiteboard = forwardRef(function Whiteboard({ socketRef, boardId, title, s
   // The Mistakes panel: rows typed during the lesson; each saved row becomes
   // a red note on the board (so the student sees it at once) and a notebook entry.
   const [mistakesOpen, setMistakesOpen] = useState(false)
+  const [textbookOpen, setTextbookOpen] = useState(false)
   const emptyRow = () => ({ said: '', correct: '' })
   const [mistakeRows, setMistakeRows] = useState([emptyRow(), emptyRow(), emptyRow()]) // up to 10
   const [mistakeBusy, setMistakeBusy] = useState(false)
@@ -1287,6 +1289,35 @@ const Whiteboard = forwardRef(function Whiteboard({ socketRef, boardId, title, s
   }
 
   // --- Images -----------------------------------------------------------------
+
+  // A textbook page (a JPEG data URL) goes onto the board where the teacher
+  // is looking, about as wide as the screen so the print stays readable.
+  const placePage = async (dataUrl) => {
+    if (!onUploadImage) return
+    const size = await new Promise((resolve) => {
+      const probe = new Image()
+      probe.onload = () => resolve({ w: probe.naturalWidth, h: probe.naturalHeight })
+      probe.onerror = () => resolve({ w: 1400, h: 1980 })
+      probe.src = dataUrl
+    })
+    const src = await onUploadImage(dataUrl)
+    if (!src) throw new Error('The page could not be saved')
+    const rect = canvasRef.current.getBoundingClientRect()
+    const view = viewRef.current
+    const w = (rect.width * 0.7) / view.scale
+    const h = size.h * (w / size.w)
+    const element = {
+      id: newId(), type: 'image', color: '#000000', width: 1,
+      x: (rect.width / 2 - view.x) / view.scale - w / 2,
+      y: (rect.height * 0.08 - view.y) / view.scale,
+      w, h, src
+    }
+    commitRef.current?.(element)
+    selectedRef.current = []
+    setTool('pen')
+    scheduleRender()
+    bump()
+  }
 
   const placeImage = useCallback(async (file) => {
     if (!onUploadImage || !file || !file.type.startsWith('image/')) return
@@ -2485,6 +2516,10 @@ const Whiteboard = forwardRef(function Whiteboard({ socketRef, boardId, title, s
           </div>
         )}
 
+        {textbookOpen && onUploadImage && (
+          <TextbookPanel onInsert={placePage} onClose={() => setTextbookOpen(false)} />
+        )}
+
         {mistakesOpen && onMistake && (
           <div className="mistakes-panel" onPointerDown={(e) => e.stopPropagation()}>
             <div className="mistakes-head">
@@ -2670,6 +2705,9 @@ const Whiteboard = forwardRef(function Whiteboard({ socketRef, boardId, title, s
                 >
                   Mistakes
                 </button>
+              )}
+              {onUploadImage && (
+                <button className={`tool ${textbookOpen ? 'active' : ''}`} onClick={() => setTextbookOpen((v) => !v)} title="Put a page of a textbook on the board">Textbook</button>
               )}
               {onUploadImage && (
                 <>

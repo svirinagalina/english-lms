@@ -94,6 +94,16 @@ export const api = {
   addMyWord: (word) => request('/vocab/my/words', { method: 'POST', body: { word } }),
   addBoardWords: (words, classroomId) => request('/vocab/board-words', { method: 'POST', body: { words, classroomId } }),
   activeCall: () => request('/calls/active'),
+  textbooks: () => request('/textbooks'),
+  uploadTextbook: async (file, title, pages) => {
+    const response = await fetch(`/api/textbooks?title=${encodeURIComponent(title)}&pages=${pages ?? ''}`, { method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/pdf' }, body: file })
+    const data = await response.json().catch(() => ({}))
+    if (!response.ok) throw new Error(data.error ?? 'Upload failed')
+    return data
+  },
+  renameTextbook: (id, title) => request(`/textbooks/${id}`, { method: 'PATCH', body: { title } }),
+  deleteTextbook: (id) => request(`/textbooks/${id}`, { method: 'DELETE' }),
+  textbookFileUrl: (id) => `/api/textbooks/${id}/file`,
   updateProfile: (body) => request('/profile', { method: 'PATCH', body }),
   uploadAvatar: (data) => request('/profile/avatar', { method: 'POST', body: { data } }),
   removeAvatar: () => request('/profile/avatar', { method: 'DELETE' }),
