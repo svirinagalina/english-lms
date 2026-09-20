@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import { useAuth } from '../AuthContext'
 import { api } from '../api'
 import Nav from '../components/Nav'
+import Panel from '../components/Panel'
 import { SiteFooter } from '../components/Brand'
 
 export default function Practice() {
@@ -43,8 +44,7 @@ export default function Practice() {
       )}
 
       {focus?.suggestions?.length > 0 && (
-        <section>
-          <h2>Worth practising</h2>
+        <Panel id="practice:worth" title="Worth practising" count={focus.suggestions.length}>
           <div className="list">
             {focus.suggestions.map((item) => (
               <div key={item.topic} className="row column suggestion">
@@ -60,7 +60,7 @@ export default function Practice() {
               </div>
             ))}
           </div>
-        </section>
+        </Panel>
       )}
 
       {units.length === 0 && !error && (
@@ -69,7 +69,7 @@ export default function Practice() {
         </p>
       )}
 
-      <section>
+      <Panel id="practice:units" title="Grammar units" count={units.length} defaultOpen>
         <div className="list">
           {units.map((unit) => {
             const percent = unit.total ? Math.round((unit.solved / unit.total) * 100) : 0
@@ -88,7 +88,7 @@ export default function Practice() {
             )
           })}
         </div>
-      </section>
+      </Panel>
       <SiteFooter />
     </div>
   )

@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { api } from '../api'
+import Panel from './Panel'
 import { PlayButton } from './WordCard'
 
 // What each lesson was about — built when the call ends. The teacher can
@@ -22,8 +23,7 @@ export default function LessonSummaries({ classroomId, canEdit = false, student 
   const date = (iso) => new Date(iso).toLocaleDateString(undefined, { day: 'numeric', month: 'long' })
 
   return (
-    <section>
-      <h2>Lesson summaries</h2>
+    <Panel id={`summaries:${classroomId}`} title="Lesson summaries" count={data.summaries.length}>
       {canEdit && data.aiEnabled === false && (
         <p className="muted" style={{ marginBottom: 10 }}>
           Words and mistakes are collected automatically. Topics from the board text and speaking questions need the AI key (ANTHROPIC_API_KEY on the server); until then only mistake topics appear.
@@ -111,6 +111,6 @@ export default function LessonSummaries({ classroomId, canEdit = false, student 
           )
         })}
       </div>
-    </section>
+    </Panel>
   )
 }

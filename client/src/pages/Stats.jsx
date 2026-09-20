@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { api } from '../api'
 import Nav from '../components/Nav'
+import Panel from '../components/Panel'
 import { SiteFooter } from '../components/Brand'
 
 const formatDate = (value) => (value ? new Date(value).toLocaleDateString() : '—')
@@ -33,7 +34,7 @@ function StudentList() {
 
       {students.length === 0 && <p className="muted" style={{ marginTop: 24 }}>No students yet. Once a student practises, their accuracy and weak topics show here.</p>}
 
-      <section>
+      <Panel id="stats:students" title="Students" count={students.length} defaultOpen>
         <div className="list">
           {students.map((student) => (
             <Link key={student.id} className="row unit-row" to={`/progress/${student.id}`}>
@@ -55,7 +56,7 @@ function StudentList() {
             </Link>
           ))}
         </div>
-      </section>
+      </Panel>
     </div>
   )
 }
@@ -110,8 +111,7 @@ function StudentDetail({ id }) {
       </section>
 
       {report.suggestions.length > 0 && (
-        <section>
-          <h2>What to work on</h2>
+        <Panel id="stats:work" title="What to work on" count={report.suggestions.length} defaultOpen>
           <div className="list">
             {report.suggestions.map((item) => (
               <div key={item.topic} className="row column suggestion">
@@ -129,12 +129,11 @@ function StudentDetail({ id }) {
               </div>
             ))}
           </div>
-        </section>
+        </Panel>
       )}
 
       {report.weakTopics.length > 0 && (
-        <section>
-          <h2>Mistakes by topic</h2>
+        <Panel id="stats:topics" title="Mistakes by topic" count={report.weakTopics.length}>
           <div className="list">
             {report.weakTopics.map((topic) => (
               <div key={topic.topic} className="row">
@@ -152,12 +151,11 @@ function StudentDetail({ id }) {
               </div>
             ))}
           </div>
-        </section>
+        </Panel>
       )}
 
       {report.units.length > 0 && (
-        <section>
-          <h2>By chapter</h2>
+        <Panel id="stats:units" title="By chapter" count={report.units.length}>
           <div className="list">
             {report.units.map((unit) => (
               <div key={unit.id} className="row">
@@ -172,12 +170,11 @@ function StudentDetail({ id }) {
               </div>
             ))}
           </div>
-        </section>
+        </Panel>
       )}
 
       {report.recentMistakes.length > 0 && (
-        <section>
-          <h2>Recent mistakes</h2>
+        <Panel id="stats:recent" title="Recent mistakes" count={report.recentMistakes.length}>
           <div className="list">
             {report.recentMistakes.map((item, index) => (
               <div key={index} className="row column">
@@ -195,7 +192,7 @@ function StudentDetail({ id }) {
               </div>
             ))}
           </div>
-        </section>
+        </Panel>
       )}
 
       {report.total === 0 && (

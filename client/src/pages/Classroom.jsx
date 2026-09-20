@@ -6,6 +6,7 @@ import { api } from '../api'
 import Whiteboard from '../components/Whiteboard'
 import Writing from '../components/Writing'
 import Nav from '../components/Nav'
+import Panel from '../components/Panel'
 import { SiteFooter } from '../components/Brand'
 import BoardRow from '../components/BoardRow'
 import MistakeNotebook from '../components/MistakeNotebook'
@@ -29,8 +30,7 @@ function PackagePanel({ classroom, onChanged }) {
   }
 
   return (
-    <section>
-      <h2>Lesson package</h2>
+    <Panel id={`room:package:${classroom.id}`} title="Lesson package" hint={classroom.progress?.lessonsPaid == null ? `${classroom.progress?.held ?? 0} held` : `${Math.max(0, classroom.progress?.remaining ?? 0)} left`}>
       {error && <div className="error">{error}</div>}
       <div className="package-box">
         <div className="package-count">
@@ -56,7 +56,7 @@ function PackagePanel({ classroom, onChanged }) {
       {progress.packageStartedAt && (
         <p className="muted">Counting from {new Date(progress.packageStartedAt).toLocaleDateString()}</p>
       )}
-    </section>
+    </Panel>
   )
 }
 
@@ -309,8 +309,7 @@ export default function Classroom() {
 
       {error && <div className="error">{error}</div>}
 
-      <section>
-        <h2>{isPersonal ? 'Boards' : 'Board'}</h2>
+      <Panel id={`room:boards:${id}`} title={isPersonal ? 'Boards' : 'Board'} count={classroom.boards.length} defaultOpen>
         <p className="muted" style={{ marginBottom: 10 }}>
           {isPersonal
             ? 'Your own boards. Open any time.'
@@ -346,18 +345,17 @@ export default function Classroom() {
             />
           ))}
         </div>
-      </section>
+      </Panel>
 
       {!isPersonal && (
-        <section>
-          <h2>Writing</h2>
+        <Panel id={`room:writing:${id}`} title="Writing">
           <p className="muted" style={{ marginBottom: 10 }}>
             {user.role === 'STUDENT'
               ? 'Write your essays and texts here; your teacher corrects them with tracked changes you can accept or reject.'
               : 'The student writes here; your corrections show as tracked changes, like suggestions in Google Docs. Also opens inside a call.'}
           </p>
           <button onClick={() => setWritingOpen(true)}>Open writing</button>
-        </section>
+        </Panel>
       )}
 
       {!isPersonal && (
@@ -374,15 +372,13 @@ export default function Classroom() {
       {!isPersonal && <LessonSummaries classroomId={id} canEdit={isStaff} student={!isStaff} />}
 
       {!isPersonal && (
-        <section>
-          <h2>Activity</h2>
+        <Panel id={`room:activity:${id}`} title="Activity">
           <ActivityHeatmap studentId={isStaff ? classroom.student.id : null} />
-        </section>
+        </Panel>
       )}
 
       {isStaff && !isPersonal && report && (
-        <section>
-          <h2>Worth practising</h2>
+        <Panel id={`room:worth:${id}`} title="Worth practising" count={report.weakTopics?.length ?? 0}>
           {report.total === 0 ? (
             <p className="muted">No practice attempts yet.</p>
           ) : (
@@ -408,14 +404,13 @@ export default function Classroom() {
               <Link className="ghost button-link" to={`/progress/${classroom.student.id}`}>Full report</Link>
             </>
           )}
-        </section>
+        </Panel>
       )}
 
       {isStaff && classroom.progress && <PackagePanel classroom={classroom} onChanged={refresh} />}
 
       {!isPersonal && !isStaff && classroom.progress && (
-        <section>
-          <h2>Lesson package</h2>
+        <Panel id={`room:package:${id}`} title="Lesson package" hint={classroom.progress.lessonsPaid == null ? `${classroom.progress.held} held` : `${Math.max(0, classroom.progress.remaining ?? 0)} left`}>
           <p>
             <strong>{classroom.progress.held}</strong>{' '}
             {classroom.progress.lessonsPaid == null
@@ -427,12 +422,11 @@ export default function Classroom() {
               </span>
             )}
           </p>
-        </section>
+        </Panel>
       )}
 
       {!isPersonal && (
-      <section>
-        <h2>Lessons held</h2>
+      <Panel id={`room:sessions:${id}`} title="Lessons held" count={classroom.sessions.length}>
         {classroom.sessions.length === 0 && <p className="muted">No lessons yet.</p>}
         <div className="list">
           {classroom.sessions.map((session) => (
@@ -455,7 +449,7 @@ export default function Classroom() {
             </div>
           ))}
         </div>
-      </section>
+      </Panel>
       )}
       <SiteFooter />
     </div>

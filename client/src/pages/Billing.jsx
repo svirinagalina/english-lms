@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { useAuth } from '../AuthContext'
 import { api } from '../api'
 import Nav from '../components/Nav'
+import Panel from '../components/Panel'
 import { SiteFooter } from '../components/Brand'
 import BillingEditor from '../components/BillingEditor'
 import StudentPayment from '../components/StudentPayment'
@@ -67,8 +68,7 @@ export default function Billing() {
 
       {error && <div className="error">{error}</div>}
 
-      <section>
-        <h2>Students</h2>
+      <Panel id="billing:students" title="Students" count={students.length} defaultOpen>
         <p className="muted" style={{ marginBottom: 10 }}>
           Payment is per lesson: set the price and how many lessons are paid. Every call with the student uses one lesson up.
         </p>
@@ -114,7 +114,7 @@ export default function Billing() {
             </div>
           ))}
         </div>
-      </section>
+      </Panel>
 
       {(user.role === 'OWNER' || user.role === 'PARTNER') && (
         <section>

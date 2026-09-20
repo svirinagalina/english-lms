@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { api } from '../api'
+import Panel from './Panel'
 
 // The notebook: every mistake noted in lessons, newest lesson first, with
 // the topics they add up to. Teachers can fix or drop an entry.
@@ -42,8 +43,7 @@ export default function MistakeNotebook({ classroomId, canEdit = false, boardLin
   }
 
   return (
-    <section>
-      <h2>Mistake notebook</h2>
+    <Panel id={`mistakes:${classroomId}`} title="Mistake notebook" count={mistakes?.length ?? 0}>
       {mistakes.length === 0 ? (
         <p className="muted">
           {student
@@ -109,6 +109,6 @@ export default function MistakeNotebook({ classroomId, canEdit = false, boardLin
           </div>
         </>
       )}
-    </section>
+    </Panel>
   )
 }

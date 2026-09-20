@@ -7,6 +7,7 @@ import { SiteFooter } from '../components/Brand'
 import BoardRow from '../components/BoardRow'
 import { PackageBadge } from '../components/PackageBadge'
 import StudentHome from '../components/StudentHome'
+import Panel from '../components/Panel'
 
 export default function Classrooms() {
   const { user } = useAuth()
@@ -89,8 +90,7 @@ export default function Classrooms() {
 
       {!isStaff && <StudentHome classrooms={classrooms} />}
 
-      <section>
-        <h2>{user.role === 'STUDENT' ? 'My teachers' : 'Students'}</h2>
+      <Panel id="home:students" title={user.role === 'STUDENT' ? 'My teachers' : 'My students'} count={classrooms.length} defaultOpen={user.role === 'STUDENT'}>
         <p className="muted" style={{ marginBottom: 10 }}>
           {user.role === 'STUDENT'
             ? 'Boards and materials from your lessons.'
@@ -132,11 +132,10 @@ export default function Classrooms() {
             </div>
           ))}
         </div>
-      </section>
+      </Panel>
 
       {isStaff && mine && (
-        <section>
-          <h2>My boards</h2>
+        <Panel id="home:boards" title="My boards" count={mine.boards.length}>
           <p className="muted" style={{ marginBottom: 10 }}>
             Boards that belong to you rather than to a student — drafts, screenshots, reusable material.
             A student's lessons live on the board in their cabinet; use <strong>Assign</strong> to move, copy or share one of these to a student.
@@ -165,11 +164,11 @@ export default function Classrooms() {
               />
             ))}
           </div>
-        </section>
+        </Panel>
       )}
 
       {isStaff && (
-        <section>
+        <section className="panel-like">
           <div className="call-launch">
             <div>
               <h2 style={{ marginBottom: 4 }}>Call without a student</h2>

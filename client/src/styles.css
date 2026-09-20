@@ -1044,3 +1044,32 @@ select.pill { padding: 0 16px; color: var(--text); border: none; }
 .check-result { display: flex; flex-direction: column; gap: 6px; font-size: 14px; }
 .check-result > div { display: grid; grid-template-columns: 200px 1fr; gap: 10px; }
 @media (max-width: 720px) { .check-result > div, .check-info > div { grid-template-columns: 1fr; gap: 2px; } }
+
+/* Collapsible cabinet panels: a title row, the list behind it. */
+.panel { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; margin-top: 12px !important; }
+.page section.panel + section.panel { margin-top: 10px !important; }
+.panel-head { display: flex; align-items: center; gap: 10px; padding: 4px 8px 4px 4px; }
+.panel-toggle {
+  flex: 1; display: flex; align-items: center; gap: 10px; min-width: 0;
+  background: transparent; border: none; color: var(--text); text-align: left;
+  padding: 12px 12px; font: inherit; font-size: 17px; font-weight: 700; cursor: pointer; border-radius: 10px;
+}
+.panel-toggle:hover { background: rgba(252, 251, 246, 0.05); }
+.panel-chevron { display: inline-block; width: 14px; color: var(--accent); transition: transform 150ms; font-size: 14px; }
+.panel.open .panel-chevron { transform: rotate(90deg); }
+.panel-title { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.panel-count { font-size: 12px; font-weight: 700; color: var(--accent-ink); background: var(--accent); border-radius: 999px; padding: 2px 9px; min-width: 24px; text-align: center; }
+.panel-hint { font-size: 13px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-left: 4px; }
+.panel-actions { display: flex; gap: 8px; flex-shrink: 0; }
+.panel-body { padding: 0 16px 16px; }
+.panel-body > h2 { display: none; }
+.panel-body > section { margin-top: 0; }
+.panel-body > section > h2 { display: none; }
+@media (max-width: 720px) {
+  .panel-toggle { font-size: 16px; padding: 12px 10px; }
+  .panel-hint { display: none; }
+  .panel-head { flex-wrap: wrap; }
+  .panel-actions { flex-basis: 100%; padding: 0 8px 8px; }
+}
+.panel-body .row, .panel-body .tile { background: var(--bg); }
+.panel-body .row .row { background: var(--surface); }

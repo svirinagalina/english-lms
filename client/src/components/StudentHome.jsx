@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import { api } from '../api'
 import { PackageBadge } from './PackageBadge'
 import ActivityHeatmap from './ActivityHeatmap'
+import Panel from './Panel'
 
 // The student's first screen: everything they might want is one click away.
 export default function StudentHome({ classrooms }) {
@@ -105,15 +106,13 @@ export default function StudentHome({ classrooms }) {
           )}
         </div>
       </section>
-      <section>
-        <div className="row-main" style={{ marginBottom: 8 }}>
-          <h2 style={{ margin: 0 }}>Your activity</h2>
-          {billing?.trial?.reportId && (
-            <Link className="button" to={`/report/${billing.trial.reportId}`}>Study plan</Link>
-          )}
-        </div>
+      <Panel
+        id="student:activity"
+        title="Your activity"
+        actions={billing?.trial?.reportId ? <Link className="button" to={`/report/${billing.trial.reportId}`}>Study plan</Link> : null}
+      >
         <ActivityHeatmap />
-      </section>
+      </Panel>
     </>
   )
 }

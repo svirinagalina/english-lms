@@ -3,6 +3,7 @@ import { Link, useSearchParams } from 'react-router-dom'
 import { useAuth } from '../AuthContext'
 import { api } from '../api'
 import Nav from '../components/Nav'
+import Panel from '../components/Panel'
 import { SiteFooter } from '../components/Brand'
 import { Study } from './VocabSet'
 
@@ -125,6 +126,8 @@ export default function Vocabulary() {
           </p>
         )}
 
+      </section>
+      <Panel id="vocab:sets" title={isStaff ? 'Word sets' : 'My word sets'} count={sets.length} defaultOpen>
         <div className="list">
           {sets.map((set) => (
             <div key={set.id} className="row set-row">
@@ -155,7 +158,7 @@ export default function Vocabulary() {
             </div>
           ))}
         </div>
-      </section>
+      </Panel>
       <SiteFooter />
     </div>
   )

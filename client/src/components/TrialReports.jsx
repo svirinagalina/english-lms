@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { api } from '../api'
+import Panel from './Panel'
 
 // Trial lessons of a classroom: the teacher marks the placement test,
 // gives a level and comments, generates and publishes the report; the
@@ -60,8 +61,7 @@ export default function TrialReports({ classroomId, canEdit = false }) {
   const answered = current ? Object.values(current.answers ?? {}).filter(Boolean).length : 0
 
   return (
-    <section>
-      <h2>Trial lesson</h2>
+    <Panel id={`trial:${classroomId}`} title="Trial lesson" count={reports.length}>
       {error && <div className="error">{error}</div>}
       {!reports.length && (
         <p className="muted">No trial lesson yet. “Trial lesson” above starts a call with the placement test on the board; afterwards mark the answers here and generate the level report.</p>
@@ -151,6 +151,6 @@ export default function TrialReports({ classroomId, canEdit = false }) {
           {data.aiEnabled === false && <p className="muted small-hint" style={{ marginTop: 8 }}>Without the AI key the report is built from templates; with it, the text is written for this student.</p>}
         </div>
       )}
-    </section>
+    </Panel>
   )
 }

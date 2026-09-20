@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { useAuth } from '../AuthContext'
 import { api } from '../api'
 import Nav from '../components/Nav'
+import Panel from '../components/Panel'
 import { SiteFooter } from '../components/Brand'
 
 function InviteForm({ role, teachers, currentUserId, onInvited }) {
@@ -233,22 +234,19 @@ export default function People() {
         </div>
       )}
 
-      <section>
-        <h2>Invite a teacher</h2>
+      <Panel id="people:invite-teacher" title="Invite a teacher">
         <InviteForm role="TEACHER" teachers={teachers} currentUserId={user.id} onInvited={handleInvited} />
-      </section>
+      </Panel>
 
-      <section>
-        <h2>Invite a student</h2>
+      <Panel id="people:invite-student" title="Invite a student" defaultOpen>
         <p className="muted" style={{ marginBottom: 10 }}>
           The student is linked to the teacher you pick and will see that teacher's lessons.
         </p>
         <InviteForm role="STUDENT" teachers={teachers} currentUserId={user.id} onInvited={handleInvited} />
-      </section>
+      </Panel>
 
       {invites.length > 0 && (
-        <section>
-          <h2>Pending invitations</h2>
+        <Panel id="people:invites" title="Pending invitations" count={invites.length}>
           <p className="muted" style={{ marginBottom: 10 }}>
             {mail.enabled
               ? 'An email went out automatically. The link also works if you prefer to send it yourself.'
@@ -282,11 +280,10 @@ export default function People() {
               </div>
             ))}
           </div>
-        </section>
+        </Panel>
       )}
 
-      <section>
-        <h2>Team</h2>
+      <Panel id="people:team" title="Team" count={staff.length}>
         <p className="muted" style={{ marginBottom: 10 }}>
           A partner has the same access as the administrator, except for changing roles.
         </p>
@@ -317,10 +314,9 @@ export default function People() {
             </div>
           ))}
         </div>
-      </section>
+      </Panel>
 
-      <section>
-        <h2>Students</h2>
+      <Panel id="people:students" title="Students" count={students.length} defaultOpen>
         {students.length === 0 && <p className="muted">No students yet. Send an invitation above — the student sets a password from the link and appears here.</p>}
 
         <div className="list">
@@ -378,7 +374,7 @@ export default function People() {
             </div>
           ))}
         </div>
-      </section>
+      </Panel>
       <SiteFooter />
     </div>
   )
