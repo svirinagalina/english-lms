@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { api } from '../api'
 import { PackageBadge } from './PackageBadge'
+import { parseDetails, formatCard, detailsAsText } from '../utils/paymentDetails'
 import { OFFER, formatRub, discountDeadline } from '../offer'
 
 const formatPrice = (amount, currency) =>
@@ -68,7 +69,7 @@ export default function StudentPayment() {
   const nothingConfigured = !trial && priceAmount == null && !paymentLink && !paymentDetails && pkg?.lessonsPaid == null
   if (nothingConfigured) return null
 
-  const cardNumber = paymentDetails?.match(/(?:\d[ \-]?){13,19}/)?.[0]?.trim() ?? null
+  const details = parseDetails(paymentDetails)
   const copy = async (text) => {
     try { await navigator.clipboard.writeText(text); setCopied(true); setTimeout(() => setCopied(false), 2000) } catch { window.prompt('Copy:', text) }
   }
@@ -167,15 +168,31 @@ export default function StudentPayment() {
 
       {paymentDetails && (
         <div className="notice payment-details">
-          <div>
-            <strong>Bank transfer details</strong>
-            <pre>{paymentDetails}</pre>
-            <div className="row-actions">
-              {cardNumber && (
-                <button className="ghost" onClick={() => copy(cardNumber.replace(/[ \-]/g, ''))}>{copied ? 'Copied' : 'Copy card number'}</button>
-              )}
-              <button className="ghost" onClick={() => copy(paymentDetails)}>Copy all details</button>
-            </div>
+          <div className="pay-details">
+            <strong>How to pay</strong>
+            {details.card && (
+              <div className="pay-row">
+                <div>
+                  <span className="pay-label">Card, in rubles</span>
+                  <span className="pay-card">{formatCard(details.card)}</span>
+                  {details.cardNote && <span className="muted"> · {details.cardNote}</span>}
+                </div>
+                <button className="ghost" onClick={() => copy(details.card)}>{copied ? 'Copied' : 'Copy'}</button>
+              </div>
+            )}
+            {details.link && (
+              <div className="pay-row">
+                <div>
+                  <span className="pay-label">Online, in euro</span>
+                  <span className="muted">Card or Apple/Google Pay, secure page</span>
+                </div>
+                <a className="button" href={details.link} target="_blank" rel="noreferrer">Pay online</a>
+              </div>
+            )}
+            {details.note && <p className="muted pay-note">{details.note}</p>}
+            {(details.card || details.link) && (
+              <button className="ghost small" onClick={() => copy(detailsAsText(details))}>Copy all details</button>
+            )}
           </div>
         </div>
       )}

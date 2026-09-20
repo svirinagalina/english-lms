@@ -3,6 +3,7 @@ import { useAuth } from '../AuthContext'
 import { api } from '../api'
 import Nav from '../components/Nav'
 import Panel from '../components/Panel'
+import { parseDetails, serializeDetails, emptyDetails, formatCard } from '../utils/paymentDetails'
 import { SiteFooter } from '../components/Brand'
 import BillingEditor from '../components/BillingEditor'
 import StudentPayment from '../components/StudentPayment'
@@ -15,7 +16,7 @@ export default function Billing() {
   const { user } = useAuth()
   const [students, setStudents] = useState([])
   const [editing, setEditing] = useState(null)
-  const [details, setDetails] = useState('')
+  const [details, setDetails] = useState(emptyDetails())
   const [saved, setSaved] = useState(false)
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(true)
@@ -29,7 +30,7 @@ export default function Billing() {
 
     if (user.role === 'OWNER' || user.role === 'PARTNER') {
       const { paymentDetails } = await api.schoolPaymentDetails()
-      setDetails(paymentDetails ?? '')
+      setDetails(parseDetails(paymentDetails))
     }
   }
 
@@ -42,7 +43,7 @@ export default function Billing() {
     setError('')
     try {
       await api.updateSchoolPaymentDetails({
-        paymentDetails: details.trim() === '' ? null : details
+        paymentDetails: serializeDetails(details)
       })
       setSaved(true)
       setTimeout(() => setSaved(false), 2500)
@@ -121,12 +122,27 @@ export default function Billing() {
           <h2>Bank transfer details</h2>
           <p className="muted">Shown only to signed-in students of your school.</p>
           <form onSubmit={saveDetails} className="details-form">
-            <textarea
-              rows={4}
-              placeholder={'Card 0000 0000 0000 0000\nGalina S., Tinkoff\nPlease add your name to the transfer comment'}
-              value={details}
-              onChange={(e) => setDetails(e.target.value)}
-            />
+            <label className="field">
+              <span>Card number (for payments in rubles)</span>
+              <input
+                inputMode="numeric"
+                placeholder="2200 0000 0000 0000"
+                value={formatCard(details.card)}
+                onChange={(e) => setDetails({ ...details, card: e.target.value.replace(/\D/g, '').slice(0, 19) })}
+              />
+            </label>
+            <label className="field">
+              <span>Card holder / bank (shown next to the number)</span>
+              <input placeholder="Galina S., Tinkoff" value={details.cardNote} onChange={(e) => setDetails({ ...details, cardNote: e.target.value })} maxLength={120} />
+            </label>
+            <label className="field">
+              <span>Online payment link (Stripe, in euro)</span>
+              <input type="url" placeholder="https://buy.stripe.com/…" value={details.link} onChange={(e) => setDetails({ ...details, link: e.target.value })} />
+            </label>
+            <label className="field">
+              <span>Note for students</span>
+              <textarea rows={2} placeholder="Please add your name to the transfer comment" value={details.note} onChange={(e) => setDetails({ ...details, note: e.target.value })} />
+            </label>
             <div className="editor-actions">
               <button type="submit">Save details</button>
               {saved && <span className="muted">Saved</span>}
