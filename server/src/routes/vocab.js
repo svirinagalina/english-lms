@@ -15,7 +15,7 @@ const visibleSets = (user) => ({ schoolId: user.schoolId, OR: [{ ownerId: null }
 // Who may change a set's cards: staff for shared sets, the owner for a personal one.
 const mayEditSet = (user, set) => (set.ownerId ? set.ownerId === user.id : user.role !== 'STUDENT')
 
-const MY_WORDS = 'My words'
+const MY_WORDS = 'From my board'
 async function personalSet(user) {
   const existing = await prisma.vocabSet.findFirst({ where: { ownerId: user.id } })
   if (existing) return existing
@@ -330,15 +330,16 @@ vocabRouter.get('/:id/study', async (req, res) => {
   })
   if (!set) return res.status(404).json({ error: 'Set not found' })
 
+  // ?all=1: every card in deck order, for a free run through the whole set —
+  // like Anki's cram — regardless of the spaced-repetition schedule.
   const now = new Date()
-  const due = set.cards.filter((card) => {
-    const review = card.reviews[0]
-    return !review || review.dueAt <= now
-  })
+  const cards = req.query.all
+    ? set.cards
+    : set.cards.filter((card) => { const review = card.reviews[0]; return !review || review.dueAt <= now })
 
   res.json({
     title: set.title,
-    cards: due.map((card) => ({
+    cards: cards.map((card) => ({
       id: card.id,
       term: card.term,
       translation: card.translation,

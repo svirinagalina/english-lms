@@ -115,7 +115,7 @@ export default function Vocabulary() {
 
         {!isStaff && !sets.some((set) => set.personal) && (
           <p className="muted" style={{ marginBottom: 10 }}>
-            Double-click any word on the board or in Writing to hear it, see its meanings and add it to <strong>My words</strong>.
+            Double-click any word on the board or in Writing to hear it, see its meanings and add it to <strong>From my board</strong>.
           </p>
         )}
       </section>
@@ -124,7 +124,7 @@ export default function Vocabulary() {
           <p className="muted">
             {isStaff
               ? 'No sets yet. Create one above and add words one by one or paste a whole list (word — translation).'
-              : 'No word sets yet. Words you save from the board or Writing will appear here as “My words”.'}
+              : 'No word sets yet. Words you save from the board or Writing will appear here as “From my board”.'}
           </p>
         )}
         <div className="list">

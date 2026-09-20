@@ -80,7 +80,7 @@ export default function StudentHome({ classrooms }) {
             <span className="tile-kicker">Vocabulary</span>
             <strong>{due > 0 ? `${due} ${due === 1 ? 'word' : 'words'} to review` : 'All words reviewed'}</strong>
             <span className="muted">
-              {words ? `${words.total} in My words` : 'Double-click a word on the board to save it'}
+              {words ? `${words.total} in From my board` : 'Double-click a word on the board to save it'}
             </span>
           </Link>
 

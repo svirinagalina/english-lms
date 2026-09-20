@@ -76,7 +76,7 @@ export const api = {
     request(`/vocab/${setId}/cards/bulk`, { method: 'POST', body: { text } }),
   deleteCard: (setId, cardId) =>
     request(`/vocab/${setId}/cards/${cardId}`, { method: 'DELETE' }),
-  studyVocab: (setId) => request(`/vocab/${setId}/study`),
+  studyVocab: (setId, all) => request(`/vocab/${setId}/study${all ? '?all=1' : ''}`),
   reviewCard: (cardId, correct) =>
     request(`/vocab/cards/${cardId}/review`, { method: 'POST', body: { correct } }),
   checkCard: (cardId, answer) =>

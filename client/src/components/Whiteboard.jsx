@@ -1465,7 +1465,7 @@ const Whiteboard = forwardRef(function Whiteboard({ socketRef, boardId, title, s
     try {
       const result = await onAddWords(words, classroomId)
       if (!result) return
-      const where = result.student ? `${result.student}'s vocabulary` : 'My words'
+      const where = result.student ? `${result.student}'s vocabulary` : 'From my board'
       const parts = []
       if (result.added) parts.push(`Added ${result.added} ${result.added === 1 ? 'word' : 'words'} to ${where}`)
       else parts.push(`Already in ${where}`)
@@ -2649,7 +2649,7 @@ const Whiteboard = forwardRef(function Whiteboard({ socketRef, boardId, title, s
                     setAddingWords(true)
                     try {
                       const result = await onAddWords([word], classroomId)
-                      const where = result?.student ? `${result.student}'s vocabulary` : 'My words'
+                      const where = result?.student ? `${result.student}'s vocabulary` : 'From my board'
                       showToast(result?.added ? `“${word}” added to ${where}` : `“${word}” is already in ${where}`)
                     } catch (err) { showToast(err.message) } finally { setAddingWords(false) }
                   })

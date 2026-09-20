@@ -72,7 +72,7 @@ export default function LessonSummaries({ classroomId, canEdit = false, student 
                       <div className="summary-label">Words</div>
                       <div className="summary-words">
                         {s.words.map((w) => (
-                          <span key={w.word} className={`summary-word ${w.saved ? 'saved' : ''}`} title={w.saved ? 'In My words' : ''}>
+                          <span key={w.word} className={`summary-word ${w.saved ? 'saved' : ''}`} title={w.saved ? 'In From my board' : ''}>
                             <strong>{w.word}</strong>
                             {w.transcription && <span className="muted"> {w.transcription}</span>}
                             {w.translation && <span className="muted"> — {w.translation}</span>}
