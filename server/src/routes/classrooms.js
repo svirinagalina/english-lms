@@ -190,9 +190,15 @@ classroomsRouter.get('/boards', async (req, res) => {
       sharedBoards: { where: { scratch: false }, select: { id: true, title: true, updatedAt: true }, orderBy: { updatedAt: 'desc' } }
     }
   })
-  const seen = new Set()
+  // A board legitimately belongs to more than one classroom context at once
+  // (its owning teacher's own shelf, and any student classroom it's shared
+  // into via Assign) — emit one row per (board, classroom) pair, not one per
+  // board, so a call's board-picker can find it by *that call's* classroomId.
+  // Deduping globally by board id used to make the shared-in row disappear
+  // whenever the owner's shelf classroom happened to be iterated first,
+  // which meant a student's call could never find their own assigned board.
   const boards = classrooms.flatMap((classroom) =>
-    [...classroom.boards, ...classroom.sharedBoards].filter((board) => !seen.has(board.id) && seen.add(board.id)).map((board) => ({
+    [...classroom.boards, ...classroom.sharedBoards].map((board) => ({
       id: board.id,
       title: board.title,
       classroomId: classroom.id,
@@ -211,10 +217,21 @@ classroomsRouter.get('/:id', async (req, res) => {
 
   // One board per student holds every lesson; it exists from the first visit.
   // A board already assigned (owned or shared in) counts, so a student who
-  // was given one of the teacher's boards never ends up with a second.
-  if (classroom.student && !(await prisma.board.count({ where: { OR: [{ classroomId: classroom.id }, { sharedWith: { some: { id: classroom.id } } }] } }))) {
-    await prisma.board.create({
-      data: { classroomId: classroom.id, title: `${classroom.student.name} — lessons`, elements: [] }
+  // was given one of the teacher's boards never ends up with a second. This
+  // check-then-create used to race two concurrent requests for the same
+  // classroom (e.g. the student opening their page right as the teacher's
+  // Assign call was still landing) into both seeing zero boards and each
+  // creating one — an advisory lock scoped to this classroom's id serializes
+  // them so only the first ever gets past the count.
+  if (classroom.student) {
+    await prisma.$transaction(async (tx) => {
+      await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${classroom.id}))`
+      const count = await tx.board.count({ where: { OR: [{ classroomId: classroom.id }, { sharedWith: { some: { id: classroom.id } } }] } })
+      if (!count) {
+        await tx.board.create({
+          data: { classroomId: classroom.id, title: `${classroom.student.name} — lessons`, elements: [] }
+        })
+      }
     })
   }
 
@@ -335,36 +352,46 @@ classroomsRouter.post('/:id/boards/:boardId/assign', requireRole('OWNER', 'TEACH
   // owns it when an administrator is the one making the change.
   const home = await ensurePersonalSpace(target.teacherId, target.schoolId)
 
-  if (!parsed.data.attach) {
-    if (board.classroomId === target.id) {
-      // It was this student's own board: back to the teacher's shelf, not deleted.
-      await prisma.board.update({ where: { id: board.id }, data: { classroomId: home.id } })
-      forgetBoard(board.id)
-    } else {
-      await prisma.board.update({ where: { id: board.id }, data: { sharedWith: { disconnect: { id: target.id } } } })
-    }
-    return res.json({ ok: true, displaced: [] })
-  }
+  // Same advisory lock GET /:id takes before its own count-then-create, so
+  // an assign landing here can never interleave with that check and leave
+  // the student with both the assigned board and an auto-created "— lessons"
+  // one (seen in production: the count momentarily read zero mid-assign).
+  const displaced = await prisma.$transaction(async (tx) => {
+    await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${target.id}))`
 
-  // Whatever this student already has (besides this board) gets displaced first.
-  const others = await prisma.board.findMany({
-    where: { id: { not: board.id }, OR: [{ classroomId: target.id }, { sharedWith: { some: { id: target.id } } }] },
-    select: { id: true, title: true, classroomId: true }
+    if (!parsed.data.attach) {
+      if (board.classroomId === target.id) {
+        // It was this student's own board: back to the teacher's shelf, not deleted.
+        await tx.board.update({ where: { id: board.id }, data: { classroomId: home.id } })
+        forgetBoard(board.id)
+      } else {
+        await tx.board.update({ where: { id: board.id }, data: { sharedWith: { disconnect: { id: target.id } } } })
+      }
+      return []
+    }
+
+    // Whatever this student already has (besides this board) gets displaced first.
+    const others = await tx.board.findMany({
+      where: { id: { not: board.id }, OR: [{ classroomId: target.id }, { sharedWith: { some: { id: target.id } } }] },
+      select: { id: true, title: true, classroomId: true }
+    })
+    const displaced = []
+    for (const other of others) {
+      if (other.classroomId === target.id) {
+        await tx.board.update({ where: { id: other.id }, data: { classroomId: home.id } })
+        forgetBoard(other.id)
+      } else {
+        await tx.board.update({ where: { id: other.id }, data: { sharedWith: { disconnect: { id: target.id } } } })
+      }
+      displaced.push(other.title)
+    }
+
+    if (board.classroomId !== target.id) {
+      await tx.board.update({ where: { id: board.id }, data: { sharedWith: { connect: { id: target.id } } } })
+    }
+    return displaced
   })
-  const displaced = []
-  for (const other of others) {
-    if (other.classroomId === target.id) {
-      await prisma.board.update({ where: { id: other.id }, data: { classroomId: home.id } })
-      forgetBoard(other.id)
-    } else {
-      await prisma.board.update({ where: { id: other.id }, data: { sharedWith: { disconnect: { id: target.id } } } })
-    }
-    displaced.push(other.title)
-  }
 
-  if (board.classroomId !== target.id) {
-    await prisma.board.update({ where: { id: board.id }, data: { sharedWith: { connect: { id: target.id } } } })
-  }
   res.json({ ok: true, displaced })
 })
 

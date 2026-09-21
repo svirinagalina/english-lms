@@ -860,7 +860,13 @@ export default function Call() {
   }
 
   boardsRef.current = boards
-  const currentBoard = boards.find((b) => b.id === boardId) ?? null
+  // The same board can now appear once per classroom it belongs to (its
+  // owner's shelf, plus any student it's shared into) — prefer the row for
+  // this call's own classroom so lessonClassroomId/boardStudents below don't
+  // depend on array order.
+  const currentBoard = boards.find((b) => b.id === boardId && b.classroomId === call?.classroomId)
+    ?? boards.find((b) => b.id === boardId)
+    ?? null
   // Mistakes and vocabulary go to the student of the lesson: the board's own
   // student, or — on a teacher's own board used as material — the student
   // this call was started for.

@@ -31,7 +31,10 @@ const Controls = forwardRef(function Controls({
   noiseState,
   blurAmount,
   onBlurChange,
-  boards = [],
+  // A board can arrive once per classroom it belongs to (its owner's shelf,
+  // plus any student classroom it's shared into) — collapse to one per id,
+  // since this row only ever cares about which distinct boards can be opened.
+  boards: rawBoards = [],
   boardId,
   // The board to go back to with one click (the last one opened, or the student's).
   preferredBoardId,
@@ -52,6 +55,8 @@ const Controls = forwardRef(function Controls({
   onReact,
   onSticker
 }, ref) {
+  const boards = [...new Map(rawBoards.map((b) => [b.id, b])).values()]
+
   // The rarely used controls live behind "More": blur and the invite link.
   const [moreOpen, setMoreOpen] = useState(false)
   const moreRef = useRef(null)
