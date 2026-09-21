@@ -1,21 +1,28 @@
 import { useEffect, useRef, useState } from 'react'
 import { api } from '../api'
 import { lookupWord } from '../utils/dictionary'
+import { speakAmerican } from '../utils/speech'
 
 // Plays a pronunciation clip; the element is reused so repeat clicks are instant.
+// Prefers the browser's own American English voice (speakAmerican) — the
+// server's clip (Google Translate's classic TTS) turned out to serve one
+// fixed voice no matter what, with no way to ask it for US over UK, so it's
+// only the fallback for a browser with no en-US voice installed.
 export function PlayButton({ src, small = false }) {
   const audioRef = useRef(null)
   const [playing, setPlaying] = useState(false)
   if (!src) return null
-  const play = (event) => {
+  const word = (() => { try { return new URL(src, window.location.origin).searchParams.get('word') } catch { return null } })()
+  const play = async (event) => {
     event.stopPropagation()
     event.preventDefault()
+    setPlaying(true)
+    if (word && await speakAmerican(word, () => setPlaying(false))) return
     if (!audioRef.current) {
       audioRef.current = new Audio(src)
       audioRef.current.onended = () => setPlaying(false)
       audioRef.current.onerror = () => setPlaying(false)
     }
-    setPlaying(true)
     audioRef.current.currentTime = 0
     audioRef.current.play().catch(() => setPlaying(false))
   }
