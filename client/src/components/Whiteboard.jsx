@@ -2399,23 +2399,21 @@ const Whiteboard = forwardRef(function Whiteboard({ socketRef, boardId, title, s
     bump()
   }
 
-  // A new section goes under everything on the board, in the left column
-  // of the current view; the board then scrolls down to it at the same zoom.
+  // A new section goes under everything on the board, in the left column of
+  // the current view. Doesn't move the view — New lesson/Homework are
+  // clicked by someone already looking at (and positioned on) the board, and
+  // jumping them away from wherever they were reads as the board losing
+  // their place rather than helping; they can scroll to the new heading
+  // themselves. addBlock (below), inserted from outside the board entirely,
+  // still needs to reveal what it just added — it does that itself.
   const addHeading = (text, color) => {
     const items = elementsRef.current
-    const canvas = canvasRef.current
-    const rect = canvas?.getBoundingClientRect() ?? { width: 800, height: 600 }
     const view = viewRef.current
     const box = items.length ? unionBounds(items) : null
     const leftOfView = (40 - view.x) / view.scale
     const x = box ? Math.min(box.x, leftOfView + 400) : leftOfView
     const y = box ? box.y + box.h + 100 : (40 - view.y) / view.scale
     commit({ id: newId(), type: 'text', color, width: 6, x, y, text, fontSize: 28 })
-    // The heading lands a bit below the top edge, as if the page had been scrolled.
-    const scale = view.scale
-    const screenX = view.x + x * scale
-    const keepX = screenX >= 40 && screenX <= rect.width - 240
-    glideTo({ scale, x: keepX ? view.x : 40 - x * scale, y: 80 - y * scale })
     setTool('select')
     scheduleRender()
     bump()
@@ -2437,9 +2435,11 @@ const Whiteboard = forwardRef(function Whiteboard({ socketRef, boardId, title, s
   useImperativeHandle(ref, () => ({ addSticker }), [addSticker])
 
   // A heading with a block of lines under it (numbered), below everything.
+  // Unlike addHeading's other callers, this one is triggered from outside
+  // the board entirely (a lesson summary's "insert" button) — the person
+  // isn't already looking at the board, so it's the one case that still
+  // needs to bring the new content into view.
   const addBlock = (title, lines, color) => {
-    // Readable on arrival: the glide in addHeading keeps the current zoom,
-    // so go to 100% first, around the same centre.
     const rect = canvasRef.current?.getBoundingClientRect() ?? { width: 800, height: 600 }
     const v = viewRef.current
     const cx = (rect.width / 2 - v.x) / v.scale
@@ -2448,6 +2448,7 @@ const Whiteboard = forwardRef(function Whiteboard({ socketRef, boardId, title, s
     addHeading(title, color)
     const heading = elementsRef.current[elementsRef.current.length - 1]
     if (!heading) return
+    glideTo({ scale: 1, x: 40 - heading.x, y: 80 - heading.y })
     const text = lines.map((line, i) => `${i + 1}. ${line}`).join('\n')
     commit({ id: newId(), type: 'text', color: COLORS[0], width: 6, x: heading.x, y: heading.y + 48, text, fontSize: 20, w: 720 })
     setTool('select')
