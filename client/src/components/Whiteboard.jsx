@@ -956,7 +956,13 @@ const Whiteboard = forwardRef(function Whiteboard({ socketRef, boardId, title, s
   // following on the next fresh "Spotlight on" so the teacher can still pull
   // everyone back to one place.
   const followPausedRef = useRef(false)
-  const pauseFollowing = () => { followPausedRef.current = true }
+  // Also cancels any glideTo() still animating (New lesson/Homework's jump
+  // to the new heading) — without this, a manual pan/zoom mid-glide fought
+  // the animation's own writes to viewRef every frame until it finished,
+  // which is what made panning right after New lesson feel like it wasn't
+  // working, or like the view "flew off" out of the user's control.
+  const glideTokenRef = useRef(0)
+  const pauseFollowing = () => { followPausedRef.current = true; glideTokenRef.current += 1 }
   const viewBroadcastRef = useRef(0)
   // True while a press is held on the canvas: floating bars step aside.
   const [dragging, setDragging] = useState(false)
@@ -1017,11 +1023,20 @@ const Whiteboard = forwardRef(function Whiteboard({ socketRef, boardId, title, s
     const editingId = editingTextRef.current
     for (const element of elementsRef.current) {
       if (cropping && element.id === cropping.id) continue
-      if (editingId && element.id === editingId) {
-        if (element.type === 'note') drawElement(ctx, { ...element, text: '' })
-        continue
+      // One malformed element (a stray NaN coordinate, a crop that no
+      // longer matches its image) used to throw partway through this loop
+      // and leave the canvas blank — cleared for the frame, never finished
+      // — until reload; everything after it in draw order just vanished.
+      // Skipping only that element keeps the rest of the board on screen.
+      try {
+        if (editingId && element.id === editingId) {
+          if (element.type === 'note') drawElement(ctx, { ...element, text: '' })
+          continue
+        }
+        drawElement(ctx, element)
+      } catch (err) {
+        console.error('Failed to draw board element', element.id, element.type, err)
       }
-      drawElement(ctx, element)
     }
     if (draftRef.current) drawElement(ctx, draftRef.current)
 
@@ -2386,7 +2401,11 @@ const Whiteboard = forwardRef(function Whiteboard({ socketRef, boardId, title, s
   const glideTo = (target) => {
     const from = { ...viewRef.current }
     const start = performance.now()
+    const myToken = ++glideTokenRef.current
     const step = (now) => {
+      // A manual pan/zoom (pauseFollowing bumps the token) takes over —
+      // stop overwriting viewRef with the animation's own path.
+      if (glideTokenRef.current !== myToken) return
       const t = Math.min(1, (now - start) / 350)
       const ease = 1 - Math.pow(1 - t, 3)
       viewRef.current = {
