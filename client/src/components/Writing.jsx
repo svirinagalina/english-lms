@@ -164,11 +164,20 @@ export default function Writing({ socketRef, classroomId, user, title, subtitle,
     socketRef.current?.emit('doc:update', next)
   }, [socketRef])
 
+  // True from the moment an edit is made until a reconnect settles it one
+  // way or the other — a local edit that reached the server before a drop
+  // would come back unchanged in that resync anyway, so there's no harm in
+  // holding it up over a legitimate remote edit that arrived while briefly
+  // offline (see the reconnect handling below, which is what actually cares
+  // about this).
+  const dirtyRef = useRef(false)
+
   const commit = useCallback((next, caret) => {
     const history = historyRef.current
     history.undo.push(runsRef.current)
     if (history.undo.length > 200) history.undo.shift()
     history.redo = []
+    dirtyRef.current = true
     setRuns(next)
     caretRef.current = caret ?? null
     broadcast(next)
@@ -181,7 +190,16 @@ export default function Writing({ socketRef, classroomId, user, title, subtitle,
     setLoaded(false)
     const open = (quiet) => socket.emit('doc:open', classroomId, { quiet }, (response) => {
       if (response?.error) { setError(response.error); return }
-      setRuns(normalise(response.runs ?? []))
+      // A reconnect (quiet) whose local edits never got confirmed synced —
+      // a deploy or a network blip dropped the socket mid-edit — used to
+      // silently overwrite whatever was on screen with the server's older
+      // copy, straight out from under someone still typing. Trust the
+      // screen instead and make sure the server catches up with it; a
+      // genuine remote edit made by the other side while this client was
+      // briefly offline only wins when there was nothing unsynced here.
+      if (quiet && dirtyRef.current) broadcast(runsRef.current)
+      else setRuns(normalise(response.runs ?? []))
+      dirtyRef.current = false
       setLoaded(true)
     })
     // After a reconnect the document is opened again, without leading others to it.
