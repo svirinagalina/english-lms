@@ -956,13 +956,7 @@ const Whiteboard = forwardRef(function Whiteboard({ socketRef, boardId, title, s
   // following on the next fresh "Spotlight on" so the teacher can still pull
   // everyone back to one place.
   const followPausedRef = useRef(false)
-  // Also cancels any glideTo() still animating (New lesson/Homework's jump
-  // to the new heading) — without this, a manual pan/zoom mid-glide fought
-  // the animation's own writes to viewRef every frame until it finished,
-  // which is what made panning right after New lesson feel like it wasn't
-  // working, or like the view "flew off" out of the user's control.
-  const glideTokenRef = useRef(0)
-  const pauseFollowing = () => { followPausedRef.current = true; glideTokenRef.current += 1 }
+  const pauseFollowing = () => { followPausedRef.current = true }
   const viewBroadcastRef = useRef(0)
   // True while a press is held on the canvas: floating bars step aside.
   const [dragging, setDragging] = useState(false)
@@ -2395,29 +2389,14 @@ const Whiteboard = forwardRef(function Whiteboard({ socketRef, boardId, title, s
   }
 
   // Everything from every lesson stays on the one board: a new lesson starts
-  // with a dated heading below all existing content, and the view goes there.
-  // Glides the view to a new position over a third of a second, so a jump
-  // to a new section reads as scrolling down rather than the board vanishing.
+  // with a dated heading below all existing content, and the view jumps
+  // straight there — no animation (it used to glide over a third of a
+  // second, which a manual pan/zoom in that window would fight until it
+  // finished; simpler and sturdier to just land on the target directly).
   const glideTo = (target) => {
-    const from = { ...viewRef.current }
-    const start = performance.now()
-    const myToken = ++glideTokenRef.current
-    const step = (now) => {
-      // A manual pan/zoom (pauseFollowing bumps the token) takes over —
-      // stop overwriting viewRef with the animation's own path.
-      if (glideTokenRef.current !== myToken) return
-      const t = Math.min(1, (now - start) / 350)
-      const ease = 1 - Math.pow(1 - t, 3)
-      viewRef.current = {
-        scale: from.scale + (target.scale - from.scale) * ease,
-        x: from.x + (target.x - from.x) * ease,
-        y: from.y + (target.y - from.y) * ease
-      }
-      scheduleRender()
-      if (t < 1) requestAnimationFrame(step)
-      else bump()
-    }
-    requestAnimationFrame(step)
+    viewRef.current = target
+    scheduleRender()
+    bump()
   }
 
   // A new section goes under everything on the board, in the left column
