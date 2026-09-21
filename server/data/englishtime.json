@@ -743,7 +743,7 @@
       },
       {
         "type": "FILL_BLANK",
-        "prompt": "She __ the very girl I saw yesterday.",
+        "prompt": "She is __ very girl I saw yesterday.",
         "answers": [
           "the"
         ],
