@@ -88,6 +88,17 @@ export default function Call() {
   const [call, setCall] = useState(null)
   const [error, setError] = useState('')
   const [status, setStatus] = useState('idle')
+  // A stray trackpad swipe or Backspace can still ask the browser to leave
+  // or reload the page (overscroll-behavior on the board stops the common
+  // case, but not every path to it) — while live, that always asks first,
+  // in the browser's own Leave/Cancel prompt, rather than just dropping
+  // whoever it happened to off the call.
+  useEffect(() => {
+    if (status !== 'live') return
+    const onBeforeUnload = (event) => { event.preventDefault(); event.returnValue = '' }
+    window.addEventListener('beforeunload', onBeforeUnload)
+    return () => window.removeEventListener('beforeunload', onBeforeUnload)
+  }, [status])
   const [mediaWarning, setMediaWarning] = useState('')
   const [peers, setPeers] = useState({})
   const [screenStream, setScreenStream] = useState(null)

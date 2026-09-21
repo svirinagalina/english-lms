@@ -950,6 +950,13 @@ const Whiteboard = forwardRef(function Whiteboard({ socketRef, boardId, title, s
   const [following, setFollowing] = useState(null) // { name }
   const spotlightRef = useRef(false)
   spotlightRef.current = spotlighting
+  // A follower who pans/zooms on their own stops being dragged back to the
+  // spotlighter's view on the next broadcast (at most ~100ms away) — forcing
+  // their view back mid-gesture read as "the board won't move". Resumes
+  // following on the next fresh "Spotlight on" so the teacher can still pull
+  // everyone back to one place.
+  const followPausedRef = useRef(false)
+  const pauseFollowing = () => { followPausedRef.current = true }
   const viewBroadcastRef = useRef(0)
   // True while a press is held on the canvas: floating bars step aside.
   const [dragging, setDragging] = useState(false)
@@ -1122,9 +1129,12 @@ const Whiteboard = forwardRef(function Whiteboard({ socketRef, boardId, title, s
     const onClear = () => { elementsRef.current = []; selectedRef.current = []; scheduleRender() }
 
     // Following a spotlight: the same scale, the same world point at the centre.
-    const onSpotlight = ({ name, on }) => setFollowing(on ? { name } : null)
+    const onSpotlight = ({ name, on }) => {
+      setFollowing(on ? { name } : null)
+      if (on) followPausedRef.current = false
+    }
     const onView = ({ scale, cx, cy }) => {
-      if (spotlightRef.current) return
+      if (spotlightRef.current || followPausedRef.current) return
       const canvas = canvasRef.current
       if (!canvas) return
       const rect = canvas.getBoundingClientRect()
@@ -1867,6 +1877,7 @@ const Whiteboard = forwardRef(function Whiteboard({ socketRef, boardId, title, s
     if (!pointer) { updateHoverCursor(event); hoverDictionary(event); return }
 
     if (pointer.mode === 'pan') {
+      pauseFollowing()
       viewRef.current = {
         ...viewRef.current,
         x: pointer.origin.x + (event.clientX - pointer.startX),
@@ -1993,6 +2004,7 @@ const Whiteboard = forwardRef(function Whiteboard({ socketRef, boardId, title, s
 
   // Zoom by a factor around a point given in canvas pixels.
   const zoomAround = (factor, canvasX, canvasY) => {
+    pauseFollowing()
     const view = viewRef.current
     const scale = Math.min(MAX_SCALE, Math.max(MIN_SCALE, view.scale * factor))
     viewRef.current = {
@@ -2029,6 +2041,7 @@ const Whiteboard = forwardRef(function Whiteboard({ socketRef, boardId, title, s
   const movePinch = () => {
     const start = pinchRef.current
     if (!start || touchesRef.current.size < 2) return
+    pauseFollowing()
     const now = pinchGeometry()
     const scale = Math.min(MAX_SCALE, Math.max(MIN_SCALE, start.view.scale * (now.distance / Math.max(1, start.distance))))
     // Keep the world point that was under the fingers' midpoint under it still.
@@ -2091,6 +2104,7 @@ const Whiteboard = forwardRef(function Whiteboard({ socketRef, boardId, title, s
       zoomAround(Math.exp(-event.deltaY * 0.006), event.clientX - rect.left, event.clientY - rect.top)
       return
     } else {
+      pauseFollowing()
       viewRef.current = { ...view, x: view.x - event.deltaX, y: view.y - event.deltaY }
     }
     scheduleRender()
