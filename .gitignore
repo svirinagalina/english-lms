@@ -8,3 +8,4 @@ dist/
 .vite/
 uploads/
 client/public/mediapipe/wasm/
+server/reports/
