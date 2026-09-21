@@ -862,9 +862,13 @@ export default function Call() {
   boardsRef.current = boards
   // The same board can now appear once per classroom it belongs to (its
   // owner's shelf, plus any student it's shared into) — prefer the row for
-  // this call's own classroom so lessonClassroomId/boardStudents below don't
-  // depend on array order.
+  // this call's own classroom, then any row that names the board's actual
+  // student, so lessonClassroomId/boardStudents below don't depend on array
+  // order. That matters even outside a call tied to that classroom: opening
+  // a specific student's board from the picker during an untied call should
+  // still send mistakes/vocabulary to that student, not nowhere.
   const currentBoard = boards.find((b) => b.id === boardId && b.classroomId === call?.classroomId)
+    ?? boards.find((b) => b.id === boardId && b.studentId)
     ?? boards.find((b) => b.id === boardId)
     ?? null
   // Mistakes and vocabulary go to the student of the lesson: the board's own

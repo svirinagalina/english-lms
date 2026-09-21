@@ -17,6 +17,13 @@
    up exactly and the layout does not jump when switching sections. */
 html { scrollbar-gutter: stable; }
 
+/* A trackpad's left/right swipe (panning the whiteboard, or just scrolling a
+   wide page) was triggering Chrome/Safari's swipe-to-go-back/forward page
+   navigation instead — that gesture reads overscroll at the document root,
+   not just the wheel event on whatever element is under the pointer, so
+   preventDefault() on the board's own canvas wasn't enough to stop it. */
+html, body { overscroll-behavior-x: none; }
+
 body {
   font-family: 'Manrope', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   background: var(--bg);
