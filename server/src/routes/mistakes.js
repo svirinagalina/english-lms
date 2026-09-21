@@ -15,7 +15,11 @@ mistakesRouter.use(requireAuth)
 
 // The rule-based classifier knows the textbook's topics; with the AI key
 // the label comes from Claude instead, which reads the sentence properly.
+// Nothing to classify yet without a correction — the teacher jotted down
+// just the error to keep the lesson moving and can add it later (editing
+// the note re-runs this).
 async function topicsFor(said, correct) {
+  if (!correct) return []
   if (said.trim().toLowerCase() === correct.trim().toLowerCase()) return []
   if (assistantEnabled()) {
     try {
@@ -30,14 +34,16 @@ async function topicsFor(said, correct) {
 
 const mistakeSchema = z.object({
   said: z.string().trim().min(1).max(500),
-  correct: z.string().trim().min(1).max(500),
+  // Empty for now is fine — a correction added later (PATCH) re-classifies
+  // and drafts the drill task, neither of which mean anything without one.
+  correct: z.string().trim().max(500),
   boardId: z.string().max(64).optional(),
   elementId: z.string().max(64).optional()
 })
 
 // The drill task, written by the AI when the key is there (once, then kept).
 async function promptFor(mistake) {
-  if (mistake.prompt) return mistake.prompt
+  if (mistake.prompt || !mistake.correct) return mistake.prompt
   if (!assistantEnabled()) return null
   try {
     const prompt = await draftMistakePrompt({ said: mistake.said, correct: mistake.correct, topic: mistake.topics.map(topicLabel).join(', ') })
@@ -82,7 +88,7 @@ mistakesRouter.post('/classroom/:id', async (req, res) => {
   const classroom = await accessibleClassroom(req.user, req.params.id)
   if (!classroom || !classroom.studentId) return res.status(404).json({ error: 'Classroom not found' })
   const parsed = mistakeSchema.safeParse(req.body)
-  if (!parsed.success) return res.status(400).json({ error: 'Both sentences are needed' })
+  if (!parsed.success) return res.status(400).json({ error: 'What the student said is needed' })
   const { said, correct, boardId, elementId } = parsed.data
   const topics = await topicsFor(said, correct)
   const mistake = await prisma.lessonMistake.create({
@@ -98,7 +104,7 @@ mistakesRouter.patch('/:id', async (req, res) => {
   const existing = await prisma.lessonMistake.findUnique({ where: { id: req.params.id } })
   if (!existing || !(await accessibleClassroom(req.user, existing.classroomId))) return res.status(404).json({ error: 'Not found' })
   const parsed = mistakeSchema.pick({ said: true, correct: true }).safeParse(req.body)
-  if (!parsed.success) return res.status(400).json({ error: 'Both sentences are needed' })
+  if (!parsed.success) return res.status(400).json({ error: 'What the student said is needed' })
   const { said, correct } = parsed.data
   const topics = await topicsFor(said, correct)
   const mistake = await prisma.lessonMistake.update({ where: { id: existing.id }, data: { said, correct, topics, prompt: null } })
@@ -128,7 +134,8 @@ mistakesRouter.delete('/element/:elementId', async (req, res) => {
 // Least recently practised first; ones never practised come before all.
 mistakesRouter.get('/practice', async (req, res) => {
   if (req.user.role !== 'STUDENT') return res.json({ exercises: [] })
-  const mistakes = await prisma.lessonMistake.findMany({ where: { studentId: req.user.id } })
+  // Nothing to drill on one that's still missing its correction.
+  const mistakes = (await prisma.lessonMistake.findMany({ where: { studentId: req.user.id } })).filter((m) => m.correct)
   mistakes.sort((a, b) => (a.lastPracticedAt?.getTime() ?? 0) - (b.lastPracticedAt?.getTime() ?? 0) || b.createdAt - a.createdAt)
   const units = await unitsForTopics(req.user.schoolId, mistakes.flatMap((m) => m.topics))
   let drafted = 0

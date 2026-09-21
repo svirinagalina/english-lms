@@ -82,7 +82,13 @@ export default function MistakeNotebook({ classroomId, canEdit = false, boardLin
                     ) : (
                       <>
                         <div className="said">✗ {m.said}</div>
-                        <div className="correct">✓ {m.correct}</div>
+                        {m.correct ? (
+                          <div className="correct">✓ {m.correct}</div>
+                        ) : canEdit ? (
+                          <button className="link-button muted" onClick={() => setEditing({ id: m.id, said: m.said, correct: m.correct })}>+ add the correct form</button>
+                        ) : (
+                          <div className="muted">Correct form not added yet.</div>
+                        )}
                         {m.prompt && <div className="muted" style={{ fontSize: 13 }}>Задание для дрилла: {m.prompt}</div>}
                         <div className="notebook-meta">
                           {m.labels.map((l) => <span key={l} className="mistake-tag">{l}</span>)}

@@ -2590,7 +2590,10 @@ const Whiteboard = forwardRef(function Whiteboard({ socketRef, boardId, title, s
               className="mistakes-rows"
               onSubmit={async (e) => {
                 e.preventDefault()
-                const filled = mistakeRows.map((r) => ({ said: r.said.trim(), correct: r.correct.trim() })).filter((r) => r.said && r.correct)
+                // The correct form is welcome but not required — jot down
+                // just the error to keep the lesson moving, add the fix
+                // later from the notebook (Classroom > Mistake notebook > edit).
+                const filled = mistakeRows.map((r) => ({ said: r.said.trim(), correct: r.correct.trim() })).filter((r) => r.said)
                 if (!filled.length || mistakeBusy) return
                 if (students?.length && !target) { setMistakeError('Choose the student first'); return }
                 setMistakeBusy(true)
@@ -2614,10 +2617,11 @@ const Whiteboard = forwardRef(function Whiteboard({ socketRef, boardId, title, s
                     const { mistake } = await onMistake({ said, correct, elementId }, target)
                     const tag = mistake.labels?.length ? `\n{{#6b7280:${safe(mistake.labels.join(' · '))}}}` : ''
                     const { x, y } = nextPos
+                    const correctLine = correct ? `\n{{#15803d:✓ ${safe(correct)}}}` : '\n{{#6b7280:(no correction yet)}}'
                     const note = {
                       id: elementId, type: 'note', color: COLORS[0], width, x, y, w: 320, h: 90,
                       fill: '#fecaca', fontSize: 18, mistakeId: mistake.id,
-                      text: `{{#b91c1c:✗ ${safe(said)}}}\n{{#15803d:✓ ${safe(correct)}}}${tag}`
+                      text: `{{#b91c1c:✗ ${safe(said)}}}${correctLine}${tag}`
                     }
                     commit(note)
                     nextPos = { x, y: y + boundsOf(note).h + 16 }
@@ -2642,7 +2646,7 @@ const Whiteboard = forwardRef(function Whiteboard({ socketRef, boardId, title, s
                     onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); e.currentTarget.parentElement.querySelectorAll('input')[1]?.focus() } }}
                   />
                   <input
-                    placeholder={i === 0 ? 'How it should be' : ''}
+                    placeholder={i === 0 ? 'How it should be (optional)' : ''}
                     value={row.correct}
                     onChange={(e) => setMistakeRows((rows) => rows.map((r, j) => (j === i ? { ...r, correct: e.target.value } : r)))}
                     onKeyDown={(e) => {
@@ -2659,7 +2663,7 @@ const Whiteboard = forwardRef(function Whiteboard({ socketRef, boardId, title, s
               ))}
               {mistakeError && <div className="error">{mistakeError}</div>}
               <div className="row-actions">
-                <button type="submit" disabled={mistakeBusy || !mistakeRows.some((r) => r.said.trim() && r.correct.trim())}>
+                <button type="submit" disabled={mistakeBusy || !mistakeRows.some((r) => r.said.trim())}>
                   {mistakeBusy ? 'Saving…' : 'Save to board and notebook'}
                 </button>
                 {mistakeRows.length < 10 && (
@@ -2669,7 +2673,7 @@ const Whiteboard = forwardRef(function Whiteboard({ socketRef, boardId, title, s
               </div>
             </form>
             <div className="mistakes-list">
-              {mistakesSaved.length === 0 && <div className="muted small-hint">Left: as it was said. Right: how it should be. Enter moves along, ⌘Enter saves.</div>}
+              {mistakesSaved.length === 0 && <div className="muted small-hint">Left: as it was said. Right: how it should be (leave blank to add it later). Enter moves along, ⌘Enter saves.</div>}
               {mistakesSaved.map((m) => (
                 <div key={m.id} className="mistakes-item">
                   <div className="said">✗ {m.said}</div>
