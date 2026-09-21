@@ -245,7 +245,14 @@ export default function Classroom() {
             boardId={openBoard.id}
             title={openBoard.title}
             subtitle={partner}
-            onClose={() => setOpenBoardId(null)}
+            // On your own shelf, closing a board used to land on this
+            // classroom's own list view — just the Boards panel again,
+            // duplicating what the main Classroom page already shows, and
+            // reads as everything else (students, textbooks…) having
+            // vanished. Skip straight to the real dashboard there; a
+            // student's classroom still has its own sessions/progress to
+            // come back to, so that one stays as is.
+            onClose={() => (isPersonal ? navigate('/classroom') : setOpenBoardId(null))}
             onStartCall={isStaff ? () => startCallOnBoard(openBoard.id) : undefined}
             onOpenWriting={!isPersonal ? () => setWritingOpen(true) : undefined}
             canSpotlight={isStaff}
