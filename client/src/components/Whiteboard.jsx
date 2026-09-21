@@ -1314,7 +1314,7 @@ const Whiteboard = forwardRef(function Whiteboard({ socketRef, boardId, title, s
     }
     commitRef.current?.(element)
     selectedRef.current = []
-    setTool('pen')
+    setTool('select')
     scheduleRender()
     bump()
   }
@@ -2374,7 +2374,7 @@ const Whiteboard = forwardRef(function Whiteboard({ socketRef, boardId, title, s
     const screenX = view.x + x * scale
     const keepX = screenX >= 40 && screenX <= rect.width - 240
     glideTo({ scale, x: keepX ? view.x : 40 - x * scale, y: 80 - y * scale })
-    setTool('pen')
+    setTool('select')
     scheduleRender()
     bump()
   }
