@@ -6,7 +6,7 @@
     "dev": "vite",
     "build": "vite build && node scripts/precompress.js",
     "preview": "vite preview",
-    "prebuild": "node scripts/copy-mediapipe.js"
+    "prebuild": "node scripts/copy-mediapipe.js && node scripts/copy-tesseract.js"
   },
   "dependencies": {
     "@mediapipe/tasks-vision": "^1.0.1",
@@ -17,7 +17,8 @@
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "react-router-dom": "^6.28.0",
-    "socket.io-client": "^4.8.1"
+    "socket.io-client": "^4.8.1",
+    "tesseract.js": "^5.1.1"
   },
   "devDependencies": {
     "@vitejs/plugin-react": "^4.3.4",

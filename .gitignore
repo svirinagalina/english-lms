@@ -8,4 +8,6 @@ dist/
 .vite/
 uploads/
 client/public/mediapipe/wasm/
+client/public/tesseract/worker.min.js
+client/public/tesseract/core/
 server/reports/

@@ -1,6 +1,7 @@
 import { forwardRef, useCallback, useEffect, useImperativeHandle, useRef, useState } from 'react'
 import '../styles/whiteboard.css'
 import { isEnglishWord, lookupWord, wordAt } from '../utils/dictionary'
+import { ocrWords } from '../utils/ocr'
 import WordCard, { PlayButton } from './WordCard'
 import TextbookPanel from './TextbookPanel'
 
@@ -513,6 +514,23 @@ function cropFromBox(element, visible) {
   }
 }
 
+// The word under a world point inside an image (a screenshot or a photo of
+// a page) — maps the point through the same crop math drawImageElement
+// uses, the other way around, then looks it up in that image's OCR result.
+// null both when there's genuinely no word there and while OCR is still
+// running (ocrWords starts it on first ask and returns null meanwhile).
+function wordUnderImagePoint(element, px, py) {
+  const image = imageFor(element.src)
+  if (!(image.complete && image.naturalWidth) || !element.w || !element.h) return null
+  const words = ocrWords(element.src)
+  if (!words) return null
+  const crop = element.crop ?? FULL_CROP
+  const nx = crop.x * image.naturalWidth + ((px - element.x) / element.w) * (crop.w * image.naturalWidth)
+  const ny = crop.y * image.naturalHeight + ((py - element.y) / element.h) * (crop.h * image.naturalHeight)
+  const hit = words.find((w) => nx >= w.x0 && nx <= w.x1 && ny >= w.y0 && ny <= w.y1)
+  return hit ? hit.text.replace(/^[^a-zA-Z]+|[^a-zA-Z]+$/g, '') : null
+}
+
 // --- Drawing ------------------------------------------------------------------
 
 function drawImageElement(ctx, element, alpha = 1) {
@@ -899,8 +917,11 @@ const Whiteboard = forwardRef(function Whiteboard({ socketRef, boardId, title, s
   const hoverDictionary = (event) => {
     if (pointerRef.current || textInput) return
     const point = toWorld(event)
-    const target = [...elementsRef.current].reverse().find((e) => (e.type === 'text' || e.type === 'note') && hitTest(e, point.x, point.y))
-    const word = target ? wordUnderPoint(target, point.x, point.y) : null
+    const target = [...elementsRef.current].reverse().find((e) => (e.type === 'text' || e.type === 'note' || e.type === 'image') && hitTest(e, point.x, point.y))
+    // An image needs OCR before it has any words at all — ocrWords starts
+    // that on the first hover over it and returns null until it's done, so
+    // the tip just doesn't show for the second or so that takes.
+    const word = target ? (target.type === 'image' ? wordUnderImagePoint(target, point.x, point.y) : wordUnderPoint(target, point.x, point.y)) : null
     if (!word) {
       // Off the word: the card lingers a moment so the pointer can reach its
       // play / add buttons; hovering the card itself keeps it (see onMouseEnter).
@@ -1654,6 +1675,14 @@ const Whiteboard = forwardRef(function Whiteboard({ socketRef, boardId, title, s
     scheduleRender()
   }
 
+  const openWordCard = (word, event) => {
+    const rect = canvasRef.current.getBoundingClientRect()
+    tipWordRef.current = null; clearTimeout(tipTimer.current); setTip(null)
+    setWordCard({ word: word.toLowerCase(), x: Math.max(8, Math.min(event.clientX - rect.left, rect.width - 300)), y: Math.max(8, Math.min(event.clientY - rect.top + 14, rect.height - 270)) })
+    selectedRef.current = []
+    scheduleRender()
+  }
+
   const handleDoubleClick = (event) => {
     if (tool !== 'select' || cropRef.current) return
     const point = toWorld(event)
@@ -1663,18 +1692,19 @@ const Whiteboard = forwardRef(function Whiteboard({ socketRef, boardId, title, s
       // of the editor (a click on the selected text still edits it).
       const word = wordPicker ? wordUnderPoint(target, point.x, point.y) : null
       clearTimeout(editClickTimer.current)
-      if (word && isEnglishWord(word)) {
-        const rect = canvasRef.current.getBoundingClientRect()
-        tipWordRef.current = null; clearTimeout(tipTimer.current); setTip(null)
-        setWordCard({ word: word.toLowerCase(), x: Math.max(8, Math.min(event.clientX - rect.left, rect.width - 300)), y: Math.max(8, Math.min(event.clientY - rect.top + 14, rect.height - 270)) })
-        selectedRef.current = []
-        scheduleRender()
-        return
-      }
+      if (word && isEnglishWord(word)) { openWordCard(word, event); return }
       openEditor(target)
       return
     }
     if (target?.type !== 'image') return
+
+    // A screenshot or photo has no text elements to double-click into, only
+    // pixels — OCR (started on first hover, see hoverDictionary) finds the
+    // word under the point the same way wordUnderPoint does for real text.
+    if (wordPicker) {
+      const word = wordUnderImagePoint(target, point.x, point.y)
+      if (word && isEnglishWord(word)) { openWordCard(word, event); return }
+    }
 
     cropRef.current = { ...target }
     selectedRef.current = [target.id]
