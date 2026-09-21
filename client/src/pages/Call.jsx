@@ -577,6 +577,13 @@ export default function Call() {
           Object.values(connectionsRef.current).forEach((pc) => pc.close())
           connectionsRef.current = {}
           setPeers({})
+          // boards was only ever fetched once, at mount — a board assigned
+          // or reshared from another tab/session while this one sat through
+          // a reconnect (a deploy, a Wi-Fi blip) stayed invisible here,
+          // which is how a single-student board ended up looking like
+          // ownerless "material" and offering the whole roster instead of
+          // just that student.
+          api.allBoards().then(({ boards }) => setBoards(boards)).catch(() => {})
         }
         connectedBefore = true
         setMediaWarning((w) => (w === RECONNECTING ? '' : w))
@@ -878,20 +885,29 @@ export default function Call() {
   // order. That matters even outside a call tied to that classroom: opening
   // a specific student's board from the picker during an untied call should
   // still send mistakes/vocabulary to that student, not nowhere.
-  const currentBoard = boards.find((b) => b.id === boardId && b.classroomId === call?.classroomId)
-    ?? boards.find((b) => b.id === boardId && b.studentId)
+  // Every row this exact board has because it's shared with a student —
+  // its owner's own shelf entry has none — i.e. who it's actually assigned
+  // to, not the teacher's whole roster.
+  const boardAssignees = boards.filter((b) => b.id === boardId && b.studentId)
+  const currentBoard = boardAssignees.find((b) => b.classroomId === call?.classroomId)
+    ?? (boardAssignees.length === 1 ? boardAssignees[0] : null)
     ?? boards.find((b) => b.id === boardId)
     ?? null
   // Mistakes and vocabulary go to the student of the lesson: the board's own
-  // student, or — on a teacher's own board used as material — the student
-  // this call was started for.
-  const lessonClassroomId = currentBoard?.studentId ? currentBoard.classroomId : (call?.classroomId ?? null)
-  // On a board of my own (material, a group lesson) the student is chosen on
-  // the board: my students, the one this call was started for first.
-  const boardStudents = isStaff && currentBoard && !currentBoard.studentId
-    ? [...new Map(boards.filter((b) => b.studentId && b.teacherId === user.id).map((b) => [b.classroomId, { classroomId: b.classroomId, name: b.student }])).values()]
-        .sort((a, b) => (a.classroomId === call?.classroomId ? -1 : b.classroomId === call?.classroomId ? 1 : a.name.localeCompare(b.name)))
-    : null
+  // student when it has exactly one, or — on a teacher's own board used as
+  // material for several students at once — the one this call was started for.
+  const lessonClassroomId = boardAssignees.length === 1
+    ? boardAssignees[0].classroomId
+    : (boardAssignees.find((b) => b.classroomId === call?.classroomId)?.classroomId ?? call?.classroomId ?? null)
+  // Shared with exactly one student: no choice to make. Shared with several
+  // (a pair/group lesson): choose among just those. Shared with none (pure
+  // material): still offer the teacher's whole roster, same as always.
+  const boardStudents = !isStaff || boardAssignees.length === 1
+    ? null
+    : (boardAssignees.length > 1
+        ? boardAssignees.map((b) => ({ classroomId: b.classroomId, name: b.student }))
+        : [...new Map(boards.filter((b) => b.studentId && b.teacherId === user.id).map((b) => [b.classroomId, { classroomId: b.classroomId, name: b.student }])).values()]
+      ).sort((a, b) => (a.classroomId === call?.classroomId ? -1 : b.classroomId === call?.classroomId ? 1 : a.name.localeCompare(b.name)))
 
   // A call started from a student's page opens that student's board as soon
   // as the teacher is in; a student joining later starts on it too (the
