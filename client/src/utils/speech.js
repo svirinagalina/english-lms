@@ -23,11 +23,28 @@ function loadVoices() {
   return voicesPromise
 }
 
+// macOS/iOS bundle a set of "novelty" system voices alongside the normal
+// ones (Bahh, Zarvox, Albert…) — picking one blind ("just take the first
+// en-US voice") got one for a student and came back sounding, per her
+// teacher, "like someone gasping for air." None of these are ever wanted
+// for pronunciation.
+const NOVELTY_VOICES = new Set([
+  'albert', 'bad news', 'bahh', 'bells', 'boing', 'bubbles', 'cellos',
+  'deranged', 'good news', 'hysterical', 'jester', 'organ', 'pipe organ',
+  'superstar', 'trinoids', 'whisper', 'wobble', 'zarvox'
+])
+// Known-good voices, preferred in this order when more than one is
+// available — otherwise it's whichever the browser happens to list first.
+const PREFERRED_VOICE_MARKERS = ['samantha', 'google us english', 'natural', 'ava', 'allison', 'nicky', 'susan', 'zoe', 'aaron', 'alex', 'microsoft']
+
 let americanVoice // undefined: not checked yet; null: checked, none installed
 async function getAmericanVoice() {
   if (americanVoice === undefined) {
     const voices = await loadVoices()
-    americanVoice = voices.find((v) => v.lang === 'en-US') ?? voices.find((v) => v.lang?.toLowerCase().startsWith('en-us')) ?? null
+    const usable = voices
+      .filter((v) => v.lang === 'en-US' || v.lang?.toLowerCase().startsWith('en-us'))
+      .filter((v) => !NOVELTY_VOICES.has(v.name.trim().toLowerCase()))
+    americanVoice = usable.find((v) => PREFERRED_VOICE_MARKERS.some((m) => v.name.toLowerCase().includes(m))) ?? usable[0] ?? null
   }
   return americanVoice
 }

@@ -832,6 +832,10 @@ const Whiteboard = forwardRef(function Whiteboard({ socketRef, boardId, title, s
   const clipboardRef = useRef([])
   const pasteCountRef = useRef(0)
   const historyRef = useRef({ undo: [], redo: [] })
+  // The world point under the pointer as of the last move over the canvas —
+  // where a saved Mistake note lands, so it shows up next to whatever the
+  // teacher was actually pointing at instead of a fixed spot near the panel.
+  const lastCursorWorldRef = useRef(null)
 
   const [tool, setTool] = useState('select')
   // render() reads the tool through a ref so its identity never changes:
@@ -886,7 +890,6 @@ const Whiteboard = forwardRef(function Whiteboard({ socketRef, boardId, title, s
   const [mistakeBusy, setMistakeBusy] = useState(false)
   const [mistakeError, setMistakeError] = useState('')
   const [mistakesSaved, setMistakesSaved] = useState([]) // this session's entries
-  const mistakeStackRef = useRef(null) // where the next note goes
   const editClickTimer = useRef(null)
   // A block handed in from outside (speaking questions from a lesson
   // summary) goes under everything once the board is in, once per block.
@@ -1876,7 +1879,11 @@ const Whiteboard = forwardRef(function Whiteboard({ socketRef, boardId, title, s
   }
 
   const handlePointerMove = (event) => {
-    if (canvasRef.current) broadcastCursor(toWorld(event))
+    if (canvasRef.current) {
+      const world = toWorld(event)
+      lastCursorWorldRef.current = world
+      broadcastCursor(world)
+    }
     if (event.pointerType === 'touch' && touchesRef.current.has(event.pointerId)) {
       const rect = canvasRef.current.getBoundingClientRect()
       touchesRef.current.set(event.pointerId, { x: event.clientX - rect.left, y: event.clientY - rect.top })
@@ -2591,22 +2598,29 @@ const Whiteboard = forwardRef(function Whiteboard({ socketRef, boardId, title, s
                 const rect = canvasRef.current.getBoundingClientRect()
                 const v = viewRef.current
                 const safe = (t) => t.replace(/[{}]/g, '')
+                // Anchored to wherever the teacher's cursor last was on the
+                // board — near whatever was actually being discussed —
+                // rather than a fixed spot by the panel; falls back to that
+                // fixed spot only if the pointer never touched the canvas.
+                // Several rows saved in one go still stack downward from
+                // there instead of piling on the same point.
+                const cursor = lastCursorWorldRef.current
+                let nextPos = cursor
+                  ? { x: cursor.x + 24, y: cursor.y + 24 }
+                  : { x: (Math.max(40, rect.width - 720) - v.x) / v.scale, y: (100 - v.y) / v.scale }
                 try {
                   for (const { said, correct } of filled) {
                     const elementId = newId()
                     const { mistake } = await onMistake({ said, correct, elementId }, target)
                     const tag = mistake.labels?.length ? `\n{{#6b7280:${safe(mistake.labels.join(' · '))}}}` : ''
-                    // Notes stack in a column left of the panel, so the teacher sees them too.
-                    const stack = mistakeStackRef.current
-                    const x = stack ? stack.x : (Math.max(40, rect.width - 720) - v.x) / v.scale
-                    const y = stack ? stack.y + stack.h + 16 : (100 - v.y) / v.scale
+                    const { x, y } = nextPos
                     const note = {
                       id: elementId, type: 'note', color: COLORS[0], width, x, y, w: 320, h: 90,
                       fill: '#fecaca', fontSize: 18, mistakeId: mistake.id,
                       text: `{{#b91c1c:✗ ${safe(said)}}}\n{{#15803d:✓ ${safe(correct)}}}${tag}`
                     }
                     commit(note)
-                    mistakeStackRef.current = { x, y, h: boundsOf(note).h }
+                    nextPos = { x, y: y + boundsOf(note).h + 16 }
                     setMistakesSaved((list) => [{ id: mistake.id, said, correct, labels: mistake.labels ?? [] }, ...list])
                   }
                   setMistakeRows([emptyRow(), emptyRow(), emptyRow()])
