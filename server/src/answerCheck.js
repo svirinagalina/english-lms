@@ -69,7 +69,11 @@ export function normalise(value) {
     // Punctuation does not make a translation wrong: a dash before a reply,
     // a comma, a missing full stop or question mark.
     .replace(/[“”"„«».!?;:,()—–]/g, ' ')
-    .replace(/(^|\s)-+(\s|$)/g, ' ')
+    // A dash or underscore standing alone is how a student fills a blank
+    // that wants no word at all (an article exercise's "— no article needed").
+    // It is only this stand-in when the whole "word" is dashes/underscores —
+    // "well-known" and a real blank marker keep their punctuation.
+    .replace(/(^|\s)[-_]+(\s|$)/g, ' ')
     .replace(/\s+/g, ' ')
     .trim()
 
@@ -107,7 +111,10 @@ function matchesWithPhrase(candidate, main, phrase) {
 
 export function checkAnswer(given, accepted, { prompt = '' } = {}) {
   const raw = normalise(given)
-  if (!raw) return { correct: false, matched: null }
+  // An empty normalised answer is not automatically wrong: it is exactly
+  // what a student submits for "no article/word needed" (dash, underscore),
+  // which itself normalises to nothing — the comparison below settles it
+  // against what the exercise actually accepts.
 
   const flexible = DEMONSTRATIVE_RU.test(prompt)
   const fold = (text) => (flexible ? foldDemonstratives(text) : text)
