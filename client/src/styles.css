@@ -643,6 +643,27 @@ select.pill { padding: 0 16px; color: var(--text); border: none; }
 }
 .stage.board-mode .video-tile { flex: none; }
 .stage.board-mode .video-tile { box-shadow: 0 6px 20px rgba(0, 0, 0, 0.35); }
+/* Tucks the camera tiles away entirely — most useful on a phone, where they
+   otherwise sit over the board the whole lesson. */
+.stage.board-mode .tiles.tiles-tucked { display: none; }
+.tiles-toggle {
+  position: absolute;
+  top: 60px;
+  right: 220px;
+  z-index: 4;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  border: 1px solid var(--border);
+  background: rgba(20, 69, 63, 0.9);
+  color: #fff;
+  font-size: 15px;
+  line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
 .lesson-page.board-mode .controls {
   /* The same 44px row as the board chip (left) and the zoom group (right);
      centred between them by script (see Call.jsx), not in the whole width. */
@@ -945,6 +966,7 @@ button.play-word, button.play-word.small { padding: 0; }
   .lesson-page.board-mode .more-menu { top: auto; bottom: calc(100% + 8px); }
   .stage.board-mode .tiles { top: 64px; right: 8px; width: 110px; bottom: auto; max-height: 40vh; }
   .stage.board-mode .board-corner-right { display: none; }
+  .tiles-toggle { top: 64px; right: 126px; }
   .lesson-page.board-mode .banner { top: 64px; left: 8px; right: 130px; max-width: none; background: #3d3a1e; border: 1px solid rgba(234, 179, 8, 0.35); }
   .lesson-page.board-mode .call-chat { top: auto; bottom: calc(var(--dock-h, 150px) + 90px); left: 8px; right: 8px; max-height: 50vh; }
   .lesson-page.writing-mode .call-chat { bottom: 66px; }

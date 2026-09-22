@@ -11,7 +11,7 @@ const INVITE_DAYS = 14
 
 const inviteSchema = z.object({
   name: z.string().min(2).max(100),
-  email: z.string().email(),
+  email: z.string().trim().toLowerCase().email(),
   role: z.enum(['TEACHER', 'STUDENT']),
   // Which teacher the invited student will be linked to. Defaults to the inviter.
   teacherId: z.string().optional()

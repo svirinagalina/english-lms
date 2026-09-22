@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { denoiseTrack } from '../utils/noiseSuppressor'
 import { api } from '../api'
 
@@ -149,6 +149,10 @@ export default function VideoGrid({
   const sharingPeer = Object.values(peers).find((p) => p.sharing && p.stream) ?? null
   const drawing = useRef(false)
   const lastPoint = useRef(null)
+  // On a phone, the camera tiles float over the board and cost real space —
+  // let people tuck them away while they're working on the board itself.
+  const [videoHidden, setVideoHidden] = useState(false)
+  const boardMode = board && !sharingPeer && !screenStream
 
   const pointerPosition = (event) => {
     const rect = drawingCanvasRef.current.getBoundingClientRect()
@@ -204,8 +208,8 @@ export default function VideoGrid({
   }
 
   return (
-    <div className={`stage ${board && !sharingPeer && !screenStream ? 'board-mode' : (screenStream || sharingPeer) ? 'with-screen' : ''}`}>
-      {board && !sharingPeer && !screenStream && <div className="board-area">{board}</div>}
+    <div className={`stage ${boardMode ? 'board-mode' : (screenStream || sharingPeer) ? 'with-screen' : ''}`}>
+      {boardMode && <div className="board-area">{board}</div>}
       {sharingPeer && !screenStream && (
         <div className="screen-area">
           <RemoteScreen stream={sharingPeer.stream} name={sharingPeer.name} unlockTick={unlockTick} />
@@ -231,7 +235,21 @@ export default function VideoGrid({
         </div>
       )}
 
-      <div className={`tiles ${Object.keys(peers).length ? 'has-peers' : ''}`}>
+      {boardMode && (
+        <button
+          type="button"
+          className="tiles-toggle"
+          onClick={() => setVideoHidden((v) => !v)}
+          title={videoHidden ? 'Show cameras' : 'Hide cameras'}
+        >
+          {videoHidden ? '📷' : '🚫'}
+        </button>
+      )}
+
+      {/* Hidden with CSS, not unmounted: the local video and the blur canvases
+          are attached by ref from Call.jsx once, outside React's own render
+          cycle, and wouldn't reattach themselves if these nodes went away. */}
+      <div className={`tiles ${Object.keys(peers).length ? 'has-peers' : ''} ${boardMode && videoHidden ? 'tiles-tucked' : ''}`}>
         <div className="video-tile local">
           <video ref={localVideoRef} autoPlay muted playsInline />
           <canvas

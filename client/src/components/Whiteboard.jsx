@@ -1807,10 +1807,15 @@ const Whiteboard = forwardRef(function Whiteboard({ socketRef, boardId, title, s
           editOnClick: already && selectedRef.current.length === 1 && (target.type === 'text' || target.type === 'note') ? { target, clientX: event.clientX, clientY: event.clientY } : null,
           moved: false
         }
-      } else {
-        if (!event.shiftKey) selectedRef.current = []
+      } else if (event.shiftKey) {
+        // Plain drag on empty space pans (the tool is labelled "Move" —
+        // dragging the screen around is the expected behaviour). Box-select
+        // stays available, just moved behind Shift so it doesn't collide.
         marqueeRef.current = { x: point.x, y: point.y, w: 0, h: 0 }
-        pointerRef.current = { mode: 'marquee', origin: point, additive: event.shiftKey, base: [...selectedRef.current] }
+        pointerRef.current = { mode: 'marquee', origin: point, additive: true, base: [...selectedRef.current] }
+      } else {
+        selectedRef.current = []
+        pointerRef.current = { mode: 'pan', startX: event.clientX, startY: event.clientY, origin: { ...viewRef.current } }
       }
       scheduleRender()
       bump()
@@ -1881,7 +1886,7 @@ const Whiteboard = forwardRef(function Whiteboard({ socketRef, boardId, title, s
       if (handle) { canvas.style.cursor = CURSOR_FOR[handle.id]; return }
     }
     const over = elementsRef.current.some((element) => hitTest(element, point.x, point.y))
-    canvas.style.cursor = over ? 'move' : 'default'
+    canvas.style.cursor = over ? 'move' : 'grab'
   }
 
   const handlePointerMove = (event) => {
@@ -1928,8 +1933,13 @@ const Whiteboard = forwardRef(function Whiteboard({ socketRef, boardId, title, s
       const dx = point.x - pointer.last.x
       const dy = point.y - pointer.last.y
       if (Math.abs(dx) + Math.abs(dy) > 0) pointer.moved = true
-      const ids = new Set(pointer.ids)
-      elementsRef.current = elementsRef.current.map((item) => (ids.has(item.id) ? moveElement(item, dx, dy) : item))
+      // A student can select and click into text (see editOnClick above) but
+      // dragging shouldn't rearrange the teacher's board for everyone else —
+      // only staff actually move elements.
+      if (!wordPicker) {
+        const ids = new Set(pointer.ids)
+        elementsRef.current = elementsRef.current.map((item) => (ids.has(item.id) ? moveElement(item, dx, dy) : item))
+      }
       pointer.last = point
       scheduleRender()
       return
@@ -1981,7 +1991,7 @@ const Whiteboard = forwardRef(function Whiteboard({ socketRef, boardId, title, s
       return
     }
 
-    if (pointer.mode === 'move' || pointer.mode === 'resize') {
+    if ((pointer.mode === 'move' && !wordPicker) || pointer.mode === 'resize') {
       const ids = new Set(pointer.ids)
       for (const element of elementsRef.current) if (ids.has(element.id)) emit('board:update', element)
       recordUpdates(pointer.originals)
@@ -2980,8 +2990,8 @@ const Whiteboard = forwardRef(function Whiteboard({ socketRef, boardId, title, s
           {cropping
             ? 'Enter to apply · Esc to cancel'
             : <>
-                Scroll to pan · pinch or {navigator.platform.includes('Mac') ? '⌘' : 'Ctrl'}+scroll to zoom · Alt+drag to pan
-                {' · Shift+click or drag a box to select several · ⌘C / ⌘V to copy and paste · double-click text to edit it'}
+                Drag empty space or scroll to pan · pinch or {navigator.platform.includes('Mac') ? '⌘' : 'Ctrl'}+scroll to zoom
+                {' · Shift+click or Shift+drag a box to select several · ⌘C / ⌘V to copy and paste · double-click text to edit it'}
                 {onUploadImage && ' · paste or drop an image · double-click an image to crop'}
               </>}
         </div>
