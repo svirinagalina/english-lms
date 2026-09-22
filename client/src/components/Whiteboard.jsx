@@ -973,6 +973,14 @@ const Whiteboard = forwardRef(function Whiteboard({ socketRef, boardId, title, s
   const editingTextRef = useRef(null)
   editingTextRef.current = textInput?.id ?? null
   const textAreaRef = useRef(null)
+  // A native <select> (the font-size picker) blurs the editor the instant
+  // its dropdown opens, before onChange ever fires — and does it via a
+  // browser-level focus change whose relatedTarget isn't reliably the
+  // select itself, so the toolbar's own "was this a toolbar click"
+  // relatedTarget check misses it. This ref is set synchronously on
+  // mousedown, before that blur, so the editor knows to stay open and wait
+  // rather than submit/close out from under the still-in-progress pick.
+  const toolbarInteractingRef = useRef(false)
   const [, forceRender] = useState(0)
   const bump = () => forceRender((value) => value + 1)
   // For zoom and pan: refresh the toolbar at most once per frame, not per event.
@@ -2825,7 +2833,11 @@ const Whiteboard = forwardRef(function Whiteboard({ socketRef, boardId, title, s
           <div
             className="text-toolbar"
             style={{ left: textBar.x, top: textBar.y }}
-            onMouseDown={(e) => { if (e.target.tagName !== 'SELECT') e.preventDefault() }}
+            onMouseDown={(e) => {
+              toolbarInteractingRef.current = true
+              setTimeout(() => { toolbarInteractingRef.current = false }, 300)
+              if (e.target.tagName !== 'SELECT') e.preventDefault()
+            }}
           >
             {showTextControls && (
               <>
@@ -2921,8 +2933,14 @@ const Whiteboard = forwardRef(function Whiteboard({ socketRef, boardId, title, s
               }
             }}
             onBlur={(e) => {
-              // Clicking the text toolbar must not close the editor.
-              if (e.relatedTarget?.closest?.('.text-toolbar')) { requestAnimationFrame(() => e.target.focus({ preventScroll: true })); return }
+              // Clicking the text toolbar must not close the editor. A
+              // native <select> opening its dropdown blurs us with no
+              // usable relatedTarget, so toolbarInteractingRef (set
+              // synchronously on the toolbar's own mousedown) is checked too.
+              if (toolbarInteractingRef.current || e.relatedTarget?.closest?.('.text-toolbar')) {
+                requestAnimationFrame(() => e.target.focus({ preventScroll: true }))
+                return
+              }
               submitText()
             }}
             onKeyDown={(e) => {
@@ -2939,7 +2957,26 @@ const Whiteboard = forwardRef(function Whiteboard({ socketRef, boardId, title, s
             onPaste={(e) => {
               // Plain text only, so nothing foreign gets into the markup.
               e.preventDefault()
-              document.execCommand('insertText', false, e.clipboardData.getData('text/plain'))
+              const raw = e.clipboardData.getData('text/plain')
+              // Copying an element elsewhere on a board overwrites the
+              // system clipboard with this board's own JSON copy format
+              // (see copySelection) — pasting that here used to dump the
+              // raw JSON into the text. Recover the words those elements
+              // actually held instead, markup stripped, same as any other
+              // plain-text paste.
+              let text = raw
+              if (raw.includes(CLIPBOARD_MARK)) {
+                try {
+                  const parsed = JSON.parse(raw)
+                  if (parsed.mark === CLIPBOARD_MARK && Array.isArray(parsed.elements)) {
+                    text = parsed.elements
+                      .map((el) => String(el.text ?? '').split('\n').map((line) => textRuns(line).map((r) => r.text).join('')).join('\n'))
+                      .filter(Boolean)
+                      .join('\n')
+                  }
+                } catch { /* not ours after all — paste as plain text below */ }
+              }
+              document.execCommand('insertText', false, text)
               syncEditor()
             }}
           />
