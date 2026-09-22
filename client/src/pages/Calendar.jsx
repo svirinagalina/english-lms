@@ -1,11 +1,14 @@
 import { useEffect, useState } from 'react'
 import { api } from '../api'
+import { useAuth } from '../AuthContext'
 import Nav from '../components/Nav'
 import { SiteFooter } from '../components/Brand'
 import Panel from '../components/Panel'
 
 export default function Calendar() {
+  const { user } = useAuth()
   const [events, setEvents] = useState([])
+  const [students, setStudents] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [currentMonth, setCurrentMonth] = useState(new Date())
@@ -13,6 +16,7 @@ export default function Calendar() {
   const [formData, setFormData] = useState({
     title: '',
     startTime: '',
+    studentId: '',
     recurrence: '',
     recurrenceEndDate: ''
   })
@@ -35,6 +39,12 @@ export default function Calendar() {
 
   useEffect(() => {
     refresh()
+    if (user.role !== 'STUDENT') {
+      api.listClassrooms().then(({ classrooms }) => {
+        const uniqueStudents = [...new Map(classrooms.map(c => [c.student?.id, c.student])).values()].filter(Boolean)
+        setStudents(uniqueStudents)
+      }).catch(() => setStudents([]))
+    }
   }, [currentMonth])
 
   const handleAddEvent = async (e) => {
@@ -52,6 +62,7 @@ export default function Calendar() {
           title: formData.title,
           startTime: startTime.toISOString(),
           endTime: startTime.toISOString(),
+          studentId: formData.studentId || null,
           recurrence: formData.recurrence || null,
           recurrenceEndDate: formData.recurrenceEndDate ? new Date(formData.recurrenceEndDate).toISOString() : null
         })
@@ -62,12 +73,13 @@ export default function Calendar() {
           title: formData.title,
           startTime: startTime.toISOString(),
           endTime: startTime.toISOString(),
+          studentId: formData.studentId || null,
           recurrence: formData.recurrence || null,
           recurrenceEndDate: formData.recurrenceEndDate ? new Date(formData.recurrenceEndDate).toISOString() : null
         })
         setEvents([...events, event])
       }
-      setFormData({ title: '', startTime: '', recurrence: '', recurrenceEndDate: '' })
+      setFormData({ title: '', startTime: '', studentId: '', recurrence: '', recurrenceEndDate: '' })
       setShowForm(false)
       setError('')
     } catch (err) {
@@ -102,6 +114,7 @@ export default function Calendar() {
     setFormData({
       title: event.title,
       startTime: startDateTime,
+      studentId: event.studentId || '',
       recurrence: event.recurrence || '',
       recurrenceEndDate
     })
@@ -167,6 +180,22 @@ export default function Calendar() {
               />
             </div>
 
+            {user.role !== 'STUDENT' && (
+              <div style={{ marginBottom: 10 }}>
+                <label style={{ display: 'block', marginBottom: 5 }}>Student (optional)</label>
+                <select
+                  value={formData.studentId}
+                  onChange={(e) => setFormData({ ...formData, studentId: e.target.value })}
+                  style={{ width: '100%' }}
+                >
+                  <option value="">Not assigned</option>
+                  {students.map(student => (
+                    <option key={student.id} value={student.id}>{student.name}</option>
+                  ))}
+                </select>
+              </div>
+            )}
+
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 10 }}>
               <div>
                 <label style={{ display: 'block', marginBottom: 5 }}>Repeat</label>
@@ -221,6 +250,7 @@ export default function Calendar() {
                           )}
                           <div className="muted" style={{ fontSize: 14, marginTop: 5 }}>
                             {new Date(event.startTime).toLocaleTimeString('default', { hour: '2-digit', minute: '2-digit' })}
+                            {event.student && ` • ${event.student.name}`}
                           </div>
                         </div>
                         <div style={{ display: 'flex', gap: 5 }}>

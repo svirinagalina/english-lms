@@ -20,12 +20,14 @@ export default function Nav({ title, back }) {
 
   if (user.role !== 'STUDENT') {
     links.push(
+      { to: '/timetable', label: 'Timetable' },
       { to: '/practice', label: 'Practice' },
       { to: '/vocabulary', label: 'Vocabulary' },
       { to: '/progress', label: 'Progress' }
     )
   } else {
     links.push(
+      { to: '/timetable', label: 'My Schedule' },
       { to: '/practice', label: 'Practice' },
       { to: '/vocabulary', label: 'Vocabulary' },
       { to: '/billing', label: 'Payment' }
