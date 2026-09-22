@@ -76,7 +76,6 @@ model User {
   apiTokens         ApiToken[]
   todos             UserTodo[]
   calendarEvents    UserCalendarEvent[]
-  calendarLessons   UserCalendarEvent[] @relation("CalendarStudent")
 
   @@index([schoolId])
 }
@@ -567,17 +566,14 @@ model UserCalendarEvent {
   endTime           DateTime
   recurrence        String?  // null | "WEEKLY"
   recurrenceEndDate DateTime?  // When to stop repeating
+  studentIds        String[] @default([])  // JSON array of student IDs for group lessons
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
 
   userId String
   user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  studentId String?
-  student   User?  @relation("CalendarStudent", fields: [studentId], references: [id], onDelete: SetNull)
-
   @@index([userId])
-  @@index([studentId])
 }
 
 // --- Courses: self-paced learning modules (IELTS, FCE, etc) ------------------

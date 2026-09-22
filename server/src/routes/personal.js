@@ -15,9 +15,9 @@ const todoSchema = z.object({
 
 const eventSchema = z.object({
   title: z.string().trim().min(1).max(500),
-  description: z.string().max(2000).optional(),
   startTime: z.string().datetime(),
   endTime: z.string().datetime(),
+  studentIds: z.array(z.string()).default([]),
   recurrence: z.string().optional(), // null | "WEEKLY"
   recurrenceEndDate: z.string().datetime().optional().nullable()
 })
@@ -123,8 +123,29 @@ personalRouter.get('/calendar', async (req, res) => {
     orderBy: { startTime: 'asc' }
   })
 
+  // Collect all student IDs from events
+  const allStudentIds = new Set()
+  events.forEach(event => {
+    if (event.studentIds && Array.isArray(event.studentIds)) {
+      event.studentIds.forEach(id => allStudentIds.add(id))
+    }
+  })
+
+  // Fetch all mentioned students
+  const students = await prisma.user.findMany({
+    where: { id: { in: Array.from(allStudentIds) } },
+    select: { id: true, name: true }
+  })
+  const studentMap = new Map(students.map(s => [s.id, s]))
+
   // Expand recurring events into instances
-  const allInstances = events.flatMap(event => generateRecurringInstances(event, rangeStart, rangeEnd))
+  const allInstances = events.flatMap(event => {
+    const instances = generateRecurringInstances(event, rangeStart, rangeEnd)
+    return instances.map(inst => ({
+      ...inst,
+      students: (inst.studentIds || []).map(id => studentMap.get(id)).filter(Boolean)
+    }))
+  })
 
   res.json({ events: allInstances })
 })
@@ -136,16 +157,12 @@ personalRouter.post('/calendar', async (req, res) => {
   const startTime = new Date(parsed.data.startTime)
   const endTime = new Date(parsed.data.endTime)
 
-  if (endTime <= startTime) {
-    return res.status(400).json({ error: 'End time must be after start time' })
-  }
-
   const event = await prisma.userCalendarEvent.create({
     data: {
       title: parsed.data.title,
-      description: parsed.data.description,
       startTime,
       endTime,
+      studentIds: parsed.data.studentIds || [],
       recurrence: parsed.data.recurrence || null,
       recurrenceEndDate: parsed.data.recurrenceEndDate ? new Date(parsed.data.recurrenceEndDate) : null,
       userId: req.user.id
@@ -166,17 +183,13 @@ personalRouter.patch('/calendar/:id', async (req, res) => {
   const startTime = new Date(parsed.data.startTime)
   const endTime = new Date(parsed.data.endTime)
 
-  if (endTime <= startTime) {
-    return res.status(400).json({ error: 'End time must be after start time' })
-  }
-
   const updated = await prisma.userCalendarEvent.update({
     where: { id: req.params.id },
     data: {
       title: parsed.data.title,
-      description: parsed.data.description,
       startTime,
       endTime,
+      studentIds: parsed.data.studentIds || [],
       recurrence: parsed.data.recurrence || null,
       recurrenceEndDate: parsed.data.recurrenceEndDate ? new Date(parsed.data.recurrenceEndDate) : null
     }
