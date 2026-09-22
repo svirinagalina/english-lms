@@ -16,7 +16,7 @@ export default function Nav({ title, back }) {
   const { pathname } = useLocation()
 
   const admin = user.role === 'OWNER' || user.role === 'PARTNER'
-  const links = [{ to: '/classroom', label: 'Classroom' }]
+  const links = [{ to: '/classroom', label: 'Classroom' }, { to: '/courses', label: 'Courses' }]
 
   if (user.role !== 'STUDENT') {
     links.push(

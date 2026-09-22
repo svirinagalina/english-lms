@@ -1139,3 +1139,29 @@ button.compact { padding: 6px 10px; font-size: 12px; align-self: flex-start; }
 .dropzone:hover, .dropzone.over { border-color: var(--accent); background: rgba(244, 185, 217, 0.08); }
 .dropzone.busy { cursor: progress; opacity: 0.8; }
 .dropzone strong { font-size: 16px; }
+
+/* Courses: a lesson list beside the selected lesson's material. */
+.course-layout { display: grid; grid-template-columns: 300px 1fr; gap: 16px; align-items: start; }
+.course-lessons { display: flex; flex-direction: column; gap: 6px; max-height: calc(100vh - 160px); overflow-y: auto; }
+.course-lesson-link {
+  display: flex; align-items: flex-start; gap: 10px; text-align: left;
+  padding: 10px 12px; border: 1px solid var(--border); border-radius: 10px;
+  background: var(--bg); color: inherit; cursor: pointer; font: inherit;
+}
+.course-lesson-link:hover { border-color: var(--accent); }
+.course-lesson-link.active { border-color: var(--accent); background: rgba(244, 185, 217, 0.1); }
+.course-lesson-num { flex: 0 0 auto; opacity: 0.6; min-width: 20px; }
+.course-lesson-type { font-size: 12px; }
+.course-content {
+  border: 1px solid var(--border); border-radius: 12px; padding: 20px 24px;
+  display: flex; flex-direction: column; gap: 20px; min-height: 300px;
+}
+.course-block { display: flex; flex-direction: column; gap: 8px; }
+.course-text { white-space: pre-wrap; line-height: 1.5; }
+.course-video-wrap { position: relative; width: 100%; padding-top: 56.25%; }
+.course-video-wrap iframe { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; border-radius: 8px; }
+.course-image { max-width: 100%; border-radius: 8px; }
+@media (max-width: 860px) {
+  .course-layout { grid-template-columns: 1fr; }
+  .course-lessons { max-height: none; }
+}

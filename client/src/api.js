@@ -193,5 +193,21 @@ export const api = {
   listCalendarEvents: (start, end) => request(`/personal/calendar${start || end ? `?${new URLSearchParams({ ...(start && { start }), ...(end && { end }) }).toString()}` : ''}`),
   createCalendarEvent: (body) => request('/personal/calendar', { method: 'POST', body }),
   updateCalendarEvent: (id, body) => request(`/personal/calendar/${id}`, { method: 'PATCH', body }),
-  deleteCalendarEvent: (id, deleteAll) => request(`/personal/calendar/${id}${deleteAll ? '?deleteAll=true' : ''}`, { method: 'DELETE' })
+  deleteCalendarEvent: (id, deleteAll) => request(`/personal/calendar/${id}${deleteAll ? '?deleteAll=true' : ''}`, { method: 'DELETE' }),
+
+  // Courses: self-paced skillsets (IELTS, etc), browsable on their own and
+  // openable during a call.
+  listSkillsets: () => request('/courses'),
+  getCourse: (courseId) => request(`/courses/${courseId}/full`),
+
+  // Audio tracks attached to a textbook (e.g. listening-test recordings).
+  textbookAudio: (id) => request(`/textbooks/${id}/audio`),
+  uploadTextbookAudio: async (id, file, title) => {
+    const response = await fetch(`/api/textbooks/${id}/audio?title=${encodeURIComponent(title)}`, { method: 'POST', credentials: 'include', headers: { 'Content-Type': file.type || 'audio/mpeg' }, body: file })
+    const data = await response.json().catch(() => ({}))
+    if (!response.ok) throw new Error(data.error ?? 'Upload failed')
+    return data
+  },
+  deleteTextbookAudio: (id, audioId) => request(`/textbooks/${id}/audio/${audioId}`, { method: 'DELETE' }),
+  textbookAudioFileUrl: (id, audioId) => `/api/textbooks/${id}/audio/${audioId}/file`
 }

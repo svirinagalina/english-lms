@@ -25,6 +25,8 @@ import AudioCheck from './pages/AudioCheck'
 import Profile from './pages/Profile'
 import Todo from './pages/Todo'
 import Calendar from './pages/Calendar'
+import Courses from './pages/Courses'
+import Course from './pages/Course'
 
 function RequireAuth({ children, roles }) {
   const { user, loading } = useAuth()
@@ -89,6 +91,8 @@ export default function App() {
       <Route path="/" element={<RequireAuth><Classrooms /></RequireAuth>} />
       <Route path="/classroom" element={<RequireAuth><Classrooms /></RequireAuth>} />
       <Route path="/classroom/:id" element={<RequireAuth><Classroom /></RequireAuth>} />
+      <Route path="/courses" element={<RequireAuth><Courses /></RequireAuth>} />
+      <Route path="/courses/:courseId" element={<RequireAuth><Course /></RequireAuth>} />
       <Route path="/practice" element={<RequireAuth><Practice /></RequireAuth>} />
       <Route path="/practice/mistakes" element={<RequireAuth><MistakePractice /></RequireAuth>} />
       <Route path="/practice/:id" element={<RequireAuth><UnitPractice /></RequireAuth>} />
