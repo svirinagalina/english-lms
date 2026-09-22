@@ -34,12 +34,13 @@ export default function Nav({ title, back }) {
 
   if (user.role === 'TEACHER') links.push({ to: '/billing', label: 'Payments' })
 
-  // Personal section (todos and calendar) for all users
-  links.push({ to: '/todo', label: 'Todo' }, { to: '/calendar', label: 'Calendar' })
-
   if (admin) {
     links.push({ to: '/people', label: 'People' }, { to: '/billing', label: 'Payments' }, { to: '/content', label: 'Content' })
-    if (user.role === 'OWNER') links.push({ to: '/settings', label: 'Settings' })
+    if (user.role === 'OWNER') {
+      links.push({ to: '/settings', label: 'Settings' })
+      // Personal section (todos and calendar) only for owner
+      links.push({ to: '/todo', label: 'Todo' }, { to: '/calendar', label: 'Calendar' })
+    }
   }
 
   return (
