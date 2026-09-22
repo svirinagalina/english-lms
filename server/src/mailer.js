@@ -42,7 +42,9 @@ async function send({ to, subject, html, text }) {
 export function sendInviteEmail({ to, name, inviterName, schoolName, role, link }) {
   const roleLabel = role === 'TEACHER' ? 'a teacher' : 'a student'
   const isStudent = role === 'STUDENT'
-  const guideLink = 'https://lms.advent-academy.online/student-guide.html'
+  const isTeacher = role === 'TEACHER'
+  const studentGuideLink = 'https://lms.advent-academy.online/student-guide.html'
+  const teacherGuideLink = 'https://lms.advent-academy.online/teacher-guide.html'
 
   const html = `
 <div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;max-width:520px;margin:0 auto;padding:32px 24px;color:#1a1a1a">
@@ -61,7 +63,12 @@ export function sendInviteEmail({ to, name, inviterName, schoolName, role, link 
   </p>
   ${isStudent ? `
   <p style="font-size:13px;color:#666;line-height:1.5;margin:0 0 16px">
-    <a href="${escapeHtml(guideLink)}" style="color:#6366f1;text-decoration:none">Learn about the platform</a> — a quick guide explaining all the features and tools you'll use in your lessons.
+    <a href="${escapeHtml(studentGuideLink)}" style="color:#6366f1;text-decoration:none">Learn about the platform</a> — a quick guide explaining all the features and tools you'll use in your lessons.
+  </p>
+  ` : ''}
+  ${isTeacher ? `
+  <p style="font-size:13px;color:#666;line-height:1.5;margin:0 0 16px">
+    <a href="${escapeHtml(teacherGuideLink)}" style="color:#6366f1;text-decoration:none">Learn about the platform</a> — a complete guide with examples and best practices for teaching on Advent Academy.
   </p>
   ` : ''}
   <p style="font-size:13px;color:#666;line-height:1.5;margin:0 0 8px">
@@ -81,7 +88,8 @@ export function sendInviteEmail({ to, name, inviterName, schoolName, role, link 
     '',
     link,
     '',
-    ...(isStudent ? [`Learn about the platform: ${guideLink}`, ''] : []),
+    ...(isStudent ? [`Learn about the platform: ${studentGuideLink}`, ''] : []),
+    ...(isTeacher ? [`Learn about the platform: ${teacherGuideLink}`, ''] : []),
     'The link works once and expires in 14 days.'
   ].join('\n')
 

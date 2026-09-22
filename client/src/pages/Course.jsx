@@ -19,7 +19,51 @@ const parseDialogue = (script) =>
     return match ? { speaker: match[1], text: match[2] } : { speaker: '_narrator', text: line }
   })
 
-function TtsBlock({ payload }) {
+// Real generated audio: payload.lines is [{ speaker, text, url }], one MP3
+// per line (a different voice per speaker) — played back to back like a
+// playlist, since they're separate files rather than one recording.
+function TtsAudioBlock({ payload }) {
+  const [index, setIndex] = useState(-1) // -1 = not playing
+  const [revealed, setRevealed] = useState(false)
+  const audioRef = useRef(null)
+
+  useEffect(() => () => audioRef.current?.pause(), [])
+
+  const playFrom = (i) => {
+    if (i >= payload.lines.length) { setIndex(-1); return }
+    if (!audioRef.current) audioRef.current = new Audio()
+    audioRef.current.src = payload.lines[i].url
+    audioRef.current.onended = () => playFrom(i + 1)
+    audioRef.current.onerror = () => playFrom(i + 1)
+    audioRef.current.play().catch(() => setIndex(-1))
+    setIndex(i)
+  }
+  const stop = () => { audioRef.current?.pause(); setIndex(-1) }
+  const playing = index >= 0
+
+  return (
+    <div className="course-block">
+      {payload.title && <strong>{payload.title}</strong>}
+      <div className="row-actions">
+        {playing ? <button onClick={stop}>■ Stop</button> : <button onClick={() => playFrom(0)}>▶ Play</button>}
+        <button className="ghost" onClick={() => setRevealed((v) => !v)}>{revealed ? 'Hide script' : 'Show script'}</button>
+      </div>
+      {revealed && (
+        <div className="course-text" style={{ marginTop: 8 }}>
+          {payload.lines.map((line, i) => (
+            <div key={i} className={i === index ? 'course-tts-active-line' : ''}>
+              {line.speaker !== '_narrator' ? `${line.speaker}: ` : ''}{line.text}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
+// Fallback for a script not yet converted to real audio: reads it aloud
+// with the browser's own voice. See generate-tts-audio.js.
+function TtsScriptBlock({ payload }) {
   const [playing, setPlaying] = useState(false)
   const [revealed, setRevealed] = useState(false)
 
@@ -116,7 +160,7 @@ function Block({ block }) {
       </div>
     )
   }
-  if (type === 'tts') return <TtsBlock payload={payload} />
+  if (type === 'tts') return payload.lines ? <TtsAudioBlock payload={payload} /> : <TtsScriptBlock payload={payload} />
   if (type === 'video') {
     return (
       <div className="course-block">

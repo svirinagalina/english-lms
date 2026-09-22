@@ -1,0 +1,524 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Advent Academy LMS - Путеводитель преподавателя</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            line-height: 1.7;
+            color: #333;
+            background: #fafafa;
+            padding: 40px 60px;
+            max-width: 950px;
+            margin: 0 auto;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 50px;
+            padding: 40px 0 30px;
+            border-bottom: 4px solid #b5539a;
+        }
+        .header h1 {
+            color: #b5539a;
+            font-size: 40px;
+            margin-bottom: 10px;
+            font-weight: 700;
+            letter-spacing: -0.5px;
+        }
+        .header p {
+            color: #888;
+            font-size: 18px;
+            font-weight: 300;
+        }
+
+        .section {
+            margin-bottom: 50px;
+            page-break-inside: avoid;
+        }
+        .section h2 {
+            color: #b5539a;
+            font-size: 28px;
+            margin-bottom: 25px;
+            border-left: 5px solid #b5539a;
+            padding-left: 20px;
+            font-weight: 700;
+        }
+        .section h3 {
+            color: #b5539a;
+            font-size: 18px;
+            margin-top: 28px;
+            margin-bottom: 12px;
+            font-weight: 600;
+        }
+        .section p {
+            color: #555;
+            margin-bottom: 12px;
+        }
+
+        .feature-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            margin: 25px 0;
+        }
+        .feature-box {
+            background: white;
+            border: 2px solid #e0e0e0;
+            border-radius: 12px;
+            padding: 25px;
+            transition: all 0.3s ease;
+        }
+        .feature-box:hover {
+            border-color: #b5539a;
+            box-shadow: 0 6px 16px rgba(181, 83, 154, 0.12);
+            transform: translateY(-2px);
+        }
+        .feature-box .emoji {
+            font-size: 32px;
+            margin-bottom: 12px;
+            display: block;
+        }
+        .feature-box strong {
+            color: #b5539a;
+            display: block;
+            font-size: 16px;
+            margin-bottom: 8px;
+        }
+        .feature-box p {
+            margin: 0;
+            font-size: 14px;
+            color: #666;
+        }
+
+        .mockup-interface {
+            background: linear-gradient(135deg, #f5f5f5 0%, #ffffff 100%);
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            padding: 30px 20px;
+            margin: 20px 0;
+            text-align: center;
+            min-height: 200px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+            overflow: hidden;
+        }
+        .mockup-interface::before {
+            content: attr(data-label);
+            position: absolute;
+            font-size: 12px;
+            color: #999;
+            top: 10px;
+            left: 15px;
+            font-family: monospace;
+        }
+        .mockup-title {
+            font-weight: 600;
+            color: #b5539a;
+            margin-bottom: 15px;
+            font-size: 14px;
+        }
+        .mockup-buttons {
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+            flex-wrap: wrap;
+            margin: 15px 0;
+        }
+        .mock-btn {
+            padding: 8px 14px;
+            background: #b5539a;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            font-size: 12px;
+            cursor: pointer;
+        }
+        .mock-btn.secondary {
+            background: #e0e0e0;
+            color: #333;
+        }
+
+        .tip {
+            background: linear-gradient(135deg, #f5e8f0 0%, #ead5e9 100%);
+            border-left: 5px solid #b5539a;
+            padding: 20px;
+            margin: 25px 0;
+            border-radius: 8px;
+        }
+        .tip strong {
+            color: #b5539a;
+            display: block;
+            margin-bottom: 8px;
+            font-size: 15px;
+        }
+        .tip p {
+            margin: 0;
+            color: #444;
+        }
+
+        ul {
+            margin-left: 25px;
+            margin-top: 12px;
+        }
+        ul li {
+            margin-bottom: 10px;
+            color: #555;
+        }
+        ul li strong {
+            color: #b5539a;
+        }
+
+        .faq-item {
+            background: white;
+            border-left: 4px solid #b5539a;
+            padding: 16px 20px;
+            margin: 15px 0;
+            border-radius: 4px;
+        }
+        .faq-item h4 {
+            color: #b5539a;
+            margin-bottom: 8px;
+            font-size: 15px;
+        }
+        .faq-item p {
+            margin: 0;
+            color: #666;
+            font-size: 14px;
+        }
+
+        .workflow {
+            background: white;
+            border: 2px solid #b5539a;
+            border-radius: 8px;
+            padding: 20px;
+            margin: 20px 0;
+        }
+        .workflow-step {
+            display: flex;
+            gap: 15px;
+            margin-bottom: 15px;
+            padding-bottom: 15px;
+            border-bottom: 1px solid #f0f0f0;
+        }
+        .workflow-step:last-child {
+            border-bottom: none;
+            margin-bottom: 0;
+            padding-bottom: 0;
+        }
+        .step-number {
+            background: #b5539a;
+            color: white;
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 600;
+            flex-shrink: 0;
+        }
+        .step-content strong {
+            color: #b5539a;
+            display: block;
+            margin-bottom: 4px;
+        }
+        .step-content p {
+            margin: 0;
+            color: #666;
+            font-size: 14px;
+        }
+
+        .footer {
+            text-align: center;
+            margin-top: 60px;
+            padding-top: 40px;
+            border-top: 3px solid #b5539a;
+        }
+        .footer h3 {
+            color: #b5539a;
+            font-size: 18px;
+            margin-bottom: 8px;
+        }
+        .footer p {
+            color: #666;
+            margin: 8px 0;
+        }
+        .footer .emoji {
+            font-size: 32px;
+            margin-bottom: 10px;
+        }
+
+        @media print {
+            body {
+                padding: 20px;
+                max-width: 100%;
+                background: white;
+            }
+            .section, .feature-box, .tip, .mockup-interface, .workflow {
+                page-break-inside: avoid;
+            }
+        }
+
+        @media (max-width: 768px) {
+            body {
+                padding: 20px;
+            }
+            .feature-grid {
+                grid-template-columns: 1fr;
+            }
+            .section h2 {
+                font-size: 24px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>🎓 Advent Academy LMS</h1>
+        <p>Полный путеводитель преподавателя по платформе</p>
+    </div>
+
+    <div class="section">
+        <h2>Начало работы</h2>
+        <p>Платформа позволяет вам проводить интерактивные уроки, управлять материалами и отслеживать прогресс студентов. Вот как это работает:</p>
+
+        <div class="workflow">
+            <div class="workflow-step">
+                <div class="step-number">1</div>
+                <div class="step-content">
+                    <strong>Создание доски и материалов</strong>
+                    <p>Создавайте доски в разделе "My boards" и заполняйте их материалами — текст, рисунки, скриншоты учебников.</p>
+                </div>
+            </div>
+            <div class="workflow-step">
+                <div class="step-number">2</div>
+                <div class="step-content">
+                    <strong>Назначение доски студентам</strong>
+                    <p>Используйте кнопку "Assign" чтобы дать доску одному студенту или группе (для парных/групповых уроков).</p>
+                </div>
+            </div>
+            <div class="workflow-step">
+                <div class="step-number">3</div>
+                <div class="step-content">
+                    <strong>Проведение урока</strong>
+                    <p>Нажмите "Start lesson" или поделитесь ссылкой. Студент видит вашу доску в реальном времени, вы видите его микрофон/камеру.</p>
+                </div>
+            </div>
+            <div class="workflow-step">
+                <div class="step-number">4</div>
+                <div class="step-content">
+                    <strong>Отслеживание прогресса</strong>
+                    <p>Записывайте ошибки, устанавливайте домашнее задание, смотрите статистику выполнения упражнений в разделе Progress.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="section">
+        <h2>Инструменты на доске</h2>
+        <p>Во время урока у вас есть полный набор инструментов для обучения:</p>
+
+        <div class="feature-grid">
+            <div class="feature-box">
+                <span class="emoji">🎨</span>
+                <strong>Рисование и текст</strong>
+                <p>Рисуйте, пишите от руки, добавляйте текст с выбором размера и цвета. Всё видно студенту в реальном времени.</p>
+            </div>
+            <div class="feature-box">
+                <span class="emoji">📷</span>
+                <strong>Скриншоты и изображения</strong>
+                <p>Вставляйте изображения, делайте скриншоты. Система автоматически распознаёт текст на картинках для перевода.</p>
+            </div>
+            <div class="feature-box">
+                <span class="emoji">📚</span>
+                <strong>Учебники в отдельном окне</strong>
+                <p>Открывайте загруженные учебники в отдельной вкладке и делитесь экраном. Студент может переключаться между доской и учебником.</p>
+            </div>
+            <div class="feature-box">
+                <span class="emoji">🔤</span>
+                <strong>Встроенный словарь</strong>
+                <p>Двойной клик на любое слово = перевод. Работает как для вашего текста, так и для текста со скриншотов и учебников.</p>
+            </div>
+            <div class="feature-box">
+                <span class="emoji">📝</span>
+                <strong>Заметки об ошибках</strong>
+                <p>Отмечайте ошибки студента прямо на доске. Они автоматически сохраняются в Mistake Notebook студента для тренировки.</p>
+            </div>
+            <div class="feature-box">
+                <span class="emoji">🎙️</span>
+                <strong>Аудио и видео</strong>
+                <p>Видео-трансляция с вашей камеры, с опциональным размытием фона. Двусторонний микрофон с шумоподавлением.</p>
+            </div>
+        </div>
+
+        <div class="mockup-interface" data-label="На доске студента вы видите:">
+            <div style="text-align: left; width: 100%; max-width: 400px;">
+                <div class="mockup-title">📊 Интерактивная доска</div>
+                <div style="background: white; border: 1px solid #ddd; border-radius: 4px; padding: 15px; margin-bottom: 10px; font-size: 12px; color: #666;">
+                    <div style="margin-bottom: 8px;"><strong>Ваш рисунок/текст</strong> (видно в реальном времени)</div>
+                    <div style="margin-bottom: 8px; padding: 10px; background: #f5f5f5; border-left: 3px solid #b5539a;">Текст для студента / Картинка из учебника</div>
+                    <div style="color: #999; font-size: 11px;">⚡ Обновляется в живом времени</div>
+                </div>
+                <div class="mockup-buttons">
+                    <button class="mock-btn">Record mistake</button>
+                    <button class="mock-btn secondary">Add to vocab</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="section">
+        <h2>Управление студентами и материалами</h2>
+
+        <h3>📚 Организация досок</h3>
+        <p>Ваши доски хранятся в разделе "My boards" и могут быть назначены студентам:</p>
+        <ul>
+            <li><strong>Одна доска — один студент:</strong> каждый студент видит свою доску с вашими материалами</li>
+            <li><strong>Одна доска — группа:</strong> для парных или групповых уроков, несколько студентов видят одну доску</li>
+            <li><strong>Переназначение:</strong> когда вы назначаете студенту новую доску, старая возвращается в ваш архив "My boards"</li>
+            <li><strong>История:</strong> все доски хранятся, вы можете вернуться к ним в любой момент</li>
+        </ul>
+
+        <h3>👥 Управление студентами</h3>
+        <ul>
+            <li><strong>Приглашение:</strong> раздел "People" — создавайте приглашения для новых студентов</li>
+            <li><strong>Связь студент-учитель:</strong> каждый студент может быть связан с одним или несколькими учителями</li>
+            <li><strong>Кабинет студента:</strong> студент видит только своих учителей и свои доски</li>
+            <li><strong>Пакеты уроков:</strong> в разделе "Payment" отслеживайте оплату и количество оставшихся уроков</li>
+        </ul>
+
+        <div class="mockup-interface" data-label="Пример: управление доской">
+            <div style="text-align: left; width: 100%; max-width: 450px;">
+                <div class="mockup-title">📋 Доска "Grammar Unit 5"</div>
+                <div style="margin-bottom: 10px;">
+                    <div style="display: flex; gap: 8px; margin-bottom: 8px; flex-wrap: wrap;">
+                        <span style="background: #b5539a; color: white; padding: 4px 8px; border-radius: 3px; font-size: 11px;">Assigned to: Иван</span>
+                        <span style="background: #e0e0e0; color: #333; padding: 4px 8px; border-radius: 3px; font-size: 11px;">4 images</span>
+                    </div>
+                </div>
+                <div class="mockup-buttons">
+                    <button class="mock-btn">Open</button>
+                    <button class="mock-btn secondary">Edit</button>
+                    <button class="mock-btn secondary">Assign</button>
+                    <button class="mock-btn secondary">Delete</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="section">
+        <h2>Работа с ошибками и прогрессом</h2>
+
+        <h3>📋 Mistake Notebook</h3>
+        <p>Ошибки, которые вы отмечаете во время урока, автоматически попадают в Mistake Notebook студента:</p>
+        <ul>
+            <li>Студент видит все свои ошибки с поправками</li>
+            <li>Может потренироваться на этих ошибках в разделе "Practice → Mistakes"</li>
+            <li>Вы видите список ошибок студента по темам</li>
+            <li>Ошибки сортируются по частоте — повторяющиеся ошибки видны сразу</li>
+        </ul>
+
+        <h3>📊 Отслеживание прогресса</h3>
+        <p>В разделе "Progress" видите:</p>
+        <ul>
+            <li><strong>Активность по датам:</strong> календарь с выполненными упражнениями</li>
+            <li><strong>По юнитам:</strong> сколько упражнений студент сделал в каждой теме</li>
+            <li><strong>По ошибкам:</strong> какие ошибки повторяются чаще всего</li>
+            <li><strong>Словарь:</strong> сколько слов студент добавил и как часто повторяет</li>
+        </ul>
+
+        <h3>🎯 Домашнее задание</h3>
+        <p>Устанавливайте домашнее задание прямо на доске:</p>
+        <ul>
+            <li>Выделите элемент на доске (текст, вопросы, упражнения)</li>
+            <li>Нажмите "Set as homework" — для студента это появится в главном разделе</li>
+            <li>Студент может вернуться к домашнему заданию и потренироваться</li>
+        </ul>
+    </div>
+
+    <div class="section">
+        <h2>Полезные советы</h2>
+
+        <div class="tip">
+            <strong>💡 Совет 1: Подготавливайте доски заранее</strong>
+            <p>Создавайте и заполняйте доски до урока, а не во время. Это экономит время и позволяет больше взаимодействовать со студентом.</p>
+        </div>
+
+        <div class="tip">
+            <strong>💡 Совет 2: Используйте скриншоты из учебников</strong>
+            <p>Вместо печати — делайте скриншоты учебника и вставляйте на доску. Система распознаёт текст, студент может переводить слова.</p>
+        </div>
+
+        <div class="tip">
+            <strong>💡 Совет 3: Записывайте ошибки в реальном времени</strong>
+            <p>Отмечайте ошибки студента сразу, пока он говорит. Это помогает учащемуся научиться исправлять себя и формирует привычку саморефлексии.</p>
+        </div>
+
+        <div class="tip">
+            <strong>💡 Совет 4: Просматривайте прогресс регулярно</strong>
+            <p>Проверяйте Progress раз в неделю. Видите паттерны в ошибках и можете подготовить материал, сфокусированный на слабых местах.</p>
+        </div>
+
+        <div class="tip">
+            <strong>💡 Совет 5: Используйте групповые уроки эффективно</strong>
+            <p>Для парных/групповых уроков назначьте одну доску нескольким студентам. Оба видят одинаковую информацию и взаимодействуют вместе.</p>
+        </div>
+    </div>
+
+    <div class="section">
+        <h2>Часто задаваемые вопросы</h2>
+
+        <div class="faq-item">
+            <h4>❓ Как создать новую доску?</h4>
+            <p>В разделе "Classroom" нажмите на "My boards", затем "New board". Дайте ей название и начните добавлять материалы.</p>
+        </div>
+
+        <div class="faq-item">
+            <h4>❓ Как назначить доску студенту?</h4>
+            <p>Откройте доску, нажмите "Assign", выберите студента(ов) из списка. Студент сразу увидит эту доску в своём кабинете.</p>
+        </div>
+
+        <div class="faq-item">
+            <h4>❓ Как записать ошибку студента?</h4>
+            <p>Во время урока в разделе "Mistakes" нажмите "Record mistake", напишите то, что сказал студент (неправильно) и правильную версию. Ошибка автоматически попадёт в Mistake Notebook студента.</p>
+        </div>
+
+        <div class="faq-item">
+            <h4>❓ Студент не видит доску во время урока</h4>
+            <p>Убедитесь, что вы назначили эту доску студенту через "Assign". Проверьте, что студент вошёл в свой кабинет. Если доска вообще не видна — перезагрузите страницу.</p>
+        </div>
+
+        <div class="faq-item">
+            <h4>❓ Как видеть прогресс студента?</h4>
+            <p>Откройте карточку студента в "My students", нажмите "Open". В разделе "Progress" видите всю статистику его активности и выполнения упражнений.</p>
+        </div>
+
+        <div class="faq-item">
+            <h4>❓ Где найти загруженные учебники?</h4>
+            <p>Раздел "Textbooks" — там хранятся все PDF учебники. Вы можете открыть его в отдельном окне во время урока и делиться экраном со студентом.</p>
+        </div>
+
+        <div class="faq-item">
+            <h4>❓ Как управлять пакетами уроков студентов?</h4>
+            <p>Раздел "Payment" — видите всех студентов, сколько уроков они оплатили, сколько осталось. Там же указываете, когда студент пополнил баланс.</p>
+        </div>
+    </div>
+
+    <div class="footer">
+        <div class="emoji">🚀</div>
+        <h3>Успехов в обучении!</h3>
+        <p>Вопросы? Обратитесь в техническую поддержку</p>
+        <p style="margin-top: 15px; font-size: 13px; color: #999;">Advent Academy LMS • Версия 1.0</p>
+    </div>
+</body>
+</html>

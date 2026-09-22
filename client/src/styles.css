@@ -1177,6 +1177,7 @@ button.compact { padding: 6px 10px; font-size: 12px; align-self: flex-start; }
 .course-feedback { font-weight: 600; }
 .course-feedback.ok { color: #7fd88f; }
 .course-feedback.bad { color: #e5a5a5; }
+.course-tts-active-line { background: rgba(244, 185, 217, 0.15); border-radius: 4px; margin: 0 -6px; padding: 0 6px; }
 @media (max-width: 860px) {
   .course-layout { grid-template-columns: 1fr; }
   .course-lessons { max-height: none; }

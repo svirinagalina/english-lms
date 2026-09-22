@@ -217,6 +217,17 @@ export default function Classrooms() {
         </section>
       )}
 
+      {isStaff && (
+        <div style={{ textAlign: 'center', padding: '20px 0', color: '#666' }}>
+          <p style={{ fontSize: 13, margin: 0 }}>
+            Need help?{' '}
+            <a href="/teacher-guide.html" target="_blank" rel="noopener noreferrer" style={{ color: '#b5539a', textDecoration: 'none' }}>
+              Read the teacher guide
+            </a>
+          </p>
+        </div>
+      )}
+
       <SiteFooter />
     </div>
   )
