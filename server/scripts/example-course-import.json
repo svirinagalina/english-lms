@@ -1,0 +1,78 @@
+{
+  "skillsetName": "IELTS",
+  "course": {
+    "title": "IELTS 2024",
+    "description": "Complete IELTS preparation course covering Listening, Reading, Writing and Speaking",
+    "lessons": [
+      {
+        "position": 1,
+        "title": "IELTS exam overview. Theory",
+        "type": "theory",
+        "blocks": [
+          {
+            "position": 0,
+            "type": "text",
+            "payload": {
+              "content": "IELTS (International English Language Testing System) is a standardized test..."
+            }
+          },
+          {
+            "position": 1,
+            "type": "video",
+            "payload": {
+              "youtubeId": "dQw4w9WgXcQ",
+              "title": "IELTS Overview"
+            }
+          },
+          {
+            "position": 2,
+            "type": "image",
+            "payload": {
+              "url": "https://example.com/ielts-structure.jpg",
+              "caption": "IELTS exam structure"
+            }
+          }
+        ],
+        "exercises": [
+          {
+            "position": 0,
+            "type": "MULTIPLE_CHOICE",
+            "question": "What does IELTS stand for?",
+            "payload": {
+              "options": [
+                "International English Language Test System",
+                "International English Language Testing System",
+                "International English Learning Test System",
+                "International English Language Teaching System"
+              ],
+              "correctAnswer": "B"
+            }
+          },
+          {
+            "position": 1,
+            "type": "TRUE_FALSE",
+            "question": "IELTS exam is only for academic purposes.",
+            "payload": {
+              "correctAnswer": "false"
+            }
+          }
+        ]
+      },
+      {
+        "position": 2,
+        "title": "Listening Section 2. Theory",
+        "type": "theory",
+        "blocks": [
+          {
+            "position": 0,
+            "type": "text",
+            "payload": {
+              "content": "Section 2 focuses on semi-formal conversations..."
+            }
+          }
+        ],
+        "exercises": []
+      }
+    ]
+  }
+}

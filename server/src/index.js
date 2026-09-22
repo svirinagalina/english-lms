@@ -30,6 +30,7 @@ import { diagRouter } from './routes/diag.js'
 import { profileRouter } from './routes/profile.js'
 import { textbooksRouter } from './routes/textbooks.js'
 import { personalRouter } from './routes/personal.js'
+import coursesRouter from './routes/courses.js'
 import { loadAiSettings } from './settings.js'
 import { setupSignaling } from './signaling.js'
 import { flushBoards } from './boardStore.js'
@@ -65,6 +66,7 @@ app.use('/api/diag', diagRouter)
 app.use('/api/profile', profileRouter)
 app.use('/api/textbooks', textbooksRouter)
 app.use('/api/personal', personalRouter)
+app.use('/api/courses', coursesRouter)
 
 app.get('/api/health', (req, res) => res.json({ ok: true }))
 

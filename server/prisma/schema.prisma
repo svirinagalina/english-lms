@@ -20,6 +20,7 @@ model School {
   name      String
   createdAt DateTime @default(now())
   textbooks Textbook[]
+  skillsets Skillset[]
 
   // Free-form transfer details shown only to signed-in students of this school.
   paymentDetails String?
@@ -552,4 +553,91 @@ model UserCalendarEvent {
   user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
+}
+
+// --- Courses: self-paced learning modules (IELTS, FCE, etc) ------------------
+
+model Skillset {
+  id        String   @id @default(cuid())
+  schoolId  String
+  name      String   // "IELTS", "FCE", "CAE", etc
+  courses   Course[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  school School @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+
+  @@unique([schoolId, name])
+  @@index([schoolId])
+}
+
+model Course {
+  id          String   @id @default(cuid())
+  skillsetId  String
+  title       String
+  description String?
+  lessons     CourseLesson[]
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  skillset Skillset @relation(fields: [skillsetId], references: [id], onDelete: Cascade)
+
+  @@index([skillsetId])
+}
+
+model CourseLesson {
+  id        String   @id @default(cuid())
+  courseId  String
+  position  Int      // lesson order in course
+  title     String
+  type      String   @default("theory") // "theory", "practice", "supplementary"
+  blocks    CourseLessonBlock[]
+  exercises CourseExercise[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  course Course @relation(fields: [courseId], references: [id], onDelete: Cascade)
+
+  @@unique([courseId, position])
+  @@index([courseId])
+}
+
+model CourseLessonBlock {
+  id        String   @id @default(cuid())
+  lessonId  String
+  position  Int      // order within lesson
+  type      String   // "text", "image", "video", "file", "html"
+  // JSON payload: varies by type
+  // text: { content: string }
+  // image: { url: string, caption?: string }
+  // video: { youtubeId: string } or { url: string, title?: string }
+  // file: { url: string, name: string, mimeType?: string }
+  // html: { html: string }
+  payload   Json
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  lesson CourseLesson @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+
+  @@index([lessonId])
+}
+
+model CourseExercise {
+  id        String   @id @default(cuid())
+  lessonId  String
+  position  Int      // order within lesson
+  type      String   // "MULTIPLE_CHOICE", "FILL_BLANK", "ESSAY", "MATCHING", "TRUE_FALSE"
+  question  String
+  // Answers/options are in payload as JSON:
+  // MULTIPLE_CHOICE: { options: ["A", "B", "C", "D"], correctAnswer: "A" }
+  // FILL_BLANK: { answer: string, alternatives?: [string] }
+  // TRUE_FALSE: { correctAnswer: "true" | "false" }
+  // ESSAY: { rubric?: string, sampleAnswer?: string }
+  payload   Json
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  lesson CourseLesson @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+
+  @@index([lessonId])
 }
