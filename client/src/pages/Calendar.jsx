@@ -139,7 +139,7 @@ export default function Calendar() {
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
           <button className="ghost" onClick={prevMonth}>← Previous</button>
           <button onClick={() => { setShowForm(!showForm); setEditingId(null); setFormData({ title: '', startTime: '', recurrence: '', recurrenceEndDate: '' }) }}>
-            {showForm ? 'Cancel' : '+ Add event'}
+            {showForm ? 'Cancel' : '+ Add lesson'}
           </button>
           <button className="ghost" onClick={nextMonth}>Next →</button>
         </div>
@@ -193,16 +193,16 @@ export default function Calendar() {
             </div>
 
             <div style={{ display: 'flex', gap: 10 }}>
-              <button type="submit">{editingId ? 'Update' : 'Create'} event</button>
+              <button type="submit">{editingId ? 'Update' : 'Create'} lesson</button>
               <button className="ghost" type="button" onClick={() => { setShowForm(false); setEditingId(null) }}>Cancel</button>
             </div>
           </form>
         )}
       </Panel>
 
-      <Panel id="personal:calendar-events" title="Events" count={events.length} defaultOpen={events.length > 0}>
+      <Panel id="personal:calendar-events" title="Lessons" count={events.length} defaultOpen={events.length > 0}>
         {events.length === 0 ? (
-          <p className="muted">No events this month. Add one to get started!</p>
+          <p className="muted">No lessons this month. Add one to get started!</p>
         ) : (
           <div>
             {Object.entries(eventsByDate).sort().map(([date, dayEvents]) => (
@@ -240,12 +240,12 @@ export default function Calendar() {
       {deleteConfirm && eventToDelete && eventToDelete.recurrence === 'WEEKLY' && (
         <div style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.3)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
           <div style={{ backgroundColor: 'white', padding: 30, borderRadius: 8, maxWidth: 400, boxShadow: '0 4px 12px rgba(0,0,0,0.15)' }}>
-            <h3 style={{ marginTop: 0 }}>Delete recurring event</h3>
-            <p>This event repeats weekly. What would you like to delete?</p>
+            <h3 style={{ marginTop: 0 }}>Delete recurring lesson</h3>
+            <p>This lesson repeats weekly. What would you like to delete?</p>
             <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
               <button className="ghost" onClick={() => { setDeleteConfirm(false); setEventToDelete(null) }}>Cancel</button>
-              <button onClick={() => confirmDelete(eventToDelete.id, false)} style={{ backgroundColor: '#ffd1dc' }}>This event only</button>
-              <button onClick={() => confirmDelete(eventToDelete.id, true)} style={{ backgroundColor: '#ff6b6b', color: 'white' }}>All events in series</button>
+              <button onClick={() => confirmDelete(eventToDelete.id, false)} style={{ backgroundColor: '#ffd1dc' }}>This lesson only</button>
+              <button onClick={() => confirmDelete(eventToDelete.id, true)} style={{ backgroundColor: '#ff6b6b', color: 'white' }}>All lessons in series</button>
             </div>
           </div>
         </div>
