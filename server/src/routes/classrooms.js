@@ -215,25 +215,9 @@ classroomsRouter.get('/:id', async (req, res) => {
   const classroom = await accessibleClassroom(req.user, req.params.id)
   if (!classroom) return res.status(404).json({ error: 'Classroom not found' })
 
-  // One board per student holds every lesson; it exists from the first visit.
-  // A board already assigned (owned or shared in) counts, so a student who
-  // was given one of the teacher's boards never ends up with a second. This
-  // check-then-create used to race two concurrent requests for the same
-  // classroom (e.g. the student opening their page right as the teacher's
-  // Assign call was still landing) into both seeing zero boards and each
-  // creating one — an advisory lock scoped to this classroom's id serializes
-  // them so only the first ever gets past the count.
-  if (classroom.student) {
-    await prisma.$transaction(async (tx) => {
-      await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${classroom.id}))`
-      const count = await tx.board.count({ where: { OR: [{ classroomId: classroom.id }, { sharedWith: { some: { id: classroom.id } } }] } })
-      if (!count) {
-        await tx.board.create({
-          data: { classroomId: classroom.id, title: `${classroom.student.name} — lessons`, elements: [] }
-        })
-      }
-    })
-  }
+  // Boards are created manually by the teacher in "My boards" and then assigned
+  // to students via Assign. This allows a board to be shared with multiple
+  // students (group lessons, pairs) without creating duplicates.
 
   const [sessions, boards] = await Promise.all([
     prisma.session.findMany({
