@@ -217,6 +217,11 @@ export default function Classroom() {
     ? 'My boards'
     : user.role === 'STUDENT' ? classroom.teacher.name : classroom.student.name
   const openBoard = classroom.boards.find((b) => b.id === openBoardId) ?? (openBoardId === 'default' ? classroom.boards.find((b) => !b.shared) : undefined)
+  // Who this board is actually shared with — shared with exactly one
+  // student, no choice to make; several (a pair/group lesson), the choice
+  // is just those; none (real material of my own), the whole roster.
+  const boardAssignees = openBoard?.sharedWith ?? []
+  const singleAssignee = boardAssignees.length === 1 ? boardAssignees[0].id : null
 
   if (writingOpen && !isPersonal) {
     return (
@@ -260,7 +265,7 @@ export default function Classroom() {
             focusElementId={searchParams.get('focus')}
             insertBlock={insertBlock}
             onInserted={() => { setInsertBlock(null); setSearchParams((p) => { p.delete('summary'); p.set('board', openBoard.id); return p }, { replace: true }) }}
-            onMistake={isStaff && (!isPersonal || myStudents.length) ? (body, chosen) => api.addMistake(isPersonal ? chosen : id, { ...body, boardId: openBoard.id }) : undefined}
+            onMistake={isStaff && (!isPersonal || boardAssignees.length || myStudents.length) ? (body, chosen) => api.addMistake(isPersonal ? (chosen ?? singleAssignee) : id, { ...body, boardId: openBoard.id }) : undefined}
             onMistakeRemoved={isStaff && !isPersonal ? (elementId) => api.deleteMistakeByElement(elementId).catch(() => {}) : undefined}
             onUploadImage={isStaff
               ? async (dataUrl) => {
@@ -273,8 +278,10 @@ export default function Classroom() {
                   }
                 }
               : undefined}
-            onAddWords={!isPersonal || myStudents.length ? (words, chosen) => api.addBoardWords(words, isPersonal ? chosen : id) : undefined}
-            students={isPersonal && myStudents.length ? myStudents : null}
+            onAddWords={!isPersonal || boardAssignees.length || myStudents.length ? (words, chosen) => api.addBoardWords(words, isPersonal ? (chosen ?? singleAssignee) : id) : undefined}
+            students={isPersonal && boardAssignees.length > 1
+              ? boardAssignees.map((s) => ({ classroomId: s.id, name: s.name }))
+              : isPersonal && !boardAssignees.length && myStudents.length ? myStudents : null}
             assistEnabled={assistEnabled}
             onAssist={isStaff
               ? async (mode, words) => {
