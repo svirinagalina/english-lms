@@ -352,12 +352,12 @@ select.tool { appearance: auto; padding: 5px 8px; }
   overflow: hidden; text-overflow: ellipsis; pointer-events: none;
 }
 
-.mistakes-target { display: flex; align-items: center; gap: 8px; font-size: 13px; }
+.mistakes-target { display: flex; align-items: center; gap: 8px; font-size: 13px; margin-bottom: 4px; }
 .mistakes-target select.tool { flex: 1; }
-/* Same control, reused in the board's name chip so it's reachable without
-   opening Mistakes — compact there instead of filling the panel's width. */
-.board-chip .mistakes-target { flex-shrink: 0; margin-left: 12px; gap: 6px; }
-.board-chip .mistakes-target select.tool { flex: none; max-width: 130px; }
+/* A plain label in the board's name chip — who mistakes/words currently go
+   to — not a control: changing it happens in the Mistakes panel or when
+   adding a word, not here, so this never looks clickable. */
+.board-chip-for { flex-shrink: 0; margin-left: 12px; white-space: nowrap; }
 .board-toast.student-prompt { pointer-events: auto; display: flex; align-items: center; gap: 8px; white-space: nowrap; }
 
 /* Textbook panel: pick a book, a page, put it on the board. */

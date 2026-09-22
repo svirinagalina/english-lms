@@ -2536,14 +2536,8 @@ const Whiteboard = forwardRef(function Whiteboard({ socketRef, boardId, title, s
           {onClose && <button className="chip-back" onClick={onClose} title="Back">{backLabel}</button>}
           <strong>{title ?? 'Board'}</strong>
           {subtitle && <span className="muted"> · {subtitle}</span>}
-          {students?.length > 1 && (
-            <label className="mistakes-target" title="Who a word or mistake saved from here goes to">
-              <span className="muted">For</span>
-              <select className="tool" value={target ?? ''} onChange={(e) => chooseTarget(e.target.value)}>
-                {!target && <option value="">Choose…</option>}
-                {students.map((s) => <option key={s.classroomId} value={s.classroomId}>{s.name}</option>)}
-              </select>
-            </label>
+          {students?.length > 1 && targetName && (
+            <span className="muted board-chip-for" title="Mistakes and words saved from here go to this student — change it from the Mistakes panel or when adding a word">for {targetName}</span>
           )}
           {onOpenWriting && (
             <button className="chip-call ghost-chip" onClick={onOpenWriting} title="Open this student's writing document">
@@ -2587,8 +2581,14 @@ const Whiteboard = forwardRef(function Whiteboard({ socketRef, boardId, title, s
               <strong>Mistakes this lesson</strong>
               <button type="button" className="word-card-close" onClick={() => setMistakesOpen(false)} title="Close">×</button>
             </div>
-            {students?.length > 1 && targetName && (
-              <p className="muted small-hint">For {targetName} — change that with the "For" picker on the board's tab.</p>
+            {students?.length > 1 && (
+              <label className="mistakes-target">
+                <span className="muted">For</span>
+                <select className="tool" value={target ?? ''} onChange={(e) => chooseTarget(e.target.value)}>
+                  {!target && <option value="">Choose…</option>}
+                  {students.map((s) => <option key={s.classroomId} value={s.classroomId}>{s.name}</option>)}
+                </select>
+              </label>
             )}
             <p className="muted small-hint">Each saved line appears on the board for the student right away and goes into their notebook.</p>
             <form
