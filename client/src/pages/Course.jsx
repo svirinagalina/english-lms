@@ -1,8 +1,10 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useParams, useSearchParams } from 'react-router-dom'
 import { api } from '../api'
 import Nav from '../components/Nav'
 import { SiteFooter } from '../components/Brand'
+import WordCard from '../components/WordCard'
+import { isEnglishWord, wordAt } from '../utils/dictionary'
 import { speakDialogue, stopSpeaking } from '../utils/speech'
 
 const TYPE_LABEL = { theory: 'Theory', practice: 'Practice', supplementary: 'Extra' }
@@ -31,12 +33,17 @@ function TtsBlock({ payload }) {
     const ok = await speakDialogue(parseDialogue(payload.script), () => setPlaying(false))
     if (!ok) { setPlaying(false); setRevealed(true) }
   }
+  const stop = () => { stopSpeaking(); setPlaying(false) }
 
   return (
     <div className="course-block">
       {payload.title && <strong>{payload.title}</strong>}
       <div className="row-actions">
-        <button onClick={play} disabled={playing}>{playing ? '▶ Playing…' : '▶ Play'}</button>
+        {playing ? (
+          <button onClick={stop}>■ Stop</button>
+        ) : (
+          <button onClick={play}>▶ Play</button>
+        )}
         <button className="ghost" onClick={() => setRevealed((v) => !v)}>{revealed ? 'Hide script' : 'Show script'}</button>
       </div>
       {revealed && <div className="course-text" style={{ marginTop: 8 }}>{payload.script}</div>}
@@ -160,6 +167,8 @@ export default function Course() {
   const [searchParams, setSearchParams] = useSearchParams()
   const [course, setCourse] = useState(null)
   const [error, setError] = useState('')
+  const contentRef = useRef(null)
+  const [wordCard, setWordCard] = useState(null)
 
   useEffect(() => {
     api.getCourse(courseId).then(setCourse).catch((err) => setError(err.message))
@@ -167,6 +176,24 @@ export default function Course() {
 
   const activePosition = Number.parseInt(searchParams.get('lesson'), 10) || course?.lessons?.[0]?.position
   const lesson = course?.lessons?.find((l) => l.position === activePosition)
+
+  // Double-click any word in a passage, script or question — same "Add to
+  // my words" card as the board and Writing — so a student building
+  // vocabulary from a reading or listening exercise doesn't have to leave
+  // the page and look it up separately.
+  const handleDoubleClick = (event) => {
+    const selection = window.getSelection()
+    const node = selection?.anchorNode
+    if (!node || node.nodeType !== Node.TEXT_NODE) return
+    const found = wordAt(node.textContent, Math.min(selection.anchorOffset, node.textContent.length - 1))
+    if (!found || !isEnglishWord(found.word)) return
+    const host = contentRef.current.getBoundingClientRect()
+    setWordCard({
+      word: found.word.toLowerCase(),
+      x: Math.max(8, Math.min(event.clientX - host.left, host.width - 300)),
+      y: Math.max(8, Math.min(event.clientY - host.top + 14, host.height - 270)),
+    })
+  }
 
   if (error) return <div className="page"><Nav title="Courses" back="/courses" /><div className="error">{error}</div></div>
   if (!course) return <div className="centered">Loading…</div>
@@ -192,10 +219,11 @@ export default function Course() {
           ))}
         </nav>
 
-        <section className="course-content">
+        <section className="course-content" ref={contentRef} onDoubleClick={handleDoubleClick}>
           {lesson ? (
             <>
               <h2>{lesson.position}. {lesson.title}</h2>
+              <p className="muted" style={{ marginTop: -12 }}>Double-click any word to hear it and add it to your vocabulary.</p>
               {lesson.blocks.length === 0 && lesson.exercises.length === 0 && (
                 <p className="muted">No material for this lesson yet.</p>
               )}
@@ -210,6 +238,7 @@ export default function Course() {
           ) : (
             <p className="muted">Select a lesson.</p>
           )}
+          {wordCard && <WordCard word={wordCard.word} x={wordCard.x} y={wordCard.y} onClose={() => setWordCard(null)} />}
         </section>
       </div>
       <SiteFooter />

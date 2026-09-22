@@ -1153,6 +1153,7 @@ button.compact { padding: 6px 10px; font-size: 12px; align-self: flex-start; }
 .course-lesson-num { flex: 0 0 auto; opacity: 0.6; min-width: 20px; }
 .course-lesson-type { font-size: 12px; }
 .course-content {
+  position: relative;
   border: 1px solid var(--border); border-radius: 12px; padding: 20px 24px;
   display: flex; flex-direction: column; gap: 20px; min-height: 300px;
 }
