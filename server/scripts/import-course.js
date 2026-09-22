@@ -33,10 +33,10 @@ function toBlock(content, position) {
         : { url: content.content, title: content.title },
     };
   }
-  if (content.type === 'file') {
+  if (content.type === 'file' || content.type === 'audio') {
     return {
       position,
-      type: 'file',
+      type: content.type,
       payload: { url: content.content, name: content.title },
     };
   }

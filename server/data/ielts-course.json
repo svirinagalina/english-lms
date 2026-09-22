@@ -27,41 +27,812 @@
       ],
       "exercises": []
     },
-    { "title": "Listening Section 2. Theory", "type": "theory", "contents": [], "exercises": [] },
-    { "title": "IELTS General Listening Overview. Section 1. Theory", "type": "theory", "contents": [], "exercises": [] },
-    { "title": "Listening: Tests With Tape Scripts. Practice", "type": "practice", "contents": [], "exercises": [] },
-    { "title": "Listening Section 3. Theory", "type": "theory", "contents": [], "exercises": [] },
-    { "title": "Listening Part 4. Theory", "type": "theory", "contents": [], "exercises": [] },
-    { "title": "Lesson 2 Listening: Tests. Practice", "type": "practice", "contents": [], "exercises": [] },
-    { "title": "Lesson 3 Listening: Additional Practice", "type": "practice", "contents": [], "exercises": [] },
-    { "title": "Lesson 3 Listening: Spelling and Maps. Additional Practice", "type": "practice", "contents": [], "exercises": [] },
-    { "title": "Reading Part 1. True/False/ Not Given. Diagram labeling. Theory", "type": "theory", "contents": [], "exercises": [] },
-    { "title": "Reading Part 2. Choosing heading. Completing tables. Multiple choice. Theory", "type": "theory", "contents": [], "exercises": [] },
-    { "title": "Reading Academic: Practice Tests", "type": "practice", "contents": [], "exercises": [] },
-    { "title": "Reading Part 3. Summary completion. Sentence Completion. Choose the correct letter.", "type": "theory", "contents": [], "exercises": [] },
-    { "title": "Reading Part 4. General Module. Theory", "type": "theory", "contents": [], "exercises": [] },
-    { "title": "Academic Reading Practice Tests Part 2", "type": "practice", "contents": [], "exercises": [] },
-    { "title": "General Reading Practice. Part 2.", "type": "practice", "contents": [], "exercises": [] },
-    { "title": "Academic Reading Practice. Part 3", "type": "practice", "contents": [], "exercises": [] },
-    { "title": "General Reading Practice. Part 3", "type": "practice", "contents": [], "exercises": [] },
-    { "title": "Reading. Practicing with difficult questions. True False Not Given.", "type": "practice", "contents": [], "exercises": [] },
-    { "title": "General Reading Practice. Dealing with difficult questions. Headings", "type": "practice", "contents": [], "exercises": [] },
-    { "title": "General Reading Practice. Part 1", "type": "practice", "contents": [], "exercises": [] },
-    { "title": "Writing. Type 2. Theory", "type": "theory", "contents": [], "exercises": [] },
-    { "title": "Writing Essays. Part 2. Agree/Disagree/Advantages/Disadvantages. Theory", "type": "theory", "contents": [], "exercises": [] },
-    { "title": "Recent Writing topics Academic Essay", "type": "supplementary", "contents": [], "exercises": [] },
-    { "title": "Writing Essays. Part 3. Two part questions. Theory", "type": "theory", "contents": [], "exercises": [] },
-    { "title": "Writing essays Part 3. Discuss advantages/disadvantages and give your opinion, who benefits more, discuss both views and give your opinion, reason and solution", "type": "practice", "contents": [], "exercises": [] },
-    { "title": "Academic Writing. type 1. Theory", "type": "theory", "contents": [], "exercises": [] },
-    { "title": "General Writing. Type 1. Theory", "type": "theory", "contents": [], "exercises": [] },
-    { "title": "Writing. Punctuation. Theory", "type": "theory", "contents": [], "exercises": [] },
-    { "title": "Recent Writing topics Academic Type 1", "type": "supplementary", "contents": [], "exercises": [] },
-    { "title": "Speaking. Lesson 1. Speaking overview", "type": "theory", "contents": [], "exercises": [] },
-    { "title": "Speaking Lesson 2. Describing people / Describing relationships / Speaking about cooking", "type": "theory", "contents": [], "exercises": [] },
-    { "title": "Speaking. Lesson 3. Talking about food, sport and work.", "type": "theory", "contents": [], "exercises": [] },
-    { "title": "Speaking Lesson 4. Talking about weather, climate, parenting, objects and holidays", "type": "theory", "contents": [], "exercises": [] },
-    { "title": "Speaking Practice. Recent topics (2024)", "type": "practice", "contents": [], "exercises": [] },
-    { "title": "Additional Materials AA", "type": "supplementary", "contents": [], "exercises": [] },
-    { "title": "Additional Resources Library", "type": "supplementary", "contents": [], "exercises": [] }
+    {
+      "title": "Listening Section 2. Theory",
+      "type": "theory",
+      "contents": [
+        {
+          "type": "video",
+          "title": "Listening. Part 2. Section 2.",
+          "content": "https://www.youtube.com/watch?v=PgJTttW6zC4"
+        },
+        {
+          "type": "text",
+          "title": "Section 2: Specific strategies",
+          "content": "Use the time at the beginning of the whole test to look through the questions in multiple choice kind of task\nExpect a lot of distractors\nFocus on keywords\nFollow the intonation"
+        },
+        {
+          "type": "text",
+          "title": "How to approach map labeling task",
+          "content": "Look at where you are and which parts are already labeled\nMake sure you familiarise yourself with the vocabulary associated with giving directions (e.g. go straight, turn right, opposite to, at the bend etc.)\nAlways pay attention to cardinal directions"
+        }
+      ],
+      "exercises": []
+    },
+    {
+      "title": "IELTS General Listening Overview. Section 1. Theory",
+      "type": "theory",
+      "contents": [
+        {
+          "type": "video",
+          "title": "IELTS Listening Section 1",
+          "content": "https://www.youtube.com/watch?v=JXLQcGQr07g"
+        },
+        {
+          "type": "text",
+          "title": "IELTS Listening overview",
+          "content": "4 sections (40 total questions)\n1. Section - A conversation in a social situation\n2. Section - A monologue on a general topic\n3. Section - A conversation in an educational context (up to 4 people)\n4. Section - A monologue on an academic subject"
+        },
+        {
+          "type": "text",
+          "title": "Section 1: Main strategies",
+          "content": "Always take down what is useful and all the numbers you hear\nLook through the task carefully\nAnticipate the answers\nFocus on keywords\nExpect distractors\nPay attention to grammar - articles, prepositions, and tenses around the target word"
+        },
+        {
+          "type": "text",
+          "title": "Example of a task: Copying photos to digital format",
+          "content": "Complete the notes below. Write ONE WORD AND/OR A NUMBER for each answer.\n\nCopying photos to digital format\nName of company: Picturerep\nRequirements:\n- Maximum size of photos is 30 cm, minimum size 4 cm.\n- Photos must not be in a 1 ......... or an album.\nCost:\n- The cost for 360 photos is 2 £ ......... (including one disk).\n- Before the completed order is sent, 3 ......... is required.\nServices included in the price:\n- Photos can be placed in a folder, e.g. with the name 4 ......... .\n- The 5 ......... and contrast can be improved if necessary.\n- Photos which are very fragile will be scanned by 6 ......... .\nSpecial restore service (costs extra):\n- It may be possible to remove an object from a photo, or change the 7 ......... .\n- A photo which is not correctly 8 ......... cannot be fixed.\nOther information:\n- Orders are completed within 9 ......... .\n- Send the photos in a box (not 10 ......... )."
+        }
+      ],
+      "exercises": []
+    },
+    {
+      "title": "Listening: Tests With Tape Scripts. Practice",
+      "type": "practice",
+      "contents": [
+        {
+          "type": "audio",
+          "title": "Test 1, Part 1 - Children's Engineering Workshops (phone call)",
+          "content": "https://media-a.edvibe.com/files/LessonExerciseAudios/1b6d54c2-1bf4-4a2b-a33b-85a25c77a9ce.mp3"
+        },
+        {
+          "type": "audio",
+          "title": "Test 1, Part 2 - Stevenson's factory tour (monologue)",
+          "content": "https://media-a.edvibe.com/files/LessonExerciseAudios/47785729-452e-42ad-8c13-329eeac7ab00.mp3"
+        },
+        {
+          "type": "audio",
+          "title": "Test 1, Part 3 - Art project discussion",
+          "content": "https://media-a.edvibe.com/files/LessonExerciseAudios/3ab2a83d-7685-4a48-9550-46bc7bad287d.mp3"
+        },
+        {
+          "type": "text",
+          "title": "Note",
+          "content": "Полный сборник практических тестов с аудио (несколько сетов Part 1-4) находится в оригинальном уроке на Edvibe. Вопросы к каждой части (multiple choice, form completion, matching) нужно перенести вручную из редактора Edvibe - структура вопросов защищена авторским правом (Cambridge IELTS)."
+        }
+      ],
+      "exercises": []
+    },
+    {
+      "title": "Listening Section 3. Theory",
+      "type": "theory",
+      "contents": [
+        {
+          "type": "video",
+          "title": "Listening. Part 3",
+          "content": "https://www.youtube.com/watch?v=LT5rWkfOVC0"
+        },
+        {
+          "type": "text",
+          "title": "Section 3: How to approach listening to conversations",
+          "content": "Note that speakers will mention keywords from almost all the choices\nPay attention to the gender of the speaker\nPay attention to words such as agree/disagree/initially/eventually (any other indicators of change)"
+        },
+        {
+          "type": "text",
+          "title": "Flow chart completion: Strategy",
+          "content": "Predict the answers (pay attention to what kind of part of speech you will need)\nBe careful with how many words you can write\nFollow the keywords, they will appear in a sequence"
+        }
+      ],
+      "exercises": []
+    },
+    {
+      "title": "Listening Part 4. Theory",
+      "type": "theory",
+      "contents": [
+        {
+          "type": "video",
+          "title": "Listening. Part 4.",
+          "content": "https://www.youtube.com/watch?v=TQ720v60mJA"
+        },
+        {
+          "type": "text",
+          "title": "Section 4: An academic lecture and a sentence completion task",
+          "content": "An academic lecture and a sentence completion task"
+        },
+        {
+          "type": "text",
+          "title": "IELTS Listening Tips (1)",
+          "content": "Predict the topic\nPredict the questions\nUse a minute to review each section\nPay attention to spoken order\nConsider two questions simultaneously\nKeep going if you miss an answer\nObserve others if lost\nIdentify paraphrasing\nDisregard unfamiliar words\nUnderline key words\nMind spelling and grammar\nUse British or American spelling\nDo not worry about the exam paper"
+        },
+        {
+          "type": "text",
+          "title": "IELTS Listening Tips (2)",
+          "content": "Read instructions carefully\nUse upper or lower case letters\nFamiliarize with British accent\nPractice pronunciation of letters and numbers\nBe cautious with initial answers\nAvoid leaving answers blank\nTransfer answers accurately\nDouble-check answers\nListen attentively\nPractice listening regularly\nListen to lectures\nIntegrate listening and writing"
+        }
+      ],
+      "exercises": []
+    },
+    {
+      "title": "Lesson 2 Listening: Tests. Practice",
+      "type": "practice",
+      "contents": [
+        {
+          "type": "text",
+          "title": "Note",
+          "content": "Полный банк аудио-тестов Cambridge IELTS (Cam 10, 11, 12 - по 4 части в каждом из нескольких тестов, всего 48 записей). Доступен в оригинальном уроке на Edvibe для переноса вручную при необходимости."
+        }
+      ],
+      "exercises": []
+    },
+    {
+      "title": "Lesson 3 Listening: Additional Practice",
+      "type": "practice",
+      "contents": [
+        {
+          "type": "text",
+          "title": "Note",
+          "content": "Полный банк аудио-тестов Cambridge IELTS (Cam 9 и др., несколько тестов по 4 части). Доступен в оригинальном уроке на Edvibe для переноса вручную при необходимости."
+        }
+      ],
+      "exercises": []
+    },
+    {
+      "title": "Lesson 3 Listening: Spelling and Maps. Additional Practice",
+      "type": "practice",
+      "contents": [
+        {
+          "type": "text",
+          "title": "Note",
+          "content": "Короткая практика на спеллинг и карты (4 аудио, ~1.5-3 мин каждое, с ключами ответов). Доступна в оригинальном уроке на Edvibe для переноса вручную."
+        }
+      ],
+      "exercises": []
+    },
+    {
+      "title": "Reading Part 1. True/False/ Not Given. Diagram labeling. Theory",
+      "type": "theory",
+      "contents": [
+        {
+          "type": "video",
+          "title": "Reading Part 1. Разбираем самые сложные вопросы",
+          "content": "https://youtu.be/o0yeO18J3lQ"
+        },
+        {
+          "type": "text",
+          "title": "IELTS Reading overview",
+          "content": "3 passages to read, 40 questions, 60 minutes\n\nGeneral module: Basic social English training topics, general interest notices, flyers, timetables, documents, newspaper articles, instructions, manuals\n\nAcademic module: General interest topics written for general audience. Sources: general and academic journals, magazines, books, articles"
+        },
+        {
+          "type": "text",
+          "title": "Reading Tips (Advent Academy)",
+          "content": "1. Enhance your skills by practicing various question types and expanding your vocabulary.\n2. Test yourself under exam conditions to assess your score and gauge your progress.\n3. Improve your speed reading abilities by challenging yourself with strict time limits.\n4. Developing speed reading skills is essential to swiftly locate answers by effectively scanning passages.\n5. Focus on locating answers rather than comprehending the entire passage. Most questions test your ability to find specific information, with only a few requiring a deeper understanding of the entire text."
+        }
+      ],
+      "exercises": []
+    },
+    {
+      "title": "Reading Part 2. Choosing heading. Completing tables. Multiple choice. Theory",
+      "type": "theory",
+      "contents": [
+        {
+          "type": "video",
+          "title": "Reading Part 2",
+          "content": "https://www.youtube.com/watch?v=5zZzlWUVBI0"
+        },
+        {
+          "type": "text",
+          "title": "Choosing headings: Strategy",
+          "content": "Remember that a heading is a paraphrased topic sentence of a passage. Normally you can find it in the very first couple of sentences, or the very last ones. It is a very rare case when you need to read the whole paragraph to answer.\nMake sure you can find the synonyms to the keywords of the headings.\nCross out the headings when you use them."
+        }
+      ],
+      "exercises": []
+    },
+    {
+      "title": "Reading Academic: Practice Tests",
+      "type": "practice",
+      "contents": [
+        {
+          "type": "text",
+          "title": "Note",
+          "content": "Полный банк академических Reading-тестов (Cambridge Cam 14, 15 и другие, 4 теста по 3 текста в каждом + ответы). Доступен в оригинальном уроке на Edvibe для переноса вручную."
+        }
+      ],
+      "exercises": []
+    },
+    {
+      "title": "Reading Part 3. Summary completion. Sentence Completion. Choose the correct letter.",
+      "type": "theory",
+      "contents": [
+        {
+          "type": "video",
+          "title": "Reading Part 3. Choose the correct letter. Summary completion. Sentence completion.",
+          "content": "https://www.youtube.com/watch?v=SBJ5hcJKREE"
+        },
+        {
+          "type": "text",
+          "title": "Choose the correct letter: Strategy",
+          "content": "Do not look just for the words from the answers, they will serve as distractors.\nMake sure you follow the meaning!"
+        }
+      ],
+      "exercises": []
+    },
+    {
+      "title": "Reading Part 4. General Module. Theory",
+      "type": "theory",
+      "contents": [
+        {
+          "type": "video",
+          "title": "Reading. Part 4. General Module",
+          "content": "https://www.youtube.com/watch?v=8jXmv57lSVo"
+        },
+        {
+          "type": "text",
+          "title": "General Reading - Matching: Strategy",
+          "content": "Start with the text: read the passage then choose one option out of the answers.\nDo not forget that you may use one letter more than once."
+        }
+      ],
+      "exercises": []
+    },
+    {
+      "title": "Academic Reading Practice Tests Part 2",
+      "type": "practice",
+      "contents": [
+        {
+          "type": "text",
+          "title": "Note",
+          "content": "Банк Reading-тестов (Cambridge Cam 11/12 и др., несколько тестов с ответами). Доступен в оригинальном уроке на Edvibe для переноса вручную."
+        }
+      ],
+      "exercises": []
+    },
+    {
+      "title": "General Reading Practice. Part 2.",
+      "type": "practice",
+      "contents": [
+        {
+          "type": "text",
+          "title": "Note",
+          "content": "Банк Reading-тестов (Cambridge Cam 11/12 и др., несколько тестов с ответами). Доступен в оригинальном уроке на Edvibe для переноса вручную."
+        }
+      ],
+      "exercises": []
+    },
+    {
+      "title": "Academic Reading Practice. Part 3",
+      "type": "practice",
+      "contents": [
+        {
+          "type": "text",
+          "title": "Note",
+          "content": "Банк Reading-тестов (Cambridge Cam 11/12 и др., несколько тестов с ответами). Доступен в оригинальном уроке на Edvibe для переноса вручную."
+        }
+      ],
+      "exercises": []
+    },
+    {
+      "title": "General Reading Practice. Part 3",
+      "type": "practice",
+      "contents": [
+        {
+          "type": "text",
+          "title": "Note",
+          "content": "Банк Reading-тестов (Cambridge Cam 11/12 и др., несколько тестов с ответами). Доступен в оригинальном уроке на Edvibe для переноса вручную."
+        }
+      ],
+      "exercises": []
+    },
+    {
+      "title": "Reading. Practicing with difficult questions. True False Not Given.",
+      "type": "practice",
+      "contents": [
+        {
+          "type": "text",
+          "title": "Note",
+          "content": "Банк Reading-тестов (Cambridge Cam 11/12 и др., несколько тестов с ответами). Доступен в оригинальном уроке на Edvibe для переноса вручную."
+        }
+      ],
+      "exercises": []
+    },
+    {
+      "title": "General Reading Practice. Dealing with difficult questions. Headings",
+      "type": "practice",
+      "contents": [
+        {
+          "type": "text",
+          "title": "Note",
+          "content": "Банк Reading-тестов (Cambridge Cam 11/12 и др., несколько тестов с ответами). Доступен в оригинальном уроке на Edvibe для переноса вручную."
+        }
+      ],
+      "exercises": []
+    },
+    {
+      "title": "General Reading Practice. Part 1",
+      "type": "practice",
+      "contents": [
+        {
+          "type": "text",
+          "title": "Note",
+          "content": "Банк Reading-тестов (Cambridge Cam 11/12 и др., несколько тестов с ответами). Доступен в оригинальном уроке на Edvibe для переноса вручную."
+        }
+      ],
+      "exercises": []
+    },
+    {
+      "title": "Writing. Type 2. Theory",
+      "type": "theory",
+      "contents": [
+        {
+          "type": "video",
+          "title": "Writing Task 2",
+          "content": "https://www.youtube.com/watch?v=kh6bI_P0C8Y"
+        },
+        {
+          "type": "text",
+          "title": "Основные правила академического письма",
+          "content": "Не забывайте, что в академическом стиле письма недопустимы сокращения, например I'm вместо I am, It can't be true вместо cannot и прочие.\nНе забывайте делать отступы между параграфами (дополнительная строка либо отступ с красной строки).\nНе забывайте про linking words (for example, in conclusion, on the one hand, on the other hand).\nПомните, что первая строка параграфа всегда содержит основную мысль параграфа.\nВ заключении мы перефразируем основные аргументы из параграфов и никогда не даем новую информацию, которой до этого не было в эссе.\nНе отступайте от задания, не отклоняйтесь от темы. Не старайтесь занять позицию \"между двумя аргументами\", гораздо эффективнее занять одну позицию и подобрать под нее два аргумента, каждый из которых будет раскрыт в отдельном параграфе.\nЕсли в вопросе стоит to what extent do you agree or disagree, не забудьте включить слова вроде completely agree / completely disagree.\nВ типе вопроса discuss both views and give your opinion не забудьте представить свое мнение, сигнализируя о нем через from my point of view / from my perspective / I think / I believe / I maintain the view и так далее."
+        },
+        {
+          "type": "file",
+          "title": "Writing 2.pdf",
+          "content": "https://drive.google.com/file/d/1Ent9UxJQWPakTv18pJ-MnpVP8w14jVAj/view"
+        },
+        {
+          "type": "file",
+          "title": "Recent IELTS Essay Topics.pdf (Advent Academy)",
+          "content": "https://drive.google.com/file/d/1KY2c4HhxBkHniCOEWR7CB30P7LEdmyC8/view"
+        }
+      ],
+      "exercises": []
+    },
+    {
+      "title": "Writing Essays. Part 2. Agree/Disagree/Advantages/Disadvantages. Theory",
+      "type": "theory",
+      "contents": [
+        {
+          "type": "video",
+          "title": "Writing Essays. Part 2. Agree or disagree, advantages and disadvantages types of questions.",
+          "content": "https://www.youtube.com/watch?v=4vT24P-o9Wc"
+        },
+        {
+          "type": "text",
+          "title": "How to approach the Agree or disagree type of questions: Structure",
+          "content": "Introduction (specify whether you agree or disagree)\nBody paragraph 1 - 1st argument why you agree or disagree\nBody paragraph 2 - 2nd argument why you agree or disagree\nConclusion - paraphrase the arguments from the body paragraphs"
+        }
+      ],
+      "exercises": []
+    },
+    {
+      "title": "Recent Writing topics Academic Essay",
+      "type": "supplementary",
+      "contents": [
+        {
+          "type": "text",
+          "title": "Recent IELTS Essay Topics (Academic)",
+          "content": "The world has many towns and cities constructed in previous centuries that were more suitable and livable for people in those times than they are now. What problems will this cause? What can be done to solve these problems?\n\nInnovation is often driven by the pursuit of profit and economic growth. However, some argue that it should prioritize addressing social and environmental issues. Discuss both sides and give your own opinion.\n\nFewer and fewer people today write by hand using a pen or pencil. What are the reasons for this? Is this a positive or a negative development?\n\nEco-tourism often involves visiting remote and fragile ecosystems, which raises concerns about the impact on local cultures and indigenous communities. What problems can this cause? How can these problems be resolved?\n\nEverybody should donate a fixed amount of their income to support charity. To what extent do you agree or disagree?\n\nIn today's digital age, anyone with a smartphone can capture and share photographs. This accessibility to photography diminishes the value of professional photographers. To what extent do you agree or disagree?\n\nNowadays, there is more and more competition for getting into university. Is this a positive or negative development?\n\nThe demand for coaching services has grown significantly in the digital age, with online coaching platforms becoming prevalent. Some now feel online coaching is a superior option to in-person coach. To what extent do you agree or disagree?\n\nFinancial education should be included as a mandatory subject in schools to prepare students for managing money effectively. To what extent do you agree or disagree?\n\nSome people think the manufacturers and shopping malls should sell fewer packaged products while others argue that people have the responsibility to buy products with less packaging. Discuss both views and give your own opinion.\n\nIn recent years, there has been a rise in the use of performance-enhancing drugs in sports. What are the consequences of doping for athletes? What measures should be taken to combat this issue?\n\nEnvironmental damage is a problem in most countries. What is the cause of this damage? What should be done about this problem?\n\nThe rise of social media platforms has made it easier for people to vent their frustrations and complaints publicly. What is the consequence of this trend? Is there any benefit to expressing complaints on social media?\n\nSome people think that certain old buildings are more worth preserving than other ones. To what extent do you agree or disagree?\n\nIn many countries, the number of animals and plants is declining. Why do you think this is happening? How can this issue be solved?\n\nIn many societies, there is a growing emphasis on individualism, with people prioritizing their personal goals and desires over collective interests. Is this a positive or negative development?\n\nSome argue that music mainly serves as a way for individuals to reduce their stress and anxiety. To what extent do you agree or disagree?\n\nSome people believe that professional athletes serve as positive role models for young people, while others argue that their behavior both on and off the field can have a negative influence. Discuss both sides and give your opinion.\n\nIn many societies, there is a growing emphasis on sustainable living and reducing environmental impact. What are the challenges of adopting a sustainable lifestyle?\n\nSome people feel that the private lives of celebrities should not be openly shared by the media. To what extent do you agree or disagree?\n\nYoung people are often influenced in their behaviors by others in the same age group. Some argue that peer pressure is important while others feel it has distinct disadvantages. Do the disadvantages of peer pressure outweigh the advantages?\n\nVirtual reality be used as a tool for therapeutic interventions and mental health treatments. To what extent do you agree or disagree?\n\nSchools should use films, computers and games instead of books. To what extent do you agree or disagree?\n\nNowadays, most countries can improve the standard of living through economic development, but some social values are lost as a result. Do you think the advantages of this phenomenon outweigh the disadvantages?\n\nSome people think eating meat is bad for health. Do you agree or disagree?\n\nFriendships that take place online are not as meaningful as those where people meet each other face to face. To what extent do you agree or disagree?\n\nThe best way to reduce poverty in developing countries is by giving up to six years of free education, so that they can at least read, write and use numbers. To what extent do you agree or disagree?\n\nSome people believe that reading is always a good habit. Others feel it depends on which books a person is reading. Discuss both sides and give your own opinion.\n\nMany people argue that restaurants should be required to disclose the nutritional information of the dishes they serve. Do the advantages of this outweigh the disadvantages?\n\nThe increasing availability of low-cost airlines now lets people travel around the world. Some feel this is a positive development while others think it is negative overall. Discuss both sides and give your own opinion."
+        }
+      ],
+      "exercises": []
+    },
+    {
+      "title": "Writing Essays. Part 3. Two part questions. Theory",
+      "type": "theory",
+      "contents": [
+        {
+          "type": "video",
+          "title": "Writing Skills — Essays Part 3 (Two-part questions)",
+          "content": "https://www.youtube.com/watch?v=RYrvDyjSKK4"
+        },
+        {
+          "type": "text",
+          "title": "How to approach the two-part question",
+          "content": "Structure:\n1. Introduction\n2. Address both parts\n3. Develop the first part\n4. Develop the second part\n5. Conclusion"
+        },
+        {
+          "type": "text",
+          "title": "Example 1",
+          "content": "Fewer and fewer people today write by hand using a pen or pencil. What are the reasons for this? Is this a positive or a negative development?\n\nPlan:\n01. Introduction\n02. TPS1: Reasons (technology)\n03. TPS2: Positive development (allows to save time and process information more effectively)\n04. Conclusion\n\nParaphrase: In contemporary society, the prevalence of handwritten communication is diminishing, with fewer people opting to write by hand using a pen or pencil. Answer the question: This shift can be attributed to the advancement of computer technology, which is a positive development as it allows to save time and process information more effectively.\n\nTopic sentence: One of the primary reasons for the decline of handwriting is the widespread adoption of digital technologies. Development: The advent of computers, smartphones, and tablets has revolutionized the way people communicate and interact with each other. Digital devices offer convenience, efficiency, and versatility, allowing individuals to type and edit text rapidly without the constraints of pen and paper. Moreover, the proliferation of digital communication platforms such as email, social media, and instant messaging has further reduced the need for handwritten correspondence, as electronic communication offers instantaneous delivery and global reach.\n\nTopic sentence: The shift towards digital communication offers numerous benefits in terms of speed and efficiency of working with written information. Development: Digital tools enable individuals to write faster and process bigger amounts of information. It also allows to store written data in a more efficient and safe way as opposed to paper format, which is susceptible to deterioration over time and requires large space in order to be stored.\n\nOverall, topic sentence 1: handwriting as a way of recording and storing information has been experiencing a steady decline due to the development of information technology. Topic sentence 2: This trend has mostly had a positive influence as it proved a more efficient and safe way of processing written data."
+        },
+        {
+          "type": "text",
+          "title": "Example 2",
+          "content": "The rise of social media platforms has made it easier for people to vent their frustrations and complaints publicly. What is the consequence of this trend? Is there any benefit to expressing complaints on social media?\n\nPlan:\n01. Introduction\n02. TPS1: increased awareness on problematic situations\n03. TPS2: can help change\n04. Conclusion\n\nParaphrase: In recent years, the proliferation of social media platforms has revolutionized the way people communicate and interact with each other. One notable consequence of this trend is the ease with which individuals can publicly vent their frustrations and complaints. Answer the question: One consequence of this is the increased awareness on most pressing issues, which has many benefits that will be discussed in the following essay.\n\nTopic sentence: On one hand, the rise of social media venting has led to an increase in public discourse on the issues that require public attention. Development: It is a fast way of spreading information that can help generate the necessary response to the problems that have to be resolved. It is especially important in countries where there is limited access to independent media and many important matters would remain silenced if it was not for social media platforms.\n\nTopic sentence: The trend of drawing attention to the most urgent matter online has a significant number of advantages, the main one being a possibility to render necessary change in a society. Development: It is essential to make joint efforts to resolve social equalities, poor customer service, and other issues requiring public pressure on authorities or organizations. Therefore, communication online provides a valuable opportunity to not only share information about problems that demand attention, but also to organize activities that can help resolve and prevent them in the future.\n\nOverall, topic sentence 1: sharing dissatisfaction on important problems online generates a wider and more active response among the public in comparison with traditional types of media. Topic sentence 2: As a consequence, it allows people to take a more active role in resolving these issues, which has a positive influence on society."
+        },
+        {
+          "type": "text",
+          "title": "Example 3",
+          "content": "In many societies, there is a growing emphasis on sustainable living and reducing environmental impact. What are the challenges of adopting a sustainable lifestyle? What practical actions can individuals take to contribute to sustainability?\n\nPlan:\n01. Introduction\n02. TS1: difficulty in changing habits and increased costs\n03. TS2: possibility to take small steps in changing lifestyle\n\nParaphrase: In recent years, societies worldwide have witnessed a surge in awareness regarding the importance of sustainable living and reducing environmental impact. Answer the question: This shift towards sustainability comes with its own set of difficulties, which can be overcome if individuals take certain steps, such as minimizing their energy consumption and reducing waste.\n\nTopic sentence: One major challenge in tackling the problem of reducing eco footprint is ingrained habits and increased costs associated with more sustainable life choices. Development: For example, if someone is used to throwing all waste in a garbage bin, it may be difficult for them to switch to separate garbage collection. Moreover, if individuals prefer to drive combustible engine cars, it may require them to spend an additional amount of money to switch to hybrid or fully electric cars that cost further progress in switching to a more environmentally friendly lifestyle.\n\nTopic Sentence: Nonetheless, more conscious consumer and behavior choices as well as careful budgeting can help individuals lead a more eco-friendly lifestyle. Development: If individuals commit to adopting small but consistent steps toward increased sustainability they can achieve considerable progress in energy consumption and reducing waste. For example, they can set out to introduce a new toilet each month and commit to following through. Taking small steps can be more realistic and practical than drastic major changes in life habits.\n\nIn conclusion, topic sentence 1: even though switching to an environmentally friendly lifestyle can be a challenging task, it can be fostered and developed if individuals make conscious effort toward that goal. Topic sentence 2: Incorporating small but consistent changes into a daily routine can significantly reduce waste and energy consumption, leading to a more sustainable lifestyle."
+        }
+      ],
+      "exercises": []
+    },
+    {
+      "title": "Writing essays Part 3. Discuss advantages/disadvantages and give your opinion, who benefits more, discuss both views and give your opinion, reason and solution",
+      "type": "practice",
+      "contents": [
+        {
+          "type": "video",
+          "title": "Writing Skills — Essays Part 3 (Advantages/Disadvantages, Two Views, Reason & Solution)",
+          "content": "https://www.youtube.com/watch?v=bZMczC9zd9w"
+        },
+        {
+          "type": "text",
+          "title": "How to approach the \"Discuss the advantages and disadvantages and give your opinion\" type of task",
+          "content": "Structure:\n1. Introduction (mention pluses and minuses and your opinion)\n2. Advantages\n3. Disadvantages\n4. Your opinion\n\nTalk about both advantages and disadvantages and give your opinion. Do not forget to indicate the introduction of your own opinion!"
+        },
+        {
+          "type": "text",
+          "title": "Example — Advantages/Disadvantages",
+          "content": "Machines are taking over more and more jobs previously done by humans. Discuss the advantages and disadvantages and give your own opinion.\n\nPlan:\n01. Introduction\n02. TPS1: Advantages: increased efficiency\n03. TPS2: Disadvantages: loss of job\n04. TPS3: My opinion: we should use the automated workforce to our benefit, but remember about necessary regulation this area\n05. Conclusion\n\nIntroduction:\nParaphrase: The rapid advancement of technology has led to a significant transformation in the labor market, with machines increasingly replacing tasks once performed by humans. Answer the question: Even though the trend of automation brings about many benefits for society, it also has certain drawbacks that have to be taken into consideration and tackled with the necessary regulations imposed by authorities.\n\nTopic sentence: Firstly, the adoption of machines in various industries increases efficiency and productivity of any business activity. Development: Automated systems can perform repetitive tasks with precision and speed, leading to higher output levels and reduced production costs. Moreover, machines do not require breaks, holidays, or sick leave, ensuring continuous operation and minimizing downtime. This enhanced productivity can contribute to economic growth and competitiveness on a global scale.\n\nTopic sentence: However, the proliferation of machines may bring about job displacement and unemployment. Development: As machines become more adept at performing tasks traditionally done by humans, workers may find themselves redundant or obsolete, leading to financial insecurity and socio-economic inequalities. Moreover, the loss of jobs in certain sectors may exacerbate structural unemployment, while other opportunities in regions heavily reliant on industries susceptible to automation."
+        },
+        {
+          "type": "text",
+          "title": "How to approach the \"Discuss two points of view and give your own opinion\" type of question",
+          "content": "Structure:\n1. Introduction\n2. 1st view\n3. 2nd view\n4. Your opinion\n5. Conclusion"
+        },
+        {
+          "type": "text",
+          "title": "Example — Two Points of View",
+          "content": "Some people think that the manufacturers and shopping malls should sell fewer packaged products, while others argue that people have the responsibility to buy less/to be with less packaging. Discuss both views and give your own opinion.\n\nPlan:\n01. TPS1: 1st opinion (manufacturers have to reduce waste cause consumers may have no choice)\n02. TPS2: 2nd opinion (buyers should make more informed choices)\n03. TPS my opinion: both parties have to be responsible\n\nParaphrase: The issue of excessive packaging has sparked lively debate with some advocating for manufacturers and shopping malls to reduce packaged products, while others assert that consumers bear the responsibility of choosing products with less packaging. Answer the question: I believe that both producers and consumers have to be responsible for reducing waste and creating a more eco-friendly business model.\n\nTopic sentence: On the one hand, it is the responsibility of manufacturers and shopping malls to sell fewer packaged products as otherwise consumers have no choice but to buy products with significant environmental footprint. Development: Moreover, when buying online, people may not be aware of the amount of packaging that goes along with the product they need, consequently, it may be difficult for them to make an informed choice regarding their shopping even if they want to be environmentally conscious.\n\nTopic sentence: On the other hand, the demand of the client is believed to shape the major decisions by business and can be influenced by it. Development: Therefore, if customers actively prefer those manufactures who strive to reduce pollution by offering less packaging, they may render positive change in manufacturers' mindset and attitude to the problem.\n\nSignaling your own opinion: Personally, topic sentence: I think that both parties should be responsible for minimizing packaging and adopting a more environmentally friendly approach to production and consumption. Development: By reducing packaging, manufacturers can reduce their environmental footprint, while customers can encourage this positive change by being conscious of their consumer choices.\n\nIn conclusion, topic sentence 3: packaging reduction should involve considerations of both manufacturers and consumers as they are parts of one interdependent system. Topic sentence 1 and 2: While manufacturers play a key role in minimizing packaging waste through product design and distribution practices, consumers also have a responsibility to make environmentally conscious purchasing decisions."
+        },
+        {
+          "type": "text",
+          "title": "How to approach the \"Reason and Solution\" type of question",
+          "content": "Structure:\n1. Introduction (indicate problem and solution)\n2. TPS1: Problem\n3. TPS2: Solution\n4. Conclusion"
+        },
+        {
+          "type": "text",
+          "title": "Example — Reason and Solution",
+          "content": "In many countries, crime rate amongst younger people has been rising. Discuss the causes and solutions for this problem.\n\nPlan:\n01. Introduction\n02. TPS1: The cause of the problem — increase in poverty\n03. TPS2: Solution — social initiatives and economic regulations\n04. Conclusion\n\nIntroduction:\nParaphrase: In recent years, numerous countries have witnessed a concerning trend of rising crime rates among younger people. Answer the question: This phenomenon has been caused by the growing amount of poor population even in first-world countries. One possible solution to it could be an increased amount of social initiatives aimed at economic support of vulnerable strata of society.\n\nTopic sentence: Several factors contribute to the rise in youth crime rates, the major one being lack of social and economic inequality. Development: Poverty, unemployment, and lack of access to quality education and vocational training programs can exacerbate feelings of alienation and marginalization, leaving some individuals to turn to crime as a means of survival or escapism.\n\nTopic sentence: To address the root causes of rising youth crime rates, comprehensive economic and social regulation have to be implemented. Development: Firstly, governments should prioritize developing welfare and other economic means of supporting poorer social strata in order to give them more opportunity for financial stability. Moreover, access to quality education, vocational courses, and employment opportunities can empower youth to break the cycle of poverty and achieve socio-economic stability.\n\nOverall, topic sentence 1: the root of increased youth crime in society lies in inadequate distribution of wealth and the glaring gap between the rich and the poor even in some first-world countries. Topic sentence 2: One way of solving this could be a more effective system of social support for all the members of society and opportunities for education and professional training."
+        }
+      ],
+      "exercises": []
+    },
+    {
+      "title": "Academic Writing. type 1. Theory",
+      "type": "theory",
+      "contents": [
+        {
+          "type": "video",
+          "title": "Writing Type 1 Academic",
+          "content": "https://www.youtube.com/watch?v=LSjda7E7JYU"
+        },
+        {
+          "type": "file",
+          "title": "IELTS Academic Type 1 (slides, 42 pages)",
+          "content": "https://drive.google.com/file/d/1il8Ca00d2pyfztC6ipLvXQcfwytNxnTz/view"
+        }
+      ],
+      "exercises": []
+    },
+    {
+      "title": "General Writing. Type 1. Theory",
+      "type": "theory",
+      "contents": [
+        {
+          "type": "video",
+          "title": "Writing, General Type 1",
+          "content": "https://www.youtube.com/watch?v=D3im0QMOyWw"
+        },
+        {
+          "type": "file",
+          "title": "IELTS General Task 1 (slides)",
+          "content": "https://drive.google.com/file/d/1A6gIO62yIE6fO0BBr_IjSPB5xTGLCgek/view"
+        }
+      ],
+      "exercises": []
+    },
+    {
+      "title": "Writing. Punctuation. Theory",
+      "type": "theory",
+      "contents": [
+        {
+          "type": "video",
+          "title": "Punctuation",
+          "content": "https://www.youtube.com/watch?v=ucL84D-Y-gI"
+        },
+        {
+          "type": "file",
+          "title": "Basic principles of English punctuation (slides, 5 pages)",
+          "content": "https://drive.google.com/file/d/13PJvaBmxVOSqpkoOyrUA9iJKjhRZTqdu/view"
+        }
+      ],
+      "exercises": []
+    },
+    {
+      "title": "Recent Writing topics Academic Type 1",
+      "type": "supplementary",
+      "contents": [
+        {
+          "type": "text",
+          "title": "Recent Writing Topics — Academic Task 1 (chart bank)",
+          "content": "Этот урок содержит большой банк практических графиков/диаграмм/таблиц для IELTS Academic Writing Task 1 (столбчатые диаграммы, линейные графики, круговые диаграммы, таблицы, карты, процессы) — более 15 изображений-заданий. Так как это набор графических изображений, а не текст, полный перенос в базу данных нецелесообразен. Смотрите оригинальный урок в Edvibe для полного набора заданий."
+        }
+      ],
+      "exercises": []
+    },
+    {
+      "title": "Speaking. Lesson 1. Speaking overview",
+      "type": "theory",
+      "contents": [
+        {
+          "type": "video",
+          "title": "Speaking. General Overview",
+          "content": "https://www.youtube.com/watch?v=7gTQyNBdx04"
+        },
+        {
+          "type": "text",
+          "title": "IELTS Speaking Overview",
+          "content": "Part 1: General Questions About Yourself and Everyday Situations\nPart 2: Speaking on a Topic Given by an Examiner\nPart 3: Conversation on Abstract Topics"
+        },
+        {
+          "type": "text",
+          "title": "Part 1 — Strategy",
+          "content": "- Know vocabulary for talking about yourself and everyday situations\n- Make sure to work on synonyms\n- Especially adjectives describing people, places, and situations related to everyday activities, studies and work\n- Pay attention to verb tenses\n- Know your mistakes\n- Pay attention to the clues in the question\n- Make sure to use vocabulary and phrases from our additional materials!"
+        },
+        {
+          "type": "text",
+          "title": "Part 1 — Main topics",
+          "content": "- Describing people\n- Relationship\n- Places to live\n- Work and study\n- Economic and social issues (basic notions)\n- Parenting\n- Lifestyle (eating habits, routines etc)\n- Sport\n- Hobbies and interests\n- Holidays / vacations\n- Travel and tourism"
+        },
+        {
+          "type": "text",
+          "title": "Part 1 — Example questions and answers",
+          "content": "01. Do you live in a house or a flat?\n— I currently live in a flat. It's a cozy two-bedroom apartment located in the heart of the city.\n\n02. Why do you live in an apartment/house?\n— I chose to live in a house because I value the sense of space and privacy. Also, having a backyard and a garden area where I can relax and unwind is something I really cherish.\nOR:\n— I chose to live in a flat since it offers a sense of community as neighbors are often close by. It also provides access to urban amenities such as shops, restaurants, and public transportation.\n\n03. Do people like tea or coffee nowadays?\n— It's safe to say that they are both quite popular in today's society. Though, I would say that people usually go for a cup of coffee in the morning as it gives them energy and helps to start the day.\n\nExpressing Preferences:\n- \"I prefer...\"\n- \"I'm partial to...\"\n- \"I tend to lean towards...\"\n- \"I have a preference for...\"\n- \"I'm more of a...\"\n- \"Given the choice, I'd rather...\"\n- \"I tend to.\"\n\n04. Do you prefer tea or coffee to serve your guests?\n— I tend to offer anyone who comes over some tea or other refreshments because there are people who try to avoid caffeine. Plus, not everyone enjoys the black strong coffee that I normally drink myself.\n\n05. What kinds of video games do you like to play?\n— I am partial to strategies because they are not as violent as shooters, and develop logical thinking. I tend to lean towards dystopian games such as \"Fallout\" that give you a sense of a completely different reality, which I find really compelling."
+        },
+        {
+          "type": "text",
+          "title": "Part 2 — Strategy",
+          "content": "1 minute to prepare, 2 minutes to answer.\n\nStrategy:\n- Paraphrase the words, but follow the same grammar as in the questions\n- Use the minute for preparation to think of the necessary vocabulary, idioms, and ideas"
+        }
+      ],
+      "exercises": []
+    },
+    {
+      "title": "Speaking Lesson 2. Describing people / Describing relationships / Speaking about cooking",
+      "type": "theory",
+      "contents": [
+        {
+          "type": "video",
+          "title": "Speaking. Lesson 2. Part 2",
+          "content": "https://www.youtube.com/watch?v=HTtQxxgEF0U"
+        },
+        {
+          "type": "text",
+          "title": "Describing people — Example",
+          "content": "Describe a person you know who likes to cook for others.\nYou should say:\n- who this person is\n- what he/she likes to cook\n- how this person learned to cook\n- explain why this person likes to cook for others\n\nAlso: Describe a time when someone did quite well in a team (e.g. school, work, or a community).\n\n(See the guide on vocabulary in additional materials)"
+        },
+        {
+          "type": "text",
+          "title": "Describing people — Model answer",
+          "content": "I'd like to talk about my friend Sarah, who absolutely loves preparing food for her friends and relatives. Sarah is a warm-hearted and generous individual and she's always the first to volunteer to host gatherings or dinner parties, and her enthusiasm for cooking is truly contagious.\n\nSarah has a knack for preparing a wide variety of dishes, but she is especially good at baking delicious desserts and pastries. Whether it's homemade pies, cakes, or cookies, Sarah's sweet treats never fail to impress. She also enjoys experimenting with international cuisines, incorporating bold flavors and exotic ingredients into her dishes.\n\nSarah's passion for cooking developed at a young age, as she grew up watching her grandmother prepare traditional family recipes in the kitchen. Over the years, she honed her skills through practice, experimentation, and attending cooking classes. Today, Sarah's culinary repertoire is vast, and she continues to expand her knowledge by trying out new techniques and recipes.\n\nWhat sets Sarah apart is her genuine desire to bring joy to others through her cooking. She finds immense satisfaction in seeing the smiles on people's faces as they savor her dishes, and she manages to weave the flavors she creates, her cooking is not just about the food, it's a way of nurturing the body but also strengthens her relationships, creating memories, and expressing love and care for those around her."
+        },
+        {
+          "type": "text",
+          "title": "Describing relationship — Example",
+          "content": "Describe a memorable moment in a close relationship you have had.\nYou should say:\n- who the person is\n- what the occasion was\n- where it happened\n- why it was memorable"
+        },
+        {
+          "type": "text",
+          "title": "Describing relationship — Model answer",
+          "content": "I'd like to talk about an event that has been very special to me because I shared it with my best friend called Sarah. Sarah and I have been inseparable since childhood, and our bond has only grown stronger over the years. On her birthday, I wanted to plan something special to celebrate our friendship and make her day memorable.\n\nI decided to surprise Sarah with a picnic at our favorite park, which held many fond memories for us from our childhood. I spent days preparing for the occasion, packing a delicious spread of her favorite foods, including sandwiches, fruit, and homemade desserts. I also brought along a bouquet of flowers and a personalized gift to make the day even more special.\n\nWhen I arrived at the park to set up the picnic, I was thrilled to see the look of surprise and joy on Sarah's face as she realized what I had planned. We spent the day reminiscing about our best memories, laughing, and enjoying each other's company as we savored the delicious food and soaked in the beauty of the surroundings.\n\nThe reason this moment was so memorable was not just because of the thoughtful surprise or the picturesque setting, but because of the genuine connection and bond that Sarah and I share. It was a reminder of the importance of cherishing close relationships and creating meaningful memories with the people we love.\n\nAs we sat together, basking in the warmth of the sun, I felt grateful for the moments we've shared and excited for the memories we have yet to create. It was a day filled with love, laughter, and gratitude, and one that I will cherish forever in my heart."
+        },
+        {
+          "type": "text",
+          "title": "Describing relationship — Phrases & vocabulary",
+          "content": "Phrases:\n- Get on with somebody (поладить с кем-то)\n- Look up to somebody (восхищаться кем-то)\n- Be in touch with somebody (быть на связи с кем-то)\n- Fall out with somebody (поссориться с кем-то)\n- Grow apart from somebody (отдаляться от кого-то)\n- Take after somebody (пойти в кого-то)\n- Grow up together (вырасти вместе)\n- Be close to somebody (быть рядом с кем-то)\n\nTypes of Relationships:\n- Family: parents, siblings, grandparents, cousins (родители, братья/сестры, бабушки/дедушки, двоюродные братья/сестры)\n- Romantic: partner, spouse, boyfriend, girlfriend, significant other (партнёр, супруг, парень, девушка, вторая половина)\n- Friendship: friend, best friend, close friend, buddy, pal (друг, лучший друг, близкий друг, приятель, товарищ)\n- Professional: colleague, coworker, mentor, supervisor, client (коллега, сотрудник, наставник, руководитель, клиент)\n\nAffectionate Relationships: Loving (любящий), Caring (заботливый), Supportive (поддерживающий), Affectionate (нежный), Devoted (преданный), Disagreement (разногласие), Misunderstanding (непонимание), Conflict (конфликт), Tension (напряжение), Compromise (компромисс)\n\nDescribing Interactions: Interact (взаимодействовать), Engage (вовлекать, во что-то), Communicate (общаться), Connect (соединять), Share (делиться), Spend time together (проводить время вместе), Collaborate (сотрудничать), Support (поддерживать), Encourage (поощрять), Empathize (сопереживать)\n\nRelationship Dynamics: Dynamic (динамичный), Evolving (развивающийся), Changing (меняющийся), Transformative (преобразующий), Reciprocal (взаимный), Mutually beneficial (взаимовыгодный), Harmonious (гармоничный), Balanced (сбалансированный), Equal (равный), Complementary (дополняющий друг друга)\n\nEmotional States in Relationships: Happy (счастливый), Content (удовлетворённый), Fulfilled (осуществлённый), Grateful (благодарный), Joyful (радостный), Secure (безопасный), Comforted (комфортный), Inspired (вдохновлённый), Supported (поддерживаемый), Connected (имеющий родственные связи)"
+        }
+      ],
+      "exercises": []
+    },
+    {
+      "title": "Speaking. Lesson 3. Talking about food, sport and work.",
+      "type": "theory",
+      "contents": [
+        {
+          "type": "video",
+          "title": "Speaking. Lesson 3 — Talking about sport and active lifestyle",
+          "content": "https://www.youtube.com/watch?v=FGaakmBclZY"
+        },
+        {
+          "type": "text",
+          "title": "Describing food and eating habits — Example",
+          "content": "Describe a traditional dish from your country that you personally enjoy eating.\nYou should say:\n- the name of the dish\n- what ingredients are used to make it\n- why you enjoy it\n- explain what significance this dish has in your country's culinary culture."
+        },
+        {
+          "type": "text",
+          "title": "Describing food and eating habits — Model answer",
+          "content": "Today, I'd like to share with you a dish from Ukraine that holds a special place in my heart and palate. It's called 'Borscht,' and it's a beloved staple in Ukrainian cuisine.\n\nBorscht is a soup made primarily from beets, cabbage, potatoes, carrots, onions, and meat such as beef or pork. The key ingredient that gives borscht its distinctive deep red color and earthy flavor is beetroot, which is often grated or finely chopped and simmered with other vegetables and meat, seasoned for hours to develop its rich flavor.\n\nWhat I enjoy most about borscht is its comforting and nourishing qualities. The combination of vegetables and meat creates a robust and rich taste that warms you from the inside out. In Ukrainian culinary culture, borscht holds significant cultural and social importance. It is often served as a first course during festive occasions and family gatherings, symbolizing hospitality. Borscht is more than just a soup; it's a cultural icon that embodies the essence of Ukrainian cuisine and traditions. Its delicious taste, cultural significance, and ability to bring people together make it a cherished favorite among Ukrainians, including myself."
+        },
+        {
+          "type": "text",
+          "title": "Describing food and eating habits — Useful phrases",
+          "content": "Talking about Eating Habits:\n- \"I try to eat a balanced diet.\"\n- \"I'm a vegetarian/vegan.\"\n- \"I tend to eat small, frequent meals throughout the day.\"\n- \"I like to indulge in sweet treats occasionally.\"\n- \"I'm conscious of portion sizes.\"\n- \"I prefer to cook my own meals rather than eating out.\"\n- \"I'm trying to cut down on sugar/salt/fat.\"\n- \"I'm mindful of what I eat.\"\n\nExpressing Likes and Dislikes:\n- \"I'm a big fan of...\"\n- \"I really enjoy eating...\"\n- \"This is one of my favorite foods.\"\n- \"I can't stand...\"\n- \"I'm not fond of...\"\n- \"I'm not really into...\"\n- \"This isn't to my taste.\"\n- \"I'm not a huge fan of spicy food.\"\n\nDiscussing Preferences:\n- \"I have a preference for...\"\n- \"I tend to gravitate towards...\"\n- \"I'm partial to...\"\n- \"I'm more of a savory person.\"\n- \"I have a sweet tooth.\"\n- \"I'm open to trying new foods.\"\n- \"I enjoy experimenting with different cuisines.\"\n\nDescribing Food Preparation:\n- \"I love cooking from scratch.\"\n- \"I enjoy experimenting with different recipes.\"\n- \"I'm a competent cook.\"\n- \"I find cooking therapeutic.\"\n- \"I like to meal prep for the week ahead.\"\n- \"I'm not much of a cook, but I whip up a few simple dishes.\""
+        },
+        {
+          "type": "text",
+          "title": "Talking about sport and active lifestyle — Example",
+          "content": "Describe a sport you would like to learn more about.\nYou should say:\n- what sport it is\n- how it is played or performed\n- why you would like to learn more about it and explain what\n- benefits this sport can bring to people's health"
+        },
+        {
+          "type": "text",
+          "title": "Talking about sport and active lifestyle — Model answer",
+          "content": "One sport that I would like to familiarize myself with is rock climbing. Rock climbing involves ascending natural rock formations or artificial climbing walls using a variety of techniques and equipment. Climbers use their hands and feet to climb upward, utilizing strength, balance, and problem-solving skills to navigate the terrain and reach the top of the route.\n\nI'm particularly intrigued by rock climbing because of its physical and mental challenges. I've always been drawn to activities that push me out of my comfort zone and require both physical strength and mental focus. Rock climbing seems to embody these qualities perfectly, offering a unique blend of athleticism and mental agility.\n\nLearning more about rock climbing fascinates me because it's not just about physical strength; it's also about strategy, problem-solving, and overcoming fear. As someone who enjoys outdoor activities and adventure sports, I'm excited to delve deeper into the world of rock climbing and explore its different techniques, routes, and environments.\n\nMoreover, rock climbing offers a myriad of benefits for people's health. From a physical standpoint, it's a full-body workout that engages muscles throughout the body, including the arms, legs, core, and back. Climbing also improves flexibility, endurance, and cardiovascular health. Additionally, the mental aspects of rock climbing, such as concentration, focus, and problem-solving, can enhance cognitive function and mental resilience."
+        },
+        {
+          "type": "text",
+          "title": "Talking about sport and active lifestyle — Useful phrases",
+          "content": "Discussing Sports and Activities:\n- \"I'm a big fan of...\" (я большой поклонник...)\n- \"I enjoy playing...\" (мне нравится играть в...)\n- \"My favorite sport/activity is...\" (мой любимый вид спорта/занятие это...)\n- \"I love getting outdoors and...\" (я люблю проводить время на свежем воздухе и...)\n- \"I'm passionate about...\" (я увлечён...)\n- Sedentary lifestyle (сидячий образ жизни)\n- Take up exercise (заняться спортом)\n- Get into shape (привести себя в форму)\n- Train hard (усердно тренироваться)\n- Keep fit (поддерживать форму)\n- Slack off (расслабиться)\n\nExpressing Preferences and Enjoyment:\n- \"I prefer...\" (я предпочитаю...)\n- \"I'm more of a...\" (я скорее...)\n- \"I find (sport/activity) exhilarating/challenging...\" (я нахожу... захватывающим/увлекательным...)\n- \"I enjoy the adrenaline rush of...\" (мне нравится прилив адреналина от...)\n\nImportant notes on usage:\n- Go + -ing\n- Do / play\n- Be good at something\n- To be keen on\n- To be interested in\n- To be into"
+        },
+        {
+          "type": "text",
+          "title": "Talking about work — Example 1",
+          "content": "Describe a job you don't want to do in the future.\nYou should say:\n- what it is\n- where you knew it from\n- whether the job is difficult or not\n- explain why you don't want to do it"
+        },
+        {
+          "type": "text",
+          "title": "Talking about work — Model answer 1",
+          "content": "One job that I don't want to pursue in the future is that of a mine worker. I first learned about this job through documentaries and news reports highlighting the dangers and challenges faced by individuals working in mines.\n\nWorking as a mine worker is undeniably difficult and hazardous. The job involves working deep underground in confined spaces, often in extreme temperatures and poor ventilation conditions. Mine workers are exposed to various occupational hazards such as cave-ins, explosions, toxic gases, and equipment malfunctions. The physical demands of the job, including heavy lifting, repetitive tasks, and long hours, can also take a toll on one's health and well-being.\n\nThe primary reason I don't want to pursue this job is due to the inherent risks associated with it. The potential for accidents and injuries in mines is high, and the consequences can be devastating, ranging from minor injuries to fatalities. The thought of putting my life at risk on a daily basis is something I find too daunting and frightening to consider."
+        },
+        {
+          "type": "text",
+          "title": "Talking about work — Example 2",
+          "content": "Describe a job that you consider highly important.\nYou should say:\n- what the job is\n- what the job involves\n- why it is important\n- explain if people who do this job are appreciated enough by society"
+        },
+        {
+          "type": "text",
+          "title": "Talking about work — Model answer 2",
+          "content": "One job that I think is essential is that of a healthcare worker, particularly nurses. Nurses play a crucial role in the healthcare system, providing essential care and support to patients in various settings, including hospitals, clinics, and community health centers.\n\nThe job of a nurse involves a wide range of responsibilities, including administering medications, monitoring patients' vital signs, providing wound care, assisting with medical procedures, and offering emotional support to patients and their families. Nurses work tirelessly around the clock, often under stressful conditions, to ensure the well-being and comfort of their patients.\n\nThe importance of nurses cannot be overstated. They are frontline healthcare providers who play a critical role in promoting health, preventing illness, and managing chronic conditions. Nurses are often the first point of contact for patients seeking medical assistance, and they are instrumental in coordinating and delivering comprehensive health care."
+        },
+        {
+          "type": "text",
+          "title": "Talking about work — Useful phrases",
+          "content": "- \"I work as a...\"\n- \"My job title is...\"\n- \"I'm employed at...\"\n- \"I'm responsible for...\"\n- \"My role involves...\"\n- \"I'm part of a team that...\"\n- \"I'm in charge of...\"\n- \"I'm responsible for managing...\"\n- \"I handle...\"\n- \"I'm in charge of coordinating...\"\n- \"I'm involved in...\"\n- \"I'm accountable for...\"\n- \"I have a supportive team.\"\n- \"My job involves a lot of interaction with...\"\n- \"My workplace values innovation.\"\n- \"I enjoy a flexible work schedule.\"\n- \"My company promotes a healthy work-life balance.\"\n- \"There are opportunities for career advancement.\""
+        }
+      ],
+      "exercises": []
+    },
+    {
+      "title": "Speaking Lesson 4. Talking about weather, climate, parenting, objects and holidays",
+      "type": "theory",
+      "contents": [
+        {
+          "type": "video",
+          "title": "Speaking. Lesson 4 — Talking about environment",
+          "content": "https://www.youtube.com/watch?v=OAzwvxiB--4"
+        },
+        {
+          "type": "text",
+          "title": "Talking about weather and climate — Example 1 (bad weather)",
+          "content": "Describe a bad weather experience you have had.\nYou should say:\n- what sort of bad weather it was\n- when it happened\n- where you were when it happened\n- explain how it affected you\n\nModel answer:\nOne memory of terrible weather is when I was caught in a heavy thunderstorm last summer. It happened on a sweltering afternoon in July when I was visiting my grandparents' house in the countryside. The wind had been intensifying rapidly and by the evening the rain started pouring down, accompanied by flashes of lightning that illuminated the sky.\n\nBeing in the countryside, surrounded by tall trees and open fields, made the storm feel even more intimidating. The sound of the wind howling through the trees and the torrential rain hitting the roof was deafening. The storm not only affected our plans for the evening but also caused some damage to the property. The power went out, leaving us in darkness, and we had to scramble to find candles and flashlights. The strong winds knocked over some potted plants in the garden, and branches from nearby trees littered the yard."
+        },
+        {
+          "type": "text",
+          "title": "Talking about weather and climate — Example 2 (good weather)",
+          "content": "Describe a good weather experience you have had.\nYou should say:\n- what sort of good weather it was\n- when it happened\n- where you were when it happened\n- explain how it affected you\n\nModel answer:\nOne time of excellent weather conditions that I distinctly remember was during a sunny spring day last year. It happened on a weekend in April when I decided to go for a hike with some friends in a nearby national park. The weather forecast had predicted clear skies and mild temperatures, so we were excited to spend the day outdoors.\n\nAs we arrived at the trailhead park early in the morning, we were greeted by a beautiful sunrise and a refreshing breeze. The sky was a brilliant shade of blue, not a single cloud in sight. The air was crisp, filled with the scent of blooming flowers and fresh greenery.\n\nThe good weather had a profoundly positive effect on me. It filled my spirits and filled me with a sense of joy and appreciation for the beauty of nature. Being surrounded by such breathtaking scenery and spending quality time with friends made me feel alive and rejuvenated."
+        },
+        {
+          "type": "text",
+          "title": "Talking about weather and climate — Grammar & vocabulary",
+          "content": "Important Grammar Aspects:\n- Usually we don't use articles before /winter/summer etc\n- Unless there is an adjective before it (then we use \"a\")\n- Awe use \"the\" with \"for\" and \"during\"\n- We don't use articles with \"last/next/this\" + time\n- Weather is uncountable!\n\nVocabulary: Changeable, Torrential rains, Heavy rains, Drizzling, Mild / severe climate, Cold spell, Bitterly cold, Snowdrifts, Boiling hot, Scorching sun, Fog, Gloomy days, Mud / muddy"
+        },
+        {
+          "type": "text",
+          "title": "Talking about environment — Example",
+          "content": "Describe an environmental problem that has occurred in your country.\nYou should say:\n- the cause of the problem\n- what effect it has had on your country\n- the steps, if any, that have been taken to solve this\n- explain why you think this problem is so important to solve\n\nModel answer:\nOne instance of significant ecological damage that occurred in my country is air pollution, particularly in urban areas. The main cause of this problem is the emission of pollutants from vehicles, industries, and other sources such as burning of fossil fuels and agricultural activities. These pollutants include nitrogen oxides, sulfur dioxide, particulate matter, and volatile organic compounds.\n\nThe effects of air pollution on my country have been significant and far-reaching. High levels of air pollution have led to poor air quality, resulting in respiratory problems, cardiovascular diseases, and other health issues among the population. It has also contributed to environmental degradation, including acid rain, smog formation, and damage to ecosystems and wildlife.\n\nIn response to this problem, several steps have been taken to mitigate air pollution. These include implementing stricter emission standards for vehicles and industries, promoting the use of cleaner fuels and technologies, expanding public transportation infrastructure, and increasing green spaces in urban areas. Additionally, public awareness campaigns and educational programs have been launched to raise awareness about the importance of reducing air pollution and adopting sustainable practices."
+        },
+        {
+          "type": "text",
+          "title": "Talking about environment — Vocabulary & useful phrases",
+          "content": "Important use:\n- Have impact / influence on something\n- Impact / influence something\n\nVocabulary: recycle / recycling, CO2 emissions, carbon footprint, eco-friendly / sustainable, lifestyle, to be aware of environmental issues, pollution, greenhouse gases / effect, global warming, the rise of temperatures, melting of arctic ice / permafrost, waste / garbage / litter, separate waste collection, deforestation, become extinct, endangered species, poaching, destruction of natural habitat\n\nUseful phrases:\n- \"Environmental degradation is a pressing concern.\"\n- \"We're facing significant challenges related to pollution.\"\n- \"Climate change is a global phenomenon that requires urgent action.\"\n- \"We need to adopt sustainable practices to mitigate environmental damage.\"\n- \"Investing in renewable energy is crucial for combating climate change.\"\n- \"Conservation efforts are essential for preserving biodiversity.\"\n- \"Despite the challenges we face, I remain hopeful that we can make a positive impact.\"\n- \"There's a growing momentum for environmental conservation efforts.\"\n- \"I'm encouraged by the increasing awareness and activism surrounding environmental issues.\""
+        },
+        {
+          "type": "text",
+          "title": "Talking about family and parenting — Example 1",
+          "content": "Describe people you know who you believe are good parents.\nYou should say:\n- who they are\n- how you met them\n- what they do\n- explain why you think they are very good parents\n\nModel answer:\nI'd like to talk about my neighbors, John and Sarah, whom I believe are excellent mother and father to their children. I first met them when they moved into the house next door about five years ago. Since then, we've become good friends, and I've had the opportunity to observe their parenting firsthand.\n\nJohn and Sarah are both devoted parents to their two young children, Emily and Jake. They're incredibly involved in their children's lives and prioritize spending quality time with them. Despite their busy work schedules, they always make time for family activities and outings, whether it's going to the park, taking weekend trips, or simply playing games at home.\n\nOne thing that stands out about John and Sarah is their patience and understanding with their children. They're excellent listeners and take the time to communicate openly with Emily and Jake, encouraging them to express their thoughts and feelings. They also set clear boundaries and expectations for behavior, but do so in a gentle and compassionate manner.\n\nThey teach their children important values such as honesty, responsibility, and generosity through both their words and actions. I've seen how well-behaved and considerate Emily and Jake are, which I believe is due to their parents' positive influence.\n\nI believe John and Sarah are exceptional parents because they create a nurturing and supportive environment for their children to thrive. Their unconditional love, guidance, and dedication to their family make them role models not only for their children but also for those around them."
+        },
+        {
+          "type": "text",
+          "title": "Talking about family and parenting — Example 2",
+          "content": "Describe your best childhood memory.\nYou should say:\n- What is it?\n- When and where did it happen?\n- Why did you like it so much?\n\nModel answer:\nOne of my best memories from when I was a child is from a family trip to the beach when I was around 8 years old. It happened during the summer vacation, and we went to a beautiful seaside resort called Ocean Bay.\n\nI remember the excitement and anticipation I felt as we packed our bags and set off on the long drive to the beach. The journey itself was filled with laughter and singing along to our favorite songs, but nothing could compare to the joy of arriving at our destination.\n\nThe moment we stepped onto the sandy shore, I was mesmerized by the vast expanse of the ocean stretching out before me, sparkling under the bright sun. The sound of the waves crashing against the shore was both exhilarating and soothing at the same time.\n\nWe spent the entire day swimming, building sandcastles, and playing beach games with my siblings. It was pure bliss, surrounded by the warmth of the sun, the salty breeze, and the laughter of my family.\n\nWhat made this memory stand out was the sense of freedom and happiness I experienced. There were no worries or responsibilities, just pure enjoyment and bonding with my loved ones. It was a day filled with unforgettable moments and shared experiences that brought us closer together as a family.\n\nLooking back, that day at the beach holds a special place in my heart because it symbolizes the simple joys of childhood and the importance of spending quality time with family. It's a memory that I cherish dearly and one that never fails to bring a smile to my face."
+        },
+        {
+          "type": "text",
+          "title": "Talking about family and parenting — Grammar & vocabulary",
+          "content": "Important grammar usage: Used to / Would\n\n- Parenting / Upbringing: raise children / grow up in a family, nuclear family / extended family\n- Siblings / relatives: emotional security, to be well-adjusted / well brought up, help around the house, do chores, responsible parents\n- Overprotective parents, spoilt children"
+        },
+        {
+          "type": "text",
+          "title": "Describing objects — Example",
+          "content": "Describe a useful object in your home that you cannot live without.\nYou should say:\n- what it is\n- what you can do with it\n- how often you use it\n- explain why you cannot live without it\n\nModel answer:\nOne of the most indispensable items in my home is my electric kettle. It's a simple yet incredibly useful appliance that I rely on daily.\n\nThe electric kettle allows me to quickly and easily boil water for various purposes. Whether it's making a cup of tea or coffee, preparing instant noodles, or cooking a quick meal, the electric kettle is my go-to appliance. Its convenience and efficiency make it an essential part of my kitchen routine.\n\nI use the electric kettle multiple times a day, especially in the mornings and evenings. It's the first thing I reach for when I wake up to make a cup of tea or coffee to kickstart my day. Throughout the day, I use it for making hot beverages, cooking instant meals, and even sterilizing utensils or baby bottles with boiling water.\n\nI cannot imagine living without my electric kettle because it simplifies and speeds up many tasks in my daily life. Its rapid boiling feature saves me time and energy, especially when I'm in a hurry or have limited time to prepare a meal. Additionally, it's energy-efficient compared to boiling water on the stove, which helps reduce electricity consumption and lower utility bills.\n\nMy electric kettle is a versatile and indispensable appliance that makes my daily life more convenient. Its ability to quickly boil water for a variety of purposes makes it an essential object in my home that I cannot do without."
+        },
+        {
+          "type": "text",
+          "title": "Describing objects — Vocabulary",
+          "content": "Function and Purpose: Tool, utensil, gadget, appliance; Decorative, ornamental, functional; Electronic, mechanical, manual; Essential, optional, decorative; Multi-purpose, specialized\n\nCondition: New, used, old, vintage; Pristine, remaculate, flawless; Worn, damaged, broken, cracked; Clean, dirty, dusty; Well-maintained, well-cared-for\n\nDesign and Style: Modern, contemporary, traditional; Minimalist, ornate, intricate; Sleek, elegant, sophisticated; Retro, vintage, antique; Functional, practical, ergonomic\n\nParts and Components: Base, frame, handle, knob; Lid, cover, cap; Button, switch, dial; Screen, display, interface; Cord, cable, wire\n\nFeatures and Characteristics: Adjustable, flexible, versatile; Compact, lightweight, portable; Durable, sturdy, robust; High-quality, premium, luxurious; User-friendly, intuitive, easy to use"
+        },
+        {
+          "type": "text",
+          "title": "Talking about holidays — Example",
+          "content": "Describe your holidays.\nYou should say:\n- where you go for the holidays\n- how long they last\n- who you go with\n- talk about anything interesting happens during your holidays\n\nModel answer:\nFor my holidays, I usually like to go on a trip to explore new destinations and experience different cultures. One of my favorite holiday destinations is Thailand, a country renowned for its stunning beaches, vibrant cities, and rich cultural heritage.\n\nDuring my holidays in Thailand, I typically spend around two weeks exploring various parts of the country. I often start my trip in Bangkok, the bustling capital city, where I immerse myself in the vibrant street life, visit famous sights like the Grand Palace and Wat Arun, and indulge in delicious street food.\n\nFrom Bangkok, I venture to other parts of Thailand, such as the northern city of Chiang Mai, famous for its ancient temples, night markets, and lush countryside. I also make sure to spend time relaxing on the pristine beaches of Phuket or Koh Samui, where I can enjoy snorkeling, sunbathing, and island hopping.\n\nI usually travel with a group of friends or family members, which adds to the fun and excitement of the holiday. We enjoy exploring new places together, trying out local cuisine, and participating in various activities like elephant trekking, cooking classes, and Thai massage sessions.\n\nMy holidays in Thailand are always filled with unforgettable experiences, breathtaking scenery, and warm hospitality. It's a destination that offers something for everyone, whether you're seeking adventure, relaxation, or cultural immersion."
+        },
+        {
+          "type": "text",
+          "title": "Talking about holidays — Useful phrases",
+          "content": "- Package deals / tours\n- Backpacking\n- Hiking / trekking\n- Beach holiday\n- Book / reserve\n- Tourist destination\n- Holiday resort\n- Picturesque village\n- Places of interest\n- Tourist trap\n- Hordes of tourists\n- Half-board / full- board\n- Biking / cycling\n- Scuba diving\n- Do outdoor trips\n- Do cultural travel\n- Have itchy feet\n- Catch a travel bug\n- Watch / visit sights\n- Go sightseeing\n- Walk around\n- Historical monuments and sights\n- Immerse oneself into the local culture\n- Enjoy local cuisine\n- Unspoiled scenery\n- Picturesque / quaint village / little town"
+        }
+      ],
+      "exercises": []
+    },
+    {
+      "title": "Speaking Practice. Recent topics (2024)",
+      "type": "practice",
+      "contents": [
+        {
+          "type": "file",
+          "title": "Exam Speaking Topics 2024 (Advent Academy, 12 pages)",
+          "content": "https://drive.google.com/file/d/1czeUk61Qjmm08cl6PH0f3ys9xqtKzhK_/view"
+        }
+      ],
+      "exercises": []
+    },
+    {
+      "title": "Additional Materials AA",
+      "type": "supplementary",
+      "contents": [
+        {
+          "type": "file",
+          "title": "Most Common Spelling Mistakes in IELTS Listening (Advent Academy)",
+          "content": "https://drive.google.com/file/d/1A6lf81PcOMQ9fwZSUePKlmRWBSBSgW01/view"
+        },
+        {
+          "type": "file",
+          "title": "Recent IELTS Essay Topics (Advent Academy)",
+          "content": "https://drive.google.com/file/d/1LkU4P8nVP3IjQ_zPVbLAe8BL11m7oe2X/view"
+        },
+        {
+          "type": "file",
+          "title": "Reading Tips (Advent Academy)",
+          "content": "https://drive.google.com/file/d/1KFeb8eSqu0lXA8YCA79iSUGXofsxH-zb/view"
+        },
+        {
+          "type": "file",
+          "title": "Giving Direction (Advent Academy)",
+          "content": "https://drive.google.com/file/d/16BJpoyXZz9BtjBUFi5V4joHE-ib4jAZY/view"
+        },
+        {
+          "type": "file",
+          "title": "Graphs Descriptions Useful Vocabulary (Advent Academy)",
+          "content": "https://drive.google.com/file/d/1UyyF_e39dMqpdfNX9-uq331H_y8FBNBX/view"
+        },
+        {
+          "type": "file",
+          "title": "Linking Words (Advent Academy)",
+          "content": "https://drive.google.com/file/d/1__6YVcNrTzYIXyVtz6CrENkQySH1ya__/view"
+        },
+        {
+          "type": "text",
+          "title": "Listening Tips",
+          "content": "These 25 tips for the IELTS Listening test offer essential strategies to help you achieve the score you need and enhance your listening skills.\n\n1. Predict the topic: Knowing the conversation topic aids comprehension; visualize the context and speakers in your mind.\n2. Predict the questions: Anticipate the information you need to listen for in each section, such as names, numbers, or addresses.\n3. Use a minute to review each section: Utilize the 30 seconds provided at the end of each section and the following 30 seconds to preview the next section for better preparation."
+        },
+        {
+          "type": "file",
+          "title": "Exam Speaking Topics 2024 (Advent Academy, 12 pages)",
+          "content": "https://drive.google.com/file/d/1czeUk61Qjmm08cl6PH0f3ys9xqtKzhK_/view"
+        }
+      ],
+      "exercises": []
+    },
+    {
+      "title": "Additional Resources Library",
+      "type": "supplementary",
+      "contents": [
+        {
+          "type": "text",
+          "title": "Additional Resources Library — note",
+          "content": "Этот урок представляет собой библиотеку из полных сторонних учебных пособий (не её собственных материалов), включая: Cambridge Academic Vocabulary in Use, IELTS Academic Task 1 Vocabulary and Useful Language, Academic Writing: From Paragraph to Essay, Collins English for Exams: Writing, Exam Essentials IELTS Practice Tests, The Official Cambridge Guide to IELTS, Academic Writing Practice for IELTS, Check Your English Vocabulary for IELTS, Barron's IELTS Strategies and Tips, IELTS Vocabulary Masterclass и другие. Так как это полные коммерческие издания сторонних издательств (Cambridge, Collins, Barron's и др.), а не собственные материалы, их копирование в базу данных не производится из соображений авторского права. Смотрите оригинальный урок в Edvibe для доступа к этой библиотеке."
+        }
+      ],
+      "exercises": []
+    }
   ]
 }
