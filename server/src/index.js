@@ -29,6 +29,7 @@ import { settingsRouter } from './routes/settings.js'
 import { diagRouter } from './routes/diag.js'
 import { profileRouter } from './routes/profile.js'
 import { textbooksRouter } from './routes/textbooks.js'
+import { personalRouter } from './routes/personal.js'
 import { loadAiSettings } from './settings.js'
 import { setupSignaling } from './signaling.js'
 import { flushBoards } from './boardStore.js'
@@ -63,6 +64,7 @@ app.use('/api/settings', settingsRouter)
 app.use('/api/diag', diagRouter)
 app.use('/api/profile', profileRouter)
 app.use('/api/textbooks', textbooksRouter)
+app.use('/api/personal', personalRouter)
 
 app.get('/api/health', (req, res) => res.json({ ok: true }))
 

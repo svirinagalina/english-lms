@@ -182,5 +182,16 @@ export const api = {
   },
   listApiTokens: () => request('/content/tokens'),
   createApiToken: (name) => request('/content/tokens', { method: 'POST', body: { name } }),
-  deleteApiToken: (id) => request(`/content/tokens/${id}`, { method: 'DELETE' })
+  deleteApiToken: (id) => request(`/content/tokens/${id}`, { method: 'DELETE' }),
+
+  // Personal (todos and calendar)
+  listTodos: () => request('/personal/todos'),
+  createTodo: (body) => request('/personal/todos', { method: 'POST', body }),
+  updateTodo: (id, body) => request(`/personal/todos/${id}`, { method: 'PATCH', body }),
+  deleteTodo: (id) => request(`/personal/todos/${id}`, { method: 'DELETE' }),
+
+  listCalendarEvents: (start, end) => request(`/personal/calendar${start || end ? `?${new URLSearchParams({ ...(start && { start }), ...(end && { end }) }).toString()}` : ''}`),
+  createCalendarEvent: (body) => request('/personal/calendar', { method: 'POST', body }),
+  updateCalendarEvent: (id, body) => request(`/personal/calendar/${id}`, { method: 'PATCH', body }),
+  deleteCalendarEvent: (id) => request(`/personal/calendar/${id}`, { method: 'DELETE' })
 }
