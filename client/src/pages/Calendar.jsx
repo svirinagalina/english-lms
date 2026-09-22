@@ -14,12 +14,12 @@ export default function Calendar() {
   const [currentMonth, setCurrentMonth] = useState(new Date())
   const [showForm, setShowForm] = useState(false)
   const [formData, setFormData] = useState({
-    title: '',
     startTime: '',
-    studentId: '',
+    studentIds: [],
     recurrence: '',
     recurrenceEndDate: ''
   })
+  const [showStudentPicker, setShowStudentPicker] = useState(false)
   const [editingId, setEditingId] = useState(null)
   const [deleteConfirm, setDeleteConfirm] = useState(null)
   const [eventToDelete, setEventToDelete] = useState(null)
@@ -49,20 +49,23 @@ export default function Calendar() {
 
   const handleAddEvent = async (e) => {
     e.preventDefault()
-    if (!formData.title || !formData.startTime) {
-      setError('Please fill in title and date')
+    if (!formData.startTime) {
+      setError('Please select a date and time')
       return
     }
 
     const startTime = new Date(formData.startTime)
+    const title = formData.studentIds.length > 0
+      ? `Lesson with ${formData.studentIds.map(id => students.find(s => s.id === id)?.name).filter(Boolean).join(', ')}`
+      : 'Lesson'
 
     try {
       if (editingId) {
         const { event } = await api.updateCalendarEvent(editingId, {
-          title: formData.title,
+          title,
           startTime: startTime.toISOString(),
           endTime: startTime.toISOString(),
-          studentId: formData.studentId || null,
+          studentIds: formData.studentIds,
           recurrence: formData.recurrence || null,
           recurrenceEndDate: formData.recurrenceEndDate ? new Date(formData.recurrenceEndDate).toISOString() : null
         })
@@ -70,16 +73,16 @@ export default function Calendar() {
         setEditingId(null)
       } else {
         const { event } = await api.createCalendarEvent({
-          title: formData.title,
+          title,
           startTime: startTime.toISOString(),
           endTime: startTime.toISOString(),
-          studentId: formData.studentId || null,
+          studentIds: formData.studentIds,
           recurrence: formData.recurrence || null,
           recurrenceEndDate: formData.recurrenceEndDate ? new Date(formData.recurrenceEndDate).toISOString() : null
         })
         setEvents([...events, event])
       }
-      setFormData({ title: '', startTime: '', studentId: '', recurrence: '', recurrenceEndDate: '' })
+      setFormData({ startTime: '', studentIds: [], recurrence: '', recurrenceEndDate: '' })
       setShowForm(false)
       setError('')
     } catch (err) {
@@ -112,9 +115,8 @@ export default function Calendar() {
     const startDateTime = new Date(event.startTime).toISOString().slice(0, 16)
     const recurrenceEndDate = event.recurrenceEndDate ? new Date(event.recurrenceEndDate).toISOString().slice(0, 10) : ''
     setFormData({
-      title: event.title,
       startTime: startDateTime,
-      studentId: event.studentId || '',
+      studentIds: event.studentIds || [],
       recurrence: event.recurrence || '',
       recurrenceEndDate
     })
@@ -151,7 +153,7 @@ export default function Calendar() {
       <Panel id="personal:calendar-header" title={monthName} defaultOpen>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
           <button className="ghost" onClick={prevMonth}>← Previous</button>
-          <button onClick={() => { setShowForm(!showForm); setEditingId(null); setFormData({ title: '', startTime: '', recurrence: '', recurrenceEndDate: '' }) }}>
+          <button onClick={() => { setShowForm(!showForm); setEditingId(null); setFormData({ startTime: '', studentIds: [], recurrence: '', recurrenceEndDate: '' }) }}>
             {showForm ? 'Cancel' : '+ Add lesson'}
           </button>
           <button className="ghost" onClick={nextMonth}>Next →</button>
@@ -159,42 +161,79 @@ export default function Calendar() {
 
         {showForm && (
           <form onSubmit={handleAddEvent} style={{ marginBottom: 20, padding: 15, backgroundColor: '#f5f5f5', borderRadius: 8 }}>
-            <div style={{ marginBottom: 10 }}>
-              <label style={{ display: 'block', marginBottom: 5 }}>Title</label>
-              <input
-                type="text"
-                placeholder="Event title"
-                value={formData.title}
-                onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-                style={{ width: '100%' }}
-              />
-            </div>
-
-            <div style={{ marginBottom: 10 }}>
-              <label style={{ display: 'block', marginBottom: 5 }}>Date & time</label>
-              <input
-                type="datetime-local"
-                value={formData.startTime}
-                onChange={(e) => setFormData({ ...formData, startTime: e.target.value })}
-                style={{ width: '100%' }}
-              />
-            </div>
-
-            {user.role !== 'STUDENT' && (
-              <div style={{ marginBottom: 10 }}>
-                <label style={{ display: 'block', marginBottom: 5 }}>Student (optional)</label>
-                <select
-                  value={formData.studentId}
-                  onChange={(e) => setFormData({ ...formData, studentId: e.target.value })}
-                  style={{ width: '100%' }}
-                >
-                  <option value="">Not assigned</option>
-                  {students.map(student => (
-                    <option key={student.id} value={student.id}>{student.name}</option>
-                  ))}
-                </select>
+            <div style={{ display: 'flex', gap: 10, alignItems: 'flex-start', marginBottom: 15 }}>
+              <div style={{ flex: 1 }}>
+                <label style={{ display: 'block', marginBottom: 5, fontWeight: 600, color: '#2d5a4e' }}>Plan a lesson</label>
+                <div style={{ position: 'relative' }}>
+                  <button
+                    type="button"
+                    onClick={() => setShowStudentPicker(!showStudentPicker)}
+                    style={{
+                      width: '100%',
+                      padding: '10px 12px',
+                      border: '1px solid #d0d0d0',
+                      borderRadius: 4,
+                      background: 'white',
+                      cursor: 'pointer',
+                      textAlign: 'left',
+                      fontSize: 14
+                    }}
+                  >
+                    {formData.studentIds.length === 0
+                      ? '+ Select students'
+                      : `${formData.studentIds.length} student${formData.studentIds.length !== 1 ? 's' : ''} selected`}
+                  </button>
+                  {showStudentPicker && (
+                    <div style={{
+                      position: 'absolute',
+                      top: '100%',
+                      left: 0,
+                      right: 0,
+                      background: 'white',
+                      border: '1px solid #d0d0d0',
+                      borderRadius: 4,
+                      marginTop: 2,
+                      zIndex: 1000,
+                      boxShadow: '0 2px 8px rgba(0,0,0,0.1)'
+                    }}>
+                      {students.map(student => (
+                        <label key={student.id} style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          padding: '8px 12px',
+                          cursor: 'pointer',
+                          borderBottom: '1px solid #f0f0f0'
+                        }}>
+                          <input
+                            type="checkbox"
+                            checked={formData.studentIds.includes(student.id)}
+                            onChange={(e) => {
+                              if (e.target.checked) {
+                                setFormData({ ...formData, studentIds: [...formData.studentIds, student.id] })
+                              } else {
+                                setFormData({ ...formData, studentIds: formData.studentIds.filter(id => id !== student.id) })
+                              }
+                            }}
+                            style={{ marginRight: 8 }}
+                          />
+                          <span style={{ fontSize: 14 }}>{student.name}</span>
+                        </label>
+                      ))}
+                    </div>
+                  )}
+                </div>
               </div>
-            )}
+
+              <div style={{ flex: 1 }}>
+                <label style={{ display: 'block', marginBottom: 5, fontWeight: 600, color: '#2d5a4e' }}>When</label>
+                <input
+                  type="datetime-local"
+                  value={formData.startTime}
+                  onChange={(e) => setFormData({ ...formData, startTime: e.target.value })}
+                  style={{ width: '100%', padding: '10px 12px', border: '1px solid #d0d0d0', borderRadius: 4, fontSize: 14 }}
+                />
+              </div>
+            </div>
 
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 10 }}>
               <div>
@@ -250,7 +289,7 @@ export default function Calendar() {
                           )}
                           <div className="muted" style={{ fontSize: 14, marginTop: 5 }}>
                             {new Date(event.startTime).toLocaleTimeString('default', { hour: '2-digit', minute: '2-digit' })}
-                            {event.student && ` • ${event.student.name}`}
+                            {event.students && event.students.length > 0 && ` • ${event.students.map(s => s.name).join(', ')}`}
                           </div>
                         </div>
                         <div style={{ display: 'flex', gap: 5 }}>
