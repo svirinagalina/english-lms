@@ -19,6 +19,14 @@ const parseDialogue = (script) =>
     return match ? { speaker: match[1], text: match[2] } : { speaker: '_narrator', text: line }
   })
 
+// Coordinates every TtsAudioBlock's playback across the page. Unlike
+// speechSynthesis (one global player the browser itself serialises), each
+// block here owns its own independent <audio> element — nothing stops two
+// of them playing over each other unless something tells the previous one
+// to stop first. Reported live as two scripts audibly overlapping on a
+// lesson with more than one listening block (lesson 9).
+let activeAudioStop = null
+
 // Real generated audio: payload.lines is [{ speaker, text, url }], one MP3
 // per line (a different voice per speaker) — played back to back like a
 // playlist, since they're separate files rather than one recording.
@@ -30,7 +38,7 @@ function TtsAudioBlock({ payload }) {
   useEffect(() => () => audioRef.current?.pause(), [])
 
   const playFrom = (i) => {
-    if (i >= payload.lines.length) { setIndex(-1); return }
+    if (i >= payload.lines.length) { setIndex(-1); activeAudioStop = null; return }
     if (!audioRef.current) audioRef.current = new Audio()
     audioRef.current.src = payload.lines[i].url
     audioRef.current.onended = () => playFrom(i + 1)
@@ -38,14 +46,15 @@ function TtsAudioBlock({ payload }) {
     audioRef.current.play().catch(() => setIndex(-1))
     setIndex(i)
   }
-  const stop = () => { audioRef.current?.pause(); setIndex(-1) }
+  const stop = () => { audioRef.current?.pause(); setIndex(-1); activeAudioStop = null }
+  const start = () => { activeAudioStop?.(); activeAudioStop = stop; stopSpeaking(); playFrom(0) }
   const playing = index >= 0
 
   return (
     <div className="course-block">
       {payload.title && <strong>{payload.title}</strong>}
       <div className="row-actions">
-        {playing ? <button onClick={stop}>■ Stop</button> : <button onClick={() => playFrom(0)}>▶ Play</button>}
+        {playing ? <button onClick={stop}>■ Stop</button> : <button onClick={start}>▶ Play</button>}
         <button className="ghost" onClick={() => setRevealed((v) => !v)}>{revealed ? 'Hide script' : 'Show script'}</button>
       </div>
       {revealed && (
@@ -73,6 +82,7 @@ function TtsScriptBlock({ payload }) {
   useEffect(() => stopSpeaking, [])
 
   const play = async () => {
+    activeAudioStop?.() // don't overlap with a real-audio block elsewhere on the page
     setPlaying(true)
     const ok = await speakDialogue(parseDialogue(payload.script), () => setPlaying(false))
     if (!ok) { setPlaying(false); setRevealed(true) }

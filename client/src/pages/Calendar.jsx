@@ -12,9 +12,7 @@ export default function Calendar() {
   const [showForm, setShowForm] = useState(false)
   const [formData, setFormData] = useState({
     title: '',
-    description: '',
     startTime: '',
-    endTime: '',
     recurrence: '',
     recurrenceEndDate: ''
   })
@@ -41,26 +39,19 @@ export default function Calendar() {
 
   const handleAddEvent = async (e) => {
     e.preventDefault()
-    if (!formData.title || !formData.startTime || !formData.endTime) {
-      setError('Please fill in title and times')
+    if (!formData.title || !formData.startTime) {
+      setError('Please fill in title and date')
       return
     }
 
     const startTime = new Date(formData.startTime)
-    const endTime = new Date(formData.endTime)
-
-    if (endTime <= startTime) {
-      setError('End time must be after start time')
-      return
-    }
 
     try {
       if (editingId) {
         const { event } = await api.updateCalendarEvent(editingId, {
           title: formData.title,
-          description: formData.description,
           startTime: startTime.toISOString(),
-          endTime: endTime.toISOString(),
+          endTime: startTime.toISOString(),
           recurrence: formData.recurrence || null,
           recurrenceEndDate: formData.recurrenceEndDate ? new Date(formData.recurrenceEndDate).toISOString() : null
         })
@@ -69,15 +60,14 @@ export default function Calendar() {
       } else {
         const { event } = await api.createCalendarEvent({
           title: formData.title,
-          description: formData.description,
           startTime: startTime.toISOString(),
-          endTime: endTime.toISOString(),
+          endTime: startTime.toISOString(),
           recurrence: formData.recurrence || null,
           recurrenceEndDate: formData.recurrenceEndDate ? new Date(formData.recurrenceEndDate).toISOString() : null
         })
         setEvents([...events, event])
       }
-      setFormData({ title: '', description: '', startTime: '', endTime: '', recurrence: '', recurrenceEndDate: '' })
+      setFormData({ title: '', startTime: '', recurrence: '', recurrenceEndDate: '' })
       setShowForm(false)
       setError('')
     } catch (err) {
@@ -108,13 +98,10 @@ export default function Calendar() {
 
   const handleEditEvent = (event) => {
     const startDateTime = new Date(event.startTime).toISOString().slice(0, 16)
-    const endDateTime = new Date(event.endTime).toISOString().slice(0, 16)
     const recurrenceEndDate = event.recurrenceEndDate ? new Date(event.recurrenceEndDate).toISOString().slice(0, 10) : ''
     setFormData({
       title: event.title,
-      description: event.description || '',
       startTime: startDateTime,
-      endTime: endDateTime,
       recurrence: event.recurrence || '',
       recurrenceEndDate
     })
@@ -151,7 +138,7 @@ export default function Calendar() {
       <Panel id="personal:calendar-header" title={monthName} defaultOpen>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
           <button className="ghost" onClick={prevMonth}>← Previous</button>
-          <button onClick={() => { setShowForm(!showForm); setEditingId(null); setFormData({ title: '', description: '', startTime: '', endTime: '', recurrence: '', recurrenceEndDate: '' }) }}>
+          <button onClick={() => { setShowForm(!showForm); setEditingId(null); setFormData({ title: '', startTime: '', recurrence: '', recurrenceEndDate: '' }) }}>
             {showForm ? 'Cancel' : '+ Add event'}
           </button>
           <button className="ghost" onClick={nextMonth}>Next →</button>
@@ -171,34 +158,13 @@ export default function Calendar() {
             </div>
 
             <div style={{ marginBottom: 10 }}>
-              <label style={{ display: 'block', marginBottom: 5 }}>Description (optional)</label>
-              <textarea
-                placeholder="Event description"
-                value={formData.description}
-                onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                style={{ width: '100%', minHeight: 60 }}
+              <label style={{ display: 'block', marginBottom: 5 }}>Date & time</label>
+              <input
+                type="datetime-local"
+                value={formData.startTime}
+                onChange={(e) => setFormData({ ...formData, startTime: e.target.value })}
+                style={{ width: '100%' }}
               />
-            </div>
-
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 10 }}>
-              <div>
-                <label style={{ display: 'block', marginBottom: 5 }}>Start</label>
-                <input
-                  type="datetime-local"
-                  value={formData.startTime}
-                  onChange={(e) => setFormData({ ...formData, startTime: e.target.value })}
-                  style={{ width: '100%' }}
-                />
-              </div>
-              <div>
-                <label style={{ display: 'block', marginBottom: 5 }}>End</label>
-                <input
-                  type="datetime-local"
-                  value={formData.endTime}
-                  onChange={(e) => setFormData({ ...formData, endTime: e.target.value })}
-                  style={{ width: '100%' }}
-                />
-              </div>
             </div>
 
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 10 }}>
@@ -254,13 +220,8 @@ export default function Calendar() {
                             <span style={{ fontSize: 12, marginLeft: 8, color: '#888' }}>(Weekly)</span>
                           )}
                           <div className="muted" style={{ fontSize: 14, marginTop: 5 }}>
-                            {new Date(event.startTime).toLocaleTimeString('default', { hour: '2-digit', minute: '2-digit' })} – {new Date(event.endTime).toLocaleTimeString('default', { hour: '2-digit', minute: '2-digit' })}
+                            {new Date(event.startTime).toLocaleTimeString('default', { hour: '2-digit', minute: '2-digit' })}
                           </div>
-                          {event.description && (
-                            <div style={{ fontSize: 14, marginTop: 8, color: '#666' }}>
-                              {event.description}
-                            </div>
-                          )}
                         </div>
                         <div style={{ display: 'flex', gap: 5 }}>
                           <button className="ghost" onClick={() => handleEditEvent(event)}>Edit</button>
