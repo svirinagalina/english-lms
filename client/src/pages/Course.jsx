@@ -3,9 +3,19 @@ import { useParams, useSearchParams } from 'react-router-dom'
 import { api } from '../api'
 import Nav from '../components/Nav'
 import { SiteFooter } from '../components/Brand'
-import { speakAmerican } from '../utils/speech'
+import { speakDialogue } from '../utils/speech'
 
 const TYPE_LABEL = { theory: 'Theory', practice: 'Practice', supplementary: 'Extra' }
+
+// Dialogue scripts are written as "Speaker: line", one per line — used to
+// give each speaker their own voice and to show the labelled transcript in
+// "Show script". A line with no "Name: " prefix is treated as one speaker
+// throughout (a monologue), never voiced with the label itself.
+const parseDialogue = (script) =>
+  script.split('\n').filter((line) => line.trim()).map((line) => {
+    const match = line.match(/^([A-Za-z][A-Za-z\s]{0,24}):\s*(.*)$/)
+    return match ? { speaker: match[1], text: match[2] } : { speaker: '_narrator', text: line }
+  })
 
 function TtsBlock({ payload }) {
   const [playing, setPlaying] = useState(false)
@@ -13,7 +23,7 @@ function TtsBlock({ payload }) {
 
   const play = async () => {
     setPlaying(true)
-    const ok = await speakAmerican(payload.script, () => setPlaying(false))
+    const ok = await speakDialogue(parseDialogue(payload.script), () => setPlaying(false))
     if (!ok) { setPlaying(false); setRevealed(true) }
   }
 
