@@ -3,8 +3,86 @@ import { useParams, useSearchParams } from 'react-router-dom'
 import { api } from '../api'
 import Nav from '../components/Nav'
 import { SiteFooter } from '../components/Brand'
+import { speakAmerican } from '../utils/speech'
 
 const TYPE_LABEL = { theory: 'Theory', practice: 'Practice', supplementary: 'Extra' }
+
+function TtsBlock({ payload }) {
+  const [playing, setPlaying] = useState(false)
+  const [revealed, setRevealed] = useState(false)
+
+  const play = async () => {
+    setPlaying(true)
+    const ok = await speakAmerican(payload.script, () => setPlaying(false))
+    if (!ok) { setPlaying(false); setRevealed(true) }
+  }
+
+  return (
+    <div className="course-block">
+      {payload.title && <strong>{payload.title}</strong>}
+      <div className="row-actions">
+        <button onClick={play} disabled={playing}>{playing ? '▶ Playing…' : '▶ Play'}</button>
+        <button className="ghost" onClick={() => setRevealed((v) => !v)}>{revealed ? 'Hide script' : 'Show script'}</button>
+      </div>
+      {revealed && <div className="course-text" style={{ marginTop: 8 }}>{payload.script}</div>}
+    </div>
+  )
+}
+
+function Exercise({ exercise }) {
+  const { payload } = exercise
+  const [selected, setSelected] = useState(null)
+  const [answer, setAnswer] = useState('')
+  const [checked, setChecked] = useState(false)
+
+  const norm = (s) => s.trim().toLowerCase()
+  const correct = payload.options
+    ? selected === payload.correctAnswer
+    : norm(answer) === norm(payload.answer) || (payload.alternatives ?? []).some((a) => norm(a) === norm(answer))
+
+  if (payload.options) {
+    return (
+      <div className="course-exercise">
+        <div className="course-exercise-q">{exercise.question}</div>
+        <div className="course-exercise-options">
+          {payload.options.map((opt) => {
+            const isCorrectOpt = checked && opt === payload.correctAnswer
+            const isWrongPick = checked && selected === opt && opt !== payload.correctAnswer
+            return (
+              <button
+                key={opt}
+                className={`course-option ${selected === opt ? 'selected' : ''} ${isCorrectOpt ? 'correct' : ''} ${isWrongPick ? 'wrong' : ''}`}
+                onClick={() => !checked && setSelected(opt)}
+                disabled={checked}
+              >
+                {opt}
+              </button>
+            )
+          })}
+        </div>
+        {!checked ? (
+          <button className="ghost" disabled={!selected} onClick={() => setChecked(true)}>Check</button>
+        ) : (
+          <div className={`course-feedback ${correct ? 'ok' : 'bad'}`}>{correct ? 'Correct!' : `Correct answer: ${payload.correctAnswer}`}</div>
+        )}
+      </div>
+    )
+  }
+
+  return (
+    <div className="course-exercise">
+      <div className="course-exercise-q" style={{ whiteSpace: 'pre-wrap' }}>{exercise.question}</div>
+      <div className="row-actions">
+        <input value={answer} onChange={(e) => setAnswer(e.target.value)} disabled={checked} placeholder="Your answer" />
+        {!checked ? (
+          <button className="ghost" disabled={!answer} onClick={() => setChecked(true)}>Check</button>
+        ) : (
+          <span className={`course-feedback ${correct ? 'ok' : 'bad'}`}>{correct ? 'Correct!' : `Answer: ${payload.answer}`}</span>
+        )}
+      </div>
+    </div>
+  )
+}
 
 function Block({ block }) {
   const { type, payload } = block
@@ -16,6 +94,7 @@ function Block({ block }) {
       </div>
     )
   }
+  if (type === 'tts') return <TtsBlock payload={payload} />
   if (type === 'video') {
     return (
       <div className="course-block">
@@ -108,8 +187,8 @@ export default function Course() {
               {lesson.blocks.map((block) => <Block key={block.id} block={block} />)}
               {lesson.exercises.length > 0 && (
                 <div className="course-block">
-                  <strong>Exercises</strong>
-                  <p className="muted">{lesson.exercises.length} exercise(s) — not shown here yet.</p>
+                  <strong>Practice</strong>
+                  {lesson.exercises.map((ex) => <Exercise key={ex.id} exercise={ex} />)}
                 </div>
               )}
             </>
