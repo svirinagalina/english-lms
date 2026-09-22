@@ -115,6 +115,15 @@ export default function StudentHome({ classrooms }) {
       >
         <ActivityHeatmap />
       </Panel>
+
+      <div style={{ textAlign: 'center', padding: '20px 0', color: '#666' }}>
+        <p style={{ fontSize: 13, margin: 0 }}>
+          New to the platform?{' '}
+          <a href="/student-guide.html" target="_blank" rel="noopener noreferrer" style={{ color: '#6366f1', textDecoration: 'none' }}>
+            Read the student guide
+          </a>
+        </p>
+      </div>
     </>
   )
 }

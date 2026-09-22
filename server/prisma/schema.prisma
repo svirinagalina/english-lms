@@ -522,7 +522,25 @@ model Textbook {
   school   School @relation(fields: [schoolId], references: [id], onDelete: Cascade)
   uploadedById String?
 
+  audio TextbookAudio[]
+
   @@index([schoolId])
+}
+
+// An audio track (e.g. a listening-test recording) attached to a textbook,
+// so a teacher can open it alongside the book's pages during a lesson.
+model TextbookAudio {
+  id        String   @id @default(cuid())
+  title     String
+  file      String   // path under the uploads folder (not served statically)
+  bytes     Int      @default(0)
+  position  Int      @default(0)
+  createdAt DateTime @default(now())
+
+  textbookId String
+  textbook   Textbook @relation(fields: [textbookId], references: [id], onDelete: Cascade)
+
+  @@index([textbookId])
 }
 
 model UserTodo {
