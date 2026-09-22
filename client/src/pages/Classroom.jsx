@@ -216,7 +216,13 @@ export default function Classroom() {
   const partner = isPersonal
     ? 'My boards'
     : user.role === 'STUDENT' ? classroom.teacher.name : classroom.student.name
-  const openBoard = classroom.boards.find((b) => b.id === openBoardId) ?? (openBoardId === 'default' ? classroom.boards.find((b) => !b.shared) : undefined)
+  // 'default' (from a lesson summary's "Put questions on the board" link)
+  // used to mean "the board this classroom owns outright", which broke the
+  // moment a student's one board became normally a *shared* one (Assign
+  // moved to sharing from the teacher's shelf rather than direct ownership)
+  // — the link silently did nothing. A student's classroom only ever has
+  // one board at all now, owned or shared, so 'default' is just that one.
+  const openBoard = classroom.boards.find((b) => b.id === openBoardId) ?? (openBoardId === 'default' ? classroom.boards[0] : undefined)
   // Who this board is actually shared with — shared with exactly one
   // student, no choice to make; several (a pair/group lesson), the choice
   // is just those; none (real material of my own), the whole roster.
