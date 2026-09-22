@@ -1,0 +1,67 @@
+{
+  "course": {
+    "title": "Skillset IELTS",
+    "description": "Comprehensive IELTS preparation course covering Listening, Reading, Writing and Speaking.",
+    "language": "en"
+  },
+  "lessons": [
+    {
+      "title": "IELTS exam overview. Theory",
+      "type": "theory",
+      "contents": [
+        {
+          "type": "video",
+          "title": "IELTS test overview",
+          "content": "https://www.youtube.com/watch?v=LBwf8ZDER0c"
+        },
+        {
+          "type": "file",
+          "title": "Знакомство.pdf",
+          "content": "https://drive.google.com/file/d/19Qyssb8R_8lbl59DmmBng5M-9n1OhNi4/view"
+        },
+        {
+          "type": "file",
+          "title": "Most Common Spelling Mistakes in IELTS listening.pdf",
+          "content": "https://drive.google.com/file/d/108dKje2at7IsQqZ8UyUTakkwwQ4sq3w7/view"
+        }
+      ],
+      "exercises": []
+    },
+    { "title": "Listening Section 2. Theory", "type": "theory", "contents": [], "exercises": [] },
+    { "title": "IELTS General Listening Overview. Section 1. Theory", "type": "theory", "contents": [], "exercises": [] },
+    { "title": "Listening: Tests With Tape Scripts. Practice", "type": "practice", "contents": [], "exercises": [] },
+    { "title": "Listening Section 3. Theory", "type": "theory", "contents": [], "exercises": [] },
+    { "title": "Listening Part 4. Theory", "type": "theory", "contents": [], "exercises": [] },
+    { "title": "Lesson 2 Listening: Tests. Practice", "type": "practice", "contents": [], "exercises": [] },
+    { "title": "Lesson 3 Listening: Additional Practice", "type": "practice", "contents": [], "exercises": [] },
+    { "title": "Lesson 3 Listening: Spelling and Maps. Additional Practice", "type": "practice", "contents": [], "exercises": [] },
+    { "title": "Reading Part 1. True/False/ Not Given. Diagram labeling. Theory", "type": "theory", "contents": [], "exercises": [] },
+    { "title": "Reading Part 2. Choosing heading. Completing tables. Multiple choice. Theory", "type": "theory", "contents": [], "exercises": [] },
+    { "title": "Reading Academic: Practice Tests", "type": "practice", "contents": [], "exercises": [] },
+    { "title": "Reading Part 3. Summary completion. Sentence Completion. Choose the correct letter.", "type": "theory", "contents": [], "exercises": [] },
+    { "title": "Reading Part 4. General Module. Theory", "type": "theory", "contents": [], "exercises": [] },
+    { "title": "Academic Reading Practice Tests Part 2", "type": "practice", "contents": [], "exercises": [] },
+    { "title": "General Reading Practice. Part 2.", "type": "practice", "contents": [], "exercises": [] },
+    { "title": "Academic Reading Practice. Part 3", "type": "practice", "contents": [], "exercises": [] },
+    { "title": "General Reading Practice. Part 3", "type": "practice", "contents": [], "exercises": [] },
+    { "title": "Reading. Practicing with difficult questions. True False Not Given.", "type": "practice", "contents": [], "exercises": [] },
+    { "title": "General Reading Practice. Dealing with difficult questions. Headings", "type": "practice", "contents": [], "exercises": [] },
+    { "title": "General Reading Practice. Part 1", "type": "practice", "contents": [], "exercises": [] },
+    { "title": "Writing. Type 2. Theory", "type": "theory", "contents": [], "exercises": [] },
+    { "title": "Writing Essays. Part 2. Agree/Disagree/Advantages/Disadvantages. Theory", "type": "theory", "contents": [], "exercises": [] },
+    { "title": "Recent Writing topics Academic Essay", "type": "supplementary", "contents": [], "exercises": [] },
+    { "title": "Writing Essays. Part 3. Two part questions. Theory", "type": "theory", "contents": [], "exercises": [] },
+    { "title": "Writing essays Part 3. Discuss advantages/disadvantages and give your opinion, who benefits more, discuss both views and give your opinion, reason and solution", "type": "practice", "contents": [], "exercises": [] },
+    { "title": "Academic Writing. type 1. Theory", "type": "theory", "contents": [], "exercises": [] },
+    { "title": "General Writing. Type 1. Theory", "type": "theory", "contents": [], "exercises": [] },
+    { "title": "Writing. Punctuation. Theory", "type": "theory", "contents": [], "exercises": [] },
+    { "title": "Recent Writing topics Academic Type 1", "type": "supplementary", "contents": [], "exercises": [] },
+    { "title": "Speaking. Lesson 1. Speaking overview", "type": "theory", "contents": [], "exercises": [] },
+    { "title": "Speaking Lesson 2. Describing people / Describing relationships / Speaking about cooking", "type": "theory", "contents": [], "exercises": [] },
+    { "title": "Speaking. Lesson 3. Talking about food, sport and work.", "type": "theory", "contents": [], "exercises": [] },
+    { "title": "Speaking Lesson 4. Talking about weather, climate, parenting, objects and holidays", "type": "theory", "contents": [], "exercises": [] },
+    { "title": "Speaking Practice. Recent topics (2024)", "type": "practice", "contents": [], "exercises": [] },
+    { "title": "Additional Materials AA", "type": "supplementary", "contents": [], "exercises": [] },
+    { "title": "Additional Resources Library", "type": "supplementary", "contents": [], "exercises": [] }
+  ]
+}
