@@ -3,7 +3,6 @@ import '../styles/whiteboard.css'
 import { isEnglishWord, lookupWord, wordAt } from '../utils/dictionary'
 import { ocrWords } from '../utils/ocr'
 import WordCard, { PlayButton } from './WordCard'
-import TextbookPanel from './TextbookPanel'
 
 const COLORS = ['#111827', '#ef4444', '#16a34a', '#2563eb', '#f59e0b', '#9333ea']
 // Ink drawn while the board was dark, shown dark on the white board.
@@ -884,7 +883,6 @@ const Whiteboard = forwardRef(function Whiteboard({ socketRef, boardId, title, s
   // The Mistakes panel: rows typed during the lesson; each saved row becomes
   // a red note on the board (so the student sees it at once) and a notebook entry.
   const [mistakesOpen, setMistakesOpen] = useState(false)
-  const [textbookOpen, setTextbookOpen] = useState(false)
   const emptyRow = () => ({ said: '', correct: '' })
   const [mistakeRows, setMistakeRows] = useState([emptyRow(), emptyRow(), emptyRow()]) // up to 10
   const [mistakeBusy, setMistakeBusy] = useState(false)
@@ -2583,10 +2581,6 @@ const Whiteboard = forwardRef(function Whiteboard({ socketRef, boardId, title, s
           </div>
         )}
 
-        {textbookOpen && onUploadImage && (
-          <TextbookPanel onInsert={placePage} onClose={() => setTextbookOpen(false)} />
-        )}
-
         {mistakesOpen && onMistake && (
           <div className="mistakes-panel" onPointerDown={(e) => e.stopPropagation()}>
             <div className="mistakes-head">
@@ -2779,7 +2773,7 @@ const Whiteboard = forwardRef(function Whiteboard({ socketRef, boardId, title, s
                 </button>
               )}
               {onUploadImage && (
-                <button className={`tool ${textbookOpen ? 'active' : ''}`} onClick={() => setTextbookOpen((v) => !v)} title="Put a page of a textbook on the board">Textbook</button>
+                <button className="tool" onClick={() => window.open('/textbooks', 'textbooks', 'width=1000,height=700')} title="Open textbook in a new window to share your screen">Textbook</button>
               )}
               {onUploadImage && (
                 <>
