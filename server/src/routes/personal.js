@@ -17,7 +17,9 @@ const eventSchema = z.object({
   title: z.string().trim().min(1).max(500),
   description: z.string().max(2000).optional(),
   startTime: z.string().datetime(),
-  endTime: z.string().datetime()
+  endTime: z.string().datetime(),
+  recurrence: z.string().optional(), // null | "WEEKLY"
+  recurrenceEndDate: z.string().datetime().optional().nullable()
 })
 
 // Todos
@@ -72,22 +74,59 @@ personalRouter.delete('/todos/:id', async (req, res) => {
   res.json({ ok: true })
 })
 
+// Helper to generate recurring event instances
+function generateRecurringInstances(event, rangeStart, rangeEnd) {
+  if (!event.recurrence || event.recurrence !== 'WEEKLY') {
+    return [event]
+  }
+
+  const instances = []
+  const eventStart = new Date(event.startTime)
+  const eventEnd = new Date(event.endTime)
+  const duration = eventEnd - eventStart
+
+  // Start from the first occurrence
+  let currentDate = new Date(eventStart)
+  const endDate = event.recurrenceEndDate ? new Date(event.recurrenceEndDate) : new Date(rangeEnd.getTime() + 365 * 24 * 60 * 60 * 1000)
+
+  while (currentDate <= endDate && currentDate < rangeEnd) {
+    if (currentDate >= rangeStart) {
+      instances.push({
+        ...event,
+        startTime: new Date(currentDate),
+        endTime: new Date(currentDate.getTime() + duration),
+        // Include parent event ID for identification
+        _isInstance: true,
+        _parentId: event.id
+      })
+    }
+    // Move to next week
+    currentDate.setDate(currentDate.getDate() + 7)
+  }
+
+  return instances
+}
+
 // Calendar Events
 personalRouter.get('/calendar', async (req, res) => {
   const { start, end } = req.query
-  const where = { userId: req.user.id }
+  const rangeStart = start ? new Date(start) : new Date()
+  const rangeEnd = end ? new Date(end) : new Date(rangeStart.getTime() + 365 * 24 * 60 * 60 * 1000)
 
-  if (start || end) {
-    where.startTime = {}
-    if (start) where.startTime.gte = new Date(start)
-    if (end) where.startTime.lt = new Date(end)
-  }
-
+  // Get all events (including recurring) that overlap with range
   const events = await prisma.userCalendarEvent.findMany({
-    where,
+    where: {
+      userId: req.user.id,
+      // Get events that could have instances in the range
+      startTime: { lt: rangeEnd }
+    },
     orderBy: { startTime: 'asc' }
   })
-  res.json({ events })
+
+  // Expand recurring events into instances
+  const allInstances = events.flatMap(event => generateRecurringInstances(event, rangeStart, rangeEnd))
+
+  res.json({ events: allInstances })
 })
 
 personalRouter.post('/calendar', async (req, res) => {
@@ -103,9 +142,12 @@ personalRouter.post('/calendar', async (req, res) => {
 
   const event = await prisma.userCalendarEvent.create({
     data: {
-      ...parsed.data,
+      title: parsed.data.title,
+      description: parsed.data.description,
       startTime,
       endTime,
+      recurrence: parsed.data.recurrence || null,
+      recurrenceEndDate: parsed.data.recurrenceEndDate ? new Date(parsed.data.recurrenceEndDate) : null,
       userId: req.user.id
     }
   })
@@ -131,20 +173,32 @@ personalRouter.patch('/calendar/:id', async (req, res) => {
   const updated = await prisma.userCalendarEvent.update({
     where: { id: req.params.id },
     data: {
-      ...parsed.data,
+      title: parsed.data.title,
+      description: parsed.data.description,
       startTime,
-      endTime
+      endTime,
+      recurrence: parsed.data.recurrence || null,
+      recurrenceEndDate: parsed.data.recurrenceEndDate ? new Date(parsed.data.recurrenceEndDate) : null
     }
   })
   res.json({ event: updated })
 })
 
 personalRouter.delete('/calendar/:id', async (req, res) => {
+  const { deleteAll } = req.query
   const event = await prisma.userCalendarEvent.findFirst({
     where: { id: req.params.id, userId: req.user.id }
   })
   if (!event) return res.status(404).json({ error: 'Event not found' })
 
-  await prisma.userCalendarEvent.delete({ where: { id: req.params.id } })
+  if (deleteAll === 'true' && event.recurrence) {
+    // Delete all instances of recurring event by removing the recurrence
+    // and deleting the base event - all instances will be gone
+    await prisma.userCalendarEvent.delete({ where: { id: req.params.id } })
+  } else {
+    // Delete only this single instance
+    await prisma.userCalendarEvent.delete({ where: { id: req.params.id } })
+  }
+
   res.json({ ok: true })
 })

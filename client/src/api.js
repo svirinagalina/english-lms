@@ -193,5 +193,5 @@ export const api = {
   listCalendarEvents: (start, end) => request(`/personal/calendar${start || end ? `?${new URLSearchParams({ ...(start && { start }), ...(end && { end }) }).toString()}` : ''}`),
   createCalendarEvent: (body) => request('/personal/calendar', { method: 'POST', body }),
   updateCalendarEvent: (id, body) => request(`/personal/calendar/${id}`, { method: 'PATCH', body }),
-  deleteCalendarEvent: (id) => request(`/personal/calendar/${id}`, { method: 'DELETE' })
+  deleteCalendarEvent: (id, deleteAll) => request(`/personal/calendar/${id}${deleteAll ? '?deleteAll=true' : ''}`, { method: 'DELETE' })
 }

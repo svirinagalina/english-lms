@@ -541,13 +541,15 @@ model UserTodo {
 }
 
 model UserCalendarEvent {
-  id          String   @id @default(cuid())
-  title       String
-  description String?
-  startTime   DateTime
-  endTime     DateTime
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id                String   @id @default(cuid())
+  title             String
+  description       String?
+  startTime         DateTime
+  endTime           DateTime
+  recurrence        String?  // null | "WEEKLY"
+  recurrenceEndDate DateTime?  // When to stop repeating
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
 
   userId String
   user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)

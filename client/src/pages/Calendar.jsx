@@ -14,9 +14,13 @@ export default function Calendar() {
     title: '',
     description: '',
     startTime: '',
-    endTime: ''
+    endTime: '',
+    recurrence: '',
+    recurrenceEndDate: ''
   })
   const [editingId, setEditingId] = useState(null)
+  const [deleteConfirm, setDeleteConfirm] = useState(null)
+  const [eventToDelete, setEventToDelete] = useState(null)
 
   const refresh = async () => {
     try {
@@ -53,21 +57,27 @@ export default function Calendar() {
     try {
       if (editingId) {
         const { event } = await api.updateCalendarEvent(editingId, {
-          ...formData,
+          title: formData.title,
+          description: formData.description,
           startTime: startTime.toISOString(),
-          endTime: endTime.toISOString()
+          endTime: endTime.toISOString(),
+          recurrence: formData.recurrence || null,
+          recurrenceEndDate: formData.recurrenceEndDate ? new Date(formData.recurrenceEndDate).toISOString() : null
         })
         setEvents(events.map(e => e.id === editingId ? event : e))
         setEditingId(null)
       } else {
         const { event } = await api.createCalendarEvent({
-          ...formData,
+          title: formData.title,
+          description: formData.description,
           startTime: startTime.toISOString(),
-          endTime: endTime.toISOString()
+          endTime: endTime.toISOString(),
+          recurrence: formData.recurrence || null,
+          recurrenceEndDate: formData.recurrenceEndDate ? new Date(formData.recurrenceEndDate).toISOString() : null
         })
         setEvents([...events, event])
       }
-      setFormData({ title: '', description: '', startTime: '', endTime: '' })
+      setFormData({ title: '', description: '', startTime: '', endTime: '', recurrence: '', recurrenceEndDate: '' })
       setShowForm(false)
       setError('')
     } catch (err) {
@@ -75,11 +85,22 @@ export default function Calendar() {
     }
   }
 
-  const handleDeleteEvent = async (id) => {
+  const handleDeleteEvent = (event) => {
+    setEventToDelete(event)
+    if (event.recurrence) {
+      setDeleteConfirm(true)
+    } else {
+      confirmDelete(event.id, false)
+    }
+  }
+
+  const confirmDelete = async (id, deleteAll) => {
     try {
-      await api.deleteCalendarEvent(id)
+      await api.deleteCalendarEvent(id, deleteAll)
       setEvents(events.filter(e => e.id !== id))
       setError('')
+      setDeleteConfirm(false)
+      setEventToDelete(null)
     } catch (err) {
       setError(err.message)
     }
@@ -88,11 +109,14 @@ export default function Calendar() {
   const handleEditEvent = (event) => {
     const startDateTime = new Date(event.startTime).toISOString().slice(0, 16)
     const endDateTime = new Date(event.endTime).toISOString().slice(0, 16)
+    const recurrenceEndDate = event.recurrenceEndDate ? new Date(event.recurrenceEndDate).toISOString().slice(0, 10) : ''
     setFormData({
       title: event.title,
       description: event.description || '',
       startTime: startDateTime,
-      endTime: endDateTime
+      endTime: endDateTime,
+      recurrence: event.recurrence || '',
+      recurrenceEndDate
     })
     setEditingId(event.id)
     setShowForm(true)
@@ -127,7 +151,7 @@ export default function Calendar() {
       <Panel id="personal:calendar-header" title={monthName} defaultOpen>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
           <button className="ghost" onClick={prevMonth}>← Previous</button>
-          <button onClick={() => { setShowForm(!showForm); setEditingId(null); setFormData({ title: '', description: '', startTime: '', endTime: '' }) }}>
+          <button onClick={() => { setShowForm(!showForm); setEditingId(null); setFormData({ title: '', description: '', startTime: '', endTime: '', recurrence: '', recurrenceEndDate: '' }) }}>
             {showForm ? 'Cancel' : '+ Add event'}
           </button>
           <button className="ghost" onClick={nextMonth}>Next →</button>
@@ -177,6 +201,31 @@ export default function Calendar() {
               </div>
             </div>
 
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 10 }}>
+              <div>
+                <label style={{ display: 'block', marginBottom: 5 }}>Repeat</label>
+                <select
+                  value={formData.recurrence}
+                  onChange={(e) => setFormData({ ...formData, recurrence: e.target.value })}
+                  style={{ width: '100%' }}
+                >
+                  <option value="">No repeat</option>
+                  <option value="WEEKLY">Weekly</option>
+                </select>
+              </div>
+              {formData.recurrence === 'WEEKLY' && (
+                <div>
+                  <label style={{ display: 'block', marginBottom: 5 }}>Repeat until</label>
+                  <input
+                    type="date"
+                    value={formData.recurrenceEndDate}
+                    onChange={(e) => setFormData({ ...formData, recurrenceEndDate: e.target.value })}
+                    style={{ width: '100%' }}
+                  />
+                </div>
+              )}
+            </div>
+
             <div style={{ display: 'flex', gap: 10 }}>
               <button type="submit">{editingId ? 'Update' : 'Create'} event</button>
               <button className="ghost" type="button" onClick={() => { setShowForm(false); setEditingId(null) }}>Cancel</button>
@@ -201,6 +250,9 @@ export default function Calendar() {
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                         <div style={{ flex: 1 }}>
                           <strong>{event.title}</strong>
+                          {event.recurrence === 'WEEKLY' && (
+                            <span style={{ fontSize: 12, marginLeft: 8, color: '#888' }}>(Weekly)</span>
+                          )}
                           <div className="muted" style={{ fontSize: 14, marginTop: 5 }}>
                             {new Date(event.startTime).toLocaleTimeString('default', { hour: '2-digit', minute: '2-digit' })} – {new Date(event.endTime).toLocaleTimeString('default', { hour: '2-digit', minute: '2-digit' })}
                           </div>
@@ -212,7 +264,7 @@ export default function Calendar() {
                         </div>
                         <div style={{ display: 'flex', gap: 5 }}>
                           <button className="ghost" onClick={() => handleEditEvent(event)}>Edit</button>
-                          <button className="ghost" onClick={() => handleDeleteEvent(event.id)}>Delete</button>
+                          <button className="ghost" onClick={() => handleDeleteEvent(event)}>Delete</button>
                         </div>
                       </div>
                     </div>
@@ -223,6 +275,20 @@ export default function Calendar() {
           </div>
         )}
       </Panel>
+
+      {deleteConfirm && eventToDelete && eventToDelete.recurrence === 'WEEKLY' && (
+        <div style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.3)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
+          <div style={{ backgroundColor: 'white', padding: 30, borderRadius: 8, maxWidth: 400, boxShadow: '0 4px 12px rgba(0,0,0,0.15)' }}>
+            <h3 style={{ marginTop: 0 }}>Delete recurring event</h3>
+            <p>This event repeats weekly. What would you like to delete?</p>
+            <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
+              <button className="ghost" onClick={() => { setDeleteConfirm(false); setEventToDelete(null) }}>Cancel</button>
+              <button onClick={() => confirmDelete(eventToDelete.id, false)} style={{ backgroundColor: '#ffd1dc' }}>This event only</button>
+              <button onClick={() => confirmDelete(eventToDelete.id, true)} style={{ backgroundColor: '#ff6b6b', color: 'white' }}>All events in series</button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <SiteFooter />
     </div>
