@@ -258,7 +258,7 @@ A more forward-looking solution being tested in several countries is vehicle-to-
       { type: 'TRUE_FALSE_NG', question: 'An electric car charging overnight typically uses about as much electricity as an average household uses in a day.', payload: { options: ['True', 'False', 'Not Given'], correctAnswer: 'True' } },
       { type: 'TRUE_FALSE_NG', question: 'By 2035, electric vehicles will make up a third of all cars in every country.', payload: { options: ['True', 'False', 'Not Given'], correctAnswer: 'False' } },
       { type: 'TRUE_FALSE_NG', question: 'Most charging currently happens during hours of low overall demand.', payload: { options: ['True', 'False', 'Not Given'], correctAnswer: 'True' } },
-      { type: 'TRUE_FALSE_NG', question: 'All utility companies now offer the same variable pricing scheme.', payload: { options: ['True', 'False', 'Not Given'], correctAnswer: 'Not Given' } },
+      { type: 'TRUE_FALSE_NG', question: 'All utility companies now offer the same variable pricing scheme.', payload: { options: ['True', 'False', 'Not Given'], correctAnswer: 'False' } },
       { type: 'TRUE_FALSE_NG', question: 'Vehicle-to-grid technology allows a car battery to send electricity back to the grid.', payload: { options: ['True', 'False', 'Not Given'], correctAnswer: 'True' } },
       { type: 'TRUE_FALSE_NG', question: 'Scientists have already proven that vehicle-to-grid charging has no effect on battery lifespan.', payload: { options: ['True', 'False', 'Not Given'], correctAnswer: 'False' } }
     ]

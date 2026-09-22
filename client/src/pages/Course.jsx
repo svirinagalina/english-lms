@@ -3,7 +3,7 @@ import { useParams, useSearchParams } from 'react-router-dom'
 import { api } from '../api'
 import Nav from '../components/Nav'
 import { SiteFooter } from '../components/Brand'
-import { speakDialogue } from '../utils/speech'
+import { speakDialogue, stopSpeaking } from '../utils/speech'
 
 const TYPE_LABEL = { theory: 'Theory', practice: 'Practice', supplementary: 'Extra' }
 
@@ -20,6 +20,11 @@ const parseDialogue = (script) =>
 function TtsBlock({ payload }) {
   const [playing, setPlaying] = useState(false)
   const [revealed, setRevealed] = useState(false)
+
+  // Leaving this lesson (or this block disappearing for any other reason)
+  // must not leave its script talking over whatever the student opens next
+  // — speechSynthesis is a single global player, not scoped to this component.
+  useEffect(() => stopSpeaking, [])
 
   const play = async () => {
     setPlaying(true)

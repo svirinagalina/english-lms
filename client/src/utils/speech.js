@@ -86,6 +86,30 @@ function startKeepAlive(synth) {
   }, 5000)
 }
 
+// speechSynthesis is one global player. Two callers in a row (a second
+// listening script started before the first finished, or a word's
+// pronunciation played while a script was going) both call .cancel(), but
+// the browser does not reliably fire onend/onerror for every utterance that
+// was still queued when that happens — so the first caller's own "am I
+// done" bookkeeping can be left waiting forever, and its Play button never
+// re-enables. The fix is to track whoever is currently speaking ourselves
+// and tell them directly that they've been interrupted, before cancelling.
+let activeFinish = null
+function interruptActive() {
+  const finish = activeFinish
+  activeFinish = null
+  finish?.()
+}
+
+// Stops whatever is currently playing and lets its caller know at once.
+// Call this when a component that might be mid-speech goes away (changing
+// lessons, closing a call) — speech isn't scoped to the component, so
+// leaving the page doesn't stop it on its own.
+export function stopSpeaking() {
+  interruptActive()
+  window.speechSynthesis?.cancel()
+}
+
 // Speaks `word` in an American voice and calls `onEnd` when done; resolves
 // true if it could (the caller should stop there), false if this browser has
 // no en-US voice at all, so the caller should fall back to its own audio.
@@ -94,14 +118,16 @@ export async function speakAmerican(word, onEnd) {
   if (!synth) return false
   const voice = await getAmericanVoice()
   if (!voice) return false
+  interruptActive()
   synth.cancel()
   const utterance = new SpeechSynthesisUtterance(word)
   utterance.voice = voice
   utterance.lang = 'en-US'
   const keepAlive = startKeepAlive(synth)
-  const stop = () => { clearInterval(keepAlive); onEnd?.() }
-  utterance.onend = stop
-  utterance.onerror = stop
+  const finish = () => { clearInterval(keepAlive); activeFinish = null; onEnd?.() }
+  activeFinish = finish
+  utterance.onend = finish
+  utterance.onerror = finish
   synth.speak(utterance)
   return true
 }
@@ -116,6 +142,7 @@ export async function speakDialogue(lines, onEnd) {
   if (!synth) return false
   const voices = await getVoicePair()
   if (!voices) return false
+  interruptActive()
   synth.cancel()
 
   if (lines.length === 0) { onEnd?.(); return true }
@@ -129,7 +156,9 @@ export async function speakDialogue(lines, onEnd) {
 
   const keepAlive = startKeepAlive(synth)
   let remaining = lines.length
-  const finishOne = () => { remaining--; if (remaining === 0) { clearInterval(keepAlive); onEnd?.() } }
+  const finish = () => { clearInterval(keepAlive); activeFinish = null; onEnd?.() }
+  activeFinish = finish
+  const finishOne = () => { remaining--; if (remaining === 0) finish() }
 
   for (const line of lines) {
     const utterance = new SpeechSynthesisUtterance(line.text)
