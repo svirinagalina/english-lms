@@ -1,0 +1,4109 @@
+{
+ "exercises": [
+  {
+   "chapter": 3,
+   "prompt": "Я хожу на прогулку каждое утро.",
+   "answers": [
+    "I go for a walk every day"
+   ],
+   "newPrompt": "Я хожу на прогулку каждое утро.",
+   "newAnswers": [
+    "I go for a walk every morning"
+   ],
+   "why": "В русском сказано «каждое утро», а не «каждый день»."
+  },
+  {
+   "chapter": 3,
+   "prompt": "Он не интересуется политикой.",
+   "answers": [
+    "She is not interested in politics"
+   ],
+   "newPrompt": "Он не интересуется политикой.",
+   "newAnswers": [
+    "He is not interested in politics"
+   ],
+   "why": "В русском предложении «он», а не «она»."
+  },
+  {
+   "chapter": 3,
+   "prompt": "Твои ключи в сумке?",
+   "answers": [
+    "Are you keys in the bag?"
+   ],
+   "newPrompt": "Твои ключи в сумке?",
+   "newAnswers": [
+    "Are your keys in the bag?"
+   ],
+   "why": "Опечатка: нужно possessive pronoun «your», а не «you»."
+  },
+  {
+   "chapter": 3,
+   "prompt": "Брайан живет рядом с нами, но не часто заходит к нам.",
+   "answers": [
+    "Brian lives near us, bit he doesn’t often come to us"
+   ],
+   "newPrompt": "Брайан живет рядом с нами, но не часто заходит к нам.",
+   "newAnswers": [
+    "Brian lives near us, but he doesn’t often come to us"
+   ],
+   "why": "Опечатка: bit вместо but."
+  },
+  {
+   "chapter": 3,
+   "prompt": "Твоя мама работает в больнице?",
+   "answers": [
+    "Does you mother work in a hospital?"
+   ],
+   "newPrompt": "Твоя мама работает в больнице?",
+   "newAnswers": [
+    "Does your mother work in a hospital?"
+   ],
+   "why": "Опечатка: должно быть “your mother”, не “you mother”."
+  },
+  {
+   "chapter": 5,
+   "prompt": "Твои дети сейчас в школе?",
+   "answers": [
+    "Are you children at school now?"
+   ],
+   "newPrompt": "Твои дети сейчас в школе?",
+   "newAnswers": [
+    "Are your children at school now?"
+   ],
+   "why": "В ключе ошибочно стоит you вместо притяжательного your для «твои дети»."
+  },
+  {
+   "chapter": 4,
+   "prompt": "Осталось не так много времени.",
+   "answers": [
+    "There is no much time left"
+   ],
+   "newPrompt": "Осталось не так много времени.",
+   "newAnswers": [
+    "There is not much time left"
+   ],
+   "why": "“No much” грамматически неверно; нужно “not much”."
+  },
+  {
+   "chapter": 4,
+   "prompt": "Сейчас уже 6 часов.",
+   "answers": [
+    "It is 6 pm already"
+   ],
+   "newPrompt": "Сейчас уже 6 часов.",
+   "newAnswers": [
+    "It is 6 o’clock already"
+   ],
+   "why": "В русском не указано “pm”; ключ добавляет лишнее значение."
+  },
+  {
+   "chapter": 3,
+   "prompt": "Она пишет книги для детей.",
+   "answers": [
+    "She writes English for kids"
+   ],
+   "newPrompt": "Она пишет книги для детей.",
+   "newAnswers": [
+    "She writes books for kids"
+   ],
+   "why": "В русском предложении «книги», а не English."
+  },
+  {
+   "chapter": 3,
+   "prompt": "Он не хочет работать в этой компании.",
+   "answers": [
+    "She doesn’t want to work in this company"
+   ],
+   "newPrompt": "Он не хочет работать в этой компании.",
+   "newAnswers": [
+    "He doesn’t want to work in this company"
+   ],
+   "why": "В русском предложении «он», а не «она»."
+  },
+  {
+   "chapter": 3,
+   "prompt": "Она ходит на прогулку каждый день.",
+   "answers": [
+    "She goes for a walk every evening"
+   ],
+   "newPrompt": "Она ходит на прогулку каждый день.",
+   "newAnswers": [
+    "She goes for a walk every day"
+   ],
+   "why": "«Каждый день» переведено как every evening."
+  },
+  {
+   "chapter": 3,
+   "prompt": "Он звонит родителям каждый вечер.",
+   "answers": [
+    "He phones to his parents every evening"
+   ],
+   "newPrompt": "Он звонит родителям каждый вечер.",
+   "newAnswers": [
+    "He phones his parents every evening"
+   ],
+   "why": "После phone в значении «звонить кому-либо» не нужен предлог to."
+  },
+  {
+   "chapter": 3,
+   "prompt": "Сколько у нее детей?",
+   "answers": [
+    "How mamny children does she have?"
+   ],
+   "newPrompt": "Сколько у нее детей?",
+   "newAnswers": [
+    "How many children does she have?"
+   ],
+   "why": "Опечатка: mamny вместо many."
+  },
+  {
+   "chapter": 3,
+   "prompt": "Он говорит по-английски, но не говорит по-французски.",
+   "answers": [
+    "She speaks English, but doesn’t speak French"
+   ],
+   "newPrompt": "Он говорит по-английски, но не говорит по-французски.",
+   "newAnswers": [
+    "He speaks English, but doesn’t speak French"
+   ],
+   "why": "В русском предложении «он», а не «она»."
+  },
+  {
+   "chapter": 6,
+   "prompt": "Когда ты начал работать здесь?",
+   "answers": [
+    "When did you star working here?"
+   ],
+   "newPrompt": "Когда ты начал работать здесь?",
+   "newAnswers": [
+    "When did you start working here?"
+   ],
+   "why": "Опечатка: star вместо start."
+  },
+  {
+   "chapter": 7,
+   "prompt": "Я не понял, что он сказал.",
+   "answers": [
+    "I didn’t understand what he told me"
+   ],
+   "newPrompt": "Я не понял, что он сказал.",
+   "newAnswers": [
+    "I didn’t understand what he said"
+   ],
+   "why": "В ключе добавлено me и использовано told; в русском нет «мне», нужно what he said."
+  },
+  {
+   "chapter": 7,
+   "prompt": "Мне не понравился этот фильм.",
+   "answers": [
+    "She didn’t like this film"
+   ],
+   "newPrompt": "Мне не понравился этот фильм.",
+   "newAnswers": [
+    "I didn’t like this film"
+   ],
+   "why": "«Мне не понравился» относится к говорящему: I, а не she."
+  },
+  {
+   "chapter": 4,
+   "prompt": "Как далеко от Лондона до Бристоля?",
+   "answers": [
+    "Is it far from London to Bristol?"
+   ],
+   "newPrompt": "Как далеко от Лондона до Бристоля?",
+   "newAnswers": [
+    "How far is it from London to Bristol?"
+   ],
+   "why": "В русском вопрос о расстоянии («как далеко»), а не общий вопрос «далеко ли»."
+  },
+  {
+   "chapter": 17,
+   "prompt": "Я пытался найти билеты на вчерашний концерт несколько недель!",
+   "answers": [
+    "I had been trying to find the tickets to the yesterday’sconcert for several weeks"
+   ],
+   "newPrompt": "Я пытался найти билеты на вчерашний концерт несколько недель!",
+   "newAnswers": [
+    "I had been trying to find the tickets to yesterday’s concert for several weeks"
+   ],
+   "why": "Неверно оформлено yesterday’s concert: лишний артикль и слитное написание."
+  },
+  {
+   "chapter": 19,
+   "prompt": "Я буду заниматься до шести.",
+   "answers": [
+    "I will be working tomorrow until 6"
+   ],
+   "newPrompt": "Я буду заниматься до шести.",
+   "newAnswers": [
+    "I will be working until 6"
+   ],
+   "why": "В ключе добавлено tomorrow, которого нет в русском предложении."
+  },
+  {
+   "chapter": 19,
+   "prompt": "Я уже закончу всю работу к тому моменту, как он придет, и мы сможем пойти погулять вместе.",
+   "answers": [
+    "I will have finished all the work by the moment he comes, and we will be able to go for a walk tomorrow."
+   ],
+   "newPrompt": "Я уже закончу всю работу к тому моменту, как он придет, и мы сможем пойти погулять вместе.",
+   "newAnswers": [
+    "I will have finished all the work by the moment he comes, and we will be able to go for a walk together."
+   ],
+   "why": "В русском есть «вместе», а в ключе ошибочно стоит tomorrow."
+  },
+  {
+   "chapter": 19,
+   "prompt": "Я пойду в гости к другу.",
+   "answers": [
+    "I am visiting my friend",
+    "I am going to my friend"
+   ],
+   "newPrompt": "Я пойду в гости к другу.",
+   "newAnswers": [
+    "I am visiting my friend",
+    "I am going to my friend's"
+   ],
+   "why": "«Go to my friend» не передаёт «в гости к другу»; нужно указать место/визит: my friend's или visit my friend."
+  },
+  {
+   "chapter": 19,
+   "prompt": "Я не думаю, что он сдаст экзамен с первого раза.",
+   "answers": [
+    "I don’t think he will pass the exam from the first attempt."
+   ],
+   "newPrompt": "Я не думаю, что он сдаст экзамен с первого раза.",
+   "newAnswers": [
+    "I don’t think he will pass the exam on the first attempt."
+   ],
+   "why": "Неверный предлог: по-английски говорят on the first attempt, не from the first attempt."
+  },
+  {
+   "chapter": 20,
+   "prompt": "Я не возражаю против того, чтобы сделать перерыв.",
+   "answers": [
+    "I don’t mind making a break"
+   ],
+   "newPrompt": "Я не возражаю против того, чтобы сделать перерыв.",
+   "newAnswers": [
+    "I don’t mind taking a break"
+   ],
+   "why": "«Сделать перерыв» по-английски take a break; make a break означает другое."
+  },
+  {
+   "chapter": 20,
+   "prompt": "Он отказался отвечать на вопросы.",
+   "answers": [
+    "He denied answering the questions"
+   ],
+   "newPrompt": "Он отказался отвечать на вопросы.",
+   "newAnswers": [
+    "He refused to answer the questions"
+   ],
+   "why": "«Отказался отвечать» = refused to answer, а denied answering значит «отрицал, что отвечал»."
+  },
+  {
+   "chapter": 17,
+   "prompt": "Когда она пришла, я уже ждал три часа.",
+   "answers": [
+    "When I came, they had been waiting for three hours"
+   ],
+   "newPrompt": "Когда она пришла, я уже ждал три часа.",
+   "newAnswers": [
+    "When she came, I had already been waiting for three hours"
+   ],
+   "why": "В ключе перепутаны лица: «она пришла» и «я ждал», а не «I came, they waited». Также нужно передать «уже»."
+  },
+  {
+   "chapter": 17,
+   "prompt": "Элис гуляла вокруг озера, когда увидела оленя.",
+   "answers": [
+    "Elis was walking around the lake when she saw a deer"
+   ],
+   "newPrompt": "Элис гуляла вокруг озера, когда увидела оленя.",
+   "newAnswers": [
+    "Alice was walking around the lake when she saw a deer"
+   ],
+   "why": "«Элис» по-английски Alice; Elis здесь выглядит как ошибочное имя/опечатка."
+  },
+  {
+   "chapter": 17,
+   "prompt": "В комнате пахло сигарами — кто-то курил.",
+   "answers": [
+    "There was a smell of cigarettes, someone was smoking/ had been smoking"
+   ],
+   "newPrompt": "В комнате пахло сигарами — кто-то курил.",
+   "newAnswers": [
+    "There was a smell of cigars, someone was smoking/ had been smoking"
+   ],
+   "why": "«Сигары» — это cigars, не cigarettes."
+  },
+  {
+   "chapter": 19,
+   "prompt": "Я не смогу завтра написать письмо, я буду работать весь день.",
+   "answers": [
+    "I will not be able to write this letter, I will be working all day"
+   ],
+   "newPrompt": "Я не смогу завтра написать письмо, я буду работать весь день.",
+   "newAnswers": [
+    "I will not be able to write this letter tomorrow, I will be working all day"
+   ],
+   "why": "В переводе пропущено «завтра»."
+  },
+  {
+   "chapter": 19,
+   "prompt": "Профессор будет читать лекцию об этой книге завтра в 14:00.",
+   "answers": [
+    "The professor will be reading a lecture on this book tomorrow at 2 pm"
+   ],
+   "newPrompt": "Профессор будет читать лекцию об этой книге завтра в 14:00.",
+   "newAnswers": [
+    "The professor will be giving a lecture on this book tomorrow at 2 pm"
+   ],
+   "why": "«Читать лекцию» переводится как give/deliver a lecture, а не read a lecture в буквальном смысле."
+  },
+  {
+   "chapter": 19,
+   "prompt": "Я еду к другу в гости завтра после обеда.",
+   "answers": [
+    "I am going to my friend tomorrow after lunch"
+   ],
+   "newPrompt": "Я еду к другу в гости завтра после обеда.",
+   "newAnswers": [
+    "I am going to my friend’s tomorrow after lunch"
+   ],
+   "why": "Нужно указать место/визит к другу; “to my friend” как пункт назначения звучит грамматически неверно в этом контексте."
+  },
+  {
+   "chapter": 19,
+   "prompt": "Когда ты вернешься, я буду работать.",
+   "answers": [
+    "When you come back, I will be working evening"
+   ],
+   "newPrompt": "Когда ты вернешься, я буду работать.",
+   "newAnswers": [
+    "When you come back, I will be working"
+   ],
+   "why": "В ключе лишнее слово “evening”, которого нет в русском предложении, и оно ломает грамматику."
+  },
+  {
+   "chapter": 19,
+   "prompt": "Я хочу попрощаться с ней, прежде чем она уедет.",
+   "answers": [
+    "I want to say good buy to her before she leaves"
+   ],
+   "newPrompt": "Я хочу попрощаться с ней, прежде чем она уедет.",
+   "newAnswers": [
+    "I want to say goodbye to her before she leaves"
+   ],
+   "why": "Опечатка: “good buy” означает не «попрощаться», нужно “goodbye”."
+  },
+  {
+   "chapter": 20,
+   "prompt": "Они пригрозили тем, что позвонят в полицию.",
+   "answers": [
+    "They threatened calling the police"
+   ],
+   "newPrompt": "Они пригрозили тем, что позвонят в полицию.",
+   "newAnswers": [
+    "They threatened to call the police"
+   ],
+   "why": "После “threatened” нужен инфинитив: “threatened to call”, а не герундий “calling”."
+  },
+  {
+   "chapter": 20,
+   "prompt": "Они признали, что ехали слишком быстро.",
+   "answers": [
+    "They admitted driving to fast"
+   ],
+   "newPrompt": "Они признали, что ехали слишком быстро.",
+   "newAnswers": [
+    "They admitted driving too fast"
+   ],
+   "why": "Опечатка: нужно too fast («слишком быстро»), а не to fast."
+  },
+  {
+   "chapter": 15,
+   "prompt": "Ты где? — Я сейчас сижу в приемной у врача.",
+   "answers": [
+    "Where are you? I’m sitting at the dotor’s reception"
+   ],
+   "newPrompt": "Ты где? — Я сейчас сижу в приемной у врача.",
+   "newAnswers": [
+    "Where are you? I’m sitting at the doctor’s reception"
+   ],
+   "why": "Опечатка: dotor’s → doctor’s."
+  },
+  {
+   "chapter": 16,
+   "prompt": "Гауди так и недостроил собор, над которым работал по-следние годы своей жизни.",
+   "answers": [
+    "Gaudi did not finish the cathedral on which he had been working last years of his life"
+   ],
+   "newPrompt": "Гауди так и недостроил собор, над которым работал последние годы своей жизни.",
+   "newAnswers": [
+    "Gaudi did not finish the cathedral on which he had been working for the last years of his life"
+   ],
+   "why": "Нужно for the last years of his life; в ключе пропущены служебные слова, фраза неграмматична."
+  },
+  {
+   "chapter": 16,
+   "prompt": "Я ждал уже полчаса, когда рейс был отменен.",
+   "answers": [
+    "I had been waiting for three hours when the flight was delayed"
+   ],
+   "newPrompt": "Я ждал уже полчаса, когда рейс был отменен.",
+   "newAnswers": [
+    "I had been waiting for half an hour when the flight was canceled"
+   ],
+   "why": "В русском «полчаса» и «рейс был отменен», а не «три часа» и «задержан»."
+  },
+  {
+   "chapter": 13,
+   "prompt": "Последний раз я ездил в Париж в прошлом году.",
+   "answers": [
+    "Last time I went to Paris last year"
+   ],
+   "newPrompt": "Последний раз я ездил в Париж в прошлом году.",
+   "newAnswers": [
+    "The last time I went to Paris was last year"
+   ],
+   "why": "В ключе не хватает грамматической конструкции: нужно «The last time ... was ...» или «I last went ...»."
+  },
+  {
+   "chapter": 14,
+   "prompt": "Они женаты уже десять лет.",
+   "answers": [
+    "The have been married for 10 years"
+   ],
+   "newPrompt": "Они женаты уже десять лет.",
+   "newAnswers": [
+    "They have been married for 10 years"
+   ],
+   "why": "Опечатка: вместо местоимения They написано The."
+  },
+  {
+   "chapter": 14,
+   "prompt": "Ученые заявляют, что с 1950 года грипп унес более чем 50 000 жизней в этой стране. Только в 1957 году погибло около 6000 человек. Но в течение последних 20 лет мы в Центре достигли значительного прогресса в изучении этого вируса. Мы выпустили более сотни книг и статей, где сообщали о результатах исследований, а в 2012 году один мой коллега был награжден Нобелевской премией по медицине. В наших последних работах мы рассматривали влияние гриппа на сердечные заболевания и рассматривали возможную связь между изменением климата и недавним ростом количества заболеваний. Это трагедия, что правительство приняло решение о прекращении финансирования именно сейчас.",
+   "answers": [
+    "Scientists claim that influenza has taken more than 50,000 lives in this country since 1950. Only in 1957 more than 6,000 people died. But over the last 20 years we in the center has reached significant progress in studying this virus. We have released more than one hundred books and articles where we have been telling about the results of our researches. In 2012 one of my colleagues was awarded the Nobel Prize for medicine. In our recent works we have been looking into a possible connection between climate change and the recent increase in the number of cases of influenza. It is a tragedy that the government has decided to cut the funding now."
+   ],
+   "newPrompt": "Ученые заявляют, что с 1950 года грипп унес более чем 50 000 жизней в этой стране. Только в 1957 году погибло около 6000 человек. Но в течение последних 20 лет мы в Центре достигли значительного прогресса в изучении этого вируса. Мы выпустили более сотни книг и статей, где сообщали о результатах исследований, а в 2012 году один мой коллега был награжден Нобелевской премией по медицине. В наших последних работах мы рассматривали влияние гриппа на сердечные заболевания и рассматривали возможную связь между изменением климата и недавним ростом количества заболеваний. Это трагедия, что правительство приняло решение о прекращении финансирования именно сейчас.",
+   "newAnswers": [
+    "Scientists claim that influenza has taken more than 50,000 lives in this country since 1950. In 1957 alone about 6,000 people died. But over the last 20 years we in the center have made significant progress in studying this virus. We have released more than one hundred books and articles where we have been telling about the results of our researches. In 2012 one of my colleagues was awarded the Nobel Prize for medicine. In our recent works we have been looking into the influence of influenza on heart diseases and a possible connection between climate change and the recent increase in the number of cases of influenza. It is a tragedy that the government has decided to cut the funding now."
+   ],
+   "why": "Несколько ошибок: about 6,000, а не more than 6,000; согласование we ... have; по-английски make progress; также пропущено «влияние гриппа на сердечные заболевания»."
+  },
+  {
+   "chapter": 14,
+   "prompt": "Предыдущее правительство тратило огромные деньги на работу Центра, и я считаю ужасным то, что нынешнее правительство объявило о сокращении финансирования, особенно если учесть рост случаев заболевания. Центр успешно работает уже многие годы. И я должен отметить, что данное решение весьма типично для данного правительства. С тех пор как оно было избрано, оно игнорировало проблемы здоровья населения и урезало траты на науку в целом. Несмотря на то что политики заявляют о необходимости снижения трат в связи с недавним экономическим кризисом, я нашел доказательства того, что эта программа готовилась уже давно. Я уже поговорил с министром и собираюсь написать премьер-министру в самое ближайшее время о том, что решение должно быть пересмотрено.",
+   "answers": [
+    "The previous government was spending a lot of money on the Center and I think it is terrible that the present government has announced the cut in funding, especially if we take into consideration the increase in the number of disease. The center has been working successfully for several years. And I have to say that this decision is quite typical for this government. It has been ignoring the problems of public health since it was elected and has been cutting the spending on science in general. Despite the fact the politicians claim the necessity to decrease the spending because of the recent economic crisis, I have found evidence that they have been planning this program for a long time. I have already talked to the minister and am going to write the Prime Minister that this decision must be reconsidered."
+   ],
+   "newPrompt": "Предыдущее правительство тратило огромные деньги на работу Центра, и я считаю ужасным то, что нынешнее правительство объявило о сокращении финансирования, особенно если учесть рост случаев заболевания. Центр успешно работает уже многие годы. И я должен отметить, что данное решение весьма типично для данного правительства. С тех пор как оно было избрано, оно игнорировало проблемы здоровья населения и урезало траты на науку в целом. Несмотря на то что политики заявляют о необходимости снижения трат в связи с недавним экономическим кризисом, я нашел доказательства того, что эта программа готовилась уже давно. Я уже поговорил с министром и собираюсь написать премьер-министру в самое ближайшее время о том, что решение должно быть пересмотрено.",
+   "newAnswers": [
+    "The previous government was spending a lot of money on the Center and I think it is terrible that the present government has announced the cut in funding, especially if we take into consideration the increase in the number of cases of disease. The center has been working successfully for several years. And I have to say that this decision is quite typical for this government. It has been ignoring the problems of public health since it was elected and has been cutting the spending on science in general. Despite the fact the politicians claim the necessity to decrease the spending because of the recent economic crisis, I have found evidence that they have been planning this program for a long time. I have already talked to the minister and am going to write the Prime Minister in the very near future to say that this decision must be reconsidered."
+   ],
+   "why": "«number of disease» грамматически неверно: нужны cases. Также в ключе пропущено «в самое ближайшее время»."
+  },
+  {
+   "chapter": 16,
+   "prompt": "Как долго он писал рассказ, прежде чем отправил издателю?",
+   "answers": [
+    "How long had he been writing the novel before he sent it to the publisher?"
+   ],
+   "newPrompt": "Как долго он писал рассказ, прежде чем отправил издателю?",
+   "newAnswers": [
+    "How long had he been writing the story before he sent it to the publisher?"
+   ],
+   "why": "«рассказ» — это story/short story, а не novel («роман»)."
+  },
+  {
+   "chapter": 16,
+   "prompt": "Только когда она уже собиралась спать, она вспомнила, что не позвонила подруге.",
+   "answers": [
+    "When she was going to go to bed when she remembered that she hadn’t called her friend"
+   ],
+   "newPrompt": "Только когда она уже собиралась спать, она вспомнила, что не позвонила подруге.",
+   "newAnswers": [
+    "Only when she was already going to go to bed did she remember that she hadn’t called her friend"
+   ],
+   "why": "В ключе грамматически неверная конструкция с двумя when; также пропущено значение «только/уже»."
+  },
+  {
+   "chapter": 16,
+   "prompt": "Я вчера весь вечер ее ждал, но она так и не пришла.",
+   "answers": [
+    "I had been waiting for her all evening, but she didn’t come"
+   ],
+   "newPrompt": "Я вчера весь вечер ее ждал, но она так и не пришла.",
+   "newAnswers": [
+    "I had been waiting for her all evening yesterday, but she didn’t come"
+   ],
+   "why": "Пропущено «вчера»."
+  },
+  {
+   "chapter": 16,
+   "prompt": "До того как он сюда устроился, он три года был безработным!",
+   "answers": [
+    "He had been out of work before he got this job"
+   ],
+   "newPrompt": "До того как он сюда устроился, он три года был безработным!",
+   "newAnswers": [
+    "He had been out of work for three years before he got this job"
+   ],
+   "why": "Пропущено «три года»."
+  },
+  {
+   "chapter": 16,
+   "prompt": "Ты поужинал, прежде чем пошел в театр?",
+   "answers": [
+    "Had you had dinner before you came to the thatre?",
+    "Did you have dinner before you came to the theatre"
+   ],
+   "newPrompt": "Ты поужинал, прежде чем пошел в театр?",
+   "newAnswers": [
+    "Had you had dinner before you came to the theatre?",
+    "Did you have dinner before you came to the theatre"
+   ],
+   "why": "В первом варианте опечатка: thatre вместо theatre."
+  },
+  {
+   "chapter": 16,
+   "prompt": "Когда я увидел нашу дочь Карэн, я понял, что она плакала.",
+   "answers": [
+    "When I saw my daughter Karen I understood that she had been crying"
+   ],
+   "newPrompt": "Когда я увидел нашу дочь Карэн, я понял, что она плакала.",
+   "newAnswers": [
+    "When I saw our daughter Karen I understood that she had been crying"
+   ],
+   "why": "«нашу дочь» — our daughter, не my daughter."
+  },
+  {
+   "chapter": 16,
+   "prompt": "Я хотел спать, потому что вчера рано встал.",
+   "answers": [
+    "I wanted to sleep because I had woken up early"
+   ],
+   "newPrompt": "Я хотел спать, потому что вчера рано встал.",
+   "newAnswers": [
+    "I wanted to sleep because I had woken up early yesterday"
+   ],
+   "why": "Пропущено «вчера»."
+  },
+  {
+   "chapter": 16,
+   "prompt": "Когда мы приехали на вечеринку, почти все уже ушли.",
+   "answers": [
+    "When we came to the psarty everybody had already left"
+   ],
+   "newPrompt": "Когда мы приехали на вечеринку, почти все уже ушли.",
+   "newAnswers": [
+    "When we came to the party almost everybody had already left"
+   ],
+   "why": "Опечатка psarty; также «почти все» должно быть almost everybody, а не everybody."
+  },
+  {
+   "chapter": 17,
+   "prompt": "Мы пытались открыть дверь 15 минут, когда она наконец нашла ключ.",
+   "answers": [
+    "We had been trying to find a key for 15 minutes when she finally found a key"
+   ],
+   "newPrompt": "Мы пытались открыть дверь 15 минут, когда она наконец нашла ключ.",
+   "newAnswers": [
+    "We had been trying to open the door for 15 minutes when she finally found the key"
+   ],
+   "why": "В русском они пытались открыть дверь, а не найти ключ."
+  },
+  {
+   "chapter": 17,
+   "prompt": "Мы играли в карты, когда он позвонил.",
+   "answers": [
+    "We were playing cards when he came"
+   ],
+   "newPrompt": "Мы играли в карты, когда он позвонил.",
+   "newAnswers": [
+    "We were playing cards when he called"
+   ],
+   "why": "«Позвонил» — это called, а не came («пришел»)."
+  },
+  {
+   "chapter": 17,
+   "prompt": "Кэрол слушала радио, когда электричество выключилось.",
+   "answers": [
+    "Carol had been listening to the radio when electricity went of"
+   ],
+   "newPrompt": "Кэрол слушала радио, когда электричество выключилось.",
+   "newAnswers": [
+    "Carol had been listening to the radio when electricity went off"
+   ],
+   "why": "Опечатка: должно быть off, а не of."
+  },
+  {
+   "chapter": 17,
+   "prompt": "Становилось уже поздно, когда автобус наконец пришел.",
+   "answers": [
+    "It was getting dark wen the bus came"
+   ],
+   "newPrompt": "Становилось уже поздно, когда автобус наконец пришел.",
+   "newAnswers": [
+    "It was getting late when the bus finally came"
+   ],
+   "why": "«Поздно» — late, не dark; также пропущено «наконец» и опечатка в when."
+  },
+  {
+   "chapter": 17,
+   "prompt": "Когда мы вышли на улицу, то увидели, что снеговик таял на солнце.",
+   "answers": [
+    "When we went out, we sat that the snowman was melting in the sun"
+   ],
+   "newPrompt": "Когда мы вышли на улицу, то увидели, что снеговик таял на солнце.",
+   "newAnswers": [
+    "When we went out, we saw that the snowman was melting in the sun"
+   ],
+   "why": "Опечатка/неверное слово: sat вместо saw («увидели»)."
+  },
+  {
+   "chapter": 22,
+   "prompt": "Я не знаю, что бы я делал, если бы такое произошло со мной.",
+   "answers": [
+    "I don’t now what I would do if something like that happened to me"
+   ],
+   "newPrompt": "Я не знаю, что бы я делал, если бы такое произошло со мной.",
+   "newAnswers": [
+    "I don’t know what I would do if something like that happened to me"
+   ],
+   "why": "Опечатка: должно быть know, а не now."
+  },
+  {
+   "chapter": 22,
+   "prompt": "Если бы я больше тренировался, я бы не проиграл во вчерашней гонке.",
+   "answers": [
+    "If I had trained more, I would not have lost the yesterday’s race"
+   ],
+   "newPrompt": "Если бы я больше тренировался, я бы не проиграл во вчерашней гонке.",
+   "newAnswers": [
+    "If I had trained more, I would not have lost yesterday’s race"
+   ],
+   "why": "Нельзя употреблять артикль перед yesterday’s: “the yesterday’s race” грамматически неверно."
+  },
+  {
+   "chapter": 22,
+   "prompt": "Даже если бы они пригласили меня на вчерашнюю вечеринку, я бы не пришел.",
+   "answers": [
+    "Even if they had invited me to the yesterday’s party, I wouldn’t have come"
+   ],
+   "newPrompt": "Даже если бы они пригласили меня на вчерашнюю вечеринку, я бы не пришел.",
+   "newAnswers": [
+    "Even if they had invited me to yesterday’s party, I wouldn’t have come"
+   ],
+   "why": "Нельзя употреблять артикль перед yesterday’s: “the yesterday’s party” грамматически неверно."
+  },
+  {
+   "chapter": 23,
+   "prompt": "Ее подруга приехала погостить, поэтому она не могла заниматься последние несколько дней.",
+   "answers": [
+    "Her girlfriend came to visit her, so she hasn’t been able to study well last couple of daisies"
+   ],
+   "newPrompt": "Ее подруга приехала погостить, поэтому она не могла заниматься последние несколько дней.",
+   "newAnswers": [
+    "Her girlfriend came to visit her, so she hasn’t been able to study for the last couple of days"
+   ],
+   "why": "“daisies” — неверное слово вместо days; “study well” меняет смысл: в русском «не могла заниматься», а не «не могла хорошо заниматься»."
+  },
+  {
+   "chapter": 21,
+   "prompt": "Я сожалею, что так кричал вчера.",
+   "answers": [
+    "I regret shouting yesterday"
+   ],
+   "newPrompt": "Я сожалею, что так кричал вчера.",
+   "newAnswers": [
+    "I regret shouting like that yesterday"
+   ],
+   "why": "В русском предложении есть «так», в ключе это значение пропущено."
+  },
+  {
+   "chapter": 21,
+   "prompt": "Я помню, как мы сажали это дерево вместе.",
+   "answers": [
+    "I remember planting this tree together"
+   ],
+   "newPrompt": "Я помню, как мы сажали это дерево вместе.",
+   "newAnswers": [
+    "I remember us planting this tree together"
+   ],
+   "why": "В русском «мы сажали», а не только «я сажал»; нужно передать субъект we/us."
+  },
+  {
+   "chapter": 21,
+   "prompt": "Я помню, как мы играли на этой площадке.",
+   "answers": [
+    "I remember playing on this playground"
+   ],
+   "newPrompt": "Я помню, как мы играли на этой площадке.",
+   "newAnswers": [
+    "I remember us playing on this playground"
+   ],
+   "why": "В русском «мы играли», а английский вариант с простым gerund подразумевает только действие говорящего."
+  },
+  {
+   "chapter": 21,
+   "prompt": "Я помню, как мы плавали в этой реке.",
+   "answers": [
+    "I remember swimming in this river"
+   ],
+   "newPrompt": "Я помню, как мы плавали в этой реке.",
+   "newAnswers": [
+    "I remember us swimming in this river"
+   ],
+   "why": "В русском «мы плавали», а в ключе не передан субъект we/us."
+  },
+  {
+   "chapter": 21,
+   "prompt": "Ты не забыл отправить письмо?",
+   "answers": [
+    "Did you remember to send this letter?"
+   ],
+   "newPrompt": "Ты не забыл отправить письмо?",
+   "newAnswers": [
+    "Did you remember to send the letter?"
+   ],
+   "why": "В русском просто «письмо»; указательное «this» добавляет лишнее значение."
+  },
+  {
+   "chapter": 23,
+   "prompt": "Он хорошо учится и сможет поступить в хороший университет.",
+   "answers": [
+    "She is studying well and will be able to go to a good university"
+   ],
+   "newPrompt": "Он хорошо учится и сможет поступить в хороший университет.",
+   "newAnswers": [
+    "He is studying well and will be able to go to a good university"
+   ],
+   "why": "В русском предложении «Он», а не «она»."
+  },
+  {
+   "chapter": 23,
+   "prompt": "Не может быть, чтобы это был мистер Джонс!",
+   "answers": [
+    "It can’t be mister Johns!"
+   ],
+   "newPrompt": "Не может быть, чтобы это был мистер Джонс!",
+   "newAnswers": [
+    "It can’t be mister Jones!"
+   ],
+   "why": "Фамилия «Джонс» должна быть Jones, не Johns."
+  },
+  {
+   "chapter": 23,
+   "prompt": "Ты мог бы сломать шею, прыгая с такой высоты.",
+   "answers": [
+    "You could have broken your neck jumping from such height"
+   ],
+   "newPrompt": "Ты мог бы сломать шею, прыгая с такой высоты.",
+   "newAnswers": [
+    "You could have broken your neck jumping from such a height"
+   ],
+   "why": "После such в единственном числе нужен артикль: such a height."
+  },
+  {
+   "chapter": 24,
+   "prompt": "В этом месяце мы не могли поддерживать высокий уровень продаж.",
+   "answers": [
+    "We haven’t been able to keep the sales up to a usual level this month"
+   ],
+   "newPrompt": "В этом месяце мы не могли поддерживать высокий уровень продаж.",
+   "newAnswers": [
+    "We haven’t been able to keep the sales up to a high level this month"
+   ],
+   "why": "«высокий уровень продаж» — это high level, а не usual level."
+  },
+  {
+   "chapter": 24,
+   "prompt": "Он не смог объяснить, в чем была суть проблемы.",
+   "answers": [
+    "He wasn’t able to explain what was the essence of the problem"
+   ],
+   "newPrompt": "Он не смог объяснить, в чем была суть проблемы.",
+   "newAnswers": [
+    "He wasn’t able to explain what the essence of the problem was"
+   ],
+   "why": "В косвенном вопросе нужен прямой порядок слов: what the essence ... was."
+  },
+  {
+   "chapter": 24,
+   "prompt": "Мы не могли связаться с ним долгое время.",
+   "answers": [
+    "We haven’t been able to contact them for a long time"
+   ],
+   "newPrompt": "Мы не могли связаться с ним долгое время.",
+   "newAnswers": [
+    "We haven’t been able to contact him for a long time"
+   ],
+   "why": "«с ним» = him, не them."
+  },
+  {
+   "chapter": 24,
+   "prompt": "Он не смог прийти на встречу вовремя.",
+   "answers": [
+    "He wasn’t able to come to the meeting on time yesterday"
+   ],
+   "newPrompt": "Он не смог прийти на встречу вовремя.",
+   "newAnswers": [
+    "He wasn’t able to come to the meeting on time"
+   ],
+   "why": "В русском нет «вчера», это лишнее значение в ключе."
+  },
+  {
+   "chapter": 24,
+   "prompt": "На этой неделе я не мог забрать свои вещи из химчистки.",
+   "answers": [
+    "I haven’t been able to get my things out of the laundry this week"
+   ],
+   "newPrompt": "На этой неделе я не мог забрать свои вещи из химчистки.",
+   "newAnswers": [
+    "I haven’t been able to get my things from the dry cleaner’s this week"
+   ],
+   "why": "«химчистка» — dry cleaner’s, а не laundry."
+  },
+  {
+   "chapter": 21,
+   "prompt": "Они не позволяют людям парковаться напротив здания (allow).",
+   "answers": [
+    "They don’t allow people to park in front of the building"
+   ],
+   "newPrompt": "Они не позволяют людям парковаться напротив здания (allow).",
+   "newAnswers": [
+    "They don’t allow people to park opposite the building"
+   ],
+   "why": "«Напротив здания» — это opposite/across from, а не in front of."
+  },
+  {
+   "chapter": 21,
+   "prompt": "Я предложил ей сходить в ресторан.",
+   "answers": [
+    "I suggested that we go to a restaurant with her"
+   ],
+   "newPrompt": "Я предложил ей сходить в ресторан.",
+   "newAnswers": [
+    "I suggested to her that we go to a restaurant"
+   ],
+   "why": "«Ей» означает адресата предложения, а не «с ней»; в ключе добавлено лишнее значение with her."
+  },
+  {
+   "chapter": 21,
+   "prompt": "Он посоветовал мне отдохнуть.",
+   "answers": [
+    "He advised to me to have a rest"
+   ],
+   "newPrompt": "Он посоветовал мне отдохнуть.",
+   "newAnswers": [
+    "He advised me to have a rest"
+   ],
+   "why": "После advised лишний предлог to перед me."
+  },
+  {
+   "chapter": 4,
+   "prompt": "Сколько стоит позвонить в Нью-Йорк?",
+   "answers": [
+    "How much does it cost to call to New York?"
+   ],
+   "newPrompt": "Сколько стоит позвонить в Нью-Йорк?",
+   "newAnswers": [
+    "How much does it cost to call New York?"
+   ],
+   "why": "В значении «позвонить» глагол call не требует to перед названием места/адресатом."
+  },
+  {
+   "chapter": 4,
+   "prompt": "Когда день рождения твоего брата?",
+   "answers": [
+    "When is it your brother’s birthday?"
+   ],
+   "newPrompt": "Когда день рождения твоего брата?",
+   "newAnswers": [
+    "When is your brother’s birthday?"
+   ],
+   "why": "Лишнее it делает вопрос неграмматичным."
+  },
+  {
+   "chapter": 4,
+   "prompt": "Вчера был сильный ветер.",
+   "answers": [
+    "There was a strong wind here yesterday"
+   ],
+   "newPrompt": "Вчера был сильный ветер.",
+   "newAnswers": [
+    "There was a strong wind yesterday"
+   ],
+   "why": "В ключе добавлено here («здесь»), которого нет в русском предложении."
+  },
+  {
+   "chapter": 7,
+   "prompt": "Солнце светило весь день, и мы гуляли с утра до вечера.",
+   "answers": [
+    "The sun was shining brightly and were were walking from morning till evening"
+   ],
+   "newPrompt": "Солнце светило весь день, и мы гуляли с утра до вечера.",
+   "newAnswers": [
+    "The sun was shining all day and we were walking from morning till evening"
+   ],
+   "why": "В ключе опечатка/ошибка «were were» вместо «we were», а также «brightly» не соответствует «весь день»."
+  },
+  {
+   "chapter": 8,
+   "prompt": "Он собирается провести отпуск на Гавайях.",
+   "answers": [
+    "She is going to spend her vacation on Hawaii"
+   ],
+   "newPrompt": "Он собирается провести отпуск на Гавайях.",
+   "newAnswers": [
+    "He is going to spend his vacation in Hawaii"
+   ],
+   "why": "«Он» переведено как she; также нужен притяжательный his. Для «на Гавайях» по-английски обычно in Hawaii."
+  },
+  {
+   "chapter": 8,
+   "prompt": "Что ты собираешься надеть на вечеринку?",
+   "answers": [
+    "What you going to wear fot the party?"
+   ],
+   "newPrompt": "Что ты собираешься надеть на вечеринку?",
+   "newAnswers": [
+    "What are you going to wear for the party?"
+   ],
+   "why": "В вопросе не хватает вспомогательного глагола are; также опечатка fot → for."
+  },
+  {
+   "chapter": 8,
+   "prompt": "Он тебе перезвонит через минуту.",
+   "answers": [
+    "He will call you in a minute"
+   ],
+   "newPrompt": "Он тебе перезвонит через минуту.",
+   "newAnswers": [
+    "He will call you back in a minute"
+   ],
+   "why": "«Перезвонит» означает call back, в ключе пропущено back."
+  },
+  {
+   "chapter": 9,
+   "prompt": "Я уже проснулся.",
+   "answers": [
+    "I have just woken up"
+   ],
+   "newPrompt": "Я уже проснулся.",
+   "newAnswers": [
+    "I have already woken up"
+   ],
+   "why": "В русском предложении «уже», а не «только что»."
+  },
+  {
+   "chapter": 9,
+   "prompt": "Он еще не закончил свое домашнее задание.",
+   "answers": [
+    "He hasn’t finished his task yet"
+   ],
+   "newPrompt": "Он еще не закончил свое домашнее задание.",
+   "newAnswers": [
+    "He hasn’t finished his homework yet"
+   ],
+   "why": "«Домашнее задание» — это homework; вариант с task теряет значение «домашнее»."
+  },
+  {
+   "chapter": 10,
+   "prompt": "Я должен закончить всю работу сегодня.",
+   "answers": [
+    "I have to finish this work today"
+   ],
+   "newPrompt": "Я должен закончить всю работу сегодня.",
+   "newAnswers": [
+    "I have to finish all the work today"
+   ],
+   "why": "«Всю работу» означает all the work, а не this work."
+  },
+  {
+   "chapter": 11,
+   "prompt": "Что это за человек, который стоит слева от двери?",
+   "answers": [
+    "Who is that man standing to the left of the window?"
+   ],
+   "newPrompt": "Что это за человек, который стоит слева от двери?",
+   "newAnswers": [
+    "Who is that man standing to the left of the door?"
+   ],
+   "why": "В русском сказано «слева от двери», а не «от окна»."
+  },
+  {
+   "chapter": 11,
+   "prompt": "В этом номере есть кондиционер?",
+   "answers": [
+    "Is there a conditioner in the room?"
+   ],
+   "newPrompt": "В этом номере есть кондиционер?",
+   "newAnswers": [
+    "Is there an air conditioner in the room?"
+   ],
+   "why": "«Кондиционер» в номере — это air conditioner; conditioner без air обычно означает кондиционер для волос и меняет смысл."
+  },
+  {
+   "chapter": 6,
+   "prompt": "Его вчера не было в офисе?",
+   "answers": [
+    "Wasn’t he in the office yesterday?",
+    "Was he in the office yesterday?"
+   ],
+   "newPrompt": "Его вчера не было в офисе?",
+   "newAnswers": [
+    "Wasn’t he in the office yesterday?",
+    "Was he not in the office yesterday?"
+   ],
+   "why": "Во втором варианте пропало отрицание: «не было в офисе»."
+  },
+  {
+   "chapter": 6,
+   "prompt": "Как звали твою любимую собаку?",
+   "answers": [
+    "What was you favorite dog’s name?"
+   ],
+   "newPrompt": "Как звали твою любимую собаку?",
+   "newAnswers": [
+    "What was your favorite dog’s name?"
+   ],
+   "why": "Опечатка: нужно притяжательное your, а не you."
+  },
+  {
+   "chapter": 6,
+   "prompt": "Как назывался фильм?",
+   "answers": [
+    "What was the film name?"
+   ],
+   "newPrompt": "Как назывался фильм?",
+   "newAnswers": [
+    "What was the film's name?"
+   ],
+   "why": "«The film name» здесь грамматически неверно; нужно притяжательное или другая конструкция."
+  },
+  {
+   "chapter": 10,
+   "prompt": "Эту игрушку нельзя давать ребенку! Он может проглотить мелкие детали.",
+   "answers": [
+    "You can’t give this toy the child! He can swallow small pieces",
+    "details"
+   ],
+   "newPrompt": "Эту игрушку нельзя давать ребенку! Он может проглотить мелкие детали.",
+   "newAnswers": [
+    "You can’t give this toy to the child! He can swallow small pieces",
+    "parts"
+   ],
+   "why": "В первом варианте пропущен предлог to после give; details в значении «мелкие детали игрушки» неверно, нужно parts/pieces."
+  },
+  {
+   "chapter": 10,
+   "prompt": "Она умеет говорить на арабском.",
+   "answers": [
+    "He can speak Arabic"
+   ],
+   "newPrompt": "Она умеет говорить на арабском.",
+   "newAnswers": [
+    "She can speak Arabic"
+   ],
+   "why": "Она переведено как he; нужен женский род she."
+  },
+  {
+   "chapter": 15,
+   "prompt": "Она играет в монополию уже два часа.",
+   "answers": [
+    "She is playing in «Monopoly» for two hours"
+   ],
+   "newPrompt": "Она играет в монополию уже два часа.",
+   "newAnswers": [
+    "She has been playing Monopoly for two hours"
+   ],
+   "why": "С длительностью «уже два часа» нужен Present Perfect Continuous; также говорят “play Monopoly”, без “in”."
+  },
+  {
+   "chapter": 14,
+   "prompt": "Они задали мне несколько вопросов.",
+   "answers": [
+    "The have asked me several questions"
+   ],
+   "newPrompt": "Они задали мне несколько вопросов.",
+   "newAnswers": [
+    "They have asked me several questions"
+   ],
+   "why": "Опечатка: должно быть местоимение They, а не The."
+  },
+  {
+   "chapter": 15,
+   "prompt": "Они решают эти задачи уже час.",
+   "answers": [
+    "They have been solving this tasks for an hour"
+   ],
+   "newPrompt": "Они решают эти задачи уже час.",
+   "newAnswers": [
+    "They have been solving these tasks for an hour"
+   ],
+   "why": "Нужно множественное число: «эти задачи» = these tasks; вариант this tasks грамматически неверен."
+  },
+  {
+   "chapter": 16,
+   "prompt": "К тому моменту как я пришел домой, он уже работал пять часов.",
+   "answers": [
+    "He had been working for 5 hours when I ca, e home"
+   ],
+   "newPrompt": "К тому моменту как я пришел домой, он уже работал пять часов.",
+   "newAnswers": [
+    "He had been working for 5 hours when I came home"
+   ],
+   "why": "Опечатка ca, e вместо came."
+  },
+  {
+   "chapter": 16,
+   "prompt": "Когда я приехал в аэропорт, я узнал, что рейс был отменен.",
+   "answers": [
+    "When I came to the airport I realized that the flight had been delayed"
+   ],
+   "newPrompt": "Когда я приехал в аэропорт, я узнал, что рейс был отменен.",
+   "newAnswers": [
+    "When I came to the airport I realized that the flight had been canceled"
+   ],
+   "why": "В русском рейс был отменен, а не задержан."
+  },
+  {
+   "chapter": 15,
+   "prompt": "Мне кажется, официант забыл про нас. Мы ждем уже полчаса, но никто не принял наш заказ. Он перебегает от одного стола к другому столу. Ты голоден? — Да, я не ел весь день.",
+   "answers": [
+    "It seems that the waiter has forgotten about us. We have been waiting for half an hour and nobody has taken our order. He is 164 running from one table to another. Are you hungry? Yes, I haven’t eaten all day."
+   ],
+   "newPrompt": "Мне кажется, официант забыл про нас. Мы ждем уже полчаса, но никто не принял наш заказ. Он перебегает от одного стола к другому столу. Ты голоден? — Да, я не ел весь день.",
+   "newAnswers": [
+    "It seems that the waiter has forgotten about us. We have been waiting for half an hour and nobody has taken our order. He is running from one table to another. Are you hungry? Yes, I haven’t eaten all day."
+   ],
+   "why": "В ответ случайно попало число 164."
+  },
+  {
+   "chapter": 15,
+   "prompt": "Том пытается найти работу с октября.",
+   "answers": [
+    "Tom has been trying to find a new job since October"
+   ],
+   "newPrompt": "Том пытается найти работу с октября.",
+   "newAnswers": [
+    "Tom has been trying to find a job since October"
+   ],
+   "why": "В русском нет слова «новую»; “new job” добавляет лишний смысл."
+  },
+  {
+   "chapter": 15,
+   "prompt": "Том и Мэри строят дом уже три года.",
+   "answers": [
+    "Tom and Mary have been building this house for three years"
+   ],
+   "newPrompt": "Том и Мэри строят дом уже три года.",
+   "newAnswers": [
+    "Tom and Mary have been building a house for three years"
+   ],
+   "why": "В русском нет указательного «этот»; “this house” добавляет лишний смысл."
+  },
+  {
+   "chapter": 15,
+   "prompt": "Откуда ты вернулась? — Я ходила по магазинам.",
+   "answers": [
+    "Where have you come from? I have been doing shopping"
+   ],
+   "newPrompt": "Откуда ты вернулась? — Я ходила по магазинам.",
+   "newAnswers": [
+    "Where have you come from? I have been shopping"
+   ],
+   "why": "“I have been doing shopping” грамматически/идиоматически неверно; нужно “I have been shopping”."
+  },
+  {
+   "chapter": 15,
+   "prompt": "Она все еще изучает немецкий язык.",
+   "answers": [
+    "He is still studying German"
+   ],
+   "newPrompt": "Она все еще изучает немецкий язык.",
+   "newAnswers": [
+    "She is still studying German"
+   ],
+   "why": "В русском предложении «Она», а в ключе ошибочно дано He."
+  },
+  {
+   "chapter": 15,
+   "prompt": "Они уже четыре месяца живут в Лондоне.",
+   "answers": [
+    "They have been already living in London for four months"
+   ],
+   "newPrompt": "Они уже четыре месяца живут в Лондоне.",
+   "newAnswers": [
+    "They have already been living in London for four months"
+   ],
+   "why": "Неверный порядок наречия already в Present Perfect Continuous; нужно have already been living."
+  },
+  {
+   "chapter": 16,
+   "prompt": "Я читал весь вечер, пока не уснул.",
+   "answers": [
+    "I had been reading all evening yesterday until I fell asleep"
+   ],
+   "newPrompt": "Я читал весь вечер, пока не уснул.",
+   "newAnswers": [
+    "I had been reading all evening until I fell asleep"
+   ],
+   "why": "В ключе лишнее yesterday: в русском предложении нет «вчера»."
+  },
+  {
+   "chapter": 16,
+   "prompt": "Вчера я нашел очки, которые потерял прошлым летом.",
+   "answers": [
+    "Yesterday I found the glassed that I had lost yesterday"
+   ],
+   "newPrompt": "Вчера я нашел очки, которые потерял прошлым летом.",
+   "newAnswers": [
+    "Yesterday I found the glasses that I had lost last summer"
+   ],
+   "why": "Опечатка glassed вместо glasses; также yesterday в конце не соответствует «прошлым летом»."
+  },
+  {
+   "chapter": 16,
+   "prompt": "Когда мы приехали в аэропорт, регистрация уже закрылась.",
+   "answers": [
+    "When we came to the airpot, the registration had already closed"
+   ],
+   "newPrompt": "Когда мы приехали в аэропорт, регистрация уже закрылась.",
+   "newAnswers": [
+    "When we came to the airport, the registration had already closed"
+   ],
+   "why": "Опечатка airpot вместо airport."
+  },
+  {
+   "chapter": 16,
+   "prompt": "Я разговаривал по телефону полчаса, когда он пришел.",
+   "answers": [
+    "I had been talking on the phone for two hours when he came"
+   ],
+   "newPrompt": "Я разговаривал по телефону полчаса, когда он пришел.",
+   "newAnswers": [
+    "I had been talking on the phone for half an hour when he came"
+   ],
+   "why": "В русском «полчаса», а не «два часа»."
+  },
+  {
+   "chapter": 16,
+   "prompt": "Мы ехали весь день, пока не добрались до места назначения.",
+   "answers": [
+    "We had been walking all day until we got to the destination"
+   ],
+   "newPrompt": "Мы ехали весь день, пока не добрались до места назначения.",
+   "newAnswers": [
+    "We had been travelling all day until we got to the destination"
+   ],
+   "why": "«Ехали» — не walking; walking соответствует «шли/ходили»."
+  },
+  {
+   "chapter": 16,
+   "prompt": "Вчера я вспомнил, что так и не поздравил ее с днем рождения.",
+   "answers": [
+    "Yesterday I remembered that I had not congratulated her with her birthday"
+   ],
+   "newPrompt": "Вчера я вспомнил, что так и не поздравил ее с днем рождения.",
+   "newAnswers": [
+    "Yesterday I remembered that I had not congratulated her on her birthday"
+   ],
+   "why": "Неверный предлог: по-английски congratulate someone on something, не with."
+  },
+  {
+   "chapter": 31,
+   "prompt": "В этом доме есть камин?",
+   "answers": [
+    "Is there fireplace in this house?"
+   ],
+   "newPrompt": "В этом доме есть камин?",
+   "newAnswers": [
+    "Is there a fireplace in this house?"
+   ],
+   "why": "Перед исчисляемым существительным в единственном числе нужен артикль: a fireplace."
+  },
+  {
+   "chapter": 31,
+   "prompt": "Вы мне не подскажете, который час?",
+   "answers": [
+    "Can you tell me what time is it now?"
+   ],
+   "newPrompt": "Вы мне не подскажете, который час?",
+   "newAnswers": [
+    "Can you tell me what time it is now?"
+   ],
+   "why": "В косвенном вопросе нужен прямой порядок слов: what time it is, а не what time is it."
+  },
+  {
+   "chapter": 31,
+   "prompt": "Извините, где ближайший банк?",
+   "answers": [
+    "Excuse me, were is the nearest bank?"
+   ],
+   "newPrompt": "Извините, где ближайший банк?",
+   "newAnswers": [
+    "Excuse me, where is the nearest bank?"
+   ],
+   "why": "Опечатка: were вместо where."
+  },
+  {
+   "chapter": 30,
+   "prompt": "Выполняя работу, они часто делали перерыв на кофе.",
+   "answers": [
+    "Doing the work, they were making many breaks for coffee"
+   ],
+   "newPrompt": "Выполняя работу, они часто делали перерыв на кофе.",
+   "newAnswers": [
+    "Doing the work, they were often taking breaks for coffee"
+   ],
+   "why": "«часто» передано как many; также по-английски нужно take breaks, а не make breaks."
+  },
+  {
+   "chapter": 30,
+   "prompt": "Глядя в окно, она размышляла о будущих планах.",
+   "answers": [
+    "Looking from the window, she was thinking about his future plans"
+   ],
+   "newPrompt": "Глядя в окно, она размышляла о будущих планах.",
+   "newAnswers": [
+    "Looking out of the window, she was thinking about future plans"
+   ],
+   "why": "«в окно» — out of the window, не from the window; his добавляет неверное/лишнее притяжательное значение."
+  },
+  {
+   "chapter": 30,
+   "prompt": "Зарегистрировавшись, мы пошли в дьюти-фри.",
+   "answers": [
+    "Having checked-in, we went to the duty-free"
+   ],
+   "newPrompt": "Зарегистрировавшись, мы пошли в дьюти-фри.",
+   "newAnswers": [
+    "Having checked in, we went to the duty-free"
+   ],
+   "why": "Checked in как глагол пишется без дефиса; checked-in — форма для прилагательного."
+  },
+  {
+   "chapter": 31,
+   "prompt": "Кем он будет работать в будущем?",
+   "answers": [
+    "Who is going to work as in the future?"
+   ],
+   "newPrompt": "Кем он будет работать в будущем?",
+   "newAnswers": [
+    "What is he going to work as in the future?"
+   ],
+   "why": "В ключе пропущено подлежащее he; для профессии нужно what, а не who."
+  },
+  {
+   "chapter": 31,
+   "prompt": "Погода была очень плохой вчера утром. Небо было серым, и шел дождь. Но в середине дня погода начала меняться. Дождь перестал, и солнце вышло из облаков. После обеда было очень тепло. Я не хотел оставаться дома и решил погулять в саду. В саду было много девочек и мальчиков, мы играли весь вечер. Я пришел домой, выпил чай, съел сэндвич и пошел спать.",
+   "answers": [
+    "The weather was very bad in the morning. The sky was grey and it was raining, but in the middle of the day the weather started to change. It stopped raining and the sun came out of the clouds. It was very warm after lunch. I didn’t want to stay at home and decided to go for a walk in the garden. There were many girls and boys in the garden, we were playing all evening. I came home, drank tea, ate a sandwich and went to bed. I was sleeping very well at night."
+   ],
+   "newPrompt": "Погода была очень плохой вчера утром. Небо было серым, и шел дождь. Но в середине дня погода начала меняться. Дождь перестал, и солнце вышло из облаков. После обеда было очень тепло. Я не хотел оставаться дома и решил погулять в саду. В саду было много девочек и мальчиков, мы играли весь вечер. Я пришел домой, выпил чай, съел сэндвич и пошел спать.",
+   "newAnswers": [
+    "The weather was very bad yesterday morning. The sky was grey and it was raining, but in the middle of the day the weather started to change. It stopped raining and the sun came out of the clouds. It was very warm after lunch. I didn’t want to stay at home and decided to go for a walk in the garden. There were many girls and boys in the garden, we were playing all evening. I came home, drank tea, ate a sandwich and went to bed."
+   ],
+   "why": "Пропущено значение «вчера» и добавлено лишнее предложение про сон, которого нет в русском тексте."
+  },
+  {
+   "chapter": 31,
+   "prompt": "Кит — это млекопитающее, а не рыба.",
+   "answers": [
+    "The wale is a mammal, not a fish"
+   ],
+   "newPrompt": "Кит — это млекопитающее, а не рыба.",
+   "newAnswers": [
+    "The whale is a mammal, not a fish"
+   ],
+   "why": "Опечатка: wale вместо whale."
+  },
+  {
+   "chapter": 30,
+   "prompt": "Произнося речь, он делал много отсылок к статье.",
+   "answers": [
+    "Giving the speech, he made many references to the articles"
+   ],
+   "newPrompt": "Произнося речь, он делал много отсылок к статье.",
+   "newAnswers": [
+    "Giving the speech, he made many references to the article"
+   ],
+   "why": "В русском единственное число: «к статье», а не к нескольким статьям."
+  },
+  {
+   "chapter": 30,
+   "prompt": "Слушая эту музыку, она забывала обо всем.",
+   "answers": [
+    "Listening to music, she forgot about everything"
+   ],
+   "newPrompt": "Слушая эту музыку, она забывала обо всем.",
+   "newAnswers": [
+    "Listening to this music, she forgot about everything"
+   ],
+   "why": "Пропущено указательное «эту» — this."
+  },
+  {
+   "chapter": 30,
+   "prompt": "Работая над этим текстом, я вносил много изменений.",
+   "answers": [
+    "Working at this text, I made many corrections"
+   ],
+   "newPrompt": "Работая над этим текстом, я вносил много изменений.",
+   "newAnswers": [
+    "Working on this text, I made many corrections"
+   ],
+   "why": "С текстом по-английски работают “on”, не “at”."
+  },
+  {
+   "chapter": 30,
+   "prompt": "Мы встали до рассвета и смогли увидеть первые лучи восходящего солнца.",
+   "answers": [
+    "We woke up before dawn and were able to see the rays of rising sun"
+   ],
+   "newPrompt": "Мы встали до рассвета и смогли увидеть первые лучи восходящего солнца.",
+   "newAnswers": [
+    "We woke up before dawn and were able to see the first rays of the rising sun"
+   ],
+   "why": "Пропущено «первые»; также нужно оформить «the rising sun»."
+  },
+  {
+   "chapter": 30,
+   "prompt": "Он вышел на улицу и посмотрел на проезжающие мимо машины.",
+   "answers": [
+    "He came out to the street and was looking to the cars passing by"
+   ],
+   "newPrompt": "Он вышел на улицу и посмотрел на проезжающие мимо машины.",
+   "newAnswers": [
+    "He came out to the street and looked at the cars passing by"
+   ],
+   "why": "Неверная конструкция: нужно “looked at the cars”, а не “was looking to the cars”."
+  },
+  {
+   "chapter": 30,
+   "prompt": "Написанные им книги отражают жизнь в английском обществе в XIX веке.",
+   "answers": [
+    "The books written by him reflect the life of English society in the 19 century"
+   ],
+   "newPrompt": "Написанные им книги отражают жизнь в английском обществе в XIX веке.",
+   "newAnswers": [
+    "The books written by him reflect the life of English society in the 19th century"
+   ],
+   "why": "В английском нужно писать порядковое числительное: «19th century», а не «19 century»."
+  },
+  {
+   "chapter": 30,
+   "prompt": "Говорящий обратился к собранию, подняв руку.",
+   "answers": [
+    "Having raised his hand, the spoke person addressed the audience"
+   ],
+   "newPrompt": "Говорящий обратился к собранию, подняв руку.",
+   "newAnswers": [
+    "Having raised his hand, the speaker addressed the audience"
+   ],
+   "why": "«spoke person» — ошибочное выражение; здесь нужен «speaker» («говорящий/выступающий»)."
+  },
+  {
+   "chapter": 30,
+   "prompt": "Закончив с упаковкой вещей, девочки отправились на станцию.",
+   "answers": [
+    "Having finished with the packaging, the girls went to the station"
+   ],
+   "newPrompt": "Закончив с упаковкой вещей, девочки отправились на станцию.",
+   "newAnswers": [
+    "Having finished with the packing, the girls went to the station"
+   ],
+   "why": "«packaging» означает скорее упаковку/тару или промышленную упаковку; для «упаковки вещей» нужно «packing»."
+  },
+  {
+   "chapter": 30,
+   "prompt": "Написанные им картины теперь продают по очень большой цене.",
+   "answers": [
+    "The pictures written by him are now sold at a very high price"
+   ],
+   "newPrompt": "Написанные им картины теперь продают по очень большой цене.",
+   "newAnswers": [
+    "The pictures painted by him are now sold at a very high price"
+   ],
+   "why": "Картины по-английски не «write», а «paint»."
+  },
+  {
+   "chapter": 30,
+   "prompt": "Решив никуда не идти, все остались дома.",
+   "answers": [
+    "Having decided not to go anywhere, everybody decided to stay home"
+   ],
+   "newPrompt": "Решив никуда не идти, все остались дома.",
+   "newAnswers": [
+    "Having decided not to go anywhere, everybody stayed home"
+   ],
+   "why": "В русском сказано, что все остались дома, а не что они снова «решили» остаться."
+  },
+  {
+   "chapter": 31,
+   "prompt": "Ему нужен опыт, чтобы стать хорошим инженером.",
+   "answers": [
+    "He need experience to become a good engineer"
+   ],
+   "newPrompt": "Ему нужен опыт, чтобы стать хорошим инженером.",
+   "newAnswers": [
+    "He needs experience to become a good engineer"
+   ],
+   "why": "Ошибка согласования: с he нужно needs, а не need."
+  },
+  {
+   "chapter": 31,
+   "prompt": "Мясо, которое я купил, свежее.",
+   "answers": [
+    "The meet that I’ve bought is fresh"
+   ],
+   "newPrompt": "Мясо, которое я купил, свежее.",
+   "newAnswers": [
+    "The meat that I’ve bought is fresh"
+   ],
+   "why": "Опечатка: meet означает «встречаться/встреча», нужно meat — «мясо»."
+  },
+  {
+   "chapter": 31,
+   "prompt": "У него достаточно силы, чтобы справиться с этой ситуацией.",
+   "answers": [
+    "He has enough force to handle this situation"
+   ],
+   "newPrompt": "У него достаточно силы, чтобы справиться с этой ситуацией.",
+   "newAnswers": [
+    "He has enough strength to handle this situation"
+   ],
+   "why": "В этом контексте «сила/силы» — strength, а не force."
+  },
+  {
+   "chapter": 31,
+   "prompt": "Они развели костер и приготовили еду.",
+   "answers": [
+    "The made a fire and cooked food"
+   ],
+   "newPrompt": "Они развели костер и приготовили еду.",
+   "newAnswers": [
+    "They made a fire and cooked food"
+   ],
+   "why": "Опечатка/неверное слово: The вместо They."
+  },
+  {
+   "chapter": 31,
+   "prompt": "Телефон был изобретен Александром Беллом.",
+   "answers": [
+    "The phone was invented by Alexandre Bell"
+   ],
+   "newPrompt": "Телефон был изобретен Александром Беллом.",
+   "newAnswers": [
+    "The phone was invented by Alexander Bell"
+   ],
+   "why": "Имя изобретателя по-английски Alexander Bell, не Alexandre."
+  },
+  {
+   "chapter": 31,
+   "prompt": "У нее нет машины.",
+   "answers": [
+    "He doesn’t have a car"
+   ],
+   "newPrompt": "У нее нет машины.",
+   "newAnswers": [
+    "She doesn’t have a car"
+   ],
+   "why": "«У нее» — she, а не he."
+  },
+  {
+   "chapter": 31,
+   "prompt": "Сегодня приятный день.",
+   "answers": [
+    "It is a mice day today"
+   ],
+   "newPrompt": "Сегодня приятный день.",
+   "newAnswers": [
+    "It is a nice day today"
+   ],
+   "why": "Опечатка: mice вместо nice."
+  },
+  {
+   "chapter": 31,
+   "prompt": "ТетяЭнн появилась к полудню.",
+   "answers": [
+    "Aunt Ann appeared in the afternoon"
+   ],
+   "newPrompt": "Тетя Энн появилась к полудню.",
+   "newAnswers": [
+    "Aunt Ann appeared by noon"
+   ],
+   "why": "«К полудню» значит «к/к моменту полудня», а не «днём/после полудня»."
+  },
+  {
+   "chapter": 31,
+   "prompt": "Придут ли Тейлоры на ланч?",
+   "answers": [
+    "Are the Tailors coming for lunch?"
+   ],
+   "newPrompt": "Придут ли Тейлоры на ланч?",
+   "newAnswers": [
+    "Are the Taylors coming for lunch?"
+   ],
+   "why": "Фамилия Taylor должна быть во множественном числе как Taylors; Tailors означает «портные»."
+  },
+  {
+   "chapter": 31,
+   "prompt": "Филиппины расположены в Юго-Восточной Азии.",
+   "answers": [
+    "The Philippines are in the south-eastern Asia"
+   ],
+   "newPrompt": "Филиппины расположены в Юго-Восточной Азии.",
+   "newAnswers": [
+    "The Philippines are in south-eastern Asia"
+   ],
+   "why": "Перед Asia в таком выражении артикль the не нужен; с артиклем фраза неграмматична."
+  },
+  {
+   "chapter": 31,
+   "prompt": "Я не знаю много о литературе и искусстве.",
+   "answers": [
+    "I don’t much about literature and art"
+   ],
+   "newPrompt": "Я не знаю много о литературе и искусстве.",
+   "newAnswers": [
+    "I don’t know much about literature and art"
+   ],
+   "why": "Пропущен глагол know: «я не знаю»."
+  },
+  {
+   "chapter": 31,
+   "prompt": "Он много рассказал нам о Франции и французах.",
+   "answers": [
+    "He told us about France and the French"
+   ],
+   "newPrompt": "Он много рассказал нам о Франции и французах.",
+   "newAnswers": [
+    "He told us a lot about France and the French"
+   ],
+   "why": "В переводе пропущено значение «много» — told us a lot."
+  },
+  {
+   "chapter": 31,
+   "prompt": "Из этого отеля открывается чудесный вид на озеро Женева.",
+   "answers": [
+    "There is a wonderful view from this hotel to the lake Geneva"
+   ],
+   "newPrompt": "Из этого отеля открывается чудесный вид на озеро Женева.",
+   "newAnswers": [
+    "There is a wonderful view of Lake Geneva from this hotel"
+   ],
+   "why": "Неверная конструкция: нужно «view of Lake Geneva», а не «view ... to the lake Geneva»."
+  },
+  {
+   "chapter": 29,
+   "prompt": "Раньше я часто приезжал в Англию и всегда останавливался в этом отеле.",
+   "answers": [
+    "I used to often come to England I used to always stay in this hotel"
+   ],
+   "newPrompt": "Раньше я часто приезжал в Англию и всегда останавливался в этом отеле.",
+   "newAnswers": [
+    "I used to often come to England and I used to always stay in this hotel"
+   ],
+   "why": "Пропущен союз между двумя частями; без него английское предложение неграмматично."
+  },
+  {
+   "chapter": 32,
+   "prompt": "Он долго искал работу и в конце концов устроился в отель.",
+   "answers": [
+    "Hehadbeenlookingforajobforalongtime, andintheendhegotajobin a hotel"
+   ],
+   "newPrompt": "Он долго искал работу и в конце концов устроился в отель.",
+   "newAnswers": [
+    "He had been looking for a job for a long time, and in the end he got a job in a hotel"
+   ],
+   "why": "В ключе слова ошибочно склеены без пробелов."
+  },
+  {
+   "chapter": 32,
+   "prompt": "В настоящее время он занимает должность главы компании.",
+   "answers": [
+    "She is the head of the company at present"
+   ],
+   "newPrompt": "В настоящее время он занимает должность главы компании.",
+   "newAnswers": [
+    "He is the head of the company at present"
+   ],
+   "why": "В русском «он», а в ключе ошибочно she."
+  },
+  {
+   "chapter": 32,
+   "prompt": "Я люблю ездить в трамвае по городу.",
+   "answers": [
+    "I like to travel by train around the city"
+   ],
+   "newPrompt": "Я люблю ездить в трамвае по городу.",
+   "newAnswers": [
+    "I like to travel by tram around the city"
+   ],
+   "why": "«Трамвай» переведён как train вместо tram."
+  },
+  {
+   "chapter": 32,
+   "prompt": "Обычно я ложусь спать в полночь.",
+   "answers": [
+    "I usually go to be at midnight"
+   ],
+   "newPrompt": "Обычно я ложусь спать в полночь.",
+   "newAnswers": [
+    "I usually go to bed at midnight"
+   ],
+   "why": "Опечатка: должно быть “bed”, а не “be”."
+  },
+  {
+   "chapter": 32,
+   "prompt": "В будущем я хочу работать в той же компании.",
+   "answers": [
+    "I won’t to work at the same company in the future"
+   ],
+   "newPrompt": "В будущем я хочу работать в той же компании.",
+   "newAnswers": [
+    "I want to work at the same company in the future"
+   ],
+   "why": "“won’t” меняет смысл на отрицание и грамматически не подходит; нужно “want”."
+  },
+  {
+   "chapter": 32,
+   "prompt": "Он еще не приехал? — Нет, но он уже в машине.",
+   "answers": [
+    "Has he arrived yet? No, he is still in the car"
+   ],
+   "newPrompt": "Он еще не приехал? — Нет, но он уже в машине.",
+   "newAnswers": [
+    "Has he arrived yet? No, he is already in the car"
+   ],
+   "why": "«Уже» — это “already”, а не “still” («всё еще»)."
+  },
+  {
+   "chapter": 21,
+   "prompt": "Я должен продолжать работать.",
+   "answers": [
+    "I have to go no working"
+   ],
+   "newPrompt": "Я должен продолжать работать.",
+   "newAnswers": [
+    "I have to go on working"
+   ],
+   "why": "Должно быть go on working; «go no working» — ошибка/неверный порядок слов."
+  },
+  {
+   "chapter": 23,
+   "prompt": "Я бы мог зарабатывать больше, работая бухгалтером, но это слишком скучно для меня.",
+   "answers": [
+    "I could have made more working as an accountant, but it’s to boring for me"
+   ],
+   "newPrompt": "Я бы мог зарабатывать больше, работая бухгалтером, но это слишком скучно для меня.",
+   "newAnswers": [
+    "I could make more working as an accountant, but it’s too boring for me"
+   ],
+   "why": "В русском речь о настоящей/общей возможности («мог бы зарабатывать»), не о прошлом; также нужно too, а не to."
+  },
+  {
+   "chapter": 23,
+   "prompt": "Я последнее время не мог сосредоточиться на учебе.",
+   "answers": [
+    "I haven’t been able to focus on my job recently"
+   ],
+   "newPrompt": "Я последнее время не мог сосредоточиться на учебе.",
+   "newAnswers": [
+    "I haven’t been able to focus on my studies recently"
+   ],
+   "why": "«Учёба» — это studies, не job."
+  },
+  {
+   "chapter": 23,
+   "prompt": "Спасибо за приглашение, но я не смогу прийти на твою свадьбу.",
+   "answers": [
+    "Thank you for your invitation, but I wont be able to come to your weeding"
+   ],
+   "newPrompt": "Спасибо за приглашение, но я не смогу прийти на твою свадьбу.",
+   "newAnswers": [
+    "Thank you for your invitation, but I won’t be able to come to your wedding"
+   ],
+   "why": "Опечатка: weeding означает «прополка», нужно wedding — «свадьба»."
+  },
+  {
+   "chapter": 23,
+   "prompt": "Несмотря на пробки, я смог приехать на встречу вовремя.",
+   "answers": [
+    "Despite the traffic jams, I was able to get to work on time"
+   ],
+   "newPrompt": "Несмотря на пробки, я смог приехать на встречу вовремя.",
+   "newAnswers": [
+    "Despite the traffic jams, I was able to get to the meeting on time"
+   ],
+   "why": "В русском «на встречу», а не «на работу»."
+  },
+  {
+   "chapter": 24,
+   "prompt": "Моя собака потеряла аппетит и не могла нормально есть несколько дней.",
+   "answers": [
+    "My dog has lost its appetite and hasn’t been able to eat for the last several days"
+   ],
+   "newPrompt": "Моя собака потеряла аппетит и не могла нормально есть несколько дней.",
+   "newAnswers": [
+    "My dog has lost its appetite and hasn’t been able to eat normally for the last several days"
+   ],
+   "why": "В ключе пропущено «нормально»: без normally/properly смысл становится сильнее — будто собака вообще не могла есть."
+  },
+  {
+   "chapter": 24,
+   "prompt": "Когда я сломал ногу, я не мог ходить долгое время.",
+   "answers": [
+    "When I broke my leg, I couldn’t walk well"
+   ],
+   "newPrompt": "Когда я сломал ногу, я не мог ходить долгое время.",
+   "newAnswers": [
+    "When I broke my leg, I couldn’t walk for a long time"
+   ],
+   "why": "«Долгое время» переведено как well; нужно передать длительность, а не «хорошо/плохо»."
+  },
+  {
+   "chapter": 24,
+   "prompt": "Не может быть, что ей понравится то блюдо.",
+   "answers": [
+    "She can’t like this meal"
+   ],
+   "newPrompt": "Не может быть, что ей понравится то блюдо.",
+   "newAnswers": [
+    "She can’t possibly like that meal"
+   ],
+   "why": "«То блюдо» — that meal/dish; кроме того, «понравится» передаёт будущую/предполагаемую реакцию, а не просто настоящее «нравится это блюдо»."
+  },
+  {
+   "chapter": 24,
+   "prompt": "Он не смог сдать экзамен с первого раза.",
+   "answers": [
+    "He wasn’t able to pass his exam from the first attempt / from the first time"
+   ],
+   "newPrompt": "Он не смог сдать экзамен с первого раза.",
+   "newAnswers": [
+    "He wasn’t able to pass his exam on the first attempt / the first time"
+   ],
+   "why": "С pass an exam нельзя употреблять from the first attempt/from the first time; нужен on the first attempt или the first time."
+  },
+  {
+   "chapter": 24,
+   "prompt": "Из-за болезни я не мог есть ничего жирного последнюю неделю.",
+   "answers": [
+    "Because of my illness I haven’t been able to eat anything greasy this week"
+   ],
+   "newPrompt": "Из-за болезни я не мог есть ничего жирного последнюю неделю.",
+   "newAnswers": [
+    "Because of my illness I haven’t been able to eat anything greasy for the last week"
+   ],
+   "why": "«Последнюю неделю» означает период за последнюю неделю/в течение последней недели, а не просто this week."
+  },
+  {
+   "chapter": 24,
+   "prompt": "У меня отключился интернет, и я не мог выйти в интернет несколько часов.",
+   "answers": [
+    "I haven’t been able to go on the Internet because my internet went off"
+   ],
+   "newPrompt": "У меня отключился интернет, и я не мог выйти в интернет несколько часов.",
+   "newAnswers": [
+    "I haven’t been able to go on the Internet for several hours because my internet went off"
+   ],
+   "why": "В ключе пропущено «несколько часов»."
+  },
+  {
+   "chapter": 26,
+   "prompt": "Возможно, они уже обсудили это вчера.",
+   "answers": [
+    "They might have discussed this yesterday"
+   ],
+   "newPrompt": "Возможно, они уже обсудили это вчера.",
+   "newAnswers": [
+    "They might have already discussed this yesterday"
+   ],
+   "why": "Пропущено значение «уже»."
+  },
+  {
+   "chapter": 26,
+   "prompt": "Я бы не справился без твоей помощи.",
+   "answers": [
+    "I wouldn’t have been able to so this without your help"
+   ],
+   "newPrompt": "Я бы не справился без твоей помощи.",
+   "newAnswers": [
+    "I wouldn’t have been able to do this without your help"
+   ],
+   "why": "Опечатка: должно быть do, а не so."
+  },
+  {
+   "chapter": 26,
+   "prompt": "Возможно, наши соседи уехали — их давно не слышно.",
+   "answers": [
+    "Our neighbors might have gone away, I haven’t heared from them for a long time"
+   ],
+   "newPrompt": "Возможно, наши соседи уехали — их давно не слышно.",
+   "newAnswers": [
+    "Our neighbors might have gone away, I haven’t heard from them for a long time"
+   ],
+   "why": "Неверная форма/опечатка: heared вместо heard."
+  },
+  {
+   "chapter": 26,
+   "prompt": "Возможно, они не знали о встрече, которая прошла на прошлой неделе.",
+   "answers": [
+    "They might not have known about the meeting yesterday"
+   ],
+   "newPrompt": "Возможно, они не знали о встрече, которая прошла на прошлой неделе.",
+   "newAnswers": [
+    "They might not have known about the meeting that took place last week"
+   ],
+   "why": "В ключе ошибочно yesterday; в русском — встреча, которая прошла на прошлой неделе."
+  },
+  {
+   "chapter": 27,
+   "prompt": "Мне нельзя было опаздывать на эту встречу.",
+   "answers": [
+    "I can’t be late for this meeting"
+   ],
+   "newPrompt": "Мне нельзя было опаздывать на эту встречу.",
+   "newAnswers": [
+    "I wasn’t allowed to be late for this meeting"
+   ],
+   "why": "«Нельзя было» требует прошедшего времени, а не can’t в настоящем."
+  },
+  {
+   "chapter": 27,
+   "prompt": "Мне нельзя гулять без шапки.",
+   "answers": [
+    "I cant’ walk without a hat"
+   ],
+   "newPrompt": "Мне нельзя гулять без шапки.",
+   "newAnswers": [
+    "I can’t walk without a hat"
+   ],
+   "why": "Опечатка в can’t: cant’ — неверное написание."
+  },
+  {
+   "chapter": 25,
+   "prompt": "Джон не мог встать в семь утра сегодня.",
+   "answers": [
+    "John can’t have woken up at seven o’clockthis morning"
+   ],
+   "newPrompt": "Джон не мог встать в семь утра сегодня.",
+   "newAnswers": [
+    "John can’t have woken up at seven o’clock this morning"
+   ],
+   "why": "Опечатка: слиты слова “o’clock” и “this”."
+  },
+  {
+   "chapter": 25,
+   "prompt": "Должно быть, он был болен и поэтому не пришел.",
+   "answers": [
+    "He must have been ill and didn’t come"
+   ],
+   "newPrompt": "Должно быть, он был болен и поэтому не пришел.",
+   "newAnswers": [
+    "He must have been ill and therefore didn’t come"
+   ],
+   "why": "Пропущено значение «поэтому»."
+  },
+  {
+   "chapter": 25,
+   "prompt": "Должно быть, она дома, там горит свет.",
+   "answers": [
+    "She must be at home, there is a light"
+   ],
+   "newPrompt": "Должно быть, она дома, там горит свет.",
+   "newAnswers": [
+    "She must be at home, there is a light on"
+   ],
+   "why": "«Там горит свет» означает, что свет включен, а не просто что там есть свет."
+  },
+  {
+   "chapter": 25,
+   "prompt": "Должно быть, она не знала об этой встрече.",
+   "answers": [
+    "She must have not known about this meeting yesterday"
+   ],
+   "newPrompt": "Должно быть, она не знала об этой встрече.",
+   "newAnswers": [
+    "She must have not known about this meeting"
+   ],
+   "why": "В ключе лишнее “yesterday”: в русском предложении нет «вчера»."
+  },
+  {
+   "chapter": 25,
+   "prompt": "Должно быть, они сейчас на встрече.",
+   "answers": [
+    "They must be at work now"
+   ],
+   "newPrompt": "Должно быть, они сейчас на встрече.",
+   "newAnswers": [
+    "They must be at the meeting now"
+   ],
+   "why": "«На встрече» переведено как “at work”, что меняет смысл."
+  },
+  {
+   "chapter": 28,
+   "prompt": "Ты мог бы сломать шею, прыгая с такой высоты.",
+   "answers": [
+    "You could have broken your neck, jumping from such height"
+   ],
+   "newPrompt": "Ты мог бы сломать шею, прыгая с такой высоты.",
+   "newAnswers": [
+    "You could have broken your neck, jumping from such a height"
+   ],
+   "why": "Нужен артикль: “from such a height”."
+  },
+  {
+   "chapter": 28,
+   "prompt": "Я должен встать рано с утра.",
+   "answers": [
+    "I must wake up earlier in the morning"
+   ],
+   "newPrompt": "Я должен встать рано с утра.",
+   "newAnswers": [
+    "I must get up early in the morning"
+   ],
+   "why": "«Встать рано» — get up early, не сравнительное earlier и не просто wake up."
+  },
+  {
+   "chapter": 28,
+   "prompt": "Он мог читать, когда ему было три года.",
+   "answers": [
+    "He could read when he was five"
+   ],
+   "newPrompt": "Он мог читать, когда ему было три года.",
+   "newAnswers": [
+    "He could read when he was three"
+   ],
+   "why": "В русском сказано «три года», а не five."
+  },
+  {
+   "chapter": 28,
+   "prompt": "Это, должно быть, нужное нам здание.",
+   "answers": [
+    "This must be the task we need"
+   ],
+   "newPrompt": "Это, должно быть, нужное нам здание.",
+   "newAnswers": [
+    "This must be the building we need"
+   ],
+   "why": "«Здание» переведено как task вместо building."
+  },
+  {
+   "chapter": 28,
+   "prompt": "Я должен буду забрать сестру из детского сада.",
+   "answers": [
+    "I will have to pick up my sister from the kinder garden"
+   ],
+   "newPrompt": "Я должен буду забрать сестру из детского сада.",
+   "newAnswers": [
+    "I will have to pick up my sister from the kindergarten"
+   ],
+   "why": "“kinder garden” — ошибка написания; правильно kindergarten."
+  },
+  {
+   "chapter": 25,
+   "prompt": "Я должен был решить этот вопрос. Теперь попробуем объединить использование must и can в одном упражнении.",
+   "answers": [
+    "I had to solve this issue"
+   ],
+   "newPrompt": "Я должен был решить этот вопрос.",
+   "newAnswers": [
+    "I had to solve this issue"
+   ],
+   "why": "В ключе переведено только первое предложение; второе русское предложение пропущено."
+  },
+  {
+   "chapter": 25,
+   "prompt": "Все могло бы быть намного хуже.",
+   "answers": [
+    "Everything could have been worse"
+   ],
+   "newPrompt": "Все могло бы быть намного хуже.",
+   "newAnswers": [
+    "Everything could have been much worse"
+   ],
+   "why": "Пропущено значение «намного» — нужно much worse."
+  },
+  {
+   "chapter": 25,
+   "prompt": "Я, возможно, оставил зонт в автобусе.",
+   "answers": [
+    "I might have left this umbrella on a bus"
+   ],
+   "newPrompt": "Я, возможно, оставил зонт в автобусе.",
+   "newAnswers": [
+    "I might have left my umbrella on a bus"
+   ],
+   "why": "«This umbrella» добавляет значение «этот», которого нет в русском; здесь естественно «my umbrella»."
+  },
+  {
+   "chapter": 25,
+   "prompt": "Он был вчера расстроен, должно быть, он получил плохую оценку.",
+   "answers": [
+    "He was upset yesterday, he might have got a bad mark"
+   ],
+   "newPrompt": "Он был вчера расстроен, должно быть, он получил плохую оценку.",
+   "newAnswers": [
+    "He was upset yesterday, he must have got a bad mark"
+   ],
+   "why": "«Должно быть» — это must, а не might."
+  },
+  {
+   "chapter": 25,
+   "prompt": "Они, должно быть, решили эту проблему вчера.",
+   "answers": [
+    "They must have solve this problem yesterday"
+   ],
+   "newPrompt": "Они, должно быть, решили эту проблему вчера.",
+   "newAnswers": [
+    "They must have solved this problem yesterday"
+   ],
+   "why": "После must have нужен причастный оборот: solved, не solve."
+  },
+  {
+   "chapter": 26,
+   "prompt": "Тебе следовало позаботиться об этом заранее.",
+   "answers": [
+    "You should have thought about this before / taken care about this"
+   ],
+   "newPrompt": "Тебе следовало позаботиться об этом заранее.",
+   "newAnswers": [
+    "You should have thought about this before / taken care of this"
+   ],
+   "why": "Правильно take care of, не take care about."
+  },
+  {
+   "chapter": 28,
+   "prompt": "Он просил предупредить, что вам, возможно, придется подождать еще два-три дня, прежде чем он сможет вас принять.",
+   "answers": [
+    "He asked to warn you that you might wait for a couple of days before he will be able to see you. You should think carefully about what you are going to talk about."
+   ],
+   "newPrompt": "Он просил предупредить, что вам, возможно, придется подождать еще два-три дня, прежде чем он сможет вас принять.",
+   "newAnswers": [
+    "He asked to warn you that you might have to wait another two or three days before he can see you."
+   ],
+   "why": "В ключе пропущено значение «придется», неточно передано «еще два-три дня» и добавлено лишнее предложение, которого нет в русском."
+  },
+  {
+   "chapter": 28,
+   "prompt": "Профессор пожалел, что не спросил нового сотрудника, кто его рекомендовал. Это, скорее всего, был кто-то из его коллег.",
+   "answers": [
+    "Professor felt sorry that he didn’t asked who had recommended him. It might have been someone from his colleagues."
+   ],
+   "newPrompt": "Профессор пожалел, что не спросил нового сотрудника, кто его рекомендовал. Это, скорее всего, был кто-то из его коллег.",
+   "newAnswers": [
+    "The professor regretted that he hadn’t asked the new employee who had recommended him. It must have been one of his colleagues."
+   ],
+   "why": "Ошибка грамматики: «didn’t asked»; также пропущен «новый сотрудник», а «скорее всего» здесь лучше передать как must/probably, не might."
+  },
+  {
+   "chapter": 28,
+   "prompt": "Ваш сын, должно быть, занимается уже 5 часов подряд. Вам следует заставить его погулять.",
+   "answers": [
+    "Your son must be studying for five hours in a row. You should make him go for a walk. He might get a headache if he keeps working without rest."
+   ],
+   "newPrompt": "Ваш сын, должно быть, занимается уже 5 часов подряд. Вам следует заставить его погулять.",
+   "newAnswers": [
+    "Your son must have been studying for five hours in a row. You should make him go for a walk."
+   ],
+   "why": "Для «занимается уже 5 часов» нужно must have been studying; последнее предложение лишнее, его нет в русском."
+  },
+  {
+   "chapter": 28,
+   "prompt": "Он мог играть на трубе и на гитаре.",
+   "answers": [
+    "He could play the horn and the guitar"
+   ],
+   "newPrompt": "Он мог играть на трубе и на гитаре.",
+   "newAnswers": [
+    "He could play the trumpet and the guitar"
+   ],
+   "why": "«Труба» как музыкальный инструмент — trumpet, не horn."
+  },
+  {
+   "chapter": 28,
+   "prompt": "Ты мог бы позвонить мне, чтобы предупредить об этом.",
+   "answers": [
+    "You could have called me to make me stay"
+   ],
+   "newPrompt": "Ты мог бы позвонить мне, чтобы предупредить об этом.",
+   "newAnswers": [
+    "You could have called me to warn me about it"
+   ],
+   "why": "«Предупредить об этом» неверно переведено как «make me stay»."
+  },
+  {
+   "chapter": 28,
+   "prompt": "Они могли бы помочь мне, вместо того чтобы просто сидеть здесь.",
+   "answers": [
+    "They could have helped me instead of just sit here"
+   ],
+   "newPrompt": "Они могли бы помочь мне, вместо того чтобы просто сидеть здесь.",
+   "newAnswers": [
+    "They could have helped me instead of just sitting here"
+   ],
+   "why": "После instead of нужен герундий: sitting, а не sit."
+  },
+  {
+   "chapter": 28,
+   "prompt": "Не может быть, чтобы он нас видел.",
+   "answers": [
+    "He can’t have seen you"
+   ],
+   "newPrompt": "Не может быть, чтобы он нас видел.",
+   "newAnswers": [
+    "He can’t have seen us"
+   ],
+   "why": "«Нас» переведено как you вместо us."
+  },
+  {
+   "chapter": 27,
+   "prompt": "Тебе не нужно было покупать хлеб вчера, у нас много хлеба.",
+   "answers": [
+    "I didn’t have to buy bread yesterday, we have enough bread"
+   ],
+   "newPrompt": "Тебе не нужно было покупать хлеб вчера, у нас много хлеба.",
+   "newAnswers": [
+    "You didn’t have to buy bread yesterday, we have enough bread"
+   ],
+   "why": "В русском «тебе», а не «мне»: должно быть You, не I."
+  },
+  {
+   "chapter": 28,
+   "prompt": "Должно быть, она была больна и поэтому не пришла на встречу.",
+   "answers": [
+    "She must have been ill and, therefore, didn’t come to the meeting/ she must be ill this is why she hasn’t come to the meeting"
+   ],
+   "newPrompt": "Должно быть, она была больна и поэтому не пришла на встречу.",
+   "newAnswers": [
+    "She must have been ill and, therefore, didn’t come to the meeting/ she must have been ill this is why she didn’t come to the meeting"
+   ],
+   "why": "Во втором варианте неверное время: «была больна и не пришла», а не «больна сейчас и ещё не пришла»."
+  },
+  {
+   "chapter": 28,
+   "prompt": "Делегация может прибыть в любую минуту. Вам следует очень быстро подготовить все необходимые документы.",
+   "answers": [
+    "The delegation can come any minute. You should prepare all the neccessary documents as fast as possible. If I had known about this earlier, I would have warned you."
+   ],
+   "newPrompt": "Делегация может прибыть в любую минуту. Вам следует очень быстро подготовить все необходимые документы.",
+   "newAnswers": [
+    "The delegation can come any minute. You should prepare all the necessary documents as fast as possible."
+   ],
+   "why": "В ключе лишнее предложение, которого нет в русском; также опечатка neccessary → necessary."
+  },
+  {
+   "chapter": 28,
+   "prompt": "Вашему другу давно следовало бы пойти к врачу.",
+   "answers": [
+    "Your friend should have gone to the doctor."
+   ],
+   "newPrompt": "Вашему другу давно следовало бы пойти к врачу.",
+   "newAnswers": [
+    "Your friend should have gone to the doctor long ago."
+   ],
+   "why": "Пропущено значение «давно»."
+  },
+  {
+   "chapter": 28,
+   "prompt": "Он, может быть, и попытался доказать ей, что прав, но не сумел.",
+   "answers": [
+    "He might have tried to prove her that he was right, but he wasn’t able to"
+   ],
+   "newPrompt": "Он, может быть, и попытался доказать ей, что прав, но не сумел.",
+   "newAnswers": [
+    "He might have tried to prove to her that he was right, but he wasn’t able to"
+   ],
+   "why": "После prove в этом значении нужно to her: prove to her that..., а не prove her that...."
+  },
+  {
+   "chapter": 28,
+   "prompt": "Возможно, он не знал о собрании. Он бы обязательно пришел.",
+   "answers": [
+    "He might have not known about the meeting. He would have come"
+   ],
+   "newPrompt": "Возможно, он не знал о собрании. Он бы обязательно пришел.",
+   "newAnswers": [
+    "He might have not known about the meeting. He would definitely have come"
+   ],
+   "why": "Пропущено «обязательно» во втором предложении."
+  },
+  {
+   "chapter": 29,
+   "prompt": "Ему не нравится этот маленький городок, но он к нему привыкнет.",
+   "answers": [
+    "She doesn’t like this small town, but he will get used to it"
+   ],
+   "newPrompt": "Ему не нравится этот маленький городок, но он к нему привыкнет.",
+   "newAnswers": [
+    "He doesn’t like this small town, but he will get used to it"
+   ],
+   "why": "В русском «Ему не нравится», значит в первой части должно быть He, а не She."
+  },
+  {
+   "chapter": 29,
+   "prompt": "Мне трудно привыкнуть к тому, чтобы заниматься спортом каждый день.",
+   "answers": [
+    "It’s difficult to get used to doing sports every day"
+   ],
+   "newPrompt": "Мне трудно привыкнуть к тому, чтобы заниматься спортом каждый день.",
+   "newAnswers": [
+    "It’s difficult for me to get used to doing sports every day"
+   ],
+   "why": "В ключе пропущено «мне» — нужно указать, что трудно именно говорящему."
+  },
+  {
+   "chapter": 29,
+   "prompt": "Английский стал международным языком. Деловым людям придется привыкнуть говорить на нем на международных встречах.",
+   "answers": [
+    "Engilsh has become an international language. Business people will have to get used to speaking it at the business meetings."
+   ],
+   "newPrompt": "Английский стал международным языком. Деловым людям придется привыкнуть говорить на нем на международных встречах.",
+   "newAnswers": [
+    "English has become an international language. Business people will have to get used to speaking it at the international meetings."
+   ],
+   "why": "Опечатка «Engilsh»; кроме того, «business meetings» не соответствует «международных встречах»."
+  },
+  {
+   "chapter": 29,
+   "prompt": "Нам было непривычно использовать эту операционную систему. Мы привыкли к ней совсем недавно.",
+   "answers": [
+    "We were not used to using this operational system. We have got used to it only recently.",
+    "we got used to it…"
+   ],
+   "newPrompt": "Нам было непривычно использовать эту операционную систему. Мы привыкли к ней совсем недавно.",
+   "newAnswers": [
+    "We were not used to using this operating system. We have got used to it only recently.",
+    "we got used to it…"
+   ],
+   "why": "«Операционная система» по-английски — operating system, не operational system."
+  },
+  {
+   "chapter": 29,
+   "prompt": "Ей придется привыкнуть жить в экстремальном холоде Сибири.",
+   "answers": [
+    "She will have to get used to living in an extreme cold of Siberia"
+   ],
+   "newPrompt": "Ей придется привыкнуть жить в экстремальном холоде Сибири.",
+   "newAnswers": [
+    "She will have to get used to living in the extreme cold of Siberia"
+   ],
+   "why": "Неверный артикль: cold в этом значении неисчисляемое; нужно the extreme cold of Siberia."
+  },
+  {
+   "chapter": 29,
+   "prompt": "Раньше я не много читал, но теперь часто это делаю",
+   "answers": [
+    "I didn’t use to read a lot, nut now I do it often"
+   ],
+   "newPrompt": "Раньше я не много читал, но теперь часто это делаю",
+   "newAnswers": [
+    "I didn’t use to read a lot, but now I do it often"
+   ],
+   "why": "Опечатка: nut вместо but."
+  },
+  {
+   "chapter": 29,
+   "prompt": "Я раньше никогда не ходила на вечеринки",
+   "answers": [
+    "I didn’t use to go to partied"
+   ],
+   "newPrompt": "Я раньше никогда не ходила на вечеринки",
+   "newAnswers": [
+    "I didn’t use to go to parties"
+   ],
+   "why": "Опечатка/неверная форма: после go to нужно parties, а не partied."
+  },
+  {
+   "chapter": 29,
+   "prompt": "Он раньше был толстым, но теперь похудел.",
+   "answers": [
+    "He used to be fat, but now he has lost his weight"
+   ],
+   "newPrompt": "Он раньше был толстым, но теперь похудел.",
+   "newAnswers": [
+    "He used to be fat, but now he has lost weight"
+   ],
+   "why": "Лишнее притяжательное местоимение: по-английски в этом значении говорят lost weight."
+  },
+  {
+   "chapter": 29,
+   "prompt": "Ты писал стихи в молодости?",
+   "answers": [
+    "Did you used to write poetry in your youth?"
+   ],
+   "newPrompt": "Ты писал стихи в молодости?",
+   "newAnswers": [
+    "Did you use to write poetry in your youth?"
+   ],
+   "why": "После did нужна форма use, а не used."
+  },
+  {
+   "chapter": 31,
+   "prompt": "Мы живем в большом доме. Здесь есть сад с красивыми деревьями.",
+   "answers": [
+    "We live in a big house. There is a beautiful garden with nice trees"
+   ],
+   "newPrompt": "Мы живем в большом доме. Здесь есть сад с красивыми деревьями.",
+   "newAnswers": [
+    "We live in a big house. There is a garden with beautiful trees"
+   ],
+   "why": "В русском красивые именно деревья; в ключе лишнее/неверное определение garden."
+  },
+  {
+   "chapter": 31,
+   "prompt": "Я купил немного апельсинов.",
+   "answers": [
+    "I bought many oranges"
+   ],
+   "newPrompt": "Я купил немного апельсинов.",
+   "newAnswers": [
+    "I bought some oranges"
+   ],
+   "why": "«Немного» — это some/a few, а не many."
+  },
+  {
+   "chapter": 31,
+   "prompt": "У него есть двое детей: мальчик и девочка. Мальчику 7 лет, а девочке 12.",
+   "answers": [
+    "He has two children: a boy and a girl. The boy is 7 years old and the girls is 12."
+   ],
+   "newPrompt": "У него есть двое детей: мальчик и девочка. Мальчику 7 лет, а девочке 12.",
+   "newAnswers": [
+    "He has two children: a boy and a girl. The boy is 7 years old and the girl is 12."
+   ],
+   "why": "Нужно единственное число: the girl is, а не the girls is."
+  },
+  {
+   "chapter": 31,
+   "prompt": "Я встаю в полседьмого (half past seven) утром и ложусь без пятнадцати одиннадцать (quarter to eleven) вечером.",
+   "answers": [
+    "I get up at half past seven in the morning and go to bed at a quarter to eleven in the evening.",
+    "six thirty",
+    "ten forty five"
+   ],
+   "newPrompt": "Я встаю в полседьмого (half past six) утром и ложусь без пятнадцати одиннадцать (quarter to eleven) вечером.",
+   "newAnswers": [
+    "I get up at half past six in the morning and go to bed at a quarter to eleven in the evening."
+   ],
+   "why": "«В полседьмого» — это 6:30, а не 7:30."
+  },
+  {
+   "chapter": 31,
+   "prompt": "Я вижу почту. Пойдем купим конвертов.",
+   "answers": [
+    "I see a post. Let’s go buy envelops"
+   ],
+   "newPrompt": "Я вижу почту. Пойдем купим конвертов.",
+   "newAnswers": [
+    "I see a post office. Let’s go buy envelopes"
+   ],
+   "why": "«Почта» здесь — post office, не post; «envelops» — неверное написание существительного envelopes."
+  },
+  {
+   "chapter": 31,
+   "prompt": "Я иду на почту. Мне нужны марки.",
+   "answers": [
+    "I am going to the post. I need to buy stamps."
+   ],
+   "newPrompt": "Я иду на почту. Мне нужны марки.",
+   "newAnswers": [
+    "I am going to the post office. I need to buy stamps."
+   ],
+   "why": "«На почту» переводится как to the post office; “to the post” неверно."
+  },
+  {
+   "chapter": 31,
+   "prompt": "Он пойдет в армию в следующем году.",
+   "answers": [
+    "He is going to the army next year"
+   ],
+   "newPrompt": "Он пойдет в армию в следующем году.",
+   "newAnswers": [
+    "He is going into the army next year"
+   ],
+   "why": "По-английски говорят go into/join the army; “go to the army” некорректно."
+  },
+  {
+   "chapter": 31,
+   "prompt": "Кухня в моей квартире слишком маленькая, мне нужна квартира с большей кухней.",
+   "answers": [
+    "The kitchen in my flat is small, I need a kitchen with a bigger kitchen"
+   ],
+   "newPrompt": "Кухня в моей квартире слишком маленькая, мне нужна квартира с большей кухней.",
+   "newAnswers": [
+    "The kitchen in my flat is too small, I need a flat with a bigger kitchen"
+   ],
+   "why": "Пропущено значение «слишком», а во второй части нужна квартира, а не кухня с кухней."
+  },
+  {
+   "chapter": 32,
+   "prompt": "В этом ресторане не много места.",
+   "answers": [
+    "There is much space in this restaurant"
+   ],
+   "newPrompt": "В этом ресторане не много места.",
+   "newAnswers": [
+    "There is not much space in this restaurant"
+   ],
+   "why": "Пропущено отрицание: «не много места» = not much space."
+  },
+  {
+   "chapter": 32,
+   "prompt": "Я зайду за тобой в театр.",
+   "answers": [
+    "I will pick you up in the theatre"
+   ],
+   "newPrompt": "Я зайду за тобой в театр.",
+   "newAnswers": [
+    "I will pick you up at the theatre"
+   ],
+   "why": "«В театр» здесь означает направление/цель: забрать тебя, чтобы пойти в театр, а не «внутри театра»."
+  },
+  {
+   "chapter": 32,
+   "prompt": "Они поженились в конце фильма.",
+   "answers": [
+    "They got married at end of the film"
+   ],
+   "newPrompt": "Они поженились в конце фильма.",
+   "newAnswers": [
+    "They got married at the end of the film"
+   ],
+   "why": "Нужен артикль в выражении “at the end of”."
+  },
+  {
+   "chapter": 32,
+   "prompt": "С какой скоростью ты ехал, когда случилась авария?",
+   "answers": [
+    "At what speed were you driving then the accident happened?"
+   ],
+   "newPrompt": "С какой скоростью ты ехал, когда случилась авария?",
+   "newAnswers": [
+    "At what speed were you driving when the accident happened?"
+   ],
+   "why": "Опечатка: должно быть “when”, а не “then”."
+  },
+  {
+   "chapter": 31,
+   "prompt": "Объединенное Королевство состоит из нескольких стран, в частности Великобритании и Северной Ирландии.",
+   "answers": [
+    "The United Kingdom consists of several countries, in particular, the Great Britain and Northern Ireland"
+   ],
+   "newPrompt": "Объединенное Королевство состоит из нескольких стран, в частности Великобритании и Северной Ирландии.",
+   "newAnswers": [
+    "The United Kingdom consists of several countries, in particular, Great Britain and Northern Ireland"
+   ],
+   "why": "С названием Great Britain артикль the не употребляется."
+  },
+  {
+   "chapter": 31,
+   "prompt": "Мичиган — очень красивое озеро.",
+   "answers": [
+    "The Michigan is a very beautiful lake"
+   ],
+   "newPrompt": "Мичиган — очень красивое озеро.",
+   "newAnswers": [
+    "Michigan is a very beautiful lake"
+   ],
+   "why": "Перед названием озера Michigan артикль the не нужен."
+  },
+  {
+   "chapter": 31,
+   "prompt": "Где остановка автобуса? — Остановка автобуса рядом с заправкой.",
+   "answers": [
+    "Where is the bus station? There is a stop next to the gas station"
+   ],
+   "newPrompt": "Где остановка автобуса? — Остановка автобуса рядом с заправкой.",
+   "newAnswers": [
+    "Where is the bus stop? There is a bus stop next to the gas station"
+   ],
+   "why": "Bus station — это автовокзал/автостанция, а «остановка автобуса» — bus stop."
+  },
+  {
+   "chapter": 31,
+   "prompt": "Между зданием и автобусной остановкой есть почтовый ящик.",
+   "answers": [
+    "There is a mail box between the building and the bus station"
+   ],
+   "newPrompt": "Между зданием и автобусной остановкой есть почтовый ящик.",
+   "newAnswers": [
+    "There is a mail box between the building and the bus stop"
+   ],
+   "why": "«Автобусная остановка» переводится как bus stop, не bus station."
+  },
+  {
+   "chapter": 31,
+   "prompt": "В Сибири много рек: Обь, Иртыш, Лена.",
+   "answers": [
+    "There are many rivers in Siberia: the Ob, the Irtish, the Lena"
+   ],
+   "newPrompt": "В Сибири много рек: Обь, Иртыш, Лена.",
+   "newAnswers": [
+    "There are many rivers in Siberia: the Ob, the Irtysh, the Lena"
+   ],
+   "why": "Название реки Иртыш по-английски пишется Irtysh, не Irtish."
+  },
+  {
+   "chapter": 31,
+   "prompt": "Она такой приятный человек!",
+   "answers": [
+    "He is such a nice person!"
+   ],
+   "newPrompt": "Она такой приятный человек!",
+   "newAnswers": [
+    "She is such a nice person!"
+   ],
+   "why": "В русском предложении «она», поэтому должно быть She, а не He."
+  },
+  {
+   "chapter": 32,
+   "prompt": "Они поженились в возрасте 25 лет.",
+   "answers": [
+    "They got married at the age of 25 years old"
+   ],
+   "newPrompt": "Они поженились в возрасте 25 лет.",
+   "newAnswers": [
+    "They got married at the age of 25"
+   ],
+   "why": "Конструкция «at the age of 25 years old» грамматически неверна/избыточна: нужно либо «at the age of 25», либо «when they were 25 years old»."
+  },
+  {
+   "chapter": 32,
+   "prompt": "Моя собака любит сидеть впереди, когда ездит со мной в машине.",
+   "answers": [
+    "My dog likes to sit in the front when it is in a car"
+   ],
+   "newPrompt": "Моя собака любит сидеть впереди, когда ездит со мной в машине.",
+   "newAnswers": [
+    "My dog likes to sit in the front when it is in a car with me"
+   ],
+   "why": "В ключе пропущено значение «со мной»."
+  },
+  {
+   "chapter": 32,
+   "prompt": "Я могу выйти на следующей остановке?",
+   "answers": [
+    "Can I get off at the next station?"
+   ],
+   "newPrompt": "Я могу выйти на следующей остановке?",
+   "newAnswers": [
+    "Can I get off at the next stop?"
+   ],
+   "why": "«остановка» — это stop, не station."
+  },
+  {
+   "chapter": 32,
+   "prompt": "Он уже в магазине.",
+   "answers": [
+    "He is I the shop already"
+   ],
+   "newPrompt": "Он уже в магазине.",
+   "newAnswers": [
+    "He is in the shop already"
+   ],
+   "why": "Опечатка: I вместо in."
+  },
+  {
+   "chapter": 32,
+   "prompt": "Что это на полу?",
+   "answers": [
+    "What is it on the floor?"
+   ],
+   "newPrompt": "Что это на полу?",
+   "newAnswers": [
+    "What is that on the floor?"
+   ],
+   "why": "What is it on the floor? — неграмматично для «Что это на полу?»."
+  },
+  {
+   "chapter": 35,
+   "prompt": "В следующем году я буду работать в Лондоне. —",
+   "answers": [
+    "He said that he was working in London next week"
+   ],
+   "newPrompt": "В следующем году я буду работать в Лондоне. —",
+   "newAnswers": [
+    "He said that he was working in London next year"
+   ],
+   "why": "«В следующем году» переведено как next week («на следующей неделе»); также будущее время в косвенной речи передаётся would be working."
+  },
+  {
+   "chapter": 34,
+   "prompt": "Пол, который написал несколько книг, обратился к собранию.",
+   "answers": [
+    "Paul, who has written many books, addressed the audience"
+   ],
+   "newPrompt": "Пол, который написал несколько книг, обратился к собранию.",
+   "newAnswers": [
+    "Paul, who has written several books, addressed the audience"
+   ],
+   "why": "«Несколько книг» — это several books, а не many books."
+  },
+  {
+   "chapter": 34,
+   "prompt": "Его последняя книга, которая получила много похвал, стала большим успехом.",
+   "answers": [
+    "His last book, which received many praises, has become a success"
+   ],
+   "newPrompt": "Его последняя книга, которая получила много похвал, стала большим успехом.",
+   "newAnswers": [
+    "His last book, which received many praises, has become a great success"
+   ],
+   "why": "Пропущено значение «большим»: должно быть a great/big success."
+  },
+  {
+   "chapter": 34,
+   "prompt": "Машина, которая сломалась, теперь опять работает.",
+   "answers": [
+    "The car that broke down yesterday now works again"
+   ],
+   "newPrompt": "Машина, которая сломалась, теперь опять работает.",
+   "newAnswers": [
+    "The car that broke down now works again"
+   ],
+   "why": "В русском предложении нет «yesterday»; это лишнее значение."
+  },
+  {
+   "chapter": 34,
+   "prompt": "Это фотография наших друзей Криса и Сэма, с которыми мы ездили в отпуск.",
+   "answers": [
+    "This is a picture of Chris and Sam who I went on vacation with"
+   ],
+   "newPrompt": "Это фотография наших друзей Криса и Сэма, с которыми мы ездили в отпуск.",
+   "newAnswers": [
+    "This is a picture of our friends Chris and Sam who we went on vacation with"
+   ],
+   "why": "«Мы ездили» — we went, не I went; также пропущено «наших друзей»."
+  },
+  {
+   "chapter": 34,
+   "prompt": "Мои бабушка и дедушка, у которых годовщина на следующей неделе, едут в круиз.",
+   "answers": [
+    "My grandmother and grandfather, whose anniversary is next week, are going on the trip around the world"
+   ],
+   "newPrompt": "Мои бабушка и дедушка, у которых годовщина на следующей неделе, едут в круиз.",
+   "newAnswers": [
+    "My grandmother and grandfather, whose anniversary is next week, are going on a cruise"
+   ],
+   "why": "«Едут в круиз» — going on a cruise, а не on the trip around the world."
+  },
+  {
+   "chapter": 34,
+   "prompt": "Я познакомился с человеком, который работает в рекламе.",
+   "answers": [
+    "I met with a person who work in advertising"
+   ],
+   "newPrompt": "Я познакомился с человеком, который работает в рекламе.",
+   "newAnswers": [
+    "I met with a person who works in advertising"
+   ],
+   "why": "Подлежащее person в единственном числе: нужно works, а не work."
+  },
+  {
+   "chapter": 34,
+   "prompt": "Этим утром я встретил Джона, которого не видел долгое время.",
+   "answers": [
+    "I met John this morning, who I haven’t seen in ages"
+   ],
+   "newPrompt": "Этим утром я встретил Джона, которого не видел долгое время.",
+   "newAnswers": [
+    "I met John this morning, who I hadn’t seen in ages"
+   ],
+   "why": "После встречи с Джоном нельзя сказать I haven’t seen; нужно прошедшее перфектное had not seen к моменту встречи."
+  },
+  {
+   "chapter": 34,
+   "prompt": "Это женщина, чей сын попал в тюрьму.",
+   "answers": [
+    "This is the woman whose son was put to jail"
+   ],
+   "newPrompt": "Это женщина, чей сын попал в тюрьму.",
+   "newAnswers": [
+    "This is the woman whose son was put in jail"
+   ],
+   "why": "Неверный предлог: по-английски put in jail, а не put to jail."
+  },
+  {
+   "chapter": 15,
+   "prompt": "Извините, вы сидите на моем месте.",
+   "answers": [
+    "Excuse me, you are sitting on my place"
+   ],
+   "newPrompt": "Извините, вы сидите на моем месте.",
+   "newAnswers": [
+    "Excuse me, you are sitting in my place"
+   ],
+   "why": "Неверный предлог: по-английски здесь нужно in my place/seat, не on my place."
+  },
+  {
+   "chapter": 15,
+   "prompt": "Как давно ты уже изучаешь английский?",
+   "answers": [
+    "How long have you been learing English?"
+   ],
+   "newPrompt": "Как давно ты уже изучаешь английский?",
+   "newAnswers": [
+    "How long have you been learning English?"
+   ],
+   "why": "Опечатка: learing → learning."
+  },
+  {
+   "chapter": 15,
+   "prompt": "Она ходит по магазинам уже три часа!",
+   "answers": [
+    "She has been doing shopping for three hours"
+   ],
+   "newPrompt": "Она ходит по магазинам уже три часа!",
+   "newAnswers": [
+    "She has been shopping for three hours"
+   ],
+   "why": "Форма doing shopping без артикля/определителя некорректна; здесь нужно shopping."
+  },
+  {
+   "chapter": 20,
+   "prompt": "Я не могу больше откладывать написание статьи.",
+   "answers": [
+    "I can’t postpone writing the article"
+   ],
+   "newPrompt": "Я не могу больше откладывать написание статьи.",
+   "newAnswers": [
+    "I can’t postpone writing the article any longer"
+   ],
+   "why": "В переводе пропущено значение «больше» (= anymore/any longer)."
+  },
+  {
+   "chapter": 20,
+   "prompt": "Он не хотел больше играть во дворе.",
+   "answers": [
+    "He didn’t want to play in the yard"
+   ],
+   "newPrompt": "Он не хотел больше играть во дворе.",
+   "newAnswers": [
+    "He didn’t want to play in the yard anymore"
+   ],
+   "why": "В переводе пропущено значение «больше» (= anymore/any longer)."
+  },
+  {
+   "chapter": 21,
+   "prompt": "Его пригласили посетить резиденцию.",
+   "answers": [
+    "He was invited to visit the residency"
+   ],
+   "newPrompt": "Его пригласили посетить резиденцию.",
+   "newAnswers": [
+    "He was invited to visit the residence"
+   ],
+   "why": "«Резиденция» как здание/официальное жилище — residence, не residency."
+  },
+  {
+   "chapter": 22,
+   "prompt": "Если бы я любил выставки, я бы, конечно, сходил в этот музей.",
+   "answers": [
+    "If I liked exhibitions, we would of course visit this museum"
+   ],
+   "newPrompt": "Если бы я любил выставки, я бы, конечно, сходил в этот музей.",
+   "newAnswers": [
+    "If I liked exhibitions, I would of course visit this museum"
+   ],
+   "why": "В русском «я бы ... сходил», а не «мы бы посетили»."
+  },
+  {
+   "chapter": 22,
+   "prompt": "Если ты не хочешь попасть в пробку, тебе лучше выехать сейчас.",
+   "answers": [
+    "If you don’t want to get stuck in a traffic jam, you whould leave now"
+   ],
+   "newPrompt": "Если ты не хочешь попасть в пробку, тебе лучше выехать сейчас.",
+   "newAnswers": [
+    "If you don’t want to get stuck in a traffic jam, you should leave now"
+   ],
+   "why": "Опечатка: «whould» — несуществующее слово; нужно «should»."
+  },
+  {
+   "chapter": 22,
+   "prompt": "Если бы у меня был их адрес, мы могли бы к ним зайти.",
+   "answers": [
+    "If we had their address, we would come over"
+   ],
+   "newPrompt": "Если бы у меня был их адрес, мы могли бы к ним зайти.",
+   "newAnswers": [
+    "If I had their address, we could come over"
+   ],
+   "why": "«У меня» = «I had», не «we had»; «могли бы» лучше передаётся как «could»."
+  },
+  {
+   "chapter": 20,
+   "prompt": "Я не заслуживаю такого отношения.",
+   "answers": [
+    "I don’t deserve such attitude"
+   ],
+   "newPrompt": "Я не заслуживаю такого отношения.",
+   "newAnswers": [
+    "I don’t deserve such an attitude"
+   ],
+   "why": "В английском перед исчисляемым существительным attitude в ед. числе нужен артикль."
+  },
+  {
+   "chapter": 20,
+   "prompt": "Я хотел пригласить ее, но потом передумал.",
+   "answers": [
+    "He wanted to invite her, but then he changed his mind"
+   ],
+   "newPrompt": "Я хотел пригласить ее, но потом передумал.",
+   "newAnswers": [
+    "I wanted to invite her, but then I changed my mind"
+   ],
+   "why": "В русском предложении говорится «я», а в ключе ошибочно стоит «he / his»."
+  },
+  {
+   "chapter": 20,
+   "prompt": "Собака умоляла поиграть с ней.",
+   "answers": [
+    "The dog was begging to play with it",
+    "her"
+   ],
+   "newPrompt": "Собака умоляла поиграть с ней.",
+   "newAnswers": [
+    "The dog was begging someone to play with it",
+    "The dog was begging someone to play with her"
+   ],
+   "why": "Без объекта после begging получается, что сама собака просила поиграть с кем-то/чем-то; по-русски смысл — чтобы кто-то поиграл с собакой."
+  },
+  {
+   "chapter": 23,
+   "prompt": "Я смогу занести эти документы через два часа.",
+   "answers": [
+    "I will be able to bring these documents tomorrow"
+   ],
+   "newPrompt": "Я смогу занести эти документы через два часа.",
+   "newAnswers": [
+    "I will be able to bring these documents in two hours"
+   ],
+   "why": "«через два часа» переведено как tomorrow; нужно in two hours."
+  },
+  {
+   "chapter": 23,
+   "prompt": "Я долго не мог завести машину.",
+   "answers": [
+    "I wasn’t able/I couldn’t to start my car for a long time"
+   ],
+   "newPrompt": "Я долго не мог завести машину.",
+   "newAnswers": [
+    "I wasn’t able to/I couldn’t start my car for a long time"
+   ],
+   "why": "После couldn’t не нужен to; для варианта wasn’t able нужен to перед глаголом."
+  },
+  {
+   "chapter": 23,
+   "prompt": "Я мог бы поступить в Оксфорд, но я выбрал Гарвард.",
+   "answers": [
+    "I could have gone to Harvard but I chose Oxford instead"
+   ],
+   "newPrompt": "Я мог бы поступить в Оксфорд, но я выбрал Гарвард.",
+   "newAnswers": [
+    "I could have gone to Oxford but I chose Harvard instead"
+   ],
+   "why": "В ключе перепутаны Oxford и Harvard."
+  },
+  {
+   "chapter": 23,
+   "prompt": "Он не сможет вовремя добраться до станции.",
+   "answers": [
+    "She will not be able to get to the station on time"
+   ],
+   "newPrompt": "Он не сможет вовремя добраться до станции.",
+   "newAnswers": [
+    "He will not be able to get to the station on time"
+   ],
+   "why": "В русском «он», а в ключе She."
+  },
+  {
+   "chapter": 23,
+   "prompt": "Я был уверен, что ты сможешь перевести это вчера!",
+   "answers": [
+    "I was sure you were able to translate it yesterday"
+   ],
+   "newPrompt": "Я был уверен, что ты сможешь перевести это вчера!",
+   "newAnswers": [
+    "I was sure you would be able to translate it yesterday"
+   ],
+   "why": "«сможешь» в придаточном после прошедшего времени требует future-in-the-past: would be able to, а не were able to."
+  },
+  {
+   "chapter": 22,
+   "prompt": "Если я найду твою книгу, я обязательно тебе сообщу.",
+   "answers": [
+    "If I find your bag, I will, of course, tell you"
+   ],
+   "newPrompt": "Если я найду твою книгу, я обязательно тебе сообщу.",
+   "newAnswers": [
+    "If I find your book, I will, of course, tell you"
+   ],
+   "why": "В русском предложении «книгу», а не «сумку»."
+  },
+  {
+   "chapter": 32,
+   "prompt": "Я наконец закончил всю работу.",
+   "answers": [
+    "I finished my work at last"
+   ],
+   "newPrompt": "Я наконец закончил всю работу.",
+   "newAnswers": [
+    "I finished all the work at last"
+   ],
+   "why": "В ключе пропущено значение «всю» и добавлено притяжательное my, которого нет в русском предложении."
+  },
+  {
+   "chapter": 32,
+   "prompt": "Он уезжал в Париж на три месяца.",
+   "answers": [
+    "He went to Paris for three weeks"
+   ],
+   "newPrompt": "Он уезжал в Париж на три месяца.",
+   "newAnswers": [
+    "He went to Paris for three months"
+   ],
+   "why": "«На три месяца» — это for three months, не for three weeks."
+  },
+  {
+   "chapter": 32,
+   "prompt": "Я могу заплатить кредитной картой?",
+   "answers": [
+    "Can pay by credit card?"
+   ],
+   "newPrompt": "Я могу заплатить кредитной картой?",
+   "newAnswers": [
+    "Can I pay by credit card?"
+   ],
+   "why": "В вопросе пропущено подлежащее I."
+  },
+  {
+   "chapter": 32,
+   "prompt": "Я случайно увидел это обявление.",
+   "answers": [
+    "I saw this advertisement by mistake"
+   ],
+   "newPrompt": "Я случайно увидел это обявление.",
+   "newAnswers": [
+    "I saw this advertisement by chance"
+   ],
+   "why": "«Случайно увидел» здесь соответствует by chance, а не by mistake («по ошибке»)."
+  },
+  {
+   "chapter": 32,
+   "prompt": "Постарайся отправить письмо до конца дня.",
+   "answers": [
+    "Try to send the letter by end of the day"
+   ],
+   "newPrompt": "Постарайся отправить письмо до конца дня.",
+   "newAnswers": [
+    "Try to send the letter by the end of the day"
+   ],
+   "why": "В выражении by the end of the day нужен артикль the."
+  },
+  {
+   "chapter": 32,
+   "prompt": "Мы встретились случайно.",
+   "answers": [
+    "Wу met by chance"
+   ],
+   "newPrompt": "Мы встретились случайно.",
+   "newAnswers": [
+    "We met by chance"
+   ],
+   "why": "В слове We напечатана кириллическая/ошибочная буква, получается неанглийское слово."
+  },
+  {
+   "chapter": 32,
+   "prompt": "Он провела свое детство на ферме.",
+   "answers": [
+    "She spend her childhood on the farm"
+   ],
+   "newPrompt": "Он провела свое детство на ферме.",
+   "newAnswers": [
+    "She spent her childhood on the farm"
+   ],
+   "why": "В английском нужен прошедший глагол: spent, не spend."
+  },
+  {
+   "chapter": 32,
+   "prompt": "Он уже в офисе?",
+   "answers": [
+    "Are you in the office already?"
+   ],
+   "newPrompt": "Он уже в офисе?",
+   "newAnswers": [
+    "Is he in the office already?"
+   ],
+   "why": "«Он» переведено как you; нужен he."
+  },
+  {
+   "chapter": 32,
+   "prompt": "Давайте встретимся на остановке?",
+   "answers": [
+    "Let’s meet at the station?"
+   ],
+   "newPrompt": "Давайте встретимся на остановке?",
+   "newAnswers": [
+    "Let’s meet at the bus stop?"
+   ],
+   "why": "«Остановка» — это stop / bus stop, а не station."
+  },
+  {
+   "chapter": 32,
+   "prompt": "Я уже в такси.",
+   "answers": [
+    "I am I’m the taxi now"
+   ],
+   "newPrompt": "Я уже в такси.",
+   "newAnswers": [
+    "I am in the taxi now"
+   ],
+   "why": "В ключе лишнее/ошибочное “I’m” вместо предлога in."
+  },
+  {
+   "chapter": 32,
+   "prompt": "На двери не было номера.",
+   "answers": [
+    "There wasn’t a sign on the door"
+   ],
+   "newPrompt": "На двери не было номера.",
+   "newAnswers": [
+    "There wasn’t a number on the door"
+   ],
+   "why": "«Номер» переведено как sign; должно быть number."
+  },
+  {
+   "chapter": 32,
+   "prompt": "Не подскажете, где находится банк? — Слева.",
+   "answers": [
+    "Could you where the bank is? It is om the left"
+   ],
+   "newPrompt": "Не подскажете, где находится банк? — Слева.",
+   "newAnswers": [
+    "Could you tell me where the bank is? It is on the left"
+   ],
+   "why": "Пропущено tell me, и опечатка om вместо on."
+  },
+  {
+   "chapter": 32,
+   "prompt": "Ты где сейчас? — В поездке.",
+   "answers": [
+    "Where are you now? On the train"
+   ],
+   "newPrompt": "Ты где сейчас? — В поездке.",
+   "newAnswers": [
+    "Where are you now? On a trip"
+   ],
+   "why": "«В поездке» означает on a trip/away, а не on the train («в поезде»)."
+  },
+  {
+   "chapter": 32,
+   "prompt": "Долго сидеть за столом вредно для здоровья.",
+   "answers": [
+    "It is bad for you health to sit at the table for a long time"
+   ],
+   "newPrompt": "Долго сидеть за столом вредно для здоровья.",
+   "newAnswers": [
+    "It is bad for your health to sit at the table for a long time"
+   ],
+   "why": "Опечатка/ошибка: you health вместо your health."
+  },
+  {
+   "chapter": 32,
+   "prompt": "Мой офис справа, как только повернете за светофором.",
+   "answers": [
+    "My office is om the right as soon as you turn at the traffic lights"
+   ],
+   "newPrompt": "Мой офис справа, как только повернете за светофором.",
+   "newAnswers": [
+    "My office is on the right as soon as you turn at the traffic lights"
+   ],
+   "why": "Опечатка om вместо on."
+  },
+  {
+   "chapter": 33,
+   "prompt": "Эта церковь сейчас ремонтируется.",
+   "answers": [
+    "This church is being reconstructed now"
+   ],
+   "newPrompt": "Эта церковь сейчас ремонтируется.",
+   "newAnswers": [
+    "This church is being repaired now"
+   ],
+   "why": "«Ремонтируется» — это ремонтируется/обновляется, а не обязательно «реконструируется» (= перестраивается)."
+  },
+  {
+   "chapter": 33,
+   "prompt": "Домашние задания сдаются учениками каждый урок.",
+   "answers": [
+    "Home tasks are handed in by the students everyday"
+   ],
+   "newPrompt": "Домашние задания сдаются учениками каждый урок.",
+   "newAnswers": [
+    "Home tasks are handed in by the students every lesson"
+   ],
+   "why": "«Каждый урок» означает every lesson, а не everyday/every day."
+  },
+  {
+   "chapter": 33,
+   "prompt": "Эти отчеты проверяются специалистами.",
+   "answers": [
+    "These accounts are checked by specialists every day"
+   ],
+   "newPrompt": "Эти отчеты проверяются специалистами.",
+   "newAnswers": [
+    "These accounts are checked by specialists"
+   ],
+   "why": "В русском нет «каждый день»; в ключе добавлено лишнее every day."
+  },
+  {
+   "chapter": 33,
+   "prompt": "Большая часть прибыли тратится на развитие компании.",
+   "answers": [
+    "Most part of the profit is spent on the company’s development"
+   ],
+   "newPrompt": "Большая часть прибыли тратится на развитие компании.",
+   "newAnswers": [
+    "Most of the profit is spent on the company’s development"
+   ],
+   "why": "Most part of the profit — грамматически неверно; нужно Most of the profit или The largest part of the profit."
+  },
+  {
+   "chapter": 33,
+   "prompt": "Этот дом сейчас строится.",
+   "answers": [
+    "This house is being build now"
+   ],
+   "newPrompt": "Этот дом сейчас строится.",
+   "newAnswers": [
+    "This house is being built now"
+   ],
+   "why": "В пассиве нужен past participle: built, а не build."
+  },
+  {
+   "chapter": 33,
+   "prompt": "Ужин уже готовится.",
+   "answers": [
+    "The dinner is being made now"
+   ],
+   "newPrompt": "Ужин уже готовится.",
+   "newAnswers": [
+    "The dinner is already being made"
+   ],
+   "why": "Уже = already; в ключе заменено на now."
+  },
+  {
+   "chapter": 33,
+   "prompt": "Этот компьютер использовался весь день.",
+   "answers": [
+    "This computer was being used all day yesterday"
+   ],
+   "newPrompt": "Этот компьютер использовался весь день.",
+   "newAnswers": [
+    "This computer was being used all day"
+   ],
+   "why": "В русском нет «yesterday», это лишнее значение."
+  },
+  {
+   "chapter": 33,
+   "prompt": "Эту статью уже переводят.",
+   "answers": [
+    "This article is being translated"
+   ],
+   "newPrompt": "Эту статью уже переводят.",
+   "newAnswers": [
+    "This article is already being translated"
+   ],
+   "why": "Пропущено значение «уже» = already."
+  },
+  {
+   "chapter": 33,
+   "prompt": "Эта книга писалась в течение нескольких лет.",
+   "answers": [
+    "This book was being written during many years"
+   ],
+   "newPrompt": "Эта книга писалась в течение нескольких лет.",
+   "newAnswers": [
+    "This book was being written for several years"
+   ],
+   "why": "«Несколько лет» = several years, не many years; для длительности нужен for."
+  },
+  {
+   "chapter": 33,
+   "prompt": "Сегодня избирается президент компании.",
+   "answers": [
+    "The president of the company is being elected now"
+   ],
+   "newPrompt": "Сегодня избирается президент компании.",
+   "newAnswers": [
+    "The president of the company is being elected today"
+   ],
+   "why": "Сегодня = today; now добавляет другое обстоятельство времени."
+  },
+  {
+   "chapter": 33,
+   "prompt": "Эти книги уже прочитаны.",
+   "answers": [
+    "These books are read"
+   ],
+   "newPrompt": "Эти книги уже прочитаны.",
+   "newAnswers": [
+    "These books have already been read"
+   ],
+   "why": "Пропущено «уже» и завершённость действия."
+  },
+  {
+   "chapter": 33,
+   "prompt": "Письмо было только что напечатано.",
+   "answers": [
+    "The letter has just been written"
+   ],
+   "newPrompt": "Письмо было только что напечатано.",
+   "newAnswers": [
+    "The letter has just been typed"
+   ],
+   "why": "«Напечатано» здесь означает typed/printed, не written."
+  },
+  {
+   "chapter": 33,
+   "prompt": "Она сказала, что новое расписание не было еще повешено на стене.",
+   "answers": [
+    "She said that the new schedule was not hanged on the wall"
+   ],
+   "newPrompt": "Она сказала, что новое расписание не было еще повешено на стене.",
+   "newAnswers": [
+    "She said that the new schedule was not hung on the wall yet"
+   ],
+   "why": "«Hanged» употребляется о казни через повешение; для предмета на стене нужно «hung». Также «еще не» передается как «not ... yet»."
+  },
+  {
+   "chapter": 33,
+   "prompt": "Свет не был еще выключен.",
+   "answers": [
+    "The light wasn’t switched off"
+   ],
+   "newPrompt": "Свет не был еще выключен.",
+   "newAnswers": [
+    "The light wasn’t switched off yet"
+   ],
+   "why": "В ключе не передано «еще» в значении «еще не / not yet»."
+  },
+  {
+   "chapter": 33,
+   "prompt": "К трем часам все уже было починено.",
+   "answers": [
+    "By three o’clockeverything had been repaired"
+   ],
+   "newPrompt": "К трем часам все уже было починено.",
+   "newAnswers": [
+    "By three o’clock everything had been repaired"
+   ],
+   "why": "Пропущен пробел: получилось слитное несуществующее написание «o’clockeverything»."
+  },
+  {
+   "chapter": 33,
+   "prompt": "Ему весь вечер рассказывали одну долгую историю.",
+   "answers": [
+    "He was being told one long story yesterday"
+   ],
+   "newPrompt": "Ему весь вечер рассказывали одну долгую историю.",
+   "newAnswers": [
+    "He was being told one long story all evening"
+   ],
+   "why": "«Весь вечер» ошибочно переведено как «yesterday»."
+  },
+  {
+   "chapter": 33,
+   "prompt": "Какая статья была переведена их братом?",
+   "answers": [
+    "Which article was translated by his brother"
+   ],
+   "newPrompt": "Какая статья была переведена их братом?",
+   "newAnswers": [
+    "Which article was translated by their brother"
+   ],
+   "why": "«Их братом» означает «their brother», а не «his brother»."
+  },
+  {
+   "chapter": 34,
+   "prompt": "Мое любимое здание в Кельне — церковь, которую строили в течение 800 лет.",
+   "answers": [
+    "My favorite building in Colone is the church which was being built for 800 years"
+   ],
+   "newPrompt": "Мое любимое здание в Кельне — церковь, которую строили в течение 800 лет.",
+   "newAnswers": [
+    "My favorite building in Cologne is the church which was being built for 800 years"
+   ],
+   "why": "Название города написано с ошибкой: Cologne, не Colone."
+  },
+  {
+   "chapter": 34,
+   "prompt": "Я дам тебе почитать книгу, которая изменила мою жизнь.",
+   "answers": [
+    "I will give you a book which has changed my life"
+   ],
+   "newPrompt": "Я дам тебе почитать книгу, которая изменила мою жизнь.",
+   "newAnswers": [
+    "I will lend you a book which has changed my life"
+   ],
+   "why": "«Дам почитать» означает дать/одолжить для чтения, а не просто подарить/дать книгу."
+  },
+  {
+   "chapter": 34,
+   "prompt": "Это Джон, с которым мы вместе учились.",
+   "answers": [
+    "This is John who she was studying with"
+   ],
+   "newPrompt": "Это Джон, с которым мы вместе учились.",
+   "newAnswers": [
+    "This is John who we were studying with"
+   ],
+   "why": "В русском предложении «мы учились», а не «она училась»."
+  },
+  {
+   "chapter": 35,
+   "prompt": "Мне нравится моя работа в данный момент. —",
+   "answers": [
+    "He said that he was enjoying his job recently"
+   ],
+   "newPrompt": "Мне нравится моя работа в данный момент. —",
+   "newAnswers": [
+    "He said that he was enjoying his job at that moment"
+   ],
+   "why": "«В данный момент» — это at that moment / at the moment, а не recently («недавно/в последнее время»)."
+  },
+  {
+   "chapter": 13,
+   "prompt": "Где ты провел свой отпуск?",
+   "answers": [
+    "Where did you spent your vacation?"
+   ],
+   "newPrompt": "Где ты провел свой отпуск?",
+   "newAnswers": [
+    "Where did you spend your vacation?"
+   ],
+   "why": "После вспомогательного did нужен инфинитив spend, а не форма прошедшего времени spent."
+  },
+  {
+   "chapter": 11,
+   "prompt": "Сколько стоит позвонить в Москву?",
+   "answers": [
+    "How much does it cost to call to Moscow?"
+   ],
+   "newPrompt": "Сколько стоит позвонить в Москву?",
+   "newAnswers": [
+    "How much does it cost to call Moscow?"
+   ],
+   "why": "После глагола call в значении «позвонить в город/кому-то» предлог to не нужен."
+  },
+  {
+   "chapter": 11,
+   "prompt": "Я сейчас занимаюсь, а она смотрит телевизор.",
+   "answers": [
+    "I am studying now, and he is watching TV",
+    "doing exercises"
+   ],
+   "newPrompt": "Я сейчас занимаюсь, а она смотрит телевизор.",
+   "newAnswers": [
+    "I am studying now, and she is watching TV",
+    "I am doing exercises now, and she is watching TV"
+   ],
+   "why": "В русском «она», значит нужно she, а не he; второй вариант должен быть полным переводом предложения."
+  },
+  {
+   "chapter": 11,
+   "prompt": "Когда у тебя день рождения?",
+   "answers": [
+    "When is it your birthday?"
+   ],
+   "newPrompt": "Когда у тебя день рождения?",
+   "newAnswers": [
+    "When is your birthday?"
+   ],
+   "why": "Лишнее it: по-английски говорят When is your birthday?"
+  },
+  {
+   "chapter": 11,
+   "prompt": "Здесь часто идет снег?",
+   "answers": [
+    "How often does it snow here?"
+   ],
+   "newPrompt": "Здесь часто идет снег?",
+   "newAnswers": [
+    "Does it often snow here?"
+   ],
+   "why": "Русское предложение — вопрос «часто ли идет снег», а не «как часто»."
+  },
+  {
+   "chapter": 11,
+   "prompt": "Мистер Джонс работает в саду?",
+   "answers": [
+    "Is mr. Johns working in the garden?"
+   ],
+   "newPrompt": "Мистер Джонс работает в саду?",
+   "newAnswers": [
+    "Is Mr. Jones working in the garden?"
+   ],
+   "why": "В фамилии лишняя буква h: по-английски обычно Jones для «Джонс»."
+  },
+  {
+   "chapter": 11,
+   "prompt": "Где он работает?",
+   "answers": [
+    "Where does she work?"
+   ],
+   "newPrompt": "Где он работает?",
+   "newAnswers": [
+    "Where does he work?"
+   ],
+   "why": "В русском «он», а в ключе she."
+  },
+  {
+   "chapter": 13,
+   "prompt": "Он уже пообедал.",
+   "answers": [
+    "He has just had lunch"
+   ],
+   "newPrompt": "Он уже пообедал.",
+   "newAnswers": [
+    "He has already had lunch"
+   ],
+   "why": "В русском «уже», а не «только что»: just добавляет другое значение."
+  },
+  {
+   "chapter": 13,
+   "prompt": "Я вчера купила перчатки.",
+   "answers": [
+    "I bought these gloves yesterday"
+   ],
+   "newPrompt": "Я вчера купила перчатки.",
+   "newAnswers": [
+    "I bought gloves yesterday"
+   ],
+   "why": "these добавляет значение «эти», которого нет в русском предложении."
+  },
+  {
+   "chapter": 12,
+   "prompt": "Они собирались выходить, когда вспомнили, что забыли билеты.",
+   "answers": [
+    "There were going to leave when they remembered that they forgot their tickets",
+    "had forgotten"
+   ],
+   "newPrompt": "Они собирались выходить, когда вспомнили, что забыли билеты.",
+   "newAnswers": [
+    "They were going to leave when they remembered that they forgot their tickets",
+    "had forgotten"
+   ],
+   "why": "В первом варианте опечатка: должно быть They, а не There."
+  },
+  {
+   "chapter": 12,
+   "prompt": "Они казались очень приятными людьми, и мы болтали весь вечер.",
+   "answers": [
+    "They seemed nice people and we were talking all night"
+   ],
+   "newPrompt": "Они казались очень приятными людьми, и мы болтали весь вечер.",
+   "newAnswers": [
+    "They seemed nice people and we were talking all evening"
+   ],
+   "why": "«Весь вечер» — all evening, не all night."
+  },
+  {
+   "chapter": 12,
+   "prompt": "Где ты провел прошлые выходные? — Я ходил по магазинам.",
+   "answers": [
+    "Where did you spend your last weekend? I was doing shopping.",
+    "I was shopping"
+   ],
+   "newPrompt": "Где ты провел прошлые выходные? — Я ходил по магазинам.",
+   "newAnswers": [
+    "Where did you spend your last weekend? I was doing some shopping.",
+    "I was shopping"
+   ],
+   "why": "Doing shopping без артикля/определителя не является нормальной грамматической формой; нужно, например, doing some shopping."
+  },
+  {
+   "chapter": 13,
+   "prompt": "Мои часы работали этим утром, но теперь они сломались.",
+   "answers": [
+    "My watch was working this morning but not it has broken down"
+   ],
+   "newPrompt": "Мои часы работали этим утром, но теперь они сломались.",
+   "newAnswers": [
+    "My watch was working this morning but now it has broken down"
+   ],
+   "why": "Опечатка: должно быть now, а не not; с not предложение грамматически неверно и не соответствует «теперь»."
+  },
+  {
+   "chapter": 11,
+   "prompt": "Она думает над тем, чтобы купить новую машину.",
+   "answers": [
+    "He is thinking about buying a new car"
+   ],
+   "newPrompt": "Она думает над тем, чтобы купить новую машину.",
+   "newAnswers": [
+    "She is thinking about buying a new car"
+   ],
+   "why": "В русском «она», а в ключе ошибочно He."
+  },
+  {
+   "chapter": 12,
+   "prompt": "Солнце уже садилось, когда я дошел до деревни, которая была всего в нескольких милях от моего родного города. Рабочий день был окончен, и все жители деревни возвращались домой. Я подошел к группе людей и спросил, могу ли я найти место в деревне, чтобы переночевать там. Один старый человек согласился помочь мне. Он взял меня с собой в свой дом, который находился в конце улицы. Огонь уже горел в печи, когда мы зашли в дом, а хозяйка готовила ужин. Две девочки что-то собирали в саду. Хозяин предложил поужинать с ними. Они казались очень приятными людьми, и мы болтали весь вечер. После ужина мы вышли в сад, погода была теплой, и луна уже ярко светила. Мы еще долго гуляли, прежде чем наконец легли спать.",
+   "answers": [
+    "The sun was already setting when we came to the village which was only a couple of miles from my native town. The working day was over and all the villagers were coming back home. I approached a group of people and asked if I can find a place to stay for the night in the village. One old man agreed to help me. He took me to his house, which was at the end of the street. The fire was already burning in the stove, when we came in, and the hostess was cooking dinner. Two girls were picking something up in the garden. The master offered to have dinner with them. They seemed very nice people and we were talking all night. After dinner we went to the garden. The night was warm, and the moon was shining brightly. We were walking for a long time until we finally went to bed."
+   ],
+   "newPrompt": "Солнце уже садилось, когда я дошел до деревни, которая была всего в нескольких милях от моего родного города. Рабочий день был окончен, и все жители деревни возвращались домой. Я подошел к группе людей и спросил, могу ли я найти место в деревне, чтобы переночевать там. Один старый человек согласился помочь мне. Он взял меня с собой в свой дом, который находился в конце улицы. Огонь уже горел в печи, когда мы зашли в дом, а хозяйка готовила ужин. Две девочки что-то собирали в саду. Хозяин предложил поужинать с ними. Они казались очень приятными людьми, и мы болтали весь вечер. После ужина мы вышли в сад, погода была теплой, и луна уже ярко светила. Мы еще долго гуляли, прежде чем наконец легли спать.",
+   "newAnswers": [
+    "The sun was already setting when I came to the village which was only a couple of miles from my native town. The working day was over and all the villagers were coming back home. I approached a group of people and asked if I could find a place to stay for the night in the village. One old man agreed to help me. He took me to his house, which was at the end of the street. The fire was already burning in the stove, when we came in, and the hostess was cooking dinner. Two girls were picking something up in the garden. The master invited me to have dinner with them. They seemed very nice people and we were talking all evening. After dinner we went to the garden. The night was warm, and the moon was shining brightly. We were walking for a long time until we finally went to bed."
+   ],
+   "why": "В русском «я дошел», не «мы»; в косвенном вопросе в прошедшем контексте нужно could; «предложил поужинать с ними» означает пригласил меня; «весь вечер» — не all night."
+  },
+  {
+   "chapter": 12,
+   "prompt": "Я вчера шел в кафе, когда увидел друга.",
+   "answers": [
+    "I was going to the cinema when I saw my friend"
+   ],
+   "newPrompt": "Я вчера шел в кафе, когда увидел друга.",
+   "newAnswers": [
+    "I was going to the cafe yesterday when I saw my friend"
+   ],
+   "why": "В русском сказано «в кафе», а не «в кино»."
+  },
+  {
+   "chapter": 12,
+   "prompt": "Он писал письмо весь вечер.",
+   "answers": [
+    "He was writing a letter all day"
+   ],
+   "newPrompt": "Он писал письмо весь вечер.",
+   "newAnswers": [
+    "He was writing a letter all evening"
+   ],
+   "why": "«Весь вечер» переведено как all day вместо all evening."
+  },
+  {
+   "chapter": 15,
+   "prompt": "Что ты сейчас читаешь?",
+   "answers": [
+    "What are you doing now?"
+   ],
+   "newPrompt": "Что ты сейчас читаешь?",
+   "newAnswers": [
+    "What are you reading now?"
+   ],
+   "why": "В русском предложении «читаешь», а не «делаешь»."
+  },
+  {
+   "chapter": 31,
+   "prompt": "Килиманджаро — это гора, вершина которой всегда по-крыта снегом.",
+   "answers": [
+    "Kilimanjaro is a mountain the top of which is always covered in snow"
+   ],
+   "newPrompt": "Килиманджаро — это гора, вершина которой всегда покрыта снегом.",
+   "newAnswers": [
+    "Kilimanjaro is a mountain the top of which is always covered in snow"
+   ],
+   "why": "PDF artefact in the task"
+  },
+  {
+   "chapter": 16,
+   "prompt": "Дети делали домашнюю работу полчаса, когда мама по-звала их на ужин.",
+   "answers": [
+    "The children had been doing their homework for half an hour when their mother called them for dinner"
+   ],
+   "newPrompt": "Дети делали домашнюю работу полчаса, когда мама позвала их на ужин.",
+   "newAnswers": [
+    "The children had been doing their homework for half an hour when their mother called them for dinner"
+   ],
+   "why": "PDF artefact in the task"
+  },
+  {
+   "chapter": 23,
+   "prompt": "Последнее время я не могу найти ничего подходящего по-читать.",
+   "answers": [
+    "I haven’t been able to find anything good to read recently"
+   ],
+   "newPrompt": "Последнее время я не могу найти ничего подходящего почитать.",
+   "newAnswers": [
+    "I haven’t been able to find anything good to read recently"
+   ],
+   "why": "PDF artefact in the task"
+  },
+  {
+   "chapter": 26,
+   "prompt": "Тебе следовало поехать на велосипеде, тогда бы ты не по-пал в пробку.",
+   "answers": [
+    "You should have gone by bike, you wouldn’t have got stuck in a traffic jam"
+   ],
+   "newPrompt": "Тебе следовало поехать на велосипеде, тогда бы ты не попал в пробку.",
+   "newAnswers": [
+    "You should have gone by bike, you wouldn’t have got stuck in a traffic jam"
+   ],
+   "why": "PDF artefact in the task"
+  },
+  {
+   "chapter": 29,
+   "prompt": "Я раньше всегда ездила на работу, а теперь хожу пешком Структура to be used to doing something используется для описания привычек.",
+   "answers": [
+    "I used to drive to work, now I walk"
+   ],
+   "newPrompt": "Я раньше всегда ездила на работу, а теперь хожу пешком.",
+   "newAnswers": [
+    "I used to drive to work, now I walk"
+   ],
+   "why": "PDF artefact in the task"
+  },
+  {
+   "chapter": 34,
+   "prompt": "Мэри, которая устроилась на новую работу, теперь по-стоянно занята.",
+   "answers": [
+    "Mary, who got a new job, is always busy now"
+   ],
+   "newPrompt": "Мэри, которая устроилась на новую работу, теперь постоянно занята.",
+   "newAnswers": [
+    "Mary, who got a new job, is always busy now"
+   ],
+   "why": "PDF artefact in the task"
+  },
+  {
+   "chapter": 3,
+   "prompt": "Я люблю кошек.",
+   "answers": [
+    "I don’t like cats"
+   ],
+   "newPrompt": "Я не люблю кошек.",
+   "newAnswers": [
+    "I don’t like cats"
+   ],
+   "why": "Already fixed on the site; the book file still had the old task"
+  }
+ ],
+ "theory": [
+  {
+   "chapter": 2,
+   "find": "!При этом после фразы Where is… как правило идет the! 2) Описательные конструкции.",
+   "replace": "!При этом после фразы Where is… как правило идет the!\n\n2) Описательные конструкции."
+  },
+  {
+   "chapter": 5,
+   "find": "S + to be + Ving Отрицательного:\n\nS + to be + not + Ving Вопросительного: (Wh) + to be + S+ Ving Помните",
+   "replace": "S + to be + Ving\n\nОтрицательного:\n\nS + to be + not + Ving\n\nВопросительного:\n\n(Wh) + to be + S+ Ving\n\nПомните"
+  },
+  {
+   "chapter": 3,
+   "find": "Это время используется тогда, когда мы хотим описать: — повторяющееся действие; — факт или ситуацию, которые мы считаем постоянными — дать чему-то (или кому-то) определение.",
+   "replace": "Это время используется тогда, когда мы хотим описать:\n— повторяющееся действие;\n— факт или ситуацию, которые мы считаем постоянными\n— дать чему-то (или кому-то) определение."
+  },
+  {
+   "chapter": 3,
+   "find": "V1 (s) S + V1 (s)",
+   "replace": "V1 (s)\nS + V1 (s)"
+  },
+  {
+   "chapter": 3,
+   "find": "I — am He, she, it — is We, you, they — are То есть формула построения предложения уже будет следующая:",
+   "replace": "I — am\nHe, she, it — is\nWe, you, they — are\n\nТо есть формула построения предложения уже будет следующая:"
+  },
+  {
+   "chapter": 3,
+   "find": "S + to be + N/adj/adv Давайте попробуем построить несколько утвердительных предложений в этом времени.",
+   "replace": "S + to be + N/adj/adv\n\nДавайте попробуем построить несколько утвердительных предложений в этом времени."
+  },
+  {
+   "chapter": 7,
+   "find": "S + was / were + Ving Отрицательного:\n\nS + was / were + not + Ving Вопросительного: (Wh) + was / were + S + Ving)",
+   "replace": "S + was / were + Ving\n\nОтрицательного:\n\nS + was / were + not + Ving\n\nВопросительного:\n\n(Wh) + was / were + S + Ving)"
+  },
+  {
+   "chapter": 6,
+   "find": "S + V2 Отрицательное:\n\nS + did + not + V1 Вопросительное: (Wh) + did + S + V1 В случае, если в предложении используется глагол to be:",
+   "replace": "S + V2\n\nОтрицательное:\n\nS + did + not + V1\n\nВопросительное:\n\n(Wh) + did + S + V1\n\nВ случае, если в предложении используется глагол to be:"
+  },
+  {
+   "chapter": 6,
+   "find": "S + was/ were + N / Adj / Adv Отрицательное:\n\nS + was / were + not + N/ Adj / Adv Вопросительное:",
+   "replace": "S + was/ were + N / Adj / Adv\n\nОтрицательное:\n\nS + was / were + not + N/ Adj / Adv\n\nВопросительное:"
+  },
+  {
+   "chapter": 8,
+   "find": "будущем. — Если",
+   "replace": "будущем.\n— Если"
+  },
+  {
+   "chapter": 8,
+   "find": "английском. — Если",
+   "replace": "английском.\n— Если"
+  },
+  {
+   "chapter": 8,
+   "find": "I am going to meet with my friends tomorrow. — Will",
+   "replace": "I am going to meet with my friends tomorrow.\n— Will"
+  },
+  {
+   "chapter": 9,
+   "find": "В данном разделе мы рассмотрим два простейших: — Описание действий, которые произошли в прошлом, но актуальны в настоящем.",
+   "replace": "В данном разделе мы рассмотрим два простейших:\n— Описание действий, которые произошли в прошлом, но актуальны в настоящем."
+  },
+  {
+   "chapter": 9,
+   "find": "S + have / has + V3 Отрицательные:\n\nS + have/ has + not + V3 Вопросительные: (Wh) + have/ has + S+V3",
+   "replace": "S + have / has + V3\n\nОтрицательные:\n\nS + have/ has + not + V3\n\nВопросительные:\n\n(Wh) + have/ has + S+V3"
+  },
+  {
+   "chapter": 15,
+   "find": "CONTINUOUS Чаще всего",
+   "replace": "CONTINUOUS\n\nЧаще всего"
+  },
+  {
+   "chapter": 12,
+   "find": "Past Simple Единичное действие в прошлом, есть результат.\n\nI read a book yesterday. (Я прочитал книгу вчера) Past Continuous I was reading a book yesterday. (Я читал книгу вчера) Длительный процесс, серия действий. Ключевые слова Yesterday/ ago/ last month etc.",
+   "replace": "Past Simple\nЕдиничное действие в прошлом, есть результат.\n\nI read a book yesterday. (Я прочитал книгу вчера)\n\nPast Continuous\nI was reading a book yesterday. (Я читал книгу вчера)\nДлительный процесс, серия действий.\n\nКлючевые слова\nYesterday/ ago/ last month etc."
+  },
+  {
+   "chapter": 12,
+   "find": "Past Simple используется: — для описания одного действия в прошлом. Например, I called her this morning (Я позвонил ей этим утром); — результата действия в прошлом (I cooked dinner yesterday — «Я приготовил ужин вчера»); — описания факта или ситуации в прошлом. Например, I was born in a small town (Я родился в маленьком городе). Past Continuous используется: — для описания процесса, который происходил в прошлом (I was cooking dinner — «Я готовила ужин»); — описания временной ситуации в прошлом (I was working in the USA last summer — «Я работала в США прошлым летом»); — нескольких действий в прошлом, совершенных подряд: I was calling her all morning (Я звонил ей все утро).",
+   "replace": "Past Simple используется:\n— для описания одного действия в прошлом. Например, I called her this morning (Я позвонил ей этим утром);\n— результата действия в прошлом (I cooked dinner yesterday — «Я приготовил ужин вчера»);\n— описания факта или ситуации в прошлом. Например, I was born in a small town (Я родился в маленьком городе).\n\nPast Continuous используется:\n— для описания процесса, который происходил в прошлом (I was cooking dinner — «Я готовила ужин»);\n— описания временной ситуации в прошлом (I was working in the USA last summer — «Я работала в США прошлым летом»);\n— нескольких действий в прошлом, совершенных подряд: I was calling her all morning (Я звонил ей все утро)."
+  },
+  {
+   "chapter": 16,
+   "find": "Past Perfect Используется: — для указания на действие, которое произошло до другого события в прошлом; — ситуации, которая существовала до определенного момента в прошлом.",
+   "replace": "Past Perfect\n\nИспользуется:\n— для указания на действие, которое произошло до другого события в прошлом;\n— ситуации, которая существовала до определенного момента в прошлом."
+  },
+  {
+   "chapter": 16,
+   "find": "S + had + V3 Отрицательных:",
+   "replace": "S + had + V3\n\nОтрицательных:"
+  },
+  {
+   "chapter": 16,
+   "find": "S + had + not + V3 Вопросительных: (Wh) + had + S + V3 Past Perfect Continuous Используется для указания на процесс, который длился до одного определенного события в прошлом.",
+   "replace": "S + had + not + V3\n\nВопросительных:\n\n(Wh) + had + S + V3\n\nPast Perfect Continuous\n\nИспользуется для указания на процесс, который длился до одного определенного события в прошлом."
+  },
+  {
+   "chapter": 16,
+   "find": "S + had + been + Ving Отрицательных:",
+   "replace": "S + had + been + Ving\n\nОтрицательных:"
+  },
+  {
+   "chapter": 16,
+   "find": "S + had + not + been + Ving Вопросительных: (Wh) + had + S + been + Ving",
+   "replace": "S + had + not + been + Ving\n\nВопросительных:\n\n(Wh) + had + S + been + Ving"
+  },
+  {
+   "chapter": 13,
+   "find": "Present Perfect — действие, которое произошло в недалеком прошлом либо которое до сих пор актуально + жизненный опыт. Past Simple — действие в прошлом, которое больше не актуально, либо есть четкое указание на момент действия. Главным отличием между ними является то, что форма Present Perfect должна отражать ситуацию, которая до сих пор актуальна.",
+   "replace": "Present Perfect — действие, которое произошло в недалеком прошлом либо которое до сих пор актуально + жизненный опыт.\nPast Simple — действие в прошлом, которое больше не актуально, либо есть четкое указание на момент действия.\n\nГлавным отличием между ними является то, что форма Present Perfect должна отражать ситуацию, которая до сих пор актуальна."
+  },
+  {
+   "chapter": 13,
+   "find": "I have just had dinner (Я только что пообедал); I have already read this newspaper (Я уже прочитал эту газету); I haven’t been to this restaurant yet (Я еще не бывал в этом ресторане); Have you started your new job yet? (Ты уже начал новую работу?).",
+   "replace": "I have just had dinner (Я только что пообедал);\nI have already read this newspaper (Я уже прочитал эту газету);\nI haven’t been to this restaurant yet (Я еще не бывал в этом ресторане);\nHave you started your new job yet? (Ты уже начал новую работу?)."
+  },
+  {
+   "chapter": 13,
+   "find": "Итак, Present Perfect используется: — для связи момента в прошлом с моментом в настоящем (I have just had lunch, I am not hungry); — описания опыта (I have already seen this film); — описания ситуации, которая началась в прошлом, но продолжается до сих пор, особенно с ипользованием предлогов for/ since (например, I have known her for a long time); — описания действия в прошлом, которое до сих пор актуально и мы не уточняем, когда именно оно произошло (например, She has just bought a new flat).",
+   "replace": "Итак, Present Perfect используется:\n— для связи момента в прошлом с моментом в настоящем (I have just had lunch, I am not hungry);\n— описания опыта (I have already seen this film);\n— описания ситуации, которая началась в прошлом, но продолжается до сих пор, особенно с ипользованием предлогов for/ since (например, I have known her for a long time);\n— описания действия в прошлом, которое до сих пор актуально и мы не уточняем, когда именно оно произошло (например, She has just bought a new flat)."
+  },
+  {
+   "chapter": 13,
+   "find": "Past Simple используется: — для описания результата одного действия в прошлом (I cooked dinner yesterday — «Я приготовил ужин вчера»); — описания ситуаций, которые больше не актуальны (We were married for 5 years — «Мы были женаты пять лет»); — описания ситуаций в прошлом (актуальных или нет) с указанием на момент, когда они произошли (I bought a flat last month).",
+   "replace": "Past Simple используется:\n— для описания результата одного действия в прошлом (I cooked dinner yesterday — «Я приготовил ужин вчера»);\n— описания ситуаций, которые больше не актуальны (We were married for 5 years — «Мы были женаты пять лет»);\n— описания ситуаций в прошлом (актуальных или нет) с указанием на момент, когда они произошли (I bought a flat last month)."
+  },
+  {
+   "chapter": 17,
+   "find": "Критерия для их различения есть два. 1. Законченность действия по отношению к моменту в прошлом.",
+   "replace": "Критерия для их различения есть два.\n\n1. Законченность действия по отношению к моменту в прошлом."
+  },
+  {
+   "chapter": 11,
+   "find": "Present Continuous Действие разворачивается в данную минуту либо является временным.\n\nPresent Simple Повторяющееся действие, происходит всегда.\n\nКлючевые слова NOW, STILL, THIS WEEK, CURRENTLY C точки зрения значения мы должны помнить",
+   "replace": "Present Continuous\nДействие разворачивается в данную минуту либо является временным.\n\nPresent Simple\nПовторяющееся действие, происходит всегда.\n\nКлючевые слова\nNOW, STILL, THIS WEEK, CURRENTLY\n\nC точки зрения значения мы должны помнить"
+  },
+  {
+   "chapter": 11,
+   "find": "Если подводить итог, то Present Simple используется: — для повторяющихся действий (I go to school every day — «Я хожу в школу каждый день»); — высказываний общего характера (I have a car — «У меня есть машина»); — фактов (Water boils at 100 degrees Celcius — «Вода кипит при ста градусах Цельсия»).",
+   "replace": "Если подводить итог, то Present Simple используется:\n— для повторяющихся действий (I go to school every day — «Я хожу в школу каждый день»);\n— высказываний общего характера (I have a car — «У меня есть машина»);\n— фактов (Water boils at 100 degrees Celcius — «Вода кипит при ста градусах Цельсия»)."
+  },
+  {
+   "chapter": 11,
+   "find": "Present Continuous используется: — для действий, совершаемых в момент речи (I am writing a letter now — «Я пишу письмо сейчас»); — временных ситуаций (I am staying at my friend’s this week — «На этой неделе я живу у друзей»).",
+   "replace": "Present Continuous используется:\n— для действий, совершаемых в момент речи (I am writing a letter now — «Я пишу письмо сейчас»);\n— временных ситуаций (I am staying at my friend’s this week — «На этой неделе я живу у друзей»)."
+  },
+  {
+   "chapter": 11,
+   "find": "Список state verbs Adore (обожать)",
+   "replace": "Список state verbs\nAdore (обожать)"
+  },
+  {
+   "chapter": 11,
+   "find": "Особенные случаи употребления state verbs Если вы используете глагол think",
+   "replace": "Особенные случаи употребления state verbs\n\nЕсли вы используете глагол think"
+  },
+  {
+   "chapter": 21,
+   "find": "И ИНФИНИТИВА В английском языке",
+   "replace": "И ИНФИНИТИВА\n\nВ английском языке"
+  },
+  {
+   "chapter": 22,
+   "find": "If + S + V1 / S + V1 Первое условное наклонение",
+   "replace": "If + S + V1 / S + V1\n\nПервое условное наклонение"
+  },
+  {
+   "chapter": 22,
+   "find": "If + S + V1 / S + will + V1 Второе условное наклонение",
+   "replace": "If + S + V1 / S + will + V1\n\nВторое условное наклонение"
+  },
+  {
+   "chapter": 22,
+   "find": "If + S + V2 / S + would + V1 Рассмотрим последние два типа на практике.",
+   "replace": "If + S + V2 / S + would + V1\n\nРассмотрим последние два типа на практике."
+  },
+  {
+   "chapter": 20,
+   "find": "форма герундия (-ing-форма). Stop (прекращать), finish (заканчивать), give up (бросать), postpone (откладывать), put off (откладывать), consider (размышлять о чем-либо, обдумывать), admit (признавать), deny (отрицать), avoid (избегать), risk (рисковать), fancy (хотеть сделать что-либо), imagine (представлять), enjoy (наслаждаться), mind (возражать), keep (on) (все время что-то делать, продолжать). Также помните",
+   "replace": "форма герундия (-ing-форма).\n\nStop (прекращать),\nfinish (заканчивать),\ngive up (бросать),\npostpone (откладывать),\nput off (откладывать),\nconsider (размышлять о чем-либо, обдумывать),\nadmit (признавать),\ndeny (отрицать),\navoid (избегать),\nrisk (рисковать),\nfancy (хотеть сделать что-либо),\nimagine (представлять),\nenjoy (наслаждаться),\nmind (возражать),\nkeep (on) (все время что-то делать, продолжать).\n\nТакже помните"
+  },
+  {
+   "chapter": 23,
+   "find": "Будущее время образуется следующим образом: S + will + be able to + V. Например, I will be able to finish this work in time (Я смогу закончить эту работу вовремя).",
+   "replace": "Будущее время образуется следующим образом:\n\nS + will + be able to + V.\n\nНапример, I will be able to finish this work in time (Я смогу закончить эту работу вовремя)."
+  },
+  {
+   "chapter": 32,
+   "find": "Употребление предлогов at/on/in Если мы говорим о времени, то правила употребления данных предлогов следующие.",
+   "replace": "Употребление предлогов at/on/in\n\nЕсли мы говорим о времени, то правила употребления данных предлогов следующие."
+  },
+  {
+   "chapter": 19,
+   "find": "давайте их кратко по-вторим: — Запланированные действия в будущем. Форма Present Continuous. Например, I am meeting my friends tomorrow (Завтра я встречаюсь с друзьями). — Намерение в будущем, когда мы собираемся что-то сделать. Например, I am going to sell my car (Я собираюсь продать машину). — Will используется, когда мы принимаем решение в момент речи: делаем заказ, обещаем что-то и т. п. Например, I will have an orange juice (Я буду апельсиновый сок), I will call you later (Я позвоню тебе позже). — Present Simple используется, когда мы говорим о расписаниях. Например, The train arrives at two tomorrow (Поезд приходит завтра в два).",
+   "replace": "давайте их кратко по-вторим:\n— Запланированные действия в будущем. Форма Present Continuous. Например, I am meeting my friends tomorrow (Завтра я встречаюсь с друзьями).\n— Намерение в будущем, когда мы собираемся что-то сделать. Например, I am going to sell my car (Я собираюсь продать машину).\n— Will используется, когда мы принимаем решение в момент речи: делаем заказ, обещаем что-то и т. п. Например, I will have an orange juice (Я буду апельсиновый сок), I will call you later (Я позвоню тебе позже).\n— Present Simple используется, когда мы говорим о расписаниях. Например, The train arrives at two tomorrow (Поезд приходит завтра в два)."
+  },
+  {
+   "chapter": 19,
+   "find": "Future Continuous Кроме того",
+   "replace": "Future Continuous\n\nКроме того"
+  },
+  {
+   "chapter": 19,
+   "find": "Утвердительное предложение S + will + be + Ving Отрицательное предложение S + will + not + be + Ving Вопросительное предложение (Wh) + will + S + be + Ving?",
+   "replace": "Утвердительное предложение S + will + be + Ving\nОтрицательное предложение S + will + not + be + Ving\nВопросительное предложение (Wh) + will + S + be + Ving?"
+  },
+  {
+   "chapter": 19,
+   "find": "Future Perfect Это время",
+   "replace": "Future Perfect\n\nЭто время"
+  },
+  {
+   "chapter": 19,
+   "find": "S + will + have + V3 Отрицательных:",
+   "replace": "S + will + have + V3\n\nОтрицательных:"
+  },
+  {
+   "chapter": 19,
+   "find": "S + will + not + have + V3 Вопросительных: (Wh) + will + S + have + V3?",
+   "replace": "S + will + not + have + V3\n\nВопросительных:\n\n(Wh) + will + S + have + V3?"
+  },
+  {
+   "chapter": 33,
+   "find": "O + to be + V3 Где O — это object, то есть тот объект, который испытал на себе некое действие.",
+   "replace": "O + to be + V3\n\nГде O — это object, то есть тот объект, который испытал на себе некое действие."
+  },
+  {
+   "chapter": 14,
+   "find": "CONTINUOUS Главное различие времен Present Perfect и Present Perfect Continuous состоит",
+   "replace": "CONTINUOUS\n\nГлавное различие времен Present Perfect и Present Perfect Continuous состоит"
+  },
+  {
+   "chapter": 14,
+   "find": "Present Perfect Законченное действие. Есть результат.\n\nI have painted the bedroom. (Я покрасил спалню.)\n\nPresent Perfect Continuous Действие завершилось, но без результата, акцент на длительность.",
+   "replace": "Present Perfect\nЗаконченное действие. Есть результат.\n\nI have painted the bedroom. (Я покрасил спалню.)\n\nPresent Perfect Continuous\nДействие завершилось, но без результата, акцент на длительность."
+  },
+  {
+   "chapter": 14,
+   "find": "(Я красил спальню) Обратите также",
+   "replace": "(Я красил спальню)\n\nОбратите также"
+  },
+  {
+   "chapter": 14,
+   "find": "Итак, Present Perfect Continuous используется: — для сообщения о действии, которое длилось до момента речи и не имеет результата: I have been painting my bedroom (Я красила спальную комнату); — сообщения о ситуации и действии, когда необходимо подчеркнуть его длительность: I have been reading for two hours (Я читаю уже два часа); — описания процесса, который объясняет результат в настоящем.",
+   "replace": "Итак, Present Perfect Continuous используется:\n— для сообщения о действии, которое длилось до момента речи и не имеет результата: I have been painting my bedroom (Я красила спальную комнату);\n— сообщения о ситуации и действии, когда необходимо подчеркнуть его длительность: I have been reading for two hours (Я читаю уже два часа);\n— описания процесса, который объясняет результат в настоящем."
+  },
+  {
+   "chapter": 14,
+   "find": "S + have / has + been + Ving Отрицательных:\n\nS + have / has + not + been + Ving Вопросительных: (Wh) + have/ has + been+ S + Ving",
+   "replace": "S + have / has + been + Ving\n\nОтрицательных:\n\nS + have / has + not + been + Ving\n\nВопросительных:\n\n(Wh) + have/ has + been+ S + Ving"
+  },
+  {
+   "chapter": 31,
+   "find": "Когда: — упоминаем о чем-то в первый раз: I have a pen; — даем чему либо дефиницию, определение. Например, It is a table (Это стол) или She is a teacher (Она учитель); — предмет является одним из множества: Open a window, please (there are many windows in the room); — дается качественная либо количественная характеристика с предлогом of: I bought him a scarf of wool; — всегда используется с конструкцией there is: There is a restaurant at the end of this street; — всегда используется при описаниях: We went to a good restaurant; — перед существительным можно по смыслу подставить слово «некий»: I met a friend yesterday.",
+   "replace": "Когда:\n— упоминаем о чем-то в первый раз: I have a pen;\n— даем чему либо дефиницию, определение. Например, It is a table (Это стол) или She is a teacher (Она учитель);\n— предмет является одним из множества: Open a window, please (there are many windows in the room);\n— дается качественная либо количественная характеристика с предлогом of: I bought him a scarf of wool;\n— всегда используется с конструкцией there is: There is a restaurant at the end of this street;\n— всегда используется при описаниях: We went to a good restaurant;\n— перед существительным можно по смыслу подставить слово «некий»: I met a friend yesterday."
+  },
+  {
+   "chapter": 35,
+   "find": "Present Simple — Past Simple I live in Moscow — She said she lived in Moscow Present Continuous — Past Ctoninuous I am working — She said she was working Present Perfect — Past Perfect I have worked here for 4 yers — She had worked here for 4 years Past Simple — Past Perfect I worked here last year — She had worked here last year Past Continuous — Past Perfect Continuous I was working in Paris — She had been working in Paris Past Perfect — Past Perfect I had worked in Paris before she got this job Past Perfect Continuous — Past Perfect Continuous I had been working in Paris for 3 years before she got this job Will — Would I will help you! — She said she would help me.",
+   "replace": "Present Simple — Past Simple\nI live in Moscow — She said she lived in Moscow\nPresent Continuous — Past Ctoninuous\nI am working — She said she was working\nPresent Perfect — Past Perfect\nI have worked here for 4 yers — She had worked here for 4 years\nPast Simple — Past Perfect\nI worked here last year — She had worked here last year\nPast Continuous — Past Perfect Continuous\nI was working in Paris — She had been working in Paris\nPast Perfect — Past Perfect\nI had worked in Paris before she got this job\nPast Perfect Continuous — Past Perfect Continuous\nI had been working in Paris for 3 years before she got this job\nWill — Would\nI will help you! — She said she would help me."
+  },
+  {
+   "chapter": 35,
+   "find": "Can — Could I can help you — She said she could help me",
+   "replace": "Can — Could\nI can help you — She said she could help me"
+  },
+  {
+   "chapter": 29,
+   "find": "USED TO DOING В английском существуют две похожие грамматические структуры",
+   "replace": "USED TO DOING\n\nВ английском существуют две похожие грамматические структуры"
+  },
+  {
+   "chapter": 29,
+   "find": "Итак, форма used to do something используется: — для повторяющихся действий в прошлом;",
+   "replace": "Итак, форма used to do something используется:\n\n— для повторяющихся действий в прошлом;"
+  },
+  {
+   "chapter": 29,
+   "find": "S + used to + V1 Отрицательные S + did not use to + V1 Вопросительные:\n\nDid + S use to + V1 На месте глагола действия",
+   "replace": "S + used to + V1\n\nОтрицательные\n\nS + did not use to + V1\n\nВопросительные:\n\nDid + S use to + V1\n\nНа месте глагола действия"
+  },
+  {
+   "chapter": 6,
+   "find": "по-ставить",
+   "replace": "поставить"
+  },
+  {
+   "chapter": 8,
+   "find": "по-казаться",
+   "replace": "показаться"
+  },
+  {
+   "chapter": 9,
+   "find": "по-теряли",
+   "replace": "потеряли"
+  },
+  {
+   "chapter": 11,
+   "find": "По-смотрите",
+   "replace": "Посмотрите"
+  },
+  {
+   "chapter": 19,
+   "find": "по-вторим",
+   "replace": "повторим"
+  },
+  {
+   "chapter": 26,
+   "find": "по-является",
+   "replace": "появляется"
+  }
+ ]
+}
