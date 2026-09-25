@@ -63,7 +63,8 @@ export async function classifyMistakeWithAi(said, correct) {
   return structured({
     name: 'mistake_topic',
     schema: MistakeTopicSchema,
-    maxTokens: 300,
+    maxTokens: 1500,
+    effort: 'low',
     system:
       'You are an English teacher. Given what a Russian-speaking learner said and the corrected version, name the ' +
       'single grammar or vocabulary point behind the mistake as a short English label of 2–6 words (e.g. "Present Simple: 3rd person -s", ' +
@@ -82,7 +83,8 @@ export async function judgeAnswer({ said, correct, answer, topic, prompt }) {
   return structured({
     name: 'judge',
     schema: JudgeSchema,
-    maxTokens: 300,
+    maxTokens: 2000,
+    effort: 'low',
     system:
       'You check a Russian-speaking learner\'s attempt to correct their own earlier mistake in English. You are given the sentence as they said it (wrong), ' +
       'the teacher\'s correct version, the grammar point behind the mistake, the task (a Russian sentence to translate, when given) and the learner\'s new attempt. Mark the attempt correct if it fixes that grammar point, ' +
@@ -91,6 +93,32 @@ export async function judgeAnswer({ said, correct, answer, topic, prompt }) {
       'a different but correct tense form where the meaning allows, minor punctuation are fine). Mark it wrong if the original mistake is still there or a new grammar error appears; ' +
       'ignore spelling slips of one letter unless they change the word. Give one short sentence of feedback in Russian (keep grammar terms in English): what was fixed, or what is still wrong and how to say it.',
     user: `${prompt ? `Task (Russian sentence to translate): ${prompt}\n` : ''}Said (wrong): ${said}\nTeacher's correct version: ${correct}\nGrammar point: ${topic || '—'}\nLearner's attempt: ${answer}`
+  })
+}
+
+// Judges a textbook exercise answer that didn't match the key word for
+// word. The key lists one or two answers, never every correct one; the AI
+// reads the task in its context (the chapter's grammar topic, the Russian
+// sentence) and accepts any answer a teacher would.
+export async function judgeExerciseAnswer({ chapter, type, prompt, accepted, answer }) {
+  const task = type === 'FILL_BLANK'
+    ? `Fill in the blank (__) in: ${prompt}\nThe learner's answer is only what goes in the blank.`
+    : `Translate into English: ${prompt}`
+  return structured({
+    name: 'exercise_judge',
+    schema: JudgeSchema,
+    maxTokens: 2000,
+    effort: 'low',
+    system:
+      "You check a Russian-speaking learner's answer to an exercise from an English grammar textbook. You get the chapter (the grammar it practises), " +
+      "the task, the answer key and the learner's answer. The key is NOT exhaustive: mark the answer correct whenever it is a grammatically correct, natural " +
+      'English answer to the task with the same meaning — other word order, synonyms, contractions or full forms, British or American usage, another article ' +
+      'or tense where the Russian and the context genuinely allow it, a missing or extra full stop or comma, capital letters. ' +
+      "Where the chapter's grammar is what the task is about (e.g. a chapter on Present Perfect), the answer must use it correctly. " +
+      'Mark it wrong for any grammar mistake, a wrong or missing meaning, or a word that changes the sense; ignore a one-letter spelling slip that does not make ' +
+      'another word, but mention it. Feedback: one short sentence in Russian (grammar terms may stay in English) — if correct and different from the key, ' +
+      'say briefly that this variant is also fine; if wrong, what exactly is wrong and how to say it.',
+    user: `Chapter: ${chapter || '—'}\n${task}\nAnswer key: ${accepted.join(' | ')}\nLearner's answer: ${answer}`
   })
 }
 
@@ -103,7 +131,8 @@ export async function draftMistakePrompt({ said, correct, topic }) {
   const out = await structured({
     name: 'drill_prompt',
     schema: PromptSchema,
-    maxTokens: 200,
+    maxTokens: 1500,
+    effort: 'low',
     system:
       'You write a translation task for a Russian-speaking learner of English. Given the teacher\'s correct English sentence (and the learner\'s earlier wrong version and the grammar point), ' +
       'write ONE Russian sentence whose natural English translation is exactly the correct sentence, in exactly that tense/structure. If the English form only makes sense with context ' +

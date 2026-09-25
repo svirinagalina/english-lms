@@ -409,6 +409,7 @@ input[type='range'] { width: 110px; padding: 0; }
 .verdict.wrong strong { color: #fca5a5; }
 
 .verdict .expected { font-size: 17px; padding: 6px 0; }
+.verdict .verdict-feedback { margin-top: 6px; font-size: 14px; line-height: 1.45; opacity: 0.9; }
 .follow-note { font-style: italic; }
 .done-card { max-width: 380px; margin: 40px auto; text-align: center; align-items: center; }
 

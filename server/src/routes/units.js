@@ -2,7 +2,8 @@ import { Router } from 'express'
 import { z } from 'zod'
 import { prisma } from '../db.js'
 import { requireAuth, requireRole } from '../auth.js'
-import { checkAnswer } from '../answerCheck.js'
+import { checkAnswer, normalise } from '../answerCheck.js'
+import { assistantEnabled, judgeExerciseAnswer } from '../assistant.js'
 import { classifyMistake, topicLabel } from '../errorAnalysis.js'
 
 export const unitsRouter = Router()
@@ -10,6 +11,26 @@ export const unitsRouter = Router()
 unitsRouter.use(requireAuth)
 
 const FOLLOW_UP_COUNT = 3
+
+// AI verdicts on answers that didn't match the key: the same answer to the
+// same exercise is judged once, not on every attempt by every student.
+const verdicts = new Map()
+const AI_TYPES = new Set(['TRANSLATE', 'FILL_BLANK'])
+const AI_TIMEOUT_MS = 20000
+
+async function aiVerdict(exercise, answer) {
+  const key = `${exercise.id}\u0000${normalise(answer)}`
+  if (verdicts.has(key)) return verdicts.get(key)
+  const verdict = await Promise.race([
+    judgeExerciseAnswer({ chapter: exercise.unit.title, type: exercise.type, prompt: exercise.prompt, accepted: exercise.answers, answer }),
+    new Promise((resolve) => setTimeout(() => resolve(null), AI_TIMEOUT_MS))
+  ])
+  if (verdict) {
+    if (verdicts.size > 5000) verdicts.clear()
+    verdicts.set(key, verdict)
+  }
+  return verdict
+}
 const NO_DRILL_TOPICS = new Set(['vocabulary', 'word-order', 'spelling'])
 
 // Students must never receive the answers with the exercise list.
@@ -95,11 +116,25 @@ unitsRouter.post('/exercises/:id/attempt', async (req, res) => {
 
   const exercise = await prisma.exercise.findFirst({
     where: { id: req.params.id, unit: { schoolId: req.user.schoolId } },
-    include: { unit: { select: { position: true } } }
+    include: { unit: { select: { position: true, title: true } } }
   })
   if (!exercise) return res.status(404).json({ error: 'Exercise not found' })
 
-  const result = checkAnswer(parsed.data.answer, exercise.answers, { prompt: exercise.prompt })
+  // The key first (free and instant); an answer it doesn't cover goes to the
+  // AI configured in Settings, which accepts any correct variant in context.
+  let result = checkAnswer(parsed.data.answer, exercise.answers, { prompt: exercise.prompt })
+  let feedback = ''
+  if (!result.correct && assistantEnabled() && AI_TYPES.has(exercise.type) && parsed.data.answer.trim()) {
+    try {
+      const verdict = await aiVerdict(exercise, parsed.data.answer)
+      if (verdict) {
+        feedback = verdict.feedback
+        if (verdict.correct) result = { correct: true, matched: parsed.data.answer, byAi: true }
+      }
+    } catch (error) {
+      console.error('Exercise judge failed:', error.message)
+    }
+  }
 
   // Classify against the reference answer so the follow-up drills target the
   // actual slip (a missing article, a wrong tense) rather than the chapter.
@@ -118,7 +153,8 @@ unitsRouter.post('/exercises/:id/attempt', async (req, res) => {
   })
 
   if (result.correct) {
-    return res.json({ correct: true, accepted: result.matched })
+    // Accepted by the AI: also show what the book has, for comparison.
+    return res.json({ correct: true, accepted: result.matched, feedback, expected: result.byAi ? exercise.answers[0] : undefined })
   }
 
   const alreadyCorrect = await prisma.attempt.findMany({
@@ -156,6 +192,7 @@ unitsRouter.post('/exercises/:id/attempt', async (req, res) => {
 
   res.json({
     correct: false,
+    feedback,
     expected: exercise.answers[0],
     alternatives: exercise.answers.slice(1),
     diff: { missing: analysis.missing, extra: analysis.extra },

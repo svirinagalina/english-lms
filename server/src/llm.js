@@ -27,7 +27,10 @@ async function clientFor(config) {
 }
 
 // Returns the parsed object matching `schema`, or null.
-export async function structured({ system, user, schema, name = 'result', maxTokens = 3000 }) {
+// `effort` ('low' | 'medium' | 'high') asks an OpenAI reasoning model to
+// think less for quick yes/no checks; the token cap has to leave room for
+// that thinking too, or the answer comes back empty.
+export async function structured({ system, user, schema, name = 'result', maxTokens = 3000, effort }) {
   const config = aiConfig()
   if (!config) throw new Error('No AI key is configured')
   const model = config.model || DEFAULT_MODEL[config.provider]
@@ -40,6 +43,7 @@ export async function structured({ system, user, schema, name = 'result', maxTok
       instructions: system,
       input: user,
       max_output_tokens: maxTokens,
+      ...(effort ? { reasoning: { effort } } : {}),
       text: { format: zodTextFormat(schema, name) }
     })
     return response.output_parsed ?? null
@@ -62,7 +66,8 @@ export async function testConnection() {
   const out = await structured({
     name: 'ping',
     schema: z.object({ answer: z.string() }),
-    maxTokens: 50,
+    maxTokens: 1000,
+    effort: 'low',
     system: 'Reply with the single word "ready".',
     user: 'ping'
   })

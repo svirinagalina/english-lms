@@ -184,11 +184,17 @@ export default function UnitPractice() {
           {result && (
             <div className={`verdict ${result.correct ? 'right' : 'wrong'}`}>
               {result.correct ? (
-                <strong>Correct</strong>
+                <>
+                  <strong>Correct</strong>
+                  {/* Accepted by the AI although the book has other words. */}
+                  {result.expected && <div className="muted">In the book: {result.expected}</div>}
+                  {result.feedback && <div className="verdict-feedback">{result.feedback}</div>}
+                </>
               ) : (
                 <>
                   <strong>Not quite</strong>
                   <div className="expected">{result.expected}</div>
+                  {result.feedback && <div className="verdict-feedback">{result.feedback}</div>}
                   {result.mistake?.labels?.length > 0 && (
                     <div className="mistake-tags">
                       {result.mistake.labels.map((label) => (

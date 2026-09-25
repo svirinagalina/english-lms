@@ -1617,6 +1617,9 @@ const Whiteboard = forwardRef(function Whiteboard({ socketRef, boardId, title, s
       const lines = mode === 'translate'
         ? items.map((i) => `${i.word}  ${i.transcription}  —  ${i.translation}`)
         : items.map((i) => i.question)
+      // Questions: plain black, a blank line between them so each reads on
+      // its own (and there's room to answer next to it).
+      const questions = mode === 'questions'
 
       // Place the result just below the selection, matching its text size.
       const group = unionBounds(selectedElements())
@@ -1624,11 +1627,11 @@ const Whiteboard = forwardRef(function Whiteboard({ socketRef, boardId, title, s
       const element = {
         id: newId(),
         type: 'text',
-        color: mode === 'translate' ? '#a5b4fc' : '#86efac',
+        color: questions ? COLORS[0] : '#a5b4fc',
         width: sample?.width ?? width,
         x: group.x,
         y: group.y + group.h + 24,
-        text: lines.join('\n'),
+        text: lines.join(questions ? '\n\n' : '\n'),
         fontSize: sample?.fontSize ?? 16 + width * 2
       }
       commit(element)
