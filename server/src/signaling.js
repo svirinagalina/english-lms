@@ -85,7 +85,54 @@ const emitToWatchers = (map, key, socket, event, payload) => {
   for (const other of map.get(key) ?? []) if (other !== socket) other.emit(event, payload)
 }
 
+// Open calls nobody is in any more get closed by a sweep every few minutes.
+// The 15-minute timer on the last person's exit (below) does it too, but it
+// lives in memory: a deploy or restart inside those 15 minutes lost it, and a
+// call nobody ever entered (a double-clicked "Start call") never started one
+// — 47 calls had piled up open that way.
+const SWEEP_EVERY_MS = 5 * 60 * 1000
+const EMPTY_GRACE_MS = 15 * 60 * 1000 // after the last person left: time to reconnect
+const UNSEEN_GRACE_MS = 60 * 60 * 1000 // nobody seen in it since this server started
+const STALE_MS = 3 * 60 * 60 * 1000
+const SCRATCH_MAX_AGE_MS = 24 * 60 * 60 * 1000
+const serverStartedAt = Date.now()
+const callLastSeen = new Map() // call id → when someone was last in its room
+
 export function setupSignaling(io) {
+  const sweepCalls = async () => {
+    try {
+      const open = await prisma.call.findMany({ where: { endedAt: null }, select: { id: true, token: true, createdAt: true } })
+      const now = Date.now()
+      const idle = []
+      for (const call of open) {
+        if (io.sockets.adapter.rooms.get(`call:${call.token}`)?.size) { callLastSeen.set(call.id, now); continue }
+        const seen = callLastSeen.get(call.id)
+        const since = seen ?? Math.max(call.createdAt.getTime(), serverStartedAt)
+        // Unseen and over three hours old: no one is coming back to it (a
+        // student's "Join call" stops offering it after three hours anyway).
+        const abandoned = !seen && now - call.createdAt.getTime() > STALE_MS
+        if (abandoned || now - since > (seen ? EMPTY_GRACE_MS : UNSEEN_GRACE_MS)) idle.push(call.id)
+      }
+      if (idle.length) {
+        await prisma.call.updateMany({ where: { id: { in: idle }, endedAt: null }, data: { endedAt: new Date() } })
+        for (const id of idle) callLastSeen.delete(id)
+        console.log(`Closed ${idle.length} idle call(s)`)
+      }
+      // Scratch boards belong to one call each; a restart can orphan them.
+      const openBoards = new Set(roomBoards.values())
+      const oldScratch = await prisma.board.findMany({ where: { scratch: true, updatedAt: { lt: new Date(now - SCRATCH_MAX_AGE_MS) } }, select: { id: true } })
+      for (const { id } of oldScratch) {
+        if (openBoards.has(id)) continue
+        await prisma.board.delete({ where: { id } }).catch(() => {})
+        forgetBoard(id)
+      }
+    } catch (error) {
+      console.error('Call sweep failed:', error.message)
+    }
+  }
+  setTimeout(sweepCalls, 60 * 1000)
+  setInterval(sweepCalls, SWEEP_EVERY_MS)
+
   io.use(async (socket, next) => {
     const token = readTokenCookie(socket.handshake.headers.cookie)
 
@@ -185,6 +232,7 @@ export function setupSignaling(io) {
       socket.data.classroomId = call.classroom?.id ?? null
       socket.data.inCall = true
       socket.join(roomId)
+      callLastSeen.set(call.id, Date.now())
 
       const peers = []
       for (const id of io.sockets.adapter.rooms.get(roomId) ?? []) {
@@ -459,6 +507,7 @@ export function setupSignaling(io) {
       }
       // An empty call room is over: the call ends so nothing piles up. The
       // link stays usable for 15 minutes in case someone reconnects.
+      if (socket.data.callId) callLastSeen.set(socket.data.callId, Date.now())
       if (stillOnCall === 0 && socket.data.callId) {
         const callId = socket.data.callId
         const hadClassroom = Boolean(classroomId)
