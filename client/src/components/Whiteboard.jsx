@@ -13,6 +13,7 @@ const MIN_SCALE = 0.05
 const MAX_SCALE = 8
 const TOOLS = [
   { id: 'select', label: 'Move', key: 'V' },
+  { id: 'area', label: 'Select', key: 'S', title: 'Select several: drag a box around them or click each one, then drag them together (S)' },
   { id: 'pen', label: 'Pen', key: 'P' },
   { id: 'marker', label: 'Marker', key: 'M' },
   { id: 'text', label: 'Text', key: 'T' },
@@ -837,6 +838,15 @@ const Whiteboard = forwardRef(function Whiteboard({ socketRef, boardId, title, s
   const lastCursorWorldRef = useRef(null)
 
   const [tool, setTool] = useState('select')
+  // "Select" is the Move tool with dragging on empty space drawing a box
+  // (instead of panning) and clicks adding to the selection — for grabbing
+  // several things at once without holding Shift.
+  const [boxSelect, setBoxSelect] = useState(false)
+  const pickTool = (id) => {
+    setBoxSelect(id === 'area')
+    setTool(id === 'area' ? 'select' : id)
+    if (id !== 'select' && id !== 'area') selectedRef.current = []
+  }
   // render() reads the tool through a ref so its identity never changes:
   // the sync effect below must not re-open the board on every tool switch.
   const toolRef = useRef(tool)
@@ -1663,7 +1673,7 @@ const Whiteboard = forwardRef(function Whiteboard({ socketRef, boardId, title, s
         const shortcut = TOOLS.find((item) => item.key.toLowerCase() === event.key.toLowerCase())
           ?? null
         if (onMistake && event.key.toLowerCase() === 'x' && !shortcut) { event.preventDefault(); setMistakesOpen((v) => !v); return }
-        if (shortcut) { setTool(shortcut.id); if (shortcut.id !== 'select') selectedRef.current = []; scheduleRender(); bump(); return }
+        if (shortcut) { pickTool(shortcut.id); scheduleRender(); bump(); return }
       }
       if (mod && event.key.toLowerCase() === 'z') {
         event.preventDefault()
@@ -1845,7 +1855,8 @@ const Whiteboard = forwardRef(function Whiteboard({ socketRef, boardId, title, s
       if (target) {
         const already = selectedRef.current.includes(target.id)
         if (event.shiftKey) {
-          // Shift toggles membership without moving anything.
+          // Shift toggles membership without moving anything (the Select
+          // tool adds on a plain click instead, see below).
           selectedRef.current = already
             ? selectedRef.current.filter((s) => s !== target.id)
             : [...selectedRef.current, target.id]
@@ -1856,18 +1867,21 @@ const Whiteboard = forwardRef(function Whiteboard({ socketRef, boardId, title, s
         // Clicking a member keeps the group so it can be dragged together.
         // A click (not a drag) on the one selected text opens it for editing
         // with the caret where the click landed.
-        if (!already) selectedRef.current = [target.id]
+        // With Select, a press on something new adds it to what's already
+        // picked, and the whole group moves from there.
+        if (!already) selectedRef.current = boxSelect ? [...selectedRef.current, target.id] : [target.id]
         pointerRef.current = {
           mode: 'move', ids: [...selectedRef.current], last: point, originals: selectedElements().map((i) => structuredClone(i)),
-          editOnClick: already && selectedRef.current.length === 1 && (target.type === 'text' || target.type === 'note') ? { target, clientX: event.clientX, clientY: event.clientY } : null,
+          editOnClick: !boxSelect && already && selectedRef.current.length === 1 && (target.type === 'text' || target.type === 'note') ? { target, clientX: event.clientX, clientY: event.clientY } : null,
           moved: false
         }
-      } else if (event.shiftKey) {
-        // Plain drag on empty space pans (the tool is labelled "Move" —
-        // dragging the screen around is the expected behaviour). Box-select
-        // stays available, just moved behind Shift so it doesn't collide.
+      } else if (event.shiftKey || boxSelect) {
+        // With Move, a plain drag on empty space pans (dragging the screen
+        // around is what "Move" suggests), so the box is behind Shift there;
+        // with Select it's the box straight away (a fresh one, unless Shift).
         marqueeRef.current = { x: point.x, y: point.y, w: 0, h: 0 }
-        pointerRef.current = { mode: 'marquee', origin: point, additive: true, base: [...selectedRef.current] }
+        pointerRef.current = { mode: 'marquee', origin: point, additive: event.shiftKey, base: [...selectedRef.current] }
+        if (!event.shiftKey) selectedRef.current = [] // a plain click on empty space lets go of everything
       } else {
         selectedRef.current = []
         pointerRef.current = { mode: 'pan', startX: event.clientX, startY: event.clientY, origin: { ...viewRef.current } }
@@ -1941,7 +1955,7 @@ const Whiteboard = forwardRef(function Whiteboard({ socketRef, boardId, title, s
       if (handle) { canvas.style.cursor = CURSOR_FOR[handle.id]; return }
     }
     const over = elementsRef.current.some((element) => hitTest(element, point.x, point.y))
-    canvas.style.cursor = over ? 'move' : 'grab'
+    canvas.style.cursor = over ? 'move' : boxSelect ? 'crosshair' : 'grab'
   }
 
   const handlePointerMove = (event) => {
@@ -2809,9 +2823,9 @@ const Whiteboard = forwardRef(function Whiteboard({ socketRef, boardId, title, s
               {TOOLS.map((item) => (
                 <button
                   key={item.id}
-                  className={`tool ${tool === item.id ? 'active' : ''}`}
-                  onClick={() => { setTool(item.id); if (item.id !== 'select') selectedRef.current = [] }}
-                  title={`${item.label} (${item.key})`}
+                  className={`tool ${(item.id === 'area' ? tool === 'select' && boxSelect : item.id === 'select' ? tool === 'select' && !boxSelect : tool === item.id) ? 'active' : ''}`}
+                  onClick={() => { pickTool(item.id); scheduleRender(); bump() }}
+                  title={item.title ?? `${item.label} (${item.key})`}
                 >
                   {item.label}
                 </button>
@@ -3029,15 +3043,7 @@ const Whiteboard = forwardRef(function Whiteboard({ socketRef, boardId, title, s
           />
         )}
 
-        <div className="board-hint">
-          {cropping
-            ? 'Enter to apply · Esc to cancel'
-            : <>
-                Drag empty space or scroll to pan · pinch or {navigator.platform.includes('Mac') ? '⌘' : 'Ctrl'}+scroll to zoom
-                {' · Shift+click or Shift+drag a box to select several · ⌘C / ⌘V to copy and paste · double-click text to edit it'}
-                {onUploadImage && ' · paste or drop an image · double-click an image to crop'}
-              </>}
-        </div>
+        {cropping && <div className="board-hint">Enter to apply · Esc to cancel</div>}
       </div>
     </div>
   )
