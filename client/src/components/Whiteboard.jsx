@@ -836,6 +836,23 @@ const Whiteboard = forwardRef(function Whiteboard({ socketRef, boardId, title, s
   // where a saved Mistake note lands, so it shows up next to whatever the
   // teacher was actually pointing at instead of a fixed spot near the panel.
   const lastCursorWorldRef = useRef(null)
+  // Where the teacher is working: the last click on the board, or the last
+  // place the pointer rested on it. Unlike the raw pointer position, a quick
+  // trip down to the dock (New lesson, Homework) or over to the Mistakes
+  // panel doesn't move it — that trip is exactly what used to drag new
+  // headings and mistake notes away to the bottom/edge of the screen.
+  const workSpotRef = useRef(null)
+  const dwellTimerRef = useRef(null)
+  // The work spot if it's still on screen, else a point in the upper left
+  // of the current view.
+  const workSpot = () => {
+    const rect = canvasRef.current?.getBoundingClientRect() ?? { width: 800, height: 600 }
+    const v = viewRef.current
+    const view = { x: -v.x / v.scale, y: -v.y / v.scale, w: rect.width / v.scale, h: rect.height / v.scale }
+    const spot = workSpotRef.current
+    const onScreen = spot && spot.x >= view.x && spot.x <= view.x + view.w && spot.y >= view.y && spot.y <= view.y + view.h
+    return { point: onScreen ? spot : { x: view.x + view.w * 0.25, y: view.y + view.h * 0.25 }, view }
+  }
 
   const [tool, setTool] = useState('select')
   // "Select" is the Move tool with dragging on empty space drawing a box
@@ -1813,6 +1830,8 @@ const Whiteboard = forwardRef(function Whiteboard({ socketRef, boardId, title, s
     setDragging(true)
     const point = toWorld(event)
     const scale = viewRef.current.scale
+    clearTimeout(dwellTimerRef.current)
+    workSpotRef.current = point
 
     if (event.button === 1 || event.altKey) {
       pointerRef.current = { mode: 'pan', startX: event.clientX, startY: event.clientY, origin: { ...viewRef.current } }
@@ -1963,6 +1982,8 @@ const Whiteboard = forwardRef(function Whiteboard({ socketRef, boardId, title, s
       const world = toWorld(event)
       lastCursorWorldRef.current = world
       broadcastCursor(world)
+      clearTimeout(dwellTimerRef.current)
+      dwellTimerRef.current = setTimeout(() => { workSpotRef.current = world }, 500)
     }
     if (event.pointerType === 'touch' && touchesRef.current.has(event.pointerId)) {
       const rect = canvasRef.current.getBoundingClientRect()
@@ -2491,21 +2512,20 @@ const Whiteboard = forwardRef(function Whiteboard({ socketRef, boardId, title, s
     bump()
   }
 
-  // A new section goes under everything on the board, in the left column of
-  // the current view. Doesn't move the view — New lesson/Homework are
-  // clicked by someone already looking at (and positioned on) the board, and
-  // jumping them away from wherever they were reads as the board losing
-  // their place rather than helping; they can scroll to the new heading
-  // themselves. addBlock (below), inserted from outside the board entirely,
-  // still needs to reveal what it just added — it does that itself.
-  const addHeading = (text, color) => {
+  // A new section heading goes where the teacher is working (the last click
+  // or resting point on the board, see workSpot), selected so it can be
+  // dragged into place. It used to go under everything on the board, which
+  // on a long board meant somewhere far off screen. Doesn't move the view.
+  // addBlock (below) still puts its block under everything and reveals it.
+  const addHeading = (text, color, { below = false } = {}) => {
     const items = elementsRef.current
-    const view = viewRef.current
-    const box = items.length ? unionBounds(items) : null
-    const leftOfView = (40 - view.x) / view.scale
-    const x = box ? Math.min(box.x, leftOfView + 400) : leftOfView
-    const y = box ? box.y + box.h + 100 : (40 - view.y) / view.scale
-    commit({ id: newId(), type: 'text', color, width: 6, x, y, text, fontSize: 28 })
+    const { point, view } = workSpot()
+    const box = below && items.length ? unionBounds(items) : null
+    const x = box ? Math.min(box.x, view.x + 400) : Math.min(point.x, view.x + view.w - 480 / viewRef.current.scale)
+    const y = box ? box.y + box.h + 100 : point.y
+    const element = { id: newId(), type: 'text', color, width: 6, x, y, text, fontSize: 28 }
+    commit(element)
+    selectedRef.current = [element.id]
     setTool('select')
     scheduleRender()
     bump()
@@ -2537,7 +2557,7 @@ const Whiteboard = forwardRef(function Whiteboard({ socketRef, boardId, title, s
     const cx = (rect.width / 2 - v.x) / v.scale
     const cy = (rect.height / 2 - v.y) / v.scale
     viewRef.current = { scale: 1, x: rect.width / 2 - cx, y: rect.height / 2 - cy }
-    addHeading(title, color)
+    addHeading(title, color, { below: true })
     const heading = elementsRef.current[elementsRef.current.length - 1]
     if (!heading) return
     glideTo({ scale: 1, x: 40 - heading.x, y: 80 - heading.y })
@@ -2549,7 +2569,7 @@ const Whiteboard = forwardRef(function Whiteboard({ socketRef, boardId, title, s
     const date = new Date().toLocaleDateString(undefined, { day: 'numeric', month: 'long', year: 'numeric' })
     addHeading(`— Lesson · ${date} —`, COLORS[0])
   }
-  // A homework block below everything, in the accent colour so it stands out.
+  // A homework heading in the accent colour so it stands out.
   const startHomework = () => addHeading('— Homework —', COLORS[5])
 
   const view = viewRef.current
@@ -2597,7 +2617,7 @@ const Whiteboard = forwardRef(function Whiteboard({ socketRef, boardId, title, s
           onPointerDown={handlePointerDown}
           onPointerMove={handlePointerMove}
           onPointerUp={handlePointerUp}
-          onPointerLeave={handlePointerUp}
+          onPointerLeave={(e) => { clearTimeout(dwellTimerRef.current); handlePointerUp(e) }}
           onPointerCancel={handlePointerUp}
           onDoubleClick={handleDoubleClick}
           onWheel={handleWheel}
@@ -2682,19 +2702,14 @@ const Whiteboard = forwardRef(function Whiteboard({ socketRef, boardId, title, s
                 if (students?.length && !target) { setMistakeError('Choose the student first'); return }
                 setMistakeBusy(true)
                 setMistakeError('')
-                const rect = canvasRef.current.getBoundingClientRect()
-                const v = viewRef.current
                 const safe = (t) => t.replace(/[{}]/g, '')
-                // Anchored to wherever the teacher's cursor last was on the
-                // board — near whatever was actually being discussed —
-                // rather than a fixed spot by the panel; falls back to that
-                // fixed spot only if the pointer never touched the canvas.
-                // Several rows saved in one go still stack downward from
-                // there instead of piling on the same point.
-                const cursor = lastCursorWorldRef.current
-                let nextPos = cursor
-                  ? { x: cursor.x + 24, y: cursor.y + 24 }
-                  : { x: (Math.max(40, rect.width - 720) - v.x) / v.scale, y: (100 - v.y) / v.scale }
+                // Anchored to where the teacher is working (last click or
+                // resting point, see workSpot) — not the raw last pointer
+                // position, which the trip over to this panel had already
+                // dragged to the edge of the board. Several rows saved in
+                // one go stack downward from there.
+                const { point: spot } = workSpot()
+                let nextPos = { x: spot.x + 24, y: spot.y + 24 }
                 try {
                   for (const { said, correct } of filled) {
                     const elementId = newId()
@@ -2870,8 +2885,8 @@ const Whiteboard = forwardRef(function Whiteboard({ socketRef, boardId, title, s
             </div>
 
             <div className="dock-group">
-              {onUploadImage && <button className="tool" onClick={startLesson} title="Add a dated heading below everything and start there">New lesson</button>}
-              {onUploadImage && <button className="tool" onClick={startHomework} title="Add a Homework heading below everything and start there">Homework</button>}
+              {onUploadImage && <button className="tool" onClick={startLesson} title="Add a dated heading where you last clicked on the board">New lesson</button>}
+              {onUploadImage && <button className="tool" onClick={startHomework} title="Add a Homework heading where you last clicked on the board">Homework</button>}
               <button
                 className="tool"
                 disabled={exporting}
