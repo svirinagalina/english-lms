@@ -240,6 +240,10 @@ classroomsRouter.get('/:id', async (req, res) => {
       id: classroom.id,
       teacher: classroom.teacher,
       student: classroom.student ? { id: classroom.student.id, name: classroom.student.name } : null,
+      // The student's own contact details, for the teacher.
+      contacts: req.user.role !== 'STUDENT' && classroom.student
+        ? await prisma.user.findUnique({ where: { id: classroom.student.id }, select: { email: true, phone: true, messenger: true, birthday: true, city: true, timezone: true, about: true } })
+        : null,
       isTestRoom: classroom.student === null,
       progress: packageProgress(classroom.student, sessions),
       sessions: sessions.map((session) => ({

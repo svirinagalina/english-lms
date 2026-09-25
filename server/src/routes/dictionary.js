@@ -1,7 +1,7 @@
 import { Router } from 'express'
 import { requireAuth } from '../auth.js'
 import { prisma } from '../db.js'
-import { assistantEnabled, translateWords } from '../assistant.js'
+import { assistantEnabled, translateRussian, translateWords } from '../assistant.js'
 
 // Hover dictionary: one English word → Russian, with IPA when the AI
 // assistant is configured. Results are cached for the life of the process.
@@ -131,13 +131,53 @@ dictionaryRouter.get('/', async (req, res) => {
   }
 })
 
+// The teacher's dictionary: any word or phrase, either way. Russian gives
+// English equivalents (IPA, a note on usage); English gives the usual entry.
+const ruCache = new Map()
+async function googleRussian(text) {
+  const url = `https://translate.googleapis.com/translate_a/single?client=gtx&sl=ru&tl=en&dt=t&dt=bd&q=${encodeURIComponent(text)}`
+  const response = await fetch(url, { signal: AbortSignal.timeout(6000) })
+  if (!response.ok) throw new Error('Dictionary unavailable')
+  const data = await response.json()
+  const items = []
+  for (const [pos, words] of Array.isArray(data?.[1]) ? data[1] : []) {
+    for (const english of (words ?? []).slice(0, 3)) items.push({ english, transcription: '', pos, note: '' })
+  }
+  const main = data?.[0]?.[0]?.[0]
+  if (!items.length && main) items.push({ english: main, transcription: '', pos: '', note: '' })
+  return items.slice(0, 6)
+}
+dictionaryRouter.get('/translate', async (req, res) => {
+  const text = String(req.query.q ?? '').trim().replace(/\s+/g, ' ')
+  if (!text || text.length > 80) return res.status(400).json({ error: 'Type a word or a short phrase' })
+  try {
+    if (/[а-яё]/i.test(text)) {
+      const key = text.toLowerCase()
+      let items = ruCache.get(key)
+      if (!items) {
+        items = assistantEnabled() ? await translateRussian(text).catch(() => []) : []
+        if (!items.length) items = await googleRussian(text)
+        if (ruCache.size >= MAX_CACHE) ruCache.clear()
+        if (items.length) ruCache.set(key, items)
+      }
+      const withAudio = items.map((item) => ({ ...item, audio: `/api/dictionary/audio?word=${encodeURIComponent(item.english)}` }))
+      return res.json({ direction: 'ru-en', query: text, items: withAudio })
+    }
+    const entry = await lookupEntry(text.toLowerCase())
+    res.json({ direction: 'en-ru', query: text, entry })
+  } catch (error) {
+    res.status(502).json({ error: error.message })
+  }
+})
+
 // Pronunciation: Google's text-to-speech clip, fetched by the server (the
 // browser cannot load it directly) and kept in memory for repeat plays.
 const audioCache = new Map()
 const MAX_AUDIO_CACHE = 2000
 dictionaryRouter.get('/audio', async (req, res) => {
-  const word = cleanWord(req.query.word)
-  if (!word || word.length > 40) return res.status(400).end()
+  // A phrase card keeps its spaces ("give up"), or it would be read as one word.
+  const word = String(req.query.word ?? '').trim().toLowerCase().replace(/[^a-z'’ -]/g, '').replace(/\s+/g, ' ').trim()
+  if (!word || word.length > 80) return res.status(400).end()
   try {
     let clip = audioCache.get(word)
     if (!clip) {

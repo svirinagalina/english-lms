@@ -319,7 +319,7 @@ export default function Call() {
   // the camera on every connection while the blur is on.
   const blurOutRef = useRef(null) // { canvas, track }
   const blurStreamRef = useRef(null)
-  const tinyRef = useRef(null)
+  const blurStepsRef = useRef(null) // scratch canvases for the step-by-step blur (Safari)
   const frameRef = useRef(null)
   // The camera as it should go out right now: blurred if the blur is on.
   const outgoingCameraTrack = () => blurOutRef.current?.track ?? localStreamRef.current?.getVideoTracks()[0]
@@ -677,16 +677,40 @@ export default function Call() {
         bg.drawImage(frame, -margin, -margin, width + 2 * margin, height + 2 * margin)
         bg.restore()
       } else {
-        // No canvas filter (older Safari): shrink the frame and stretch it
-        // back with smoothing, which softens it much like a blur.
-        const tiny = tinyRef.current ?? (tinyRef.current = document.createElement('canvas'))
-        const factor = Math.max(4, blurAmount / 2)
-        tiny.width = Math.max(8, Math.round(width / factor)); tiny.height = Math.max(8, Math.round(height / factor))
-        const t = tiny.getContext('2d')
-        t.imageSmoothingEnabled = true
-        t.drawImage(frame, 0, 0, tiny.width, tiny.height)
+        // No canvas filter (Safari, so every iPhone): shrink the frame and
+        // grow it back. Done in one jump, the stretch showed as big soft
+        // squares — "the blur doesn't really work" on phones; halving and
+        // doubling a step at a time smooths it into something that reads as
+        // a real blur, still cheap (a handful of small drawImage calls).
+        const steps = blurStepsRef.current ?? (blurStepsRef.current = [])
+        // Matched by eye against Chrome's blur(12px): the old /2 factor left
+        // text in the background readable — the blur barely showed on iPhones.
+        const factor = Math.max(8, Math.round(blurAmount * 1.35))
+        const target = { w: Math.max(8, Math.round(width / factor)), h: Math.max(8, Math.round(height / factor)) }
+        const sizes = []
+        for (let w = width, h = height; w / 2 >= target.w; w = Math.round(w / 2), h = Math.round(h / 2)) sizes.push({ w: Math.round(w / 2), h: Math.max(1, Math.round(h / 2)) })
+        if (!sizes.length) sizes.push(target)
+        let source = frame
+        sizes.forEach((size, i) => {
+          const c = steps[i] ?? (steps[i] = document.createElement('canvas'))
+          if (c.width !== size.w || c.height !== size.h) { c.width = size.w; c.height = size.h }
+          const x = c.getContext('2d')
+          x.imageSmoothingEnabled = true
+          x.imageSmoothingQuality = 'high'
+          x.clearRect(0, 0, size.w, size.h)
+          x.drawImage(source, 0, 0, size.w, size.h)
+          source = c
+        })
+        // Back up through the same sizes, then onto the full frame.
+        for (let i = sizes.length - 2; i >= 0; i--) {
+          const c = steps[i]
+          const x = c.getContext('2d')
+          x.drawImage(source, 0, 0, c.width, c.height)
+          source = c
+        }
         bg.imageSmoothingEnabled = true
-        bg.drawImage(tiny, -margin, -margin, width + 2 * margin, height + 2 * margin)
+        bg.imageSmoothingQuality = 'high'
+        bg.drawImage(source, -margin, -margin, width + 2 * margin, height + 2 * margin)
       }
 
       const ctx = canvas.getContext('2d')
@@ -731,6 +755,9 @@ export default function Call() {
     }
     let watchdog = null
     let lastTick = 0
+    // How fast the blur really runs on this device: reported once, after
+    // ~15 s, so "choppy on my phone" can be told from "not blurring at all".
+    const perf = { started: 0, total: 0, max: 0, reported: false }
     let lastPlayNudge = 0
     const loop = async () => {
       if (cancelled) return
@@ -760,8 +787,18 @@ export default function Call() {
       }
       if (video && video.readyState >= 2 && video.videoWidth) {
         try {
+          const t0 = performance.now()
           if (await videoProcessor.send(video)) {
+            const spent = performance.now() - t0
             frames += 1
+            if (frames === 1) perf.started = t0
+            perf.total += spent
+            perf.max = Math.max(perf.max, spent)
+            if (!perf.reported && t0 - perf.started > 15000) {
+              perf.reported = true
+              const seconds = (t0 - perf.started) / 1000
+              report(token, 'blur.perf', background, { fps: Number((frames / seconds).toFixed(1)), target: BLUR_FPS, avgMs: Math.round(perf.total / frames), maxMs: Math.round(perf.max), delegate: videoProcessor.delegate ?? null, camera: `${video.videoWidth}x${video.videoHeight}`, filter: CANVAS_FILTER })
+            }
             if (frames === 1) {
               setMediaWarning((w) => (w.startsWith('Blur') ? '' : w))
               report(token, 'blur.on', background, { camera: `${video.videoWidth}x${video.videoHeight}`, sending: Boolean(blurOutRef.current), delegate: videoProcessor.delegate ?? null })
@@ -917,10 +954,12 @@ export default function Call() {
     if (status !== 'live' || autoOpened.current || !call) return
     // On a phone the call starts with the video; the board is under More.
     if (isMobile() && !requestedBoard) { autoOpened.current = true; return }
-    if (requestedBoard || call.classroomId) {
+    if (requestedBoard || call.classroomId || call.boardId) {
       const wanted = requestedBoard && isStaff
         ? boards.find((b) => b.id === requestedBoard)
-        : call.classroomId ? boards.find((b) => b.classroomId === call.classroomId) : null
+        // The board the call was started on, else the classroom's own.
+        : (call.boardId && boards.find((b) => b.id === call.boardId)) ||
+          (call.classroomId ? boards.find((b) => b.classroomId === call.classroomId) : null)
       if (!wanted) return
       autoOpened.current = true
       setBoardId((current) => current ?? wanted.id)

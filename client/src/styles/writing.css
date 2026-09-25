@@ -160,3 +160,6 @@
   .writing-outline-title { display: none; }
   .writing-outline-item { flex: 0 0 auto; display: block; white-space: nowrap; max-width: 220px; background: rgba(15, 55, 49, 0.08); }
 }
+
+.writing-notice { font-size: 12px; color: #ffd5ed; margin-left: 6px; }
+.word-count-menu { white-space: nowrap; font-size: 13px; padding: 8px 12px; }

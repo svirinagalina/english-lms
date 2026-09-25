@@ -104,11 +104,13 @@ export const api = {
   renameTextbook: (id, title) => request(`/textbooks/${id}`, { method: 'PATCH', body: { title } }),
   deleteTextbook: (id) => request(`/textbooks/${id}`, { method: 'DELETE' }),
   textbookFileUrl: (id) => `/api/textbooks/${id}/file`,
+  getProfile: () => request('/profile'),
   updateProfile: (body) => request('/profile', { method: 'PATCH', body }),
   uploadAvatar: (data) => request('/profile/avatar', { method: 'POST', body: { data } }),
   removeAvatar: () => request('/profile/avatar', { method: 'DELETE' }),
   diag: (event) => request('/diag', { method: 'POST', body: event }).catch(() => {}),
   dictionary: (word) => request(`/dictionary?word=${encodeURIComponent(word)}`),
+  translate: (q) => request(`/dictionary/translate?q=${encodeURIComponent(q)}`),
   uploadWritingImage: (classroomId, data) =>
     request(`/classrooms/${classroomId}/writing/images`, { method: 'POST', body: { data } }),
   createCall: (body) => request('/calls', { method: 'POST', body }),

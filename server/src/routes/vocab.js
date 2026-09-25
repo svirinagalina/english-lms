@@ -166,9 +166,10 @@ vocabRouter.post('/my/words', async (req, res) => {
 // Words picked on a board go into a student's "My words": the teacher's pick
 // lands in the classroom student's set, a student's pick in their own.
 vocabRouter.post('/board-words', async (req, res) => {
-  // A word or a short phrase ("give up"), letters only.
+  // A word or a phrase ("give up", "it's up to you"), letters only.
   const cleanTerm = (raw) => String(raw ?? '').trim().toLowerCase().replace(/[^a-z'’ -]/g, '').replace(/\s+/g, ' ').trim()
-  const words = [...new Set((Array.isArray(req.body?.words) ? req.body.words : [req.body?.words]).map(cleanTerm).filter((w) => w && w.length <= 40))].slice(0, 20)
+  // A phrase or a short sentence counts too (up to 80 characters).
+  const words = [...new Set((Array.isArray(req.body?.words) ? req.body.words : [req.body?.words]).map(cleanTerm).filter((w) => w && w.length <= 80))].slice(0, 20)
   if (!words.length) return res.status(400).json({ error: 'Select an English word first' })
 
   let target = req.user

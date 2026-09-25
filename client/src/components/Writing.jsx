@@ -3,6 +3,7 @@ import { api } from '../api'
 import { isEnglishWord, lookupWord, wordAt } from '../utils/dictionary'
 import WordCard from './WordCard'
 import RegionCapture, { canCaptureScreen } from './RegionCapture'
+import DictionaryPanel from './DictionaryPanel'
 import { autocorrectWord } from '../utils/autocorrect'
 import '../styles/writing.css'
 
@@ -45,6 +46,20 @@ function runAt(runs, offset) {
   }
   return null
 }
+
+// The text of [start, end) as it reads: no struck text, no pictures.
+function readableText(runs, start, end) {
+  let pos = 0
+  let out = ''
+  for (const run of runs) {
+    const from = Math.max(start, pos)
+    const to = Math.min(end, pos + run.text.length)
+    if (to > from && run.kind !== 'del' && run.kind !== 'image') out += run.text.slice(from - pos, to - pos)
+    pos += run.text.length
+  }
+  return out
+}
+const countWords = (text) => (text.match(/[A-Za-zА-Яа-яЁё0-9’'-]+/g) ?? []).length
 
 // New text continues the heading/highlight of the text it's typed into.
 function inheritedStyle(runs, start, end, text) {
@@ -314,11 +329,13 @@ export default function Writing({ socketRef, classroomId, user, title, subtitle,
   // The last place the caret was in the text, for tools that take focus
   // away (a file dialog, the screen picker) before they insert anything.
   const lastSelRef = useRef(null)
+  const [selection, setSelection] = useState(null) // { start, end } while something is highlighted
   useEffect(() => {
     const onChange = () => {
       const root = editorRef.current
       const sel = root ? selectionOffsets(root) : null
       if (sel) lastSelRef.current = sel
+      setSelection(sel && sel.end > sel.start ? sel : null)
     }
     document.addEventListener('selectionchange', onChange)
     return () => document.removeEventListener('selectionchange', onChange)
@@ -537,6 +554,33 @@ export default function Writing({ socketRef, classroomId, user, title, subtitle,
     commit(restyle(runsRef.current, sel.start, sel.end, { hl: color && !already ? color : null }), sel.end)
   }
 
+  // Word count of the highlighted fragment (or, with nothing highlighted, the whole text).
+  const [countOpen, setCountOpen] = useState(false)
+  const selectedText = selection ? readableText(runs, selection.start, selection.end) : ''
+
+  // The highlighted word or phrase goes into the vocabulary as one card:
+  // the student's own, or (for the teacher) this classroom's student's.
+  const [notice, setNotice] = useState('')
+  const noticeTimer = useRef(null)
+  const say = (text) => { setNotice(text); clearTimeout(noticeTimer.current); noticeTimer.current = setTimeout(() => setNotice(''), 4000) }
+  const [addingTerm, setAddingTerm] = useState(false)
+  const addToVocabulary = async (term) => {
+    const clean = term.trim().replace(/\s+/g, ' ').replace(/^[^a-zA-Z]+|[^a-zA-Z]+$/g, '')
+    if (!clean) { say('Highlight an English word or phrase first'); return }
+    if (clean.split(' ').length > 10) { say('That is too long for a card: up to 10 words'); return }
+    setAddingTerm(true)
+    try {
+      const result = await api.addBoardWords([clean], classroomId)
+      const where = result.student ? `${result.student}'s vocabulary` : 'your vocabulary'
+      say(result.added ? `“${clean}” added to ${where}` : result.skipped?.length ? `No dictionary entry for “${clean}”` : `“${clean}” is already in ${where}`)
+    } catch (err) {
+      say(err.message)
+    } finally {
+      setAddingTerm(false)
+    }
+  }
+  const [dictionaryOpen, setDictionaryOpen] = useState(false)
+
   const outline = useMemo(() => outlineOf(runs), [runs])
   const goToHeading = (item) => {
     const root = editorRef.current
@@ -613,7 +657,8 @@ export default function Writing({ socketRef, classroomId, user, title, subtitle,
           {onClose && <button className="chip-back" onClick={onClose} title="Back">{backLabel}</button>}
           <strong>{title ?? 'Writing'}</strong>
           {subtitle && <span className="muted"> · {subtitle}</span>}
-          <span className="muted writing-stats"> · {words} words{pending ? ` · ${pending} suggestion${pending === 1 ? '' : 's'}` : ''}</span>
+          <span className="muted writing-stats"> · {words} words{selectedText ? ` (${countWords(selectedText)} selected)` : ''}{pending ? ` · ${pending} suggestion${pending === 1 ? '' : 's'}` : ''}</span>
+          {notice && <span className="writing-notice"> {notice}</span>}
         </div>
         <div className="row-actions">
           {pending > 0 && (
@@ -623,6 +668,22 @@ export default function Writing({ socketRef, classroomId, user, title, subtitle,
             </>
           )}
           {/* mousedown is swallowed so the text selection survives the click. */}
+          <span className="marker-tool">
+            <button className={`tool ${countOpen ? 'active' : ''}`} onMouseDown={(e) => e.preventDefault()} onClick={() => setCountOpen((v) => !v)} title="How many words are in the highlighted fragment">Word count</button>
+            {countOpen && (
+              <span className="marker-menu word-count-menu" onMouseDown={(e) => e.preventDefault()}>
+                {selectedText
+                  ? <span><strong>{countWords(selectedText)}</strong> words · {selectedText.replace(/\s/g, '').length} characters (no spaces) in the selection</span>
+                  : <span>Highlight a fragment to count it · the whole text: <strong>{words}</strong> words</span>}
+              </span>
+            )}
+          </span>
+          <button className="tool" onMouseDown={(e) => e.preventDefault()} onClick={() => addToVocabulary(selectedText)} disabled={addingTerm || !selectedText} title="Put the highlighted word or phrase into the vocabulary, as one card">
+            {addingTerm ? 'Adding…' : '+ Vocabulary'}
+          </button>
+          {actor.tracked && (
+            <button className={`tool ${dictionaryOpen ? 'active' : ''}`} onMouseDown={(e) => e.preventDefault()} onClick={() => setDictionaryOpen((v) => !v)} title="Dictionary: any word or phrase, Russian ⇄ English">Dictionary</button>
+          )}
           <button className="tool" onMouseDown={(e) => e.preventDefault()} onClick={toggleHeading} title="Make the line a heading — it appears in the list on the left">Heading</button>
           <span className="marker-tool">
             <button className="tool" onMouseDown={(e) => e.preventDefault()} onClick={() => highlight(marker)} title="Highlight the selected text">
@@ -709,6 +770,8 @@ export default function Writing({ socketRef, classroomId, user, title, subtitle,
         )}
       </div>
       </div>
+
+      {dictionaryOpen && <DictionaryPanel onClose={() => setDictionaryOpen(false)} onAdd={(term) => addToVocabulary(term)} />}
 
       {capturing !== null && (
         <RegionCapture

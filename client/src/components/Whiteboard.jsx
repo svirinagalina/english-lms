@@ -4,6 +4,7 @@ import { isEnglishWord, lookupWord, wordAt } from '../utils/dictionary'
 import { ocrWords } from '../utils/ocr'
 import { isMobile, useNarrow } from '../utils/device'
 import WordCard, { PlayButton } from './WordCard'
+import DictionaryPanel from './DictionaryPanel'
 
 const COLORS = ['#111827', '#ef4444', '#16a34a', '#2563eb', '#f59e0b', '#9333ea']
 // Ink drawn while the board was dark, shown dark on the white board.
@@ -915,6 +916,7 @@ const Whiteboard = forwardRef(function Whiteboard({ socketRef, boardId, title, s
     setStudentPrompt({ run: (classroomId) => { chooseTarget(classroomId); setStudentPrompt(null); run(classroomId) } })
   }
   const [addingWords, setAddingWords] = useState(false)
+  const [dictionaryOpen, setDictionaryOpen] = useState(false) // the teacher's RU ⇄ EN dictionary
   // The Mistakes panel: rows typed during the lesson; each saved row becomes
   // a red note on the board (so the student sees it at once) and a notebook entry.
   const [mistakesOpen, setMistakesOpen] = useState(false)
@@ -1560,20 +1562,23 @@ const Whiteboard = forwardRef(function Whiteboard({ socketRef, boardId, title, s
 
   // The highlighted word while editing, or the selected texts' items
   // (one per line or comma) — short ones only, so a sentence is never added whole.
+  // A highlighted fragment goes in whole, as one card — a phrase or a short
+  // sentence, not just single words (up to MAX_TERM_WORDS words).
+  const MAX_TERM_WORDS = 10
   const wordsToAdd = () => {
     if (textInput) {
       const selection = window.getSelection()
       const text = editorHasSelection() ? selection.toString() : ''
-      const term = text.trim().replace(/\s+/g, ' ')
-      return term && term.split(' ').length <= 4 ? [term] : []
+      const term = text.trim().replace(/\s+/g, ' ').replace(/^[^a-zA-Z]+|[^a-zA-Z]+$/g, '')
+      return term && term.split(' ').length <= MAX_TERM_WORDS ? [term] : []
     }
-    return selectedWords().map((w) => w.replace(/^[^a-zA-Z]+|[^a-zA-Z]+$/g, '')).filter((w) => w && w.split(/\s+/).length <= 4)
+    return selectedWords().map((w) => w.replace(/^[^a-zA-Z]+|[^a-zA-Z]+$/g, '')).filter((w) => w && w.split(/\s+/).length <= MAX_TERM_WORDS)
   }
 
   const addWordsToVocabulary = () => {
     if (!onAddWords || addingWords) return
     const words = wordsToAdd()
-    if (!words.length) { showToast(textInput ? 'Highlight a word first' : 'No short words here to add'); return }
+    if (!words.length) { showToast(textInput ? `Highlight a word or a phrase (up to ${MAX_TERM_WORDS} words) first` : `Nothing to add: one word or phrase per line, up to ${MAX_TERM_WORDS} words`); return }
     withTarget((classroomId) => addWordsTo(words, classroomId))
   }
   const addWordsTo = async (words, classroomId) => {
@@ -1583,7 +1588,7 @@ const Whiteboard = forwardRef(function Whiteboard({ socketRef, boardId, title, s
       if (!result) return
       const where = result.student ? `${result.student}'s vocabulary` : 'From my board'
       const parts = []
-      if (result.added) parts.push(`Added ${result.added} ${result.added === 1 ? 'word' : 'words'} to ${where}`)
+      if (result.added) parts.push(`Added ${result.added} ${result.added === 1 ? 'card' : 'cards'} to ${where}`)
       else parts.push(`Already in ${where}`)
       if (result.skipped?.length) parts.push(`no entry: ${result.skipped.join(', ')}`)
       showToast(parts.join(' · '))
@@ -2877,6 +2882,14 @@ const Whiteboard = forwardRef(function Whiteboard({ socketRef, boardId, title, s
             ))}
           </div>
         )}
+        {dictionaryOpen && (
+          <DictionaryPanel
+            onClose={() => setDictionaryOpen(false)}
+            onAdd={onAddWords ? (term) => new Promise((resolve, reject) => {
+              withTarget((classroomId) => addWordsTo([term], classroomId).then(resolve, reject))
+            }) : undefined}
+          />
+        )}
         {pins.map((pin) => (
           <div key={pin.id} className="word-tip pinned" style={{ left: pin.x, top: pin.y }} onPointerDown={(e) => dragPin(e, pin.id)}>
             {wordTipBody(pin, (
@@ -2932,6 +2945,9 @@ const Whiteboard = forwardRef(function Whiteboard({ socketRef, boardId, title, s
               )}
               {onUploadImage && (
                 <button className="tool" onClick={() => window.open('/textbooks', 'textbooks', 'width=1000,height=700')} title="Open textbook in a new window to share your screen">Textbook</button>
+              )}
+              {onUploadImage && (
+                <button className={`tool ${dictionaryOpen ? 'active' : ''}`} onClick={() => setDictionaryOpen((v) => !v)} title="Dictionary: any word or phrase, Russian ⇄ English">Dictionary</button>
               )}
               {onUploadImage && (
                 <>
@@ -3038,7 +3054,7 @@ const Whiteboard = forwardRef(function Whiteboard({ socketRef, boardId, title, s
                   className="tool"
                   onClick={addWordsToVocabulary}
                   disabled={addingWords}
-                  title={textInput ? 'Put the highlighted word into the vocabulary' : 'Put these words into the vocabulary (one per line or comma)'}
+                  title={textInput ? 'Put the highlighted word or phrase into the vocabulary, as one card' : 'Put these into the vocabulary: each line (or comma-separated part) becomes one card'}
                 >
                   {addingWords ? 'Adding…' : '+ Vocabulary'}
                 </button>

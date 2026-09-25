@@ -19,10 +19,26 @@ const updateSchema = z.object({
   name: z.string().trim().min(1).max(120).optional(),
   email: z.string().trim().toLowerCase().email().max(200).optional(),
   currentPassword: z.string().max(200).optional(),
-  newPassword: z.string().min(8).max(200).optional()
+  newPassword: z.string().min(8).max(200).optional(),
+  // Personal details, all optional; an empty string clears one.
+  phone: z.string().trim().max(40).optional(),
+  messenger: z.string().trim().max(80).optional(),
+  birthday: z.union([z.literal(''), z.string().regex(/^\d{4}-\d{2}-\d{2}$/)]).optional(),
+  city: z.string().trim().max(80).optional(),
+  timezone: z.string().trim().max(60).optional(),
+  about: z.string().trim().max(1000).optional()
 })
 
+export const DETAIL_FIELDS = ['phone', 'messenger', 'birthday', 'city', 'timezone', 'about']
+
 const view = (u) => ({ id: u.id, name: u.name, email: u.email, role: u.role, schoolId: u.schoolId, avatar: u.avatar ?? null })
+const details = (u) => Object.fromEntries(DETAIL_FIELDS.map((f) => [f, u[f] ?? '']))
+
+profileRouter.get('/', async (req, res) => {
+  const user = await prisma.user.findUnique({ where: { id: req.user.id } })
+  if (!user) return res.status(401).json({ error: 'Not authenticated' })
+  res.json({ user: view(user), details: details(user) })
+})
 
 profileRouter.patch('/', async (req, res) => {
   const parsed = updateSchema.safeParse(req.body)
@@ -47,8 +63,11 @@ profileRouter.patch('/', async (req, res) => {
   if (name) data.name = name
   if (email) data.email = email
   if (newPassword) data.passwordHash = await hashPassword(newPassword)
+  for (const field of DETAIL_FIELDS) {
+    if (parsed.data[field] !== undefined) data[field] = parsed.data[field] || null
+  }
   const updated = await prisma.user.update({ where: { id: user.id }, data })
-  res.json({ user: view(updated) })
+  res.json({ user: view(updated), details: details(updated) })
 })
 
 profileRouter.post('/avatar', async (req, res) => {

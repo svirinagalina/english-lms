@@ -141,15 +141,23 @@ export default function Classroom() {
 
   // A call that opens straight on this board; the link in the call is what
   // you send to the student.
+  // The board goes with the call, so every student it's assigned to gets
+  // "Join call" in their cabinet (not only when started from their page).
+  const startingOnBoardRef = useRef(false)
   const startCallOnBoard = async (boardId) => {
+    if (startingOnBoardRef.current) return // a second click while the first is on its way
+    startingOnBoardRef.current = true
     try {
       const { call } = await api.createCall({
         ...(isPersonal ? {} : { classroomId: id }),
+        boardId,
         title: isPersonal ? openBoard.title : `Lesson with ${classroom.student.name}`
       })
       navigate(`/call/${call.token}?board=${boardId}`)
     } catch (err) {
       setError(err.message)
+    } finally {
+      startingOnBoardRef.current = false
     }
   }
 
@@ -400,6 +408,29 @@ export default function Classroom() {
           ))}
         </div>
       </Panel>
+
+      {!isPersonal && isStaff && classroom.contacts && (() => {
+        // What the student filled in on their own profile page.
+        const c = classroom.contacts
+        const zoneTime = (() => { try { return c.timezone ? new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', timeZone: c.timezone }) : null } catch { return null } })()
+        const rows = [
+          ['Email', c.email],
+          ['Phone', c.phone],
+          ['Telegram / WhatsApp', c.messenger],
+          ['Birthday', c.birthday && new Date(`${c.birthday}T12:00:00`).toLocaleDateString(undefined, { day: 'numeric', month: 'long', year: 'numeric' })],
+          ['City', c.city],
+          ['Time zone', c.timezone && `${c.timezone.replace(/_/g, ' ')}${zoneTime ? ` · now ${zoneTime} there` : ''}`]
+        ].filter(([, v]) => v)
+        return (
+          <Panel id={`room:contacts:${id}`} title="Contacts">
+            <dl className="contacts">
+              {rows.map(([k, v]) => <div key={k}><dt className="muted">{k}</dt><dd>{v}</dd></div>)}
+            </dl>
+            {c.about && <p className="contacts-about">{c.about}</p>}
+            {rows.length <= 1 && !c.about && <p className="muted">The student hasn’t filled in their profile yet (Profile, top right).</p>}
+          </Panel>
+        )
+      })()}
 
       {!isPersonal && (
         <Panel id={`room:writing:${id}`} title="Writing">

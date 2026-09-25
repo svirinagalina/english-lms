@@ -44,6 +44,14 @@ model User {
   createdAt    DateTime @default(now())
   // A small profile picture, served from /uploads/avatars.
   avatar       String?
+  // Personal details a person fills in on their own profile page; the
+  // teacher sees a student's on the student's page.
+  phone        String?
+  messenger    String?  // Telegram / WhatsApp, as the person writes it
+  birthday     String?  // YYYY-MM-DD
+  city         String?
+  timezone     String?  // IANA name, e.g. Europe/Moscow
+  about        String?  // goals, interests — a few lines
 
   // Per-student billing. Amount is in minor units (kopeks/cents) to avoid float rounding.
   priceAmount   Int?
@@ -412,6 +420,8 @@ model Board {
   classroom   Classroom @relation(fields: [classroomId], references: [id], onDelete: Cascade)
   // One board can be attached to several students at once.
   sharedWith  Classroom[] @relation("BoardShares")
+  // Calls started on this board: every student it is assigned to sees them.
+  calls       Call[]
 
   @@index([classroomId, updatedAt])
 }
@@ -435,6 +445,11 @@ model Call {
 
   classroomId String?
   classroom   Classroom? @relation(fields: [classroomId], references: [id], onDelete: SetNull)
+
+  // The board the call was started on: each student that board is assigned
+  // to gets "Join call" in their cabinet, even in a pair or group lesson.
+  boardId String?
+  board   Board?  @relation(fields: [boardId], references: [id], onDelete: SetNull)
 
   @@index([hostId, createdAt])
 }

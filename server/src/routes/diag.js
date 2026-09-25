@@ -2,10 +2,26 @@ import { Router } from 'express'
 import { z } from 'zod'
 import { requireAuth } from '../auth.js'
 import { prisma } from '../db.js'
+import path from 'path'
+import { appendFile, mkdir } from 'fs/promises'
+import { fileURLToPath } from 'url'
 
 // Call diagnostics from the browser: what the noise removal and the blur
-// did on a person's device, so a failure can be read in the server log
-// without asking them for screenshots. Nothing is stored; it goes to the log.
+// did on a person's device, so a failure can be read without asking them for
+// screenshots. Each line goes to the log and to a monthly file in the uploads
+// volume (UPLOAD_DIR/diag/diag-YYYY-MM.log), because a deploy recreates the
+// container and its log with it — last time the evidence of a phone's bad
+// blur was gone by the time anyone looked.
+const UPLOAD_ROOT = process.env.UPLOAD_DIR ?? path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../uploads')
+const DIAG_DIR = path.join(UPLOAD_ROOT, 'diag')
+let dirReady = null
+async function keep(line) {
+  try {
+    dirReady ??= mkdir(DIAG_DIR, { recursive: true })
+    await dirReady
+    await appendFile(path.join(DIAG_DIR, `diag-${new Date().toISOString().slice(0, 7)}.log`), `${new Date().toISOString()} ${line}\n`)
+  } catch { /* the log line is still in the console */ }
+}
 export const diagRouter = Router()
 diagRouter.use(requireAuth)
 
@@ -37,6 +53,8 @@ diagRouter.post('/', async (req, res) => {
   const { kind, message, details, device, call, thumb } = parsed.data
   if (thumb) console.log(`[diag-thumb] ${req.user.id} ${kind} ${thumb}`)
   const who = await prisma.user.findUnique({ where: { id: req.user.id }, select: { name: true } }).catch(() => null)
-  console.log(`[diag] ${who?.name ?? req.user.id} (${req.user.role}) ${call ? `call=${call} ` : ''}${kind}${message ? `: ${message}` : ''}${details ? ' ' + JSON.stringify(details) : ''}${device ? ` | ${device}` : ''}`)
+  const line = `[diag] ${who?.name ?? req.user.id} (${req.user.role}) ${call ? `call=${call} ` : ''}${kind}${message ? `: ${message}` : ''}${details ? ' ' + JSON.stringify(details) : ''}${device ? ` | ${device}` : ''}`
+  console.log(line)
+  keep(line)
   res.json({ ok: true })
 })

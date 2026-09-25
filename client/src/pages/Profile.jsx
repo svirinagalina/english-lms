@@ -1,8 +1,12 @@
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import Nav from '../components/Nav'
 import { Avatar } from '../components/Avatar'
 import { useAuth } from '../AuthContext'
 import { api } from '../api'
+
+// The zones people actually live in, offered first; any IANA name is accepted.
+const ZONES = ['Europe/Kaliningrad', 'Europe/Moscow', 'Europe/Samara', 'Asia/Yekaterinburg', 'Asia/Omsk', 'Asia/Novosibirsk', 'Asia/Krasnoyarsk', 'Asia/Irkutsk', 'Asia/Yakutsk', 'Asia/Vladivostok', 'Asia/Magadan', 'Asia/Kamchatka', 'Europe/Minsk', 'Europe/Kyiv', 'Asia/Almaty', 'Asia/Tashkent', 'Asia/Tbilisi', 'Asia/Yerevan', 'Asia/Baku', 'Europe/Istanbul', 'Asia/Dubai', 'Europe/London', 'Europe/Berlin', 'Europe/Madrid', 'Europe/Paris', 'Asia/Bangkok', 'America/New_York', 'America/Los_Angeles']
+const EMPTY_DETAILS = { phone: '', messenger: '', birthday: '', city: '', timezone: '', about: '' }
 
 // Reads a picture file and returns a square 256 px JPEG data URL.
 const squarePicture = (file) => new Promise((resolve, reject) => {
@@ -34,6 +38,13 @@ export default function Profile() {
   const [message, setMessage] = useState('')
   const [error, setError] = useState('')
   const fileRef = useRef(null)
+  // Personal details: phone, messenger, birthday, city, time zone, about.
+  const [details, setDetails] = useState(EMPTY_DETAILS)
+  const setDetail = (field) => (e) => setDetails((d) => ({ ...d, [field]: e.target.value }))
+  useEffect(() => {
+    api.getProfile().then(({ details: d }) => setDetails({ ...EMPTY_DETAILS, ...d })).catch(() => {})
+  }, [])
+  const ownZone = (() => { try { return Intl.DateTimeFormat().resolvedOptions().timeZone } catch { return '' } })()
 
   const emailChanged = email.trim().toLowerCase() !== user.email
   const needsPassword = emailChanged || newPassword
@@ -45,11 +56,12 @@ export default function Profile() {
     if (newPassword && newPassword.length < 8) { setError('The new password needs at least 8 characters'); return }
     setSaving(true)
     try {
-      const body = { name: name.trim(), email: email.trim().toLowerCase() }
+      const body = { name: name.trim(), email: email.trim().toLowerCase(), ...details }
       if (needsPassword) body.currentPassword = currentPassword
       if (newPassword) body.newPassword = newPassword
-      const { user: updated } = await api.updateProfile(body)
+      const { user: updated, details: saved } = await api.updateProfile(body)
       updateUser(updated)
+      if (saved) setDetails({ ...EMPTY_DETAILS, ...saved })
       setCurrentPassword(''); setNewPassword(''); setRepeat('')
       setMessage(newPassword ? 'Saved. Use the new password next time you sign in.' : 'Saved.')
     } catch (err) {
@@ -97,6 +109,37 @@ export default function Profile() {
           <label className="field">
             <span>Email (you sign in with it)</span>
             <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} required maxLength={200} />
+          </label>
+
+          <h2 style={{ marginTop: 8 }}>About me</h2>
+          <label className="field">
+            <span>Phone</span>
+            <input type="tel" autoComplete="tel" value={details.phone} onChange={setDetail('phone')} maxLength={40} placeholder="+7 900 000-00-00" />
+          </label>
+          <label className="field">
+            <span>Telegram / WhatsApp</span>
+            <input value={details.messenger} onChange={setDetail('messenger')} maxLength={80} placeholder="@username or a number" />
+          </label>
+          <div className="profile-pair">
+            <label className="field">
+              <span>Birthday</span>
+              <input type="date" value={details.birthday} onChange={setDetail('birthday')} />
+            </label>
+            <label className="field">
+              <span>City</span>
+              <input value={details.city} onChange={setDetail('city')} maxLength={80} />
+            </label>
+          </div>
+          <label className="field">
+            <span>Time zone — so lesson times show right</span>
+            <select value={details.timezone} onChange={setDetail('timezone')}>
+              <option value="">— not set —</option>
+              {[...new Set([ownZone, details.timezone, ...ZONES].filter(Boolean))].map((z) => <option key={z} value={z}>{z.replace(/_/g, ' ')}{z === ownZone ? ' (this device)' : ''}</option>)}
+            </select>
+          </label>
+          <label className="field">
+            <span>{user.role === 'STUDENT' ? 'About me: why I learn English, my goals and interests' : 'About me'}</span>
+            <textarea rows={4} value={details.about} onChange={setDetail('about')} maxLength={1000} />
           </label>
 
           <h2 style={{ marginTop: 8 }}>Change password</h2>

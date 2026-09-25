@@ -17,7 +17,8 @@ const callView = (call, origin) => ({
   endedAt: call.endedAt,
   link: `${origin}/call/${call.token}`,
   host: call.host ? { id: call.host.id, name: call.host.name } : undefined,
-  classroomId: call.classroomId
+  classroomId: call.classroomId,
+  boardId: call.boardId ?? null
 })
 
 callsRouter.use(requireAuth)
@@ -64,8 +65,21 @@ callsRouter.get('/token/:token', async (req, res) => {
 
 const createSchema = z.object({
   title: z.string().max(200).optional(),
-  classroomId: z.string().optional()
+  classroomId: z.string().optional(),
+  // The board it is started on (from My boards): its students see the call.
+  boardId: z.string().max(40).optional()
 })
+
+// One host's call creations run one after another, so the "same lesson just
+// started" check below sees the call a parallel click is creating.
+const hostQueues = new Map()
+function oneAtATime(hostId, fn) {
+  const run = (hostQueues.get(hostId) ?? Promise.resolve()).then(fn, fn)
+  const tail = run.catch(() => {})
+  hostQueues.set(hostId, tail)
+  tail.then(() => { if (hostQueues.get(hostId) === tail) hostQueues.delete(hostId) })
+  return run
+}
 
 callsRouter.post('/', requireRole('OWNER', 'TEACHER'), async (req, res) => {
   const parsed = createSchema.safeParse(req.body)
@@ -78,18 +92,46 @@ callsRouter.post('/', requireRole('OWNER', 'TEACHER'), async (req, res) => {
     classroomId = classroom.id
   }
 
-  const call = await prisma.call.create({
-    data: {
-      token: randomBytes(9).toString('base64url'),
-      title: parsed.data.title?.trim() || null,
-      hostId: req.user.id,
-      schoolId: req.user.schoolId,
-      classroomId
-    },
-    include: { host: { select: { id: true, name: true } } }
+  let boardId = null
+  if (parsed.data.boardId) {
+    const board = await prisma.board.findFirst({
+      where: { id: parsed.data.boardId, classroom: { schoolId: req.user.schoolId } },
+      select: { id: true, classroomId: true, sharedWith: { select: { id: true, studentId: true } } }
+    })
+    if (!board || !(await accessibleClassroom(req.user, board.classroomId))) return res.status(404).json({ error: 'Board not found' })
+    boardId = board.id
+    // A board with exactly one student: the call is that student's lesson
+    // (it counts, and "Join call" shows in their cabinet). Several students
+    // (a pair lesson) see it through the board instead.
+    const students = board.sharedWith.filter((c) => c.studentId)
+    if (!classroomId && students.length === 1) classroomId = students[0].id
+  }
+
+  // A second click while the first is still on its way (slow network) used
+  // to open a new call each time — twenty in half a minute once. The same
+  // host starting the same lesson again within two minutes gets that call.
+  const { call, reused } = await oneAtATime(req.user.id, async () => {
+    const recent = await prisma.call.findFirst({
+      where: { hostId: req.user.id, endedAt: null, classroomId, boardId, createdAt: { gt: new Date(Date.now() - 2 * 60 * 1000) } },
+      include: { host: { select: { id: true, name: true } } },
+      orderBy: { createdAt: 'desc' }
+    })
+    if (recent) return { call: recent, reused: true }
+    const created = await prisma.call.create({
+      data: {
+        token: randomBytes(9).toString('base64url'),
+        title: parsed.data.title?.trim() || null,
+        hostId: req.user.id,
+        schoolId: req.user.schoolId,
+        classroomId,
+        boardId
+      },
+      include: { host: { select: { id: true, name: true } } }
+    })
+    return { call: created, reused: false }
   })
 
-  res.status(201).json({ call: callView(call, originOf(req)) })
+  res.status(reused ? 200 : 201).json({ call: callView(call, originOf(req)) })
 })
 
 // A blank board for a call that has no student (a colleague or group call):
@@ -115,7 +157,15 @@ callsRouter.post('/:token/scratch-board', requireRole('OWNER', 'TEACHER'), async
 callsRouter.get('/active', async (req, res) => {
   const since = new Date(Date.now() - 3 * 60 * 60 * 1000)
   const where = req.user.role === 'STUDENT'
-    ? { endedAt: null, createdAt: { gt: since }, classroom: { studentId: req.user.id } }
+    ? {
+        endedAt: null,
+        createdAt: { gt: since },
+        // Their own lesson, or a call on a board they are assigned to.
+        OR: [
+          { classroom: { studentId: req.user.id } },
+          { board: { sharedWith: { some: { studentId: req.user.id } } } }
+        ]
+      }
     : { endedAt: null, createdAt: { gt: since }, hostId: req.user.id }
   const call = await prisma.call.findFirst({
     where: { ...where, schoolId: req.user.schoolId },

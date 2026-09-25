@@ -1,7 +1,9 @@
+import { useState } from 'react'
 import { Link, useLocation } from 'react-router-dom'
 import { useAuth } from '../AuthContext'
 import { Brand } from './Brand'
 import { Avatar } from './Avatar'
+import DictionaryPanel from './DictionaryPanel'
 
 const ROLE_LABEL = {
   OWNER: 'administrator',
@@ -14,6 +16,8 @@ const ROLE_LABEL = {
 export default function Nav({ title, back }) {
   const { user, logout } = useAuth()
   const { pathname } = useLocation()
+  const [dictionaryOpen, setDictionaryOpen] = useState(false)
+  const staff = user.role !== 'STUDENT'
 
   const admin = user.role === 'OWNER' || user.role === 'PARTNER'
   const links = [{ to: '/classroom', label: 'Classroom' }, { to: '/courses', label: 'Courses' }]
@@ -68,8 +72,13 @@ export default function Nav({ title, back }) {
             {link.label}
           </Link>
         ))}
+        {staff && (
+          <button className={`ghost ${dictionaryOpen ? 'active' : ''}`} onClick={() => setDictionaryOpen((v) => !v)} title="Any word or phrase, Russian ⇄ English">Dictionary</button>
+        )}
+        <Link to="/profile" className={`nav-link ${pathname === '/profile' ? 'active' : ''}`} title="Your name, email, password, picture and contacts">Profile</Link>
         <button className="ghost" onClick={logout}>Sign out</button>
       </nav>
+      {dictionaryOpen && <DictionaryPanel onClose={() => setDictionaryOpen(false)} />}
     </header>
   )
 }

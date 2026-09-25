@@ -122,6 +122,32 @@ export async function judgeExerciseAnswer({ chapter, type, prompt, accepted, ans
   })
 }
 
+const RuEnSchema = z.object({ items: z.array(z.object({
+  english: z.string(),
+  transcription: z.string(),
+  pos: z.string(),
+  note: z.string()
+})) })
+
+// The teacher's dictionary, Russian → English: the usual English
+// equivalents of a word or phrase, most common first, each with IPA and a
+// short note in Russian on when to use it.
+export async function translateRussian(text) {
+  const out = await structured({
+    name: 'ru_en',
+    schema: RuEnSchema,
+    maxTokens: 2500,
+    effort: 'low',
+    system:
+      'You are a Russian→English dictionary for an English teacher. For the Russian word or phrase given, return its usual English equivalents, ' +
+      'most common first, 1 to 5 of them (fewer when one is clearly the answer). For each: `english` (the word or phrase as it is normally used; a verb ' +
+      'without "to" unless the particle is part of the phrase), `transcription` (American IPA in slashes), `pos` (noun, verb, adjective, phrase…) and `note`: ' +
+      'a few words in Russian on the meaning or context that sets it apart from the others (e.g. «о человеке», «разг.», «офиц.»). No examples, no extra text.',
+    user: text
+  })
+  return out?.items ?? []
+}
+
 const PromptSchema = z.object({ prompt: z.string() })
 
 // A drill task for one mistake: a Russian sentence the learner translates,
