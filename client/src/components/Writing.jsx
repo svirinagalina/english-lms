@@ -1,7 +1,9 @@
-import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { api } from '../api'
 import { isEnglishWord, lookupWord, wordAt } from '../utils/dictionary'
 import WordCard from './WordCard'
+import RegionCapture, { canCaptureScreen } from './RegionCapture'
+import { autocorrectWord } from '../utils/autocorrect'
 import '../styles/writing.css'
 
 // A shared writing document with tracked changes, Google-Docs style.
@@ -14,19 +16,84 @@ import '../styles/writing.css'
 // Editing happens in a contentEditable whose native edits are intercepted
 // (beforeinput) and replayed on the run model, so the marks stay exact.
 
+// Besides kind/author a run can carry formatting that is never a
+// suggestion: `h` (a heading line, listed in the outline) and `hl` (a
+// highlighter colour).
+const sameStyle = (a, b) => a.kind === b.kind && a.author === b.author && (a.h ?? 0) === (b.h ?? 0) && (a.hl ?? '') === (b.hl ?? '')
+
 const normalise = (runs) => {
   const out = []
   for (const run of runs) {
     if (!run.text) continue
     const last = out[out.length - 1]
-    if (last && run.kind !== 'image' && last.kind === run.kind && last.kind !== 'image' && last.author === run.author) last.text += run.text
+    if (last && run.kind !== 'image' && last.kind !== 'image' && sameStyle(last, run)) last.text += run.text
     else out.push({ ...run })
   }
   return out
 }
 
 const totalLength = (runs) => runs.reduce((n, r) => n + r.text.length, 0)
+const fullText = (runs) => runs.map((r) => r.text).join('')
 const plainText = (runs) => runs.filter((r) => r.kind !== 'del' && r.kind !== 'image').map((r) => r.text).join('')
+
+// The run holding the character at `offset`.
+function runAt(runs, offset) {
+  let pos = 0
+  for (const run of runs) {
+    if (offset < pos + run.text.length) return run
+    pos += run.text.length
+  }
+  return null
+}
+
+// New text continues the heading/highlight of the text it's typed into.
+function inheritedStyle(runs, start, end, text) {
+  if (text.includes('\n')) return {}
+  const all = fullText(runs)
+  const source = start > 0 && all[start - 1] !== '\n' ? runAt(runs, start - 1)
+    : end < all.length && all[end] !== '\n' ? runAt(runs, end) : null
+  if (!source || source.kind === 'image') return {}
+  const style = {}
+  if (source.h) style.h = source.h
+  if (source.hl) style.hl = source.hl
+  return style
+}
+
+// Sets (or clears, with null) formatting on [start, end).
+function restyle(runs, start, end, patch) {
+  const next = runs.map((r) => ({ ...r }))
+  const from = splitAt(next, start)
+  const to = splitAt(next, end)
+  for (let i = from; i < to; i++) {
+    const run = next[i]
+    if (run.kind === 'image') continue
+    for (const [key, value] of Object.entries(patch)) {
+      if (value == null) delete run[key]
+      else run[key] = value
+    }
+  }
+  return normalise(next)
+}
+
+// Every heading line: its text and where it starts.
+function outlineOf(runs) {
+  const items = []
+  let pos = 0
+  let line = null
+  runs.forEach((run, index) => {
+    const parts = run.text.split('\n')
+    parts.forEach((part, i) => {
+      if (i > 0) { if (line) items.push(line); line = null }
+      if (run.h && run.kind !== 'del' && run.kind !== 'image' && part) {
+        if (!line) line = { offset: pos, index, text: '' }
+        line.text += part
+      }
+      pos += part.length + (i < parts.length - 1 ? 1 : 0)
+    })
+  })
+  if (line) items.push(line)
+  return items.filter((item) => item.text.trim()).map((item) => ({ ...item, text: item.text.trim() }))
+}
 
 // Splits runs so that `offset` falls on a run boundary; returns the index.
 function splitAt(runs, offset) {
@@ -66,7 +133,10 @@ function applyEdit(runs, start, end, text, actor) {
       replacement.push(run)
     }
   }
-  if (text) replacement.push({ text, kind: actor.tracked ? 'ins' : 'base', author: actor.tracked ? actor.id : undefined })
+  if (text) {
+    const style = inheritedStyle(runs, start, end, text)
+    replacement.push({ text, kind: actor.tracked ? 'ins' : 'base', author: actor.tracked ? actor.id : undefined, ...style })
+  }
 
   next.splice(from, to - from, ...replacement)
   // Caret lands after the whole edit — past struck text too, so a
@@ -77,11 +147,14 @@ function applyEdit(runs, start, end, text, actor) {
   return { runs: normalise(next), caret }
 }
 
+// A settled suggestion becomes plain text but keeps its formatting.
+const asBase = ({ author, ...run }) => ({ ...run, kind: 'base' })
+
 function resolveAll(runs, accept) {
   return normalise(runs.flatMap((run) => {
     if (run.kind === 'base' || run.kind === 'image') return [run]
-    if (run.kind === 'ins') return accept ? [{ text: run.text, kind: 'base' }] : []
-    return accept ? [] : [{ text: run.text, kind: 'base' }]
+    if (run.kind === 'ins') return accept ? [asBase(run)] : []
+    return accept ? [] : [asBase(run)]
   }))
 }
 
@@ -89,9 +162,18 @@ function resolveOne(runs, index, accept) {
   const run = runs[index]
   if (!run || run.kind === 'base' || run.kind === 'image') return runs
   const next = runs.slice()
-  if (run.kind === 'ins') next.splice(index, 1, ...(accept ? [{ text: run.text, kind: 'base' }] : []))
-  else next.splice(index, 1, ...(accept ? [] : [{ text: run.text, kind: 'base' }]))
+  if (run.kind === 'ins') next.splice(index, 1, ...(accept ? [asBase(run)] : []))
+  else next.splice(index, 1, ...(accept ? [] : [asBase(run)]))
   return normalise(next)
+}
+
+// Backspace/Delete step over text that is already struck through, so a
+// deleted line break can't trap the caret in front of it.
+function skipStruck(runs, offset, direction) {
+  let at = offset
+  if (direction < 0) { while (at > 0 && runAt(runs, at - 1)?.kind === 'del') at-- }
+  else { while (runAt(runs, at)?.kind === 'del') at++ }
+  return at
 }
 
 // --- Caret ↔ text offsets in the contentEditable ------------------------------
@@ -178,6 +260,7 @@ export default function Writing({ socketRef, classroomId, user, title, subtitle,
     if (history.undo.length > 200) history.undo.shift()
     history.redo = []
     dirtyRef.current = true
+    runsRef.current = next
     setRuns(next)
     caretRef.current = caret ?? null
     broadcast(next)
@@ -228,6 +311,59 @@ export default function Writing({ socketRef, classroomId, user, title, subtitle,
     caretRef.current = null
   })
 
+  // The last place the caret was in the text, for tools that take focus
+  // away (a file dialog, the screen picker) before they insert anything.
+  const lastSelRef = useRef(null)
+  useEffect(() => {
+    const onChange = () => {
+      const root = editorRef.current
+      const sel = root ? selectionOffsets(root) : null
+      if (sel) lastSelRef.current = sel
+    }
+    document.addEventListener('selectionchange', onChange)
+    return () => document.removeEventListener('selectionchange', onChange)
+  }, [])
+  const currentSelection = () => {
+    const root = editorRef.current
+    return (root && selectionOffsets(root)) ?? lastSelRef.current
+  }
+
+  // Autocorrect: on for teachers by default, off for students (their
+  // mistakes are the point of the exercise) — each can switch it.
+  const autocorrectKey = `writing.autocorrect.${user.role === 'STUDENT' ? 'student' : 'staff'}`
+  const [autocorrect, setAutocorrect] = useState(() => {
+    try {
+      const stored = localStorage.getItem(autocorrectKey)
+      if (stored !== null) return stored === '1'
+    } catch { /* storage unavailable */ }
+    return user.role !== 'STUDENT'
+  })
+  const toggleAutocorrect = () => {
+    setAutocorrect((on) => {
+      try { localStorage.setItem(autocorrectKey, on ? '0' : '1') } catch { /* storage unavailable */ }
+      return !on
+    })
+  }
+
+  // After a space, punctuation or Enter, fixes the word just finished —
+  // only when it's the actor's own text, never someone else's.
+  const autocorrectBefore = (runs, at) => {
+    const all = fullText(runs)
+    let from = at
+    while (from > 0 && /[A-Za-z']/.test(all[from - 1])) from--
+    const word = all.slice(from, at).replace(/^'+/, '')
+    from = at - word.length
+    if (!word || !/[A-Za-z]/.test(word)) return null
+    for (let i = from; i < at; i++) {
+      const run = runAt(runs, i)
+      const own = actor.tracked ? run?.kind === 'ins' && run.author === actor.id : run?.kind === 'base'
+      if (!own) return null
+    }
+    const before = all.slice(Math.max(0, from - 40), from)
+    const fixed = autocorrectWord(word, before)
+    return fixed ? { from, to: at, fixed } : null
+  }
+
   // React's synthetic onBeforeInput is a partial polyfill (insertText only,
   // not cancelable everywhere), so the native event is used instead.
   const beforeInputRef = useRef(null)
@@ -273,8 +409,17 @@ export default function Writing({ socketRef, classroomId, user, title, subtitle,
       return // formatting and anything else: not for this editor
     }
     if (start === end && !text) return
+    text = text.replace(/\r\n?/g, '\n')
     const result = applyEdit(runsRef.current, start, end, text, actor)
     commit(result.runs, result.caret)
+    if (autocorrect && start === end && /^[\s.,!?;:)]$/.test(text)) {
+      const fix = autocorrectBefore(result.runs, start)
+      if (fix) {
+        // A second step, so one ⌘Z brings the original word back.
+        const corrected = applyEdit(result.runs, fix.from, fix.to, fix.fixed, actor)
+        commit(corrected.runs, fix.from + fix.fixed.length + text.length)
+      }
+    }
   }
   beforeInputRef.current = handleBeforeInput
 
@@ -307,8 +452,8 @@ export default function Writing({ socketRef, classroomId, user, title, subtitle,
     event.preventDefault()
     let { start, end } = sel
     if (start === end) {
-      if (event.key === 'Backspace') start = Math.max(0, start - 1)
-      else end = Math.min(totalLength(runsRef.current), end + 1)
+      if (event.key === 'Backspace') start = Math.max(0, skipStruck(runsRef.current, start, -1) - 1)
+      else end = Math.min(totalLength(runsRef.current), skipStruck(runsRef.current, end, 1) + 1)
     }
     if (start === end) return
     const result = applyEdit(runsRef.current, start, end, '', actor)
@@ -318,7 +463,7 @@ export default function Writing({ socketRef, classroomId, user, title, subtitle,
   // A screenshot goes in at the caret on its own line, as a base run.
   const [uploading, setUploading] = useState(false)
   const fileInputRef = useRef(null)
-  const insertImage = async (file) => {
+  const insertImage = async (file, at = currentSelection()?.end ?? totalLength(runsRef.current)) => {
     if (!file || !file.type.startsWith('image/')) return
     setUploading(true)
     try {
@@ -329,9 +474,8 @@ export default function Writing({ socketRef, classroomId, user, title, subtitle,
         reader.readAsDataURL(file)
       })
       const { src } = await api.uploadWritingImage(classroomId, dataUrl)
-      const root = editorRef.current
-      const sel = root ? selectionOffsets(root) : null
-      const at = sel ? sel.end : totalLength(runsRef.current)
+      // The text may have changed while uploading; stay inside it.
+      at = Math.min(at, totalLength(runsRef.current))
       const next = runsRef.current.map((r) => ({ ...r }))
       const index = splitAt(next, at)
       const before = next[index - 1]
@@ -339,7 +483,11 @@ export default function Writing({ socketRef, classroomId, user, title, subtitle,
       const lead = before && !before.text.endsWith('\n') ? '\n' : ''
       const trail = after && after.text.startsWith('\n') ? '' : '\n'
       next.splice(index, 0, { text: lead, kind: 'base' }, { text: IMAGE_CHAR, kind: 'image', src }, { text: trail, kind: 'base' })
-      commit(normalise(next), at + lead.length + 2)
+      commit(normalise(next), at + lead.length + 1 + trail.length)
+      editorRef.current?.focus()
+      requestAnimationFrame(() => {
+        editorRef.current?.querySelector(`img[src="${src}"]`)?.scrollIntoView({ block: 'nearest', behavior: 'smooth' })
+      })
     } catch (err) {
       setError(err.message)
     } finally {
@@ -350,6 +498,52 @@ export default function Writing({ socketRef, classroomId, user, title, subtitle,
   const handlePaste = (event) => {
     const file = [...(event.clipboardData?.files ?? [])].find((f) => f.type.startsWith('image/'))
     if (file) { event.preventDefault(); insertImage(file) }
+  }
+
+  const [capturing, setCapturing] = useState(null) // caret offset to insert at
+  const startCapture = () => setCapturing(currentSelection()?.end ?? totalLength(runsRef.current))
+
+  // Heading: the whole line(s) under the caret, toggled.
+  const toggleHeading = () => {
+    const sel = currentSelection()
+    if (!sel) return
+    const all = fullText(runsRef.current)
+    const from = all.lastIndexOf('\n', sel.start - 1) + 1
+    let to = all.indexOf('\n', Math.max(sel.end, from))
+    if (sel.end > sel.start && all[sel.end - 1] === '\n') to = sel.end - 1
+    if (to < 0) to = all.length
+    if (to <= from) return
+    const isHeading = [...all.slice(from, to)].every((ch, i) => ch === '\n' || runAt(runsRef.current, from + i)?.h)
+    // Line breaks inside a multi-line selection stay plain.
+    let next = runsRef.current
+    let lineStart = from
+    for (const line of all.slice(from, to).split('\n')) {
+      if (line) next = restyle(next, lineStart, lineStart + line.length, { h: isHeading ? null : 1 })
+      lineStart += line.length + 1
+    }
+    commit(next, sel.end)
+  }
+
+  // Highlighter: paints the selection; painting it again in the same
+  // colour (or with the eraser) takes it off.
+  const HIGHLIGHTS = ['yellow', 'green', 'pink', 'blue']
+  const [marker, setMarker] = useState('yellow')
+  const [markerMenu, setMarkerMenu] = useState(false)
+  const highlight = (color) => {
+    setMarkerMenu(false)
+    const sel = currentSelection()
+    if (!sel || sel.start === sel.end) return
+    const already = color && [...fullText(runsRef.current).slice(sel.start, sel.end)].every((ch, i) => ch === '\n' || runAt(runsRef.current, sel.start + i)?.hl === color)
+    commit(restyle(runsRef.current, sel.start, sel.end, { hl: color && !already ? color : null }), sel.end)
+  }
+
+  const outline = useMemo(() => outlineOf(runs), [runs])
+  const goToHeading = (item) => {
+    const root = editorRef.current
+    const el = root?.querySelector(`[data-run="${item.index}"]`)
+    el?.scrollIntoView({ block: 'start', behavior: 'smooth' })
+    root?.focus({ preventScroll: true })
+    if (root) setCaret(root, item.offset)
   }
 
   // A click on a mark offers accept/reject; anywhere else the browser's own
@@ -428,7 +622,29 @@ export default function Writing({ socketRef, classroomId, user, title, subtitle,
               <button className="tool" onClick={() => commit(resolveAll(runsRef.current, false), null)} title="Discard every correction">Reject all</button>
             </>
           )}
-          <button className="tool" onClick={() => fileInputRef.current?.click()} disabled={uploading} title="Insert a screenshot or picture (or just paste one)">
+          {/* mousedown is swallowed so the text selection survives the click. */}
+          <button className="tool" onMouseDown={(e) => e.preventDefault()} onClick={toggleHeading} title="Make the line a heading — it appears in the list on the left">Heading</button>
+          <span className="marker-tool">
+            <button className="tool" onMouseDown={(e) => e.preventDefault()} onClick={() => highlight(marker)} title="Highlight the selected text">
+              <span className={`marker-swatch hl-${marker}`} />Marker
+            </button>
+            <button className="tool marker-more" onMouseDown={(e) => e.preventDefault()} onClick={() => setMarkerMenu((v) => !v)} title="Marker colour" aria-label="Marker colour">▾</button>
+            {markerMenu && (
+              <span className="marker-menu" onMouseDown={(e) => e.preventDefault()}>
+                {HIGHLIGHTS.map((color) => (
+                  <button key={color} className={`marker-swatch big hl-${color} ${color === marker ? 'on' : ''}`} onClick={() => { setMarker(color); highlight(color) }} title={color} aria-label={color} />
+                ))}
+                <button className="tool" onClick={() => highlight(null)} title="Remove highlighting from the selection">Clear</button>
+              </span>
+            )}
+          </span>
+          <button className={`tool ${autocorrect ? 'active' : ''}`} onMouseDown={(e) => e.preventDefault()} onClick={toggleAutocorrect} title="Fix common typos as you type (teh → the, i → I, capital letters) and underline misspellings">
+            Autocorrect {autocorrect ? 'on' : 'off'}
+          </button>
+          {canCaptureScreen && (
+            <button className="tool" onMouseDown={(e) => e.preventDefault()} onClick={startCapture} disabled={uploading} title="Take a screenshot and select the area to insert">Screenshot</button>
+          )}
+          <button className="tool" onMouseDown={(e) => e.preventDefault()} onClick={() => fileInputRef.current?.click()} disabled={uploading} title="Insert a picture from a file (or just paste one)">
             {uploading ? 'Uploading…' : 'Image'}
           </button>
           <input ref={fileInputRef} type="file" accept="image/png,image/jpeg,image/gif,image/webp" hidden onChange={(e) => { insertImage(e.target.files?.[0]); e.target.value = '' }} />
@@ -437,13 +653,22 @@ export default function Writing({ socketRef, classroomId, user, title, subtitle,
 
       {error && <div className="error">{error}</div>}
 
+      <div className="writing-body">
+      {outline.length > 0 && (
+        <nav className="writing-outline" aria-label="Headings">
+          <div className="writing-outline-title">Contents</div>
+          {outline.map((item) => (
+            <button key={item.offset} className="writing-outline-item" onClick={() => goToHeading(item)} title={item.text}>{item.text}</button>
+          ))}
+        </nav>
+      )}
       <div className="writing-page-wrap" onClick={(e) => { if (e.target === e.currentTarget) setPopover(null) }}>
         <div
           ref={editorRef}
           className="writing-page"
           contentEditable={loaded}
           suppressContentEditableWarning
-          spellCheck={false}
+          spellCheck={autocorrect}
           onClick={handleClick}
           onDoubleClick={handleDoubleClick}
           onKeyDown={handleKeyDown}
@@ -460,8 +685,13 @@ export default function Writing({ socketRef, classroomId, user, title, subtitle,
               <span className="obj">{run.text}</span>
             </span>
           ) : (
-            <span key={index} data-run={index} className={`run ${run.kind}`}>{run.text}</span>
+            <span key={index} data-run={index} className={`run ${run.kind}${run.h ? ' h1' : ''}${run.hl ? ` hl-${run.hl}` : ''}`}>
+              {/* A struck line break is shown as ↵ (same length), so the lines it joins already read as joined. */}
+              {run.kind === 'del' ? run.text.replace(/\n/g, '↵') : run.text}
+            </span>
           ))}
+          {/* A line break at the very end only shows (and takes the caret) with something after it. */}
+          {fullText(runs).endsWith('\n') && <br />}
         </div>
 
         {wordCard && <WordCard word={wordCard.word} x={wordCard.x} y={wordCard.y} onClose={() => setWordCard(null)} />}
@@ -478,6 +708,14 @@ export default function Writing({ socketRef, classroomId, user, title, subtitle,
           </div>
         )}
       </div>
+      </div>
+
+      {capturing !== null && (
+        <RegionCapture
+          onCancel={() => setCapturing(null)}
+          onDone={(file) => { const at = capturing; setCapturing(null); insertImage(file, at) }}
+        />
+      )}
 
       <div className="writing-hint muted">
         {actor.tracked

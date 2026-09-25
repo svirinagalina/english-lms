@@ -10,6 +10,10 @@ const runSchema = z.object({
   text: z.string().max(20000),
   kind: z.enum(['base', 'ins', 'del', 'image']),
   author: z.string().max(64).optional(),
+  // Formatting that isn't a suggestion: a heading line (listed in the
+  // outline) and a highlighter colour.
+  h: z.number().int().min(1).max(2).optional(),
+  hl: z.enum(['yellow', 'green', 'pink', 'blue']).optional(),
   // Images sit in the text as one placeholder character each.
   src: z.string().regex(/^\/uploads\/[a-z0-9]+\/[a-z0-9]+\.(png|jpe?g|gif|webp)$/i).optional()
 })
