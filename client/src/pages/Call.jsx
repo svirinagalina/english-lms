@@ -70,7 +70,10 @@ const AUDIO_CONSTRAINTS = { echoCancellation: true, noiseSuppression: true, auto
 // The blur pipeline: frames per second the mask is computed at, and the
 // width the outgoing picture is composed at.
 // Phones get a lighter tick: the model is the same, the battery is not.
-const BLUR_FPS = isHandheld() ? 12 : 15
+// A phone draws 15 frames a second but runs the model on every other one
+// (videoProcessor.recompose fills in with the last mask).
+const BLUR_FPS = 15
+const SEGMENT_EVERY = isHandheld() ? 2 : 1
 const OUT_WIDTH = 640
 // A line in the server log about what this device did: enough to read a
 // failure without asking the person for screenshots.
@@ -249,6 +252,14 @@ export default function Call() {
   // Builds the denoiser for `rawTrack` in the background and swaps its output
   // in when ready; on every failure the plain microphone simply stays.
   const [noiseState, setNoiseState] = useState('starting') // starting | on | browser
+  // The others are told whether my sound is already cleaned here, so they
+  // don't run it through a second denoiser (see PeerVideo): cleaning twice
+  // chewed up quiet syllables, and a phone running two was overloaded.
+  const denoisedRef = useRef(false)
+  denoisedRef.current = noiseState === 'on'
+  useEffect(() => {
+    socketRef.current?.emit('mic:state', { muted: !micOnRef.current, denoised: noiseState === 'on' })
+  }, [noiseState])
   const startDenoiser = (rawTrack, isDisposed) => {
     if (!isDenoiserSupported()) { setNoiseState('browser'); return }
     setNoiseState('starting')
@@ -536,11 +547,11 @@ export default function Call() {
           setBoardId((current) => current ?? boardsRef.current.find((b) => b.studentId === userId)?.id ?? null)
         }
         // The newcomer needs to know whether I am muted or sharing my screen.
-        socket.emit('mic:state', { muted: !micOnRef.current })
+        socket.emit('mic:state', { muted: !micOnRef.current, denoised: denoisedRef.current })
         if (screenStreamRef.current) socket.emit('screen-share-start')
       })
-      socket.on('mic:state', ({ from, muted }) => {
-        setPeers((prev) => (prev[from] ? { ...prev, [from]: { ...prev[from], muted } } : prev))
+      socket.on('mic:state', ({ from, muted, denoised }) => {
+        setPeers((prev) => (prev[from] ? { ...prev, [from]: { ...prev[from], muted, denoised } } : prev))
       })
       socket.on('user-left', (peerId) => {
         connectionsRef.current[peerId]?.close()
@@ -593,13 +604,13 @@ export default function Call() {
           if (response.boardId && !isMobile()) setBoardId(response.boardId)
           if (response.docId && !isMobile()) setWritingId(response.docId)
           for (const peer of response.peers) {
-            setPeers((prev) => ({ ...prev, [peer.id]: { name: peer.name, stream: prev[peer.id]?.stream ?? null, muted: Boolean(peer.muted), sharing: Boolean(peer.sharing), userId: peer.userId } }))
+            setPeers((prev) => ({ ...prev, [peer.id]: { name: peer.name, stream: prev[peer.id]?.stream ?? null, muted: Boolean(peer.muted), denoised: peer.denoised, sharing: Boolean(peer.sharing), userId: peer.userId } }))
             const pc = createConnection(peer.id, peer.name)
             const offer = await pc.createOffer()
             await pc.setLocalDescription(offer)
             socket.emit('offer', { to: peer.id, offer })
           }
-          socket.emit('mic:state', { muted: !micOnRef.current })
+          socket.emit('mic:state', { muted: !micOnRef.current, denoised: denoisedRef.current })
           setStatus('live')
         })
       })
@@ -758,6 +769,7 @@ export default function Call() {
     // How fast the blur really runs on this device: reported once, after
     // ~15 s, so "choppy on my phone" can be told from "not blurring at all".
     const perf = { started: 0, total: 0, max: 0, reported: false }
+    let tick = 0
     let lastPlayNudge = 0
     const loop = async () => {
       if (cancelled) return
@@ -788,7 +800,10 @@ export default function Call() {
       if (video && video.readyState >= 2 && video.videoWidth) {
         try {
           const t0 = performance.now()
-          if (await videoProcessor.send(video)) {
+          tick += 1
+          if (SEGMENT_EVERY > 1 && tick % SEGMENT_EVERY && videoProcessor.recompose(video)) {
+            // An in-between frame: the camera moves on, the mask stays.
+          } else if (await videoProcessor.send(video)) {
             const spent = performance.now() - t0
             frames += 1
             if (frames === 1) perf.started = t0
@@ -797,7 +812,7 @@ export default function Call() {
             if (!perf.reported && t0 - perf.started > 15000) {
               perf.reported = true
               const seconds = (t0 - perf.started) / 1000
-              report(token, 'blur.perf', background, { fps: Number((frames / seconds).toFixed(1)), target: BLUR_FPS, avgMs: Math.round(perf.total / frames), maxMs: Math.round(perf.max), delegate: videoProcessor.delegate ?? null, camera: `${video.videoWidth}x${video.videoHeight}`, filter: CANVAS_FILTER })
+              report(token, 'blur.perf', background, { fps: Number((frames / seconds).toFixed(1)), target: BLUR_FPS, avgMs: Math.round(perf.total / frames), maxMs: Math.round(perf.max), delegate: videoProcessor.delegate ?? null, camera: `${video.videoWidth}x${video.videoHeight}`, filter: CANVAS_FILTER, segmentEvery: SEGMENT_EVERY })
             }
             if (frames === 1) {
               setMediaWarning((w) => (w.startsWith('Blur') ? '' : w))
@@ -857,7 +872,7 @@ export default function Call() {
       if (denoiserRef.current) denoiserRef.current.track.enabled = next
       micOnRef.current = next
       setMicOn(next)
-      socketRef.current?.emit('mic:state', { muted: !next })
+      socketRef.current?.emit('mic:state', { muted: !next, denoised: denoisedRef.current })
     } else {
       // The blurred picture goes dark with the camera, not frozen on a frame.
       const next = !cameraOn
@@ -1266,7 +1281,7 @@ export default function Call() {
         cameraOn={cameraOn}
         micOn={micOn}
         onLeave={boardId || writingId || narrow ? () => navigate(leaveTo) : undefined}
-        onCopyLink={copyLink}
+        onCopyLink={isStaff ? copyLink : undefined}
         copied={copied}
         chatOpen={chatOpen}
         unread={unread}

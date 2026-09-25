@@ -2703,7 +2703,13 @@ const Whiteboard = forwardRef(function Whiteboard({ socketRef, boardId, title, s
         {/* Corner chip with the board's name, like a Figma file tab. On a
             phone only the way back stays. */}
         {phone ? (
-          onClose && <button className="chip-back board-back-phone" onClick={onClose} title="Back">{backLabel}</button>
+          <div className="board-phone-corner">
+            {onClose && <button className="chip-back board-back-phone" onClick={onClose} title="Back">{backLabel}</button>}
+            {/* Lost somewhere on a big board: one tap shows all of it. */}
+            <button className="board-back-phone board-fit-phone" onClick={() => fitAll(2)} title="Show the whole board" aria-label="Show the whole board">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5" /></svg>
+            </button>
+          </div>
         ) : (
         <div className="board-chip">
           {onClose && <button className="chip-back" onClick={onClose} title="Back">{backLabel}</button>}

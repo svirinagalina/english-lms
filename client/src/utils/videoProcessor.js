@@ -1,10 +1,16 @@
 import { FilesetResolver, ImageSegmenter } from '@mediapipe/tasks-vision'
+import { isHandheld } from './device'
 
 // Person segmentation for the background blur. Runtime and model are served
 // from our own origin (see scripts/copy-mediapipe.js). Frames are analysed
 // at a reduced size — the mask is only used to cut the person out, so a
 // small one scaled up is plenty and keeps the call smooth.
-const ANALYSIS_WIDTH = 320
+// A phone runs the model on its CPU, on the same thread as the page: a
+// smaller frame there, and the mask eased between frames so its edge doesn't
+// shimmer (on an iPhone it read as "the blur looks strange").
+const HANDHELD = isHandheld()
+const ANALYSIS_WIDTH = HANDHELD ? 256 : 320
+const MASK_EASING = HANDHELD ? 0.35 : 0 // share of the previous mask kept each frame
 
 class VideoProcessor {
   constructor() {
@@ -67,6 +73,15 @@ class VideoProcessor {
     this.createSegmenter('CPU').finally(() => { this.switching = false })
   }
 
+  // Composes the current camera frame with the last mask, without running the
+  // model: on a phone the model runs every other frame and these fill in, so
+  // the picture moves at the full rate while the CPU does half the work.
+  recompose(video) {
+    if (!this.initialized || this.busy || !this.hasMask || !video.videoWidth) return false
+    if (this.onFrame) this.onFrame({ image: video, segmentationMask: this.mask })
+    return true
+  }
+
   // Runs one frame and hands back { image, segmentationMask } — the mask is a
   // canvas whose alpha is the person's confidence, ready for 'source-in'.
   async send(video) {
@@ -85,13 +100,23 @@ class VideoProcessor {
       const result = this.segmenter.segmentForVideo(this.input, performance.now())
       const confidence = result.confidenceMasks?.[0]
       if (confidence) {
-        const values = confidence.getAsFloat32Array()
+        let values = confidence.getAsFloat32Array()
         this.checkMask(values)
+        if (MASK_EASING) {
+          const prev = this.prevMask
+          if (prev && prev.length === values.length) {
+            const eased = new Float32Array(values.length)
+            for (let i = 0; i < values.length; i++) eased[i] = prev[i] * MASK_EASING + values[i] * (1 - MASK_EASING)
+            values = eased
+          }
+          this.prevMask = values
+        }
         const ctx = this.mask.getContext('2d')
         const pixels = ctx.createImageData(width, height)
         const data = pixels.data
         for (let i = 0, j = 3; i < values.length; i++, j += 4) data[j] = values[i] * 255
         ctx.putImageData(pixels, 0, 0)
+        this.hasMask = true
       }
       result.close?.()
       if (this.onFrame) this.onFrame({ image: video, segmentationMask: this.mask })

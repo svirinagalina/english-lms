@@ -648,6 +648,10 @@ select.pill { padding: 0 16px; color: var(--text); border: none; }
    otherwise sit over the board the whole lesson. */
 .stage.board-mode .tiles.tiles-tucked { display: none; }
 .tiles-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
   position: absolute;
   top: 60px;
   right: 220px;
@@ -1242,3 +1246,9 @@ button.compact { padding: 6px 10px; font-size: 12px; align-self: flex-start; }
 .contacts dt { font-size: 12px; }
 .contacts dd { margin: 2px 0 0; overflow-wrap: anywhere; }
 .contacts-about { margin: 12px 0 0; white-space: pre-line; }
+
+/* Six buttons (Cam, Mic, Board, Writing, More, Leave) on one line on a phone. */
+@media (max-width: 420px) {
+  .controls { gap: 5px; flex-wrap: nowrap; }
+  .controls .round, .controls .pill { padding: 0 9px; font-size: 12.5px; }
+}

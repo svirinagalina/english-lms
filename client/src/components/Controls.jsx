@@ -167,6 +167,16 @@ const Controls = forwardRef(function Controls({
         </button>
       )}
 
+      {/* On a phone's video view the board is one tap away, not under More. */}
+      {compact && phone && !boardId && !writingId && boards.length > 0 && (
+        <button
+          className="round"
+          onClick={() => onOpenBoard(preferredBoardId && boards.some((b) => b.id === preferredBoardId) ? preferredBoardId : boards[0].id)}
+          title="Open the board"
+        >
+          Board
+        </button>
+      )}
       {compact && (
         writingId ? (
           // On Writing the button reads "Board": one click back to the board.

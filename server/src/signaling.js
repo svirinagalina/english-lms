@@ -238,7 +238,7 @@ export function setupSignaling(io) {
       for (const id of io.sockets.adapter.rooms.get(roomId) ?? []) {
         if (id === socket.id) continue
         const peer = io.sockets.sockets.get(id)
-        if (peer) peers.push({ id, name: peer.data.name, userId: peer.data.user?.id, muted: Boolean(peer.data.micMuted), sharing: Boolean(peer.data.sharing) })
+        if (peer) peers.push({ id, name: peer.data.name, userId: peer.data.user?.id, muted: Boolean(peer.data.micMuted), denoised: peer.data.denoised, sharing: Boolean(peer.data.sharing) })
       }
 
       socket.to(roomId).emit('user-joined', { id: socket.id, name: socket.data.name, userId: user.id })
@@ -284,7 +284,9 @@ export function setupSignaling(io) {
       const room = socket.data.roomId
       if (!room) return
       socket.data.micMuted = Boolean(state?.muted)
-      socket.to(room).emit('mic:state', { from: socket.id, muted: socket.data.micMuted })
+      // Whether this person's sound is already cleaned on their device.
+      if (typeof state?.denoised === 'boolean') socket.data.denoised = state.denoised
+      socket.to(room).emit('mic:state', { from: socket.id, muted: socket.data.micMuted, denoised: socket.data.denoised })
     })
 
     socket.on('screen-share-start', () => {

@@ -1,6 +1,12 @@
 import { useEffect, useRef, useState } from 'react'
 import { denoiseTrack } from '../utils/noiseSuppressor'
 import { api } from '../api'
+import { isHandheld } from '../utils/device'
+
+// A phone doesn't clean what it hears: the sender's side already did (or
+// its own denoiser runs on the phone's microphone), and a second neural
+// denoiser on a phone's CPU made both sounds crackle.
+const RECEIVER_CAN_CLEAN = !isHandheld()
 
 // A crossed-out microphone, shown on a tile whose owner is muted.
 function MutedIcon() {
@@ -17,7 +23,7 @@ function MutedIcon() {
   )
 }
 
-function PeerVideo({ stream, name, muted, onBlocked, unlockTick, getPeerConnection }) {
+function PeerVideo({ stream, name, muted, denoised, onBlocked, unlockTick, getPeerConnection }) {
   const ref = useRef(null)
   const audioRef = useRef(null)
   // The other side's sound is cleaned here as well, before it is played:
@@ -35,8 +41,11 @@ function PeerVideo({ stream, name, muted, onBlocked, unlockTick, getPeerConnecti
     audioRef.current?.play().catch((err) => { if (err?.name === 'NotAllowedError') onBlocked?.() })
   }, [stream, unlockTick])
 
+  // Cleaned here only when the sender's own denoiser isn't running (it
+  // failed, or an old page that doesn't say): cleaning twice ate syllables.
+  const cleanHere = RECEIVER_CAN_CLEAN && denoised !== true
   useEffect(() => {
-    if (!stream) return
+    if (!stream || !cleanHere) return
     let gone = false
     let watchdog = null
     const teardown = () => {
@@ -101,7 +110,7 @@ function PeerVideo({ stream, name, muted, onBlocked, unlockTick, getPeerConnecti
       stream.removeEventListener('addtrack', onAdd)
       teardown()
     }
-  }, [stream])
+  }, [stream, cleanHere])
 
   return (
     <div className="video-tile remote-tile">
@@ -242,7 +251,12 @@ export default function VideoGrid({
           onClick={() => setVideoHidden((v) => !v)}
           title={videoHidden ? 'Show cameras' : 'Hide cameras'}
         >
-          {videoHidden ? '📷' : '🚫'}
+          {/* A camera, and a camera tucked away — not a red "forbidden" sign,
+              which read as an error on a phone. */}
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+            <path d="M15 10l5-3v10l-5-3" /><rect x="3" y="6" width="12" height="12" rx="2" />
+            {!videoHidden && <path d="M2 2l20 20" />}
+          </svg>
         </button>
       )}
 
@@ -265,7 +279,7 @@ export default function VideoGrid({
         </div>
 
         {Object.entries(peers).map(([peerId, peer]) => (
-          <PeerVideo key={peerId} stream={peer.stream} name={peer.name} muted={peer.muted} onBlocked={onPlaybackBlocked} unlockTick={unlockTick} getPeerConnection={() => connectionsRef?.current?.[peerId]} />
+          <PeerVideo key={peerId} stream={peer.stream} name={peer.name} muted={peer.muted} denoised={peer.denoised} onBlocked={onPlaybackBlocked} unlockTick={unlockTick} getPeerConnection={() => connectionsRef?.current?.[peerId]} />
         ))}
       </div>
     </div>

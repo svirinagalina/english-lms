@@ -390,11 +390,9 @@ select.tool { appearance: auto; padding: 5px 8px; }
 .word-tip.pinned:active { cursor: grabbing; }
 
 /* A phone's board: only a small way back in the corner, nothing else on top. */
+.board-phone-corner { position: absolute; top: 10px; left: 10px; z-index: 6; display: flex; gap: 8px; }
+.board-fit-phone { padding: 8px 10px; display: flex; align-items: center; }
 .board-back-phone {
-  position: absolute;
-  top: 10px;
-  left: 10px;
-  z-index: 6;
   padding: 8px 12px;
   border-radius: 999px;
   background: rgba(15, 55, 49, 0.85);
