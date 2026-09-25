@@ -1,7 +1,8 @@
 import { Router } from 'express'
 import { z } from 'zod'
 import { requireAuth, requireRole } from '../auth.js'
-import { aiConfig, saveAiSettings, clearAiKey, offerLinks, saveOfferLinks, stripeKey, saveStripeKey } from '../settings.js'
+import { aiConfig, saveAiSettings, clearAiKey, offerLinks, saveOfferLinks, stripeKey, saveStripeKey, adventKey, saveAdventKey } from '../settings.js'
+import { advent } from '../advent.js'
 import { testConnection } from '../llm.js'
 
 // Platform settings — the owner only. The key is never sent back, only
@@ -36,6 +37,29 @@ settingsRouter.put('/stripe', async (req, res) => {
   await saveStripeKey(key || null)
   res.json({ configured: Boolean(stripeKey()) })
 })
+// The Advent trainer's partner key (gal_…). Saved encrypted like the others;
+// saving checks it against the trainer straight away.
+const adventView = () => ({ configured: Boolean(adventKey()), keyHint: adventKey() ? `…${adventKey().slice(-4)}` : null, fromEnv: Boolean(process.env.ADVENT_PARTNER_KEY) })
+settingsRouter.get('/advent', (req, res) => res.json(adventView()))
+settingsRouter.put('/advent', async (req, res) => {
+  const key = typeof req.body?.key === 'string' ? req.body.key.trim() : ''
+  if (key && !/^gal_[A-Za-z0-9_-]{8,}$/.test(key)) return res.status(400).json({ error: 'The trainer key starts with "gal_" (it is in KEY.txt)' })
+  const previous = adventKey()
+  await saveAdventKey(key || null)
+  if (!key) return res.json(adventView())
+  try {
+    const ping = await advent('GET', '/ping')
+    res.json({ ...adventView(), partner: ping.name ?? ping.partner ?? null })
+  } catch (error) {
+    // A key the trainer refuses isn't kept.
+    await saveAdventKey(previous && !process.env.ADVENT_PARTNER_KEY ? previous : null)
+    res.status(400).json({ error: `The trainer did not accept this key: ${error.message}` })
+  }
+})
+settingsRouter.post('/advent/test', async (req, res) => {
+  try { res.json({ ok: true, ...(await advent('GET', '/ping')) }) } catch (error) { res.status(502).json({ ok: false, error: error.message }) }
+})
+
 settingsRouter.put('/offer', async (req, res) => {
   const parsed = linkSchema.safeParse(req.body)
   if (!parsed.success) return res.status(400).json({ error: 'Links must start with https://' })

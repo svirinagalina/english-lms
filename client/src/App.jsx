@@ -9,6 +9,7 @@ import Register from './pages/Register'
 import Classrooms from './pages/Classrooms'
 import Classroom from './pages/Classroom'
 import Practice from './pages/Practice'
+import Trainer from './pages/Trainer'
 import UnitPractice from './pages/UnitPractice'
 import MistakePractice from './pages/MistakePractice'
 import Vocabulary from './pages/Vocabulary'
@@ -95,6 +96,7 @@ export default function App() {
       <Route path="/courses" element={<RequireAuth><Courses /></RequireAuth>} />
       <Route path="/courses/:courseId" element={<RequireAuth><Course /></RequireAuth>} />
       <Route path="/practice" element={<RequireAuth><Practice /></RequireAuth>} />
+      <Route path="/trainer" element={<RequireAuth><Trainer /></RequireAuth>} />
       <Route path="/practice/mistakes" element={<RequireAuth><MistakePractice /></RequireAuth>} />
       <Route path="/practice/:id" element={<RequireAuth><UnitPractice /></RequireAuth>} />
       <Route path="/vocabulary" element={<RequireAuth><Vocabulary /></RequireAuth>} />

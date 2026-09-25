@@ -27,6 +27,15 @@ const ai = { provider: null, key: null, model: null, loaded: false }
 // and the Stripe secret key for creating checkout sessions with the exact amount.
 const offer = { solo: null, mentor: null }
 const stripe = { key: null }
+// The Advent trainer's partner key (gal_…): lets the platform open the
+// trainer for a signed-in student and share their words and progress.
+const advent = { key: null }
+export const adventKey = () => process.env.ADVENT_PARTNER_KEY || advent.key
+export async function saveAdventKey(key) {
+  if (key) await prisma.platformSetting.upsert({ where: { key: 'advent.key' }, create: { key: 'advent.key', value: encrypt(key) }, update: { value: encrypt(key) } })
+  else await prisma.platformSetting.deleteMany({ where: { key: 'advent.key' } })
+  return loadAiSettings()
+}
 export const stripeKey = () => process.env.STRIPE_SECRET_KEY || stripe.key
 export async function saveStripeKey(key) {
   if (key) await prisma.platformSetting.upsert({ where: { key: 'stripe.key' }, create: { key: 'stripe.key', value: encrypt(key) }, update: { value: encrypt(key) } })
@@ -44,11 +53,12 @@ export async function saveOfferLinks({ solo, mentor }) {
 }
 
 export async function loadAiSettings() {
-  const rows = await prisma.platformSetting.findMany({ where: { key: { in: ['ai.provider', 'ai.key', 'ai.model', 'offer.solo', 'offer.mentor', 'stripe.key'] } } })
+  const rows = await prisma.platformSetting.findMany({ where: { key: { in: ['ai.provider', 'ai.key', 'ai.model', 'offer.solo', 'offer.mentor', 'stripe.key', 'advent.key'] } } })
   const map = Object.fromEntries(rows.map((r) => [r.key, r.value]))
   offer.solo = map['offer.solo'] || null
   offer.mentor = map['offer.mentor'] || null
   try { stripe.key = map['stripe.key'] ? decrypt(map['stripe.key']) : null } catch { stripe.key = null }
+  try { advent.key = map['advent.key'] ? decrypt(map['advent.key']) : null } catch { advent.key = null }
   ai.provider = map['ai.provider'] ?? null
   ai.model = map['ai.model'] || null
   try { ai.key = map['ai.key'] ? decrypt(map['ai.key']) : null } catch { ai.key = null }

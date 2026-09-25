@@ -36,6 +36,29 @@ export default function Settings() {
     }
   }
 
+  // The Advent trainer's partner key (from KEY.txt): the trainer page for
+  // students, their progress on the student's page, shared words.
+  const [trainer, setTrainer] = useState({ configured: false, keyHint: null, fromEnv: false })
+  const [trainerKey, setTrainerKey] = useState('')
+  const [trainerNotice, setTrainerNotice] = useState('')
+  const [trainerError, setTrainerError] = useState('')
+  const [trainerBusy, setTrainerBusy] = useState(false)
+  useEffect(() => { api.adventSettings().then(setTrainer).catch(() => {}) }, [])
+  const saveTrainer = async (event) => {
+    event.preventDefault()
+    setTrainerNotice(''); setTrainerError(''); setTrainerBusy(true)
+    try {
+      const saved = await api.saveAdventKey(trainerKey.trim())
+      setTrainerKey('')
+      setTrainer(saved)
+      setTrainerNotice(saved.configured ? `Connected${saved.partner ? ` as “${saved.partner}”` : ''}. Students now have Trainer in their menu.` : 'Key removed: the trainer is disconnected.')
+    } catch (err) {
+      setTrainerError(err.message)
+    } finally {
+      setTrainerBusy(false)
+    }
+  }
+
   const refresh = () => api.aiSettings().then(({ ai }) => {
     setAi(ai)
     if (ai.provider) setProvider(ai.provider)
@@ -172,6 +195,32 @@ export default function Settings() {
             {stripeNotice && <div className="notice">{stripeNotice}</div>}
             <div className="editor-actions">
               <button type="submit" disabled={stripeBusy || !stripeKey.trim()}>{stripeBusy ? 'Saving…' : 'Save'}</button>
+            </div>
+          </form>
+        )}
+      </section>
+
+      <section>
+        <h2>Advent trainer</h2>
+        <p className="muted" style={{ marginBottom: 12 }}>
+          The partner key from <code>KEY.txt</code> (starts with <code>gal_</code>) connects the Advent trainer: students get <strong>Trainer</strong> in their menu (same account, words and progress as in the Advent cabinet and the Telegram bot), you see their trainer progress on their page, and words you add to their vocabulary go into their trainer flashcards too. Stored encrypted, checked with the trainer on saving, never shown again.
+        </p>
+        <div className="row" style={{ marginBottom: 12 }}>
+          <div>
+            <strong>{trainer.configured ? 'Connected' : 'Not connected'}</strong>
+            {trainer.configured && <div className="muted">Key ending {trainer.keyHint}{trainer.fromEnv ? ' · set on the server' : ''}</div>}
+          </div>
+        </div>
+        {!trainer.fromEnv && (
+          <form className="billing-editor" onSubmit={saveTrainer} autoComplete="off">
+            <label>
+              Trainer key {trainer.configured && <span className="muted">(leave empty and save to disconnect)</span>}
+              <input type="password" placeholder="gal_…" value={trainerKey} onChange={(e) => setTrainerKey(e.target.value)} autoComplete="new-password" spellCheck={false} />
+            </label>
+            {trainerError && <div className="error">{trainerError}</div>}
+            {trainerNotice && <div className="notice">{trainerNotice}</div>}
+            <div className="editor-actions">
+              <button type="submit" disabled={trainerBusy || (!trainerKey.trim() && !trainer.configured)}>{trainerBusy ? 'Checking…' : 'Save'}</button>
             </div>
           </form>
         )}

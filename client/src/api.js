@@ -111,6 +111,11 @@ export const api = {
   diag: (event) => request('/diag', { method: 'POST', body: event }).catch(() => {}),
   dictionary: (word) => request(`/dictionary?word=${encodeURIComponent(word)}`),
   translate: (q) => request(`/dictionary/translate?q=${encodeURIComponent(q)}`),
+  adventStatus: () => request('/advent/status'),
+  trainerLink: () => request('/advent/trainer-link'),
+  adventProgress: (classroomId) => request(`/advent/progress${classroomId ? `?classroomId=${encodeURIComponent(classroomId)}` : ''}`),
+  adventSettings: () => request('/settings/advent'),
+  saveAdventKey: (key) => request('/settings/advent', { method: 'PUT', body: { key } }),
   uploadWritingImage: (classroomId, data) =>
     request(`/classrooms/${classroomId}/writing/images`, { method: 'POST', body: { data } }),
   createCall: (body) => request('/calls', { method: 'POST', body }),

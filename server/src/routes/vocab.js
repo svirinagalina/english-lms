@@ -4,6 +4,10 @@ import { prisma } from '../db.js'
 import { requireAuth, requireRole } from '../auth.js'
 import { normalise } from '../answerCheck.js'
 import { cleanWord, lookupEntry } from './dictionary.js'
+import { shareWord } from '../advent.js'
+
+// The Advent trainer knows people by email.
+const emailOf = async (userId) => (await prisma.user.findUnique({ where: { id: userId }, select: { email: true } }))?.email
 
 export const vocabRouter = Router()
 
@@ -160,6 +164,7 @@ vocabRouter.post('/my/words', async (req, res) => {
       position: count
     }
   })
+  shareWord(await emailOf(req.user.id), word, card.translation)
   res.status(201).json({ card, setId: set.id, added: true })
 })
 
@@ -185,6 +190,7 @@ vocabRouter.post('/board-words', async (req, res) => {
 
   let added = 0
   const skipped = []
+  const targetEmail = await emailOf(target.id)
   for (const word of words) {
     const existing = await prisma.vocabCard.findFirst({ where: { setId: set.id, term: { equals: word, mode: 'insensitive' } } })
     if (existing) continue
@@ -203,6 +209,8 @@ vocabRouter.post('/board-words', async (req, res) => {
     await prisma.vocabCard.create({
       data: { setId: set.id, term: word, translation: String(translation).slice(0, 300), transcription: entry.transcription, audio: entry.audio, position: count }
     })
+    // Also into their trainer vocabulary, so it comes up in its flashcards.
+    shareWord(targetEmail, word, translation)
     added += 1
   }
   res.json({ added, skipped, setId: set.id, student: target.id === req.user.id ? null : target.name })

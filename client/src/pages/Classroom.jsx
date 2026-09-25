@@ -14,6 +14,7 @@ import MistakeNotebook from '../components/MistakeNotebook'
 import LessonSummaries from '../components/LessonSummaries'
 import TrialReports from '../components/TrialReports'
 import ActivityHeatmap from '../components/ActivityHeatmap'
+import TrainerProgress from '../components/TrainerProgress'
 
 function PackagePanel({ classroom, onChanged }) {
   const [paid, setPaid] = useState(classroom.progress?.lessonsPaid ?? '')
@@ -431,6 +432,8 @@ export default function Classroom() {
           </Panel>
         )
       })()}
+
+      {!isPersonal && isStaff && <TrainerProgress classroomId={id} />}
 
       {!isPersonal && (
         <Panel id={`room:writing:${id}`} title="Writing">

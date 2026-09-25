@@ -1,9 +1,14 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Link, useLocation } from 'react-router-dom'
 import { useAuth } from '../AuthContext'
 import { Brand } from './Brand'
 import { Avatar } from './Avatar'
 import DictionaryPanel from './DictionaryPanel'
+import { api } from '../api'
+
+// Whether the Advent trainer is connected: asked once per page load.
+let trainerStatus = null
+const trainerConnected = () => (trainerStatus ??= api.adventStatus().then((s) => s.connected).catch(() => false))
 
 const ROLE_LABEL = {
   OWNER: 'administrator',
@@ -17,6 +22,8 @@ export default function Nav({ title, back }) {
   const { user, logout } = useAuth()
   const { pathname } = useLocation()
   const [dictionaryOpen, setDictionaryOpen] = useState(false)
+  const [trainer, setTrainer] = useState(false)
+  useEffect(() => { let live = true; trainerConnected().then((on) => { if (live) setTrainer(on) }); return () => { live = false } }, [])
   const staff = user.role !== 'STUDENT'
 
   const admin = user.role === 'OWNER' || user.role === 'PARTNER'
@@ -26,6 +33,7 @@ export default function Nav({ title, back }) {
     links.push(
       { to: '/timetable', label: 'Timetable' },
       { to: '/practice', label: 'Practice' },
+      ...(trainer ? [{ to: '/trainer', label: 'Trainer' }] : []),
       { to: '/vocabulary', label: 'Vocabulary' },
       { to: '/progress', label: 'Progress' }
     )
@@ -33,6 +41,7 @@ export default function Nav({ title, back }) {
     links.push(
       { to: '/timetable', label: 'My Schedule' },
       { to: '/practice', label: 'Practice' },
+      ...(trainer ? [{ to: '/trainer', label: 'Trainer' }] : []),
       { to: '/vocabulary', label: 'Vocabulary' },
       { to: '/billing', label: 'Payment' }
     )
