@@ -817,7 +817,7 @@ export async function exportBoardPdf(elements, title = 'Board') {
 
 // --- Component ----------------------------------------------------------------
 
-const Whiteboard = forwardRef(function Whiteboard({ socketRef, boardId, title, subtitle, onClose, backLabel = '← Back', onStartCall, onOpenWriting, canSpotlight = false, onUploadImage, onAssist, assistEnabled, wordPicker = false, focusElementId = null, onMistake, onMistakeRemoved, insertBlock = null, onInserted, onAddWords, students = null }, ref) {
+const Whiteboard = forwardRef(function Whiteboard({ socketRef, boardId, title, subtitle, onClose, backLabel = '← Back', onStartCall, onOpenWriting, canSpotlight = false, onUploadImage, onAssist, assistEnabled, wordPicker = false, focusElementId = null, onMistake, onMistakeRemoved, insertBlock = null, onInserted, onAddWords, students = null, writingStudents = null }, ref) {
   const [assisting, setAssisting] = useState(null)
   const [exporting, setExporting] = useState(false)
   const fileInputRef = useRef(null)
@@ -2707,11 +2707,17 @@ const Whiteboard = forwardRef(function Whiteboard({ socketRef, boardId, title, s
           {students?.length > 1 && targetName && (
             <span className="muted board-chip-for" title="Mistakes and words saved from here go to this student — change it from the Mistakes panel or when adding a word">for {targetName}</span>
           )}
-          {onOpenWriting && (
-            <button className="chip-call ghost-chip" onClick={onOpenWriting} title="Open this student's writing document">
+          {onOpenWriting && (writingStudents?.length > 1 ? (
+            // A board shared with several students: pick whose writing.
+            <select className="chip-call ghost-chip chip-select" value="" onChange={(e) => { if (e.target.value) onOpenWriting(e.target.value) }} title="Open a student's writing document">
+              <option value="">Writing…</option>
+              {writingStudents.map((s) => <option key={s.classroomId} value={s.classroomId}>{s.name}</option>)}
+            </select>
+          ) : (
+            <button className="chip-call ghost-chip" onClick={() => onOpenWriting()} title="Open this student's writing document">
               Writing
             </button>
-          )}
+          ))}
           {canSpotlight && (
             <button className={`chip-call ${spotlighting ? 'on' : 'ghost-chip'}`} onClick={toggleSpotlight} title="Everyone on this board follows your view">
               {spotlighting ? 'Spotlight on' : 'Spotlight me'}

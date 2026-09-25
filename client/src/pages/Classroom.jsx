@@ -86,6 +86,9 @@ export default function Classroom() {
     }).catch(() => {})
   }, [id, searchParams])
   const [writingOpen, setWritingOpen] = useState(searchParams.get('writing') === '1')
+  // A student's writing opened from a board on my own shelf that's assigned
+  // to them — straight from the board, no call needed.
+  const [writingFor, setWritingFor] = useState(null) // { id: classroomId, name }
   const [title, setTitle] = useState('')
   const [starting, setStarting] = useState(false)
   const [assistEnabled, setAssistEnabled] = useState(false)
@@ -229,6 +232,25 @@ export default function Classroom() {
   const boardAssignees = openBoard?.sharedWith ?? []
   const singleAssignee = boardAssignees.length === 1 ? boardAssignees[0].id : null
 
+  if (writingFor) {
+    return (
+      <div className="lesson-page">
+        <div className="view-pane">
+          <Writing
+            socketRef={socketRef}
+            classroomId={writingFor.id}
+            user={user}
+            title="Writing"
+            subtitle={writingFor.name}
+            onClose={() => setWritingFor(null)}
+            backLabel="← Back to board"
+            wordPicker={!isStaff}
+          />
+        </div>
+      </div>
+    )
+  }
+
   if (writingOpen && !isPersonal) {
     return (
       <div className="lesson-page">
@@ -265,7 +287,15 @@ export default function Classroom() {
             // come back to, so that one stays as is.
             onClose={() => (isPersonal ? navigate('/classroom') : setOpenBoardId(null))}
             onStartCall={isStaff ? () => startCallOnBoard(openBoard.id) : undefined}
-            onOpenWriting={!isPersonal ? () => setWritingOpen(true) : undefined}
+            onOpenWriting={!isPersonal
+              ? () => setWritingOpen(true)
+              : boardAssignees.length
+                ? (chosen) => {
+                    const student = boardAssignees.find((s) => s.id === chosen) ?? boardAssignees[0]
+                    setWritingFor({ id: student.id, name: student.name })
+                  }
+                : undefined}
+            writingStudents={isPersonal && boardAssignees.length > 1 ? boardAssignees.map((s) => ({ classroomId: s.id, name: s.name })) : null}
             canSpotlight={isStaff}
             wordPicker={!isStaff}
             focusElementId={searchParams.get('focus')}
