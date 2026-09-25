@@ -938,13 +938,40 @@ const Whiteboard = forwardRef(function Whiteboard({ socketRef, boardId, title, s
     tipWordRef.current = word
     clearTimeout(tipTimer.current)
     clearTimeout(tipHideTimer.current)
-    setTip(null)
+    // The card that's up stays until the next one is ready: on the way to
+    // its buttons the pointer crosses other words, and wiping it the moment
+    // it touched one made the buttons impossible to reach.
     const rect = canvasRef.current.getBoundingClientRect()
     const at = { x: event.clientX - rect.left, y: event.clientY - rect.top }
     tipTimer.current = setTimeout(async () => {
       const entry = await lookupWord(word)
+      if (tipHoverRef.current) return // the pointer made it onto the card
       if (tipWordRef.current === word && entry) setTip({ ...at, word, entry })
-    }, 350)
+    }, tip ? 650 : 350) // a card already up needs a real pause on another word to give way
+  }
+
+  // Pinned word cards: stay put (and can be dragged aside) until closed,
+  // so the pronunciation can be played again and again.
+  const [pins, setPins] = useState([]) // [{ id, word, entry, x, y }]
+  useEffect(() => { setPins([]) }, [boardId])
+  const pinTip = () => {
+    if (!tip) return
+    const pin = { id: `${tip.word}-${Date.now()}`, word: tip.word, entry: tip.entry, x: tip.x + 12, y: tip.y + 16 }
+    setPins((prev) => [...prev.filter((p) => p.word !== tip.word), pin].slice(-6))
+    tipHoverRef.current = false
+    setTip(null)
+  }
+  const unpin = (id) => setPins((prev) => prev.filter((p) => p.id !== id))
+  const dragPin = (event, id) => {
+    if (event.button !== 0 || event.target.closest('button')) return
+    event.preventDefault()
+    const pin = pins.find((p) => p.id === id)
+    if (!pin) return
+    const start = { x: event.clientX, y: event.clientY, px: pin.x, py: pin.y }
+    const move = (e) => setPins((prev) => prev.map((p) => (p.id === id ? { ...p, x: start.px + e.clientX - start.x, y: start.py + e.clientY - start.y } : p)))
+    const up = () => { window.removeEventListener('pointermove', move); window.removeEventListener('pointerup', up) }
+    window.addEventListener('pointermove', move)
+    window.addEventListener('pointerup', up)
   }
   // Spotlight: I broadcast my viewport (spotlighting) or follow someone's.
   const [spotlighting, setSpotlighting] = useState(false)
@@ -1702,6 +1729,34 @@ const Whiteboard = forwardRef(function Whiteboard({ socketRef, boardId, title, s
     })
     scheduleRender()
   }
+
+  const addTipWord = (word) => {
+    withTarget(async (classroomId) => {
+      setAddingWords(true)
+      try {
+        const result = await onAddWords([word], classroomId)
+        const where = result?.student ? `${result.student}'s vocabulary` : 'From my board'
+        showToast(result?.added ? `“${word}” added to ${where}` : `“${word}” is already in ${where}`)
+      } catch (err) { showToast(err.message) } finally { setAddingWords(false) }
+    })
+  }
+  // The word card's contents, shared by the hover card and pinned ones.
+  const wordTipBody = (card, corner) => (
+    <>
+      <div className="word-tip-head">
+        <strong>{card.word}</strong>
+        {card.entry.transcription && <span className="muted"> {card.entry.transcription}</span>}
+        <PlayButton src={card.entry.audio} small />
+        {corner}
+      </div>
+      <div>{card.entry.translation}</div>
+      {onAddWords && (
+        <button type="button" className="tool word-tip-add" disabled={addingWords} onClick={() => addTipWord(card.word)}>
+          {addingWords ? 'Adding…' : '+ Vocabulary'}
+        </button>
+      )}
+    </>
+  )
 
   const openWordCard = (word, event) => {
     const rect = canvasRef.current.getBoundingClientRect()
@@ -2700,42 +2755,30 @@ const Whiteboard = forwardRef(function Whiteboard({ socketRef, boardId, title, s
           </div>
         )}
 
-        {tip && !wordCard && (
+        {tip && !wordCard && !pins.some((p) => p.word === tip.word) && (
           <div
             className="word-tip"
             style={{ left: tip.x + 12, top: tip.y + 16 }}
-            onMouseEnter={() => { tipHoverRef.current = true; clearTimeout(tipHideTimer.current) }}
-            onMouseLeave={() => { tipHoverRef.current = false; setTip(null) }}
+            onMouseEnter={() => { tipHoverRef.current = true; clearTimeout(tipHideTimer.current); clearTimeout(tipTimer.current) }}
+            onMouseLeave={() => {
+              tipHoverRef.current = false
+              tipWordRef.current = null
+              clearTimeout(tipHideTimer.current)
+              tipHideTimer.current = setTimeout(() => { if (!tipHoverRef.current) setTip(null) }, 300)
+            }}
           >
-            <div className="word-tip-head">
-              <strong>{tip.word}</strong>
-              {tip.entry.transcription && <span className="muted"> {tip.entry.transcription}</span>}
-              <PlayButton src={tip.entry.audio} small />
-            </div>
-            <div>{tip.entry.translation}</div>
-            {onAddWords && (
-              <button
-                type="button"
-                className="tool word-tip-add"
-                disabled={addingWords}
-                onClick={() => {
-                  const word = tip.word
-                  setTip(null)
-                  withTarget(async (classroomId) => {
-                    setAddingWords(true)
-                    try {
-                      const result = await onAddWords([word], classroomId)
-                      const where = result?.student ? `${result.student}'s vocabulary` : 'From my board'
-                      showToast(result?.added ? `“${word}” added to ${where}` : `“${word}” is already in ${where}`)
-                    } catch (err) { showToast(err.message) } finally { setAddingWords(false) }
-                  })
-                }}
-              >
-                {addingWords ? 'Adding…' : '+ Vocabulary'}
-              </button>
-            )}
+            {wordTipBody(tip, (
+              <button type="button" className="word-tip-pin" onClick={pinTip} title="Pin this card so it stays open">📌</button>
+            ))}
           </div>
         )}
+        {pins.map((pin) => (
+          <div key={pin.id} className="word-tip pinned" style={{ left: pin.x, top: pin.y }} onPointerDown={(e) => dragPin(e, pin.id)}>
+            {wordTipBody(pin, (
+              <button type="button" className="word-tip-pin" onClick={() => unpin(pin.id)} title="Close" aria-label="Close">×</button>
+            ))}
+          </div>
+        ))}
 
         {following && !spotlighting && (
           <div className="board-following">Following {following.name}’s view</div>
