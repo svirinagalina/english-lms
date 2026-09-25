@@ -2,6 +2,7 @@ import { forwardRef, useCallback, useEffect, useImperativeHandle, useRef, useSta
 import '../styles/whiteboard.css'
 import { isEnglishWord, lookupWord, wordAt } from '../utils/dictionary'
 import { ocrWords } from '../utils/ocr'
+import { isMobile, useNarrow } from '../utils/device'
 import WordCard, { PlayButton } from './WordCard'
 
 const COLORS = ['#111827', '#ef4444', '#16a34a', '#2563eb', '#f59e0b', '#9333ea']
@@ -859,6 +860,13 @@ const Whiteboard = forwardRef(function Whiteboard({ socketRef, boardId, title, s
   // (instead of panning) and clicks adding to the selection — for grabbing
   // several things at once without holding Shift.
   const [boxSelect, setBoxSelect] = useState(false)
+  // A phone: no toolbars at all, just the board and the finger. A tap types
+  // (into the text under it, or a new one), a drag moves what's under the
+  // finger (or the board, on empty space), two fingers zoom.
+  const narrow = useNarrow()
+  const phone = narrow && isMobile()
+  const lastTapRef = useRef(null)
+  useEffect(() => { if (phone) { setTool('select'); setBoxSelect(false) } }, [phone])
   const pickTool = (id) => {
     setBoxSelect(id === 'area')
     setTool(id === 'area' ? 'select' : id)
@@ -931,7 +939,12 @@ const Whiteboard = forwardRef(function Whiteboard({ socketRef, boardId, title, s
   const dockRef = useRef(null)
   useEffect(() => {
     const dock = dockRef.current
-    if (!dock || typeof ResizeObserver === 'undefined') return
+    if (!dock) {
+      // No dock (a phone): whatever sat above it goes to the bottom edge.
+      document.documentElement.style.setProperty('--dock-h', '0px')
+      return () => document.documentElement.style.removeProperty('--dock-h')
+    }
+    if (typeof ResizeObserver === 'undefined') return
     const publish = () => document.documentElement.style.setProperty('--dock-h', `${dock.offsetHeight}px`)
     publish()
     const observer = new ResizeObserver(publish)
@@ -1849,6 +1862,14 @@ const Whiteboard = forwardRef(function Whiteboard({ socketRef, boardId, title, s
       return
     }
 
+    // On a phone nothing is decided until the finger either lifts (a tap:
+    // type) or travels (a drag: move the thing under it, or the board).
+    if (phone) {
+      const target = [...elementsRef.current].reverse().find((element) => hitTest(element, point.x, point.y))
+      pointerRef.current = { mode: 'tap', target, point, startX: event.clientX, startY: event.clientY, origin: { ...viewRef.current } }
+      return
+    }
+
     if (tool === 'eraser') {
       const target = [...elementsRef.current].reverse().find((element) => hitTest(element, point.x, point.y))
       if (target) remove(target.id)
@@ -1990,8 +2011,18 @@ const Whiteboard = forwardRef(function Whiteboard({ socketRef, boardId, title, s
       touchesRef.current.set(event.pointerId, { x: event.clientX - rect.left, y: event.clientY - rect.top })
       if (pinchRef.current) { movePinch(); return }
     }
-    const pointer = pointerRef.current
+    let pointer = pointerRef.current
     if (!pointer) { updateHoverCursor(event); hoverDictionary(event); return }
+
+    if (pointer.mode === 'tap') {
+      if (Math.hypot(event.clientX - pointer.startX, event.clientY - pointer.startY) < 8) return
+      const target = pointer.target
+      // Only staff rearrange the board (see the move branch below); for a
+      // student a drag anywhere just moves around the board.
+      pointer = pointerRef.current = target && !wordPicker
+        ? { mode: 'move', ids: [target.id], last: pointer.point, originals: [structuredClone(target)], moved: true }
+        : { mode: 'pan', startX: pointer.startX, startY: pointer.startY, origin: pointer.origin }
+    }
 
     if (pointer.mode === 'pan') {
       pauseFollowing()
@@ -2073,6 +2104,29 @@ const Whiteboard = forwardRef(function Whiteboard({ socketRef, boardId, title, s
     pointerRef.current = null
     if (!pointer) return
 
+    if (pointer.mode === 'tap') {
+      if (event?.type !== 'pointerup') return // the finger slid off or was cancelled: no tap
+      const now = Date.now()
+      const last = lastTapRef.current
+      const double = last && now - last.time < 320 && Math.hypot(event.clientX - last.x, event.clientY - last.y) < 30
+      lastTapRef.current = double ? null : { time: now, x: event.clientX, y: event.clientY }
+      // A double tap is a double-click: a student's word card, a teacher's crop.
+      if (double) { clearTimeout(editClickTimer.current); handleDoubleClick(event); return }
+      const target = pointer.target
+      if (target?.type === 'text' || target?.type === 'note') {
+        const at = { clientX: event.clientX, clientY: event.clientY }
+        const open = () => openEditor(target, at)
+        // A student's tap may be the first half of a double tap on a word.
+        if (wordPicker) { clearTimeout(editClickTimer.current); editClickTimer.current = setTimeout(open, 300) } else open()
+        return
+      }
+      if (target) return // a picture or a drawing: nothing to type into
+      selectedRef.current = []
+      liveCreatedRef.current = null
+      setTextInput({ x: pointer.point.x, y: pointer.point.y, value: '', fontSize: lastFontSizeRef.current, color })
+      return
+    }
+
     if (pointer.mode === 'move' && !pointer.moved && pointer.editOnClick) {
       const open = () => openEditor(pointer.editOnClick.target, { clientX: pointer.editOnClick.clientX, clientY: pointer.editOnClick.clientY })
       // A student's second click may be the start of a double-click on a
@@ -2085,6 +2139,7 @@ const Whiteboard = forwardRef(function Whiteboard({ socketRef, boardId, title, s
       const ids = new Set(pointer.ids)
       for (const element of elementsRef.current) if (ids.has(element.id)) emit('board:update', element)
       recordUpdates(pointer.originals)
+      if (phone) selectedRef.current = [] // no handles cluttering a phone screen
       bump()
       return
     }
@@ -2244,6 +2299,7 @@ const Whiteboard = forwardRef(function Whiteboard({ socketRef, boardId, title, s
     setTextInput(null)
     lastFontSizeRef.current = draft.fontSize
     const text = latest.replace(/\s+$/, '')
+    if (phone) selectedRef.current = [] // a phone shows no selection handles
 
     clearTimeout(liveTimerRef.current)
     if (draft.id) {
@@ -2253,7 +2309,7 @@ const Whiteboard = forwardRef(function Whiteboard({ socketRef, boardId, title, s
         // Born live a moment ago: finish it and record it as one addition.
         replaceRaw(after)
         record({ type: 'add', element: structuredClone(after) })
-        selectedRef.current = [after.id]
+        if (!phone) selectedRef.current = [after.id]
         setTool('select')
         scheduleRender()
         bump()
@@ -2271,7 +2327,7 @@ const Whiteboard = forwardRef(function Whiteboard({ socketRef, boardId, title, s
     const element = { id: newId(), type: 'text', color: draft.color, width, x: draft.x, y: draft.y, text, fontSize: draft.fontSize }
     commit(element)
     // Done typing: the text is selected and ready to be moved.
-    selectedRef.current = [element.id]
+    if (!phone) selectedRef.current = [element.id]
     setTool('select')
     bump()
   }
@@ -2619,6 +2675,12 @@ const Whiteboard = forwardRef(function Whiteboard({ socketRef, boardId, title, s
           onPointerUp={handlePointerUp}
           onPointerLeave={(e) => { clearTimeout(dwellTimerRef.current); handlePointerUp(e) }}
           onPointerCancel={handlePointerUp}
+          // iOS raises the keyboard only for a focus made inside a touch
+          // handler; the tap's editor has just opened, so focus it here too.
+          onTouchEnd={() => {
+            const area = textAreaRef.current
+            if (phone && area && document.activeElement !== area) area.focus({ preventScroll: true })
+          }}
           onDoubleClick={handleDoubleClick}
           onWheel={handleWheel}
           onContextMenu={(e) => e.preventDefault()}
@@ -2630,7 +2692,11 @@ const Whiteboard = forwardRef(function Whiteboard({ socketRef, boardId, title, s
           }}
         />
 
-        {/* Corner chip with the board's name, like a Figma file tab. */}
+        {/* Corner chip with the board's name, like a Figma file tab. On a
+            phone only the way back stays. */}
+        {phone ? (
+          onClose && <button className="chip-back board-back-phone" onClick={onClose} title="Back">{backLabel}</button>
+        ) : (
         <div className="board-chip">
           {onClose && <button className="chip-back" onClick={onClose} title="Back">{backLabel}</button>}
           <strong>{title ?? 'Board'}</strong>
@@ -2654,6 +2720,7 @@ const Whiteboard = forwardRef(function Whiteboard({ socketRef, boardId, title, s
             </button>
           )}
         </div>
+        )}
 
         {Object.entries(cursors).map(([id, c]) => (
           <div key={id} className="peer-cursor" style={{ left: c.x * view.scale + view.x, top: c.y * view.scale + view.y }}>
@@ -2813,7 +2880,7 @@ const Whiteboard = forwardRef(function Whiteboard({ socketRef, boardId, title, s
           <div className="board-following">Following {following.name}’s view</div>
         )}
 
-        <div className="board-corner-right">
+        {!phone && <div className="board-corner-right">
           <div className="dock-group">
             <button className="tool" onClick={undo} disabled={!historyRef.current.undo.length} title="Undo (⌘Z)">↶</button>
             <button className="tool" onClick={redo} disabled={!historyRef.current.redo.length} title="Redo (⌘⇧Z)">↷</button>
@@ -2824,7 +2891,7 @@ const Whiteboard = forwardRef(function Whiteboard({ socketRef, boardId, title, s
             <button className="tool" onClick={() => zoomTo(view.scale * 1.25)} title="Zoom in">+</button>
             <button className="tool" onClick={() => fitAll(2)} title="Show everything">Fit</button>
           </div>
-        </div>
+        </div>}
 
         {cropping ? (
           <div className="board-dock">
@@ -2832,7 +2899,7 @@ const Whiteboard = forwardRef(function Whiteboard({ socketRef, boardId, title, s
             <button className="tool active" onClick={finishCrop}>Done</button>
             <button className="tool" onClick={cancelCrop}>Cancel</button>
           </div>
-        ) : (
+        ) : !phone && (
           <div className="board-dock" ref={dockRef}>
             <div className="dock-group">
               {TOOLS.map((item) => (
@@ -2905,7 +2972,7 @@ const Whiteboard = forwardRef(function Whiteboard({ socketRef, boardId, title, s
         )}
 
         {/* Floating bar above the selection: text styling, and actions for whatever is selected. */}
-        {textBar && !dragging && (
+        {textBar && !dragging && !phone && (
           <div
             className="text-toolbar"
             style={{ left: textBar.x, top: textBar.y }}
