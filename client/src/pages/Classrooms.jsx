@@ -153,7 +153,7 @@ export default function Classrooms() {
       </Panel>
 
       {isAdmin && others.length > 0 && (
-        <Panel id="home:others" title="Other teachers\' students" count={others.length} hint="as administrator">
+        <Panel id="home:others" title="Other teachers’ students" count={others.length} hint="as administrator">
           <p className="muted" style={{ marginBottom: 10 }}>
             Students linked to other teachers. Only the administrator sees this list; each teacher sees their own students only.
           </p>
