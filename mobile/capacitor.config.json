@@ -1,0 +1,28 @@
+{
+  "appId": "online.adventacademy.lms",
+  "appName": "Advent Academy",
+  "webDir": "www",
+  "server": {
+    "url": "https://lms.advent-academy.online",
+    "allowNavigation": ["lms.advent-academy.online"],
+    "errorPath": "offline.html"
+  },
+  "ios": {
+    "backgroundColor": "#14453f",
+    "contentInset": "always",
+    "scheme": "Advent Academy"
+  },
+  "plugins": {
+    "SplashScreen": {
+      "launchAutoHide": true,
+      "launchShowDuration": 800,
+      "backgroundColor": "#14453f",
+      "showSpinner": false
+    },
+    "StatusBar": {
+      "style": "DARK",
+      "backgroundColor": "#14453f",
+      "overlaysWebView": false
+    }
+  }
+}

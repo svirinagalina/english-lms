@@ -1,0 +1,19 @@
+{
+  "name": "advent-academy-mobile",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Advent Academy LMS as a native iOS app (Capacitor shell around lms.advent-academy.online)",
+  "scripts": {
+    "sync": "cap sync ios",
+    "open": "cap open ios"
+  },
+  "dependencies": {
+    "@capacitor/core": "^8.5.2",
+    "@capacitor/ios": "^8.5.2",
+    "@capacitor/splash-screen": "^8.0.2",
+    "@capacitor/status-bar": "^8.0.3"
+  },
+  "devDependencies": {
+    "@capacitor/cli": "^8.5.2"
+  }
+}
