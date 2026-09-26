@@ -126,14 +126,14 @@ export default function Timetable() {
             <button
               className={`ghost ${view === 'week' ? '' : ''}`}
               onClick={() => setView('week')}
-              style={{ background: view === 'week' ? '#2d5a4e' : '#f0f0f0', color: view === 'week' ? 'white' : '#333' }}
+              style={view === 'week' ? { background: 'var(--accent)', color: 'var(--accent-ink)' } : undefined}
             >
               Week
             </button>
             <button
               className={`ghost ${view === 'month' ? '' : ''}`}
               onClick={() => setView('month')}
-              style={{ background: view === 'month' ? '#2d5a4e' : '#f0f0f0', color: view === 'month' ? 'white' : '#333' }}
+              style={view === 'month' ? { background: 'var(--accent)', color: 'var(--accent-ink)' } : undefined}
             >
               Month
             </button>
@@ -158,38 +158,39 @@ export default function Timetable() {
                 <div
                   key={day.toDateString()}
                   style={{
-                    background: isToday ? '#e8f4f0' : 'white',
-                    border: isToday ? '2px solid #2d5a4e' : '1px solid #e0e0e0',
+                    background: isToday ? '#f4b9d9' : '#ffd5ed',
+                    border: isToday ? '2px solid #14453f' : '1px solid rgba(20, 69, 63, 0.15)',
+                    color: '#14453f',
                     borderRadius: 8,
                     padding: 12,
                     minHeight: 150
                   }}
                 >
-                  <div style={{ fontWeight: 600, color: '#2d5a4e', marginBottom: 8, fontSize: 14 }}>
+                  <div style={{ fontWeight: 700, color: '#14453f', marginBottom: 8, fontSize: 14 }}>
                     {day.toLocaleDateString('default', { weekday: 'short', day: 'numeric' })}
                   </div>
                   <div>
                     {dayLessons.length === 0 ? (
-                      <div style={{ fontSize: 12, color: '#aaa', fontStyle: 'italic' }}>No lessons</div>
+                      <div style={{ fontSize: 12, color: 'rgba(20, 69, 63, 0.55)', fontStyle: 'italic' }}>No lessons</div>
                     ) : (
                       dayLessons.map(lesson => (
                         <div
                           key={lesson.id}
                           style={{
-                            background: '#f9f9f9',
+                            background: 'rgba(255, 255, 255, 0.7)',
                             padding: 6,
-                            borderRadius: 4,
+                            borderRadius: 6,
                             fontSize: 12,
                             marginBottom: 6,
-                            borderLeft: '3px solid #2d5a4e'
+                            borderLeft: '3px solid #14453f'
                           }}
                         >
-                          <div style={{ fontWeight: 500, color: '#2d5a4e' }}>
+                          <div style={{ fontWeight: 600, color: '#14453f' }}>
                             {new Date(lesson.startTime).toLocaleTimeString('default', { hour: '2-digit', minute: '2-digit' })}
                           </div>
-                          <div style={{ fontSize: 11, color: '#666' }}>{lesson.title}</div>
+                          <div style={{ fontSize: 11, color: '#14453f' }}>{lesson.title}</div>
                           {lesson.student && (
-                            <div style={{ fontSize: 11, color: '#888', marginTop: 2 }}>👤 {lesson.student.name}</div>
+                            <div style={{ fontSize: 11, color: 'rgba(20, 69, 63, 0.75)', marginTop: 2 }}>👤 {lesson.student.name}</div>
                           )}
                         </div>
                       ))
@@ -210,7 +211,7 @@ export default function Timetable() {
                 if (dayLessons.length === 0) return null
                 return (
                   <div key={day.toDateString()} style={{ marginBottom: 20 }}>
-                    <strong style={{ fontSize: 15, color: '#2d5a4e', display: 'block', marginBottom: 10 }}>
+                    <strong style={{ fontSize: 15, color: 'var(--text)', display: 'block', marginBottom: 10 }}>
                       {day.toLocaleDateString('default', { weekday: 'short', month: 'short', day: 'numeric' })}
                     </strong>
                     <div style={{ marginLeft: 15 }}>
@@ -218,21 +219,21 @@ export default function Timetable() {
                         <div
                           key={lesson.id}
                           style={{
-                            background: 'white',
-                            border: '1px solid #e0e0e0',
+                            background: '#ffd5ed',
+                            color: '#14453f',
                             padding: 12,
-                            borderRadius: 6,
+                            borderRadius: 8,
                             marginBottom: 8
                           }}
                         >
                           <div style={{ display: 'flex', gap: 12, alignItems: 'flex-start' }}>
-                            <div style={{ fontWeight: 600, color: '#2d5a4e', minWidth: 50 }}>
+                            <div style={{ fontWeight: 700, color: '#14453f', minWidth: 50 }}>
                               {new Date(lesson.startTime).toLocaleTimeString('default', { hour: '2-digit', minute: '2-digit' })}
                             </div>
                             <div>
-                              <strong style={{ color: '#2d5a4e' }}>{lesson.title}</strong>
+                              <strong style={{ color: '#14453f' }}>{lesson.title}</strong>
                               {lesson.student && (
-                                <div style={{ fontSize: 13, color: '#666', marginTop: 4 }}>
+                                <div style={{ fontSize: 13, color: 'rgba(20, 69, 63, 0.75)', marginTop: 4 }}>
                                   👤 {lesson.student.name}
                                 </div>
                               )}

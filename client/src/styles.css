@@ -1259,3 +1259,27 @@ button.compact { padding: 6px 10px; font-size: 12px; align-self: flex-start; }
 .trainer-frame { flex: 1; width: 100%; border: 0; display: block; background: #f8f9f4; }
 .trainer-note { padding: 24px; }
 .trainer-topics { display: flex; flex-direction: column; gap: 10px; }
+
+/* The top menu: one button, the sections fold out under it. */
+.nav-menu { position: relative; margin-left: auto; flex: 0 0 auto; }
+.nav-menu-button {
+  display: inline-flex; align-items: center; gap: 8px;
+  height: 38px; padding: 0 14px; border-radius: 10px;
+  background: #1a5249; color: var(--text); border: 1px solid var(--border);
+  font-weight: 600; font-size: 14px; cursor: pointer;
+}
+.nav-menu-button.open, .nav-menu-button:hover { background: #236257; }
+.nav-menu-list {
+  position: absolute; top: calc(100% + 6px); right: 0; z-index: 70;
+  min-width: 220px; max-height: calc(100vh - 90px); overflow-y: auto;
+  display: flex; flex-direction: column; gap: 2px; padding: 6px;
+  background: #0f3731; border: 1px solid var(--border); border-radius: 12px;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.4);
+}
+.nav-menu-list .nav-link { display: block; text-align: left; border-radius: 8px; }
+.nav-menu-list .nav-signout { background: none; border: none; font: inherit; color: var(--muted); cursor: pointer; width: 100%; }
+.nav-menu-sep { height: 1px; background: var(--border); margin: 4px 2px; }
+@media (max-width: 720px) {
+  .nav-menu { margin-left: 0; }
+  .nav-menu-list { left: 0; right: auto; }
+}

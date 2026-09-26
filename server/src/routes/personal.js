@@ -18,7 +18,9 @@ const eventSchema = z.object({
   startTime: z.string().datetime(),
   endTime: z.string().datetime(),
   studentIds: z.array(z.string()).default([]),
-  recurrence: z.string().optional(), // null | "WEEKLY"
+  // The page sends null for "No repeat": that was refused before, so no
+  // one-off lesson could be saved at all.
+  recurrence: z.enum(['WEEKLY']).nullable().optional(),
   recurrenceEndDate: z.string().datetime().optional().nullable()
 })
 

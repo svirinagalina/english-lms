@@ -227,6 +227,20 @@ export function setupSignaling(io) {
 
       // Join and list the others without an await in between (see above).
       const roomId = `call:${call.token}`
+      // A student coming back by the link (a dropped connection, another
+      // device) replaces their older copy, which otherwise stayed in the call
+      // as a frozen picture. Staff may be in on two devices on purpose.
+      if (user.role === 'STUDENT') {
+        for (const id of io.sockets.adapter.rooms.get(roomId) ?? []) {
+          const old = io.sockets.sockets.get(id)
+          if (!old || old.id === socket.id || old.data.user?.id !== user.id) continue
+          old.leave(roomId)
+          old.data.roomId = null
+          old.data.inCall = false
+          io.to(roomId).emit('user-left', old.id)
+          old.emit('call:replaced')
+        }
+      }
       socket.data.roomId = roomId
       socket.data.callId = call.id
       socket.data.classroomId = call.classroom?.id ?? null

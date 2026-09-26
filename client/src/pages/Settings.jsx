@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { api } from '../api'
-import Nav from '../components/Nav'
+import Nav, { refreshTrainerStatus } from '../components/Nav'
 import { SiteFooter } from '../components/Brand'
 
 // Owner's settings. The AI key is pasted here and stored encrypted on the
@@ -51,6 +51,7 @@ export default function Settings() {
       const saved = await api.saveAdventKey(trainerKey.trim())
       setTrainerKey('')
       setTrainer(saved)
+      refreshTrainerStatus() // Trainer shows up in the menu without a reload
       setTrainerNotice(saved.configured ? `Connected${saved.partner ? ` as “${saved.partner}”` : ''}. Students now have Trainer in their menu.` : 'Key removed: the trainer is disconnected.')
     } catch (err) {
       setTrainerError(err.message)

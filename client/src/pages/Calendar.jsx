@@ -160,10 +160,10 @@ export default function Calendar() {
         </div>
 
         {showForm && (
-          <form onSubmit={handleAddEvent} style={{ marginBottom: 20, padding: 15, backgroundColor: '#f5f5f5', borderRadius: 8 }}>
+          <form onSubmit={handleAddEvent} style={{ marginBottom: 20, padding: 15, background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 10 }}>
             <div style={{ display: 'flex', gap: 10, alignItems: 'flex-start', marginBottom: 15 }}>
               <div style={{ flex: 1 }}>
-                <label style={{ display: 'block', marginBottom: 5, fontWeight: 600, color: '#2d5a4e' }}>Plan a lesson</label>
+                <label style={{ display: 'block', marginBottom: 5, fontWeight: 600, color: 'var(--text)' }}>Plan a lesson</label>
                 <div style={{ position: 'relative' }}>
                   <button
                     type="button"
@@ -171,9 +171,10 @@ export default function Calendar() {
                     style={{
                       width: '100%',
                       padding: '10px 12px',
-                      border: '1px solid #d0d0d0',
-                      borderRadius: 4,
-                      background: 'white',
+                      border: '1px solid var(--border)',
+                      borderRadius: 8,
+                      background: '#0f3731',
+                      color: 'var(--text)',
                       cursor: 'pointer',
                       textAlign: 'left',
                       fontSize: 14
@@ -184,17 +185,15 @@ export default function Calendar() {
                       : `${formData.studentIds.length} student${formData.studentIds.length !== 1 ? 's' : ''} selected`}
                   </button>
                   {showStudentPicker && (
+                    // In the flow, not floating: it used to cover the Create button.
                     <div style={{
-                      position: 'absolute',
-                      top: '100%',
-                      left: 0,
-                      right: 0,
-                      background: 'white',
-                      border: '1px solid #d0d0d0',
-                      borderRadius: 4,
-                      marginTop: 2,
-                      zIndex: 1000,
-                      boxShadow: '0 2px 8px rgba(0,0,0,0.1)'
+                      background: '#0f3731',
+                      color: 'var(--text)',
+                      border: '1px solid var(--border)',
+                      borderRadius: 8,
+                      marginTop: 4,
+                      maxHeight: 260,
+                      overflowY: 'auto'
                     }}>
                       {students.map(student => (
                         <label key={student.id} style={{
@@ -202,7 +201,7 @@ export default function Calendar() {
                           alignItems: 'center',
                           padding: '8px 12px',
                           cursor: 'pointer',
-                          borderBottom: '1px solid #f0f0f0'
+                          borderBottom: '1px solid var(--border)'
                         }}>
                           <input
                             type="checkbox"
@@ -216,7 +215,7 @@ export default function Calendar() {
                             }}
                             style={{ marginRight: 8 }}
                           />
-                          <span style={{ fontSize: 14 }}>{student.name}</span>
+                          <span style={{ fontSize: 14, color: 'var(--text)' }}>{student.name}</span>
                         </label>
                       ))}
                     </div>
@@ -225,12 +224,12 @@ export default function Calendar() {
               </div>
 
               <div style={{ flex: 1 }}>
-                <label style={{ display: 'block', marginBottom: 5, fontWeight: 600, color: '#2d5a4e' }}>When</label>
+                <label style={{ display: 'block', marginBottom: 5, fontWeight: 600, color: 'var(--text)' }}>When</label>
                 <input
                   type="datetime-local"
                   value={formData.startTime}
                   onChange={(e) => setFormData({ ...formData, startTime: e.target.value })}
-                  style={{ width: '100%', padding: '10px 12px', border: '1px solid #d0d0d0', borderRadius: 4, fontSize: 14 }}
+                  style={{ width: '100%' }}
                 />
               </div>
             </div>
@@ -280,12 +279,12 @@ export default function Calendar() {
                 </strong>
                 <div style={{ marginLeft: 15 }}>
                   {dayEvents.map(event => (
-                    <div key={event.id} style={{ marginBottom: 15, paddingBottom: 15, borderBottom: '1px solid #e0e0e0' }}>
+                    <div key={event.id} style={{ marginBottom: 15, paddingBottom: 15, borderBottom: '1px solid var(--border)' }}>
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                         <div style={{ flex: 1 }}>
                           <strong>{event.title}</strong>
                           {event.recurrence === 'WEEKLY' && (
-                            <span style={{ fontSize: 12, marginLeft: 8, color: '#888' }}>(Weekly)</span>
+                            <span style={{ fontSize: 12, marginLeft: 8, color: 'var(--muted)' }}>(Weekly)</span>
                           )}
                           <div className="muted" style={{ fontSize: 14, marginTop: 5 }}>
                             {new Date(event.startTime).toLocaleTimeString('default', { hour: '2-digit', minute: '2-digit' })}
@@ -308,12 +307,12 @@ export default function Calendar() {
 
       {deleteConfirm && eventToDelete && eventToDelete.recurrence === 'WEEKLY' && (
         <div style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.3)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
-          <div style={{ backgroundColor: 'white', padding: 30, borderRadius: 8, maxWidth: 400, boxShadow: '0 4px 12px rgba(0,0,0,0.15)' }}>
+          <div style={{ background: '#0f3731', color: 'var(--text)', border: '1px solid var(--border)', padding: 30, borderRadius: 12, maxWidth: 400, boxShadow: '0 10px 30px rgba(0,0,0,0.4)' }}>
             <h3 style={{ marginTop: 0 }}>Delete recurring lesson</h3>
             <p>This lesson repeats weekly. What would you like to delete?</p>
             <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
               <button className="ghost" onClick={() => { setDeleteConfirm(false); setEventToDelete(null) }}>Cancel</button>
-              <button onClick={() => confirmDelete(eventToDelete.id, false)} style={{ backgroundColor: '#ffd1dc' }}>This lesson only</button>
+              <button onClick={() => confirmDelete(eventToDelete.id, false)} style={{ background: 'var(--accent)', color: 'var(--accent-ink)' }}>This lesson only</button>
               <button onClick={() => confirmDelete(eventToDelete.id, true)} style={{ backgroundColor: '#ff6b6b', color: 'white' }}>All lessons in series</button>
             </div>
           </div>

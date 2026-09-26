@@ -42,8 +42,11 @@ settingsRouter.put('/stripe', async (req, res) => {
 const adventView = () => ({ configured: Boolean(adventKey()), keyHint: adventKey() ? `…${adventKey().slice(-4)}` : null, fromEnv: Boolean(process.env.ADVENT_PARTNER_KEY) })
 settingsRouter.get('/advent', (req, res) => res.json(adventView()))
 settingsRouter.put('/advent', async (req, res) => {
-  const key = typeof req.body?.key === 'string' ? req.body.key.trim() : ''
-  if (key && !/^gal_[A-Za-z0-9_-]{8,}$/.test(key)) return res.status(400).json({ error: 'The trainer key starts with "gal_" (it is in KEY.txt)' })
+  // Whatever was pasted — the whole line from KEY.txt, "KEY=gal_…", quotes —
+  // the key is the gal_… part of it.
+  const raw = typeof req.body?.key === 'string' ? req.body.key : ''
+  const key = raw.match(/gal_[A-Za-z0-9_-]{8,}/)?.[0] ?? ''
+  if (raw.trim() && !key) return res.status(400).json({ error: 'No trainer key here: it starts with "gal_" (it is in KEY.txt)' })
   const previous = adventKey()
   await saveAdventKey(key || null)
   if (!key) return res.json(adventView())

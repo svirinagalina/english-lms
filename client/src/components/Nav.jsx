@@ -1,14 +1,18 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Link, useLocation } from 'react-router-dom'
 import { useAuth } from '../AuthContext'
 import { Brand } from './Brand'
 import { Avatar } from './Avatar'
-import DictionaryPanel from './DictionaryPanel'
 import { api } from '../api'
 
-// Whether the Advent trainer is connected: asked once per page load.
+// Whether the Advent trainer is connected: asked once per page load, and
+// again when Settings connects or disconnects it (refreshTrainerStatus).
 let trainerStatus = null
 const trainerConnected = () => (trainerStatus ??= api.adventStatus().then((s) => s.connected).catch(() => false))
+export function refreshTrainerStatus() {
+  trainerStatus = null
+  window.dispatchEvent(new Event('trainer-status'))
+}
 
 const ROLE_LABEL = {
   OWNER: 'administrator',
@@ -21,10 +25,28 @@ const ROLE_LABEL = {
 export default function Nav({ title, back }) {
   const { user, logout } = useAuth()
   const { pathname } = useLocation()
-  const [dictionaryOpen, setDictionaryOpen] = useState(false)
   const [trainer, setTrainer] = useState(false)
-  useEffect(() => { let live = true; trainerConnected().then((on) => { if (live) setTrainer(on) }); return () => { live = false } }, [])
-  const staff = user.role !== 'STUDENT'
+  useEffect(() => {
+    let live = true
+    const check = () => trainerConnected().then((on) => { if (live) setTrainer(on) })
+    check()
+    window.addEventListener('trainer-status', check)
+    return () => { live = false; window.removeEventListener('trainer-status', check) }
+  }, [])
+
+  // The sections sit folded under one Menu button: the full list used to
+  // wrap over two or three rows at the top of every page.
+  const [menuOpen, setMenuOpen] = useState(false)
+  const menuRef = useRef(null)
+  useEffect(() => { setMenuOpen(false) }, [pathname])
+  useEffect(() => {
+    if (!menuOpen) return
+    const onDown = (e) => { if (!menuRef.current?.contains(e.target)) setMenuOpen(false) }
+    const onKey = (e) => { if (e.key === 'Escape') setMenuOpen(false) }
+    document.addEventListener('pointerdown', onDown)
+    document.addEventListener('keydown', onKey)
+    return () => { document.removeEventListener('pointerdown', onDown); document.removeEventListener('keydown', onKey) }
+  }, [menuOpen])
 
   const admin = user.role === 'OWNER' || user.role === 'PARTNER'
   const links = [{ to: '/classroom', label: 'Classroom' }, { to: '/courses', label: 'Courses' }]
@@ -58,6 +80,9 @@ export default function Nav({ title, back }) {
     }
   }
 
+  const isActive = (link) => pathname === link.to || pathname.startsWith(link.to + '/') || (link.to === '/classroom' && pathname === '/')
+  const current = links.find(isActive)
+
   return (
     <header className="topbar">
       <div className="nav-identity brand-row">
@@ -71,23 +96,22 @@ export default function Nav({ title, back }) {
         </div>
       </div>
 
-      <nav className="nav-links">
-        {links.map((link) => (
-          <Link
-            key={link.to}
-            to={link.to}
-            className={`nav-link ${(pathname === link.to || pathname.startsWith(link.to + '/') || (link.to === '/classroom' && pathname === '/')) ? 'active' : ''}`}
-          >
-            {link.label}
-          </Link>
-        ))}
-        {staff && (
-          <button className={`ghost ${dictionaryOpen ? 'active' : ''}`} onClick={() => setDictionaryOpen((v) => !v)} title="Any word or phrase, Russian ⇄ English">Dictionary</button>
+      <nav className="nav-menu" ref={menuRef}>
+        <button type="button" className={`nav-menu-button ${menuOpen ? 'open' : ''}`} onClick={() => setMenuOpen((v) => !v)} aria-expanded={menuOpen} aria-haspopup="true">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16" /></svg>
+          {current?.label ?? (pathname === '/profile' ? 'Profile' : 'Menu')}
+        </button>
+        {menuOpen && (
+          <div className="nav-menu-list">
+            {links.map((link) => (
+              <Link key={link.to} to={link.to} className={`nav-link ${isActive(link) ? 'active' : ''}`}>{link.label}</Link>
+            ))}
+            <div className="nav-menu-sep" />
+            <Link to="/profile" className={`nav-link ${pathname === '/profile' ? 'active' : ''}`} title="Your name, email, password, picture and contacts">Profile</Link>
+            <button type="button" className="nav-link nav-signout" onClick={logout}>Sign out</button>
+          </div>
         )}
-        <Link to="/profile" className={`nav-link ${pathname === '/profile' ? 'active' : ''}`} title="Your name, email, password, picture and contacts">Profile</Link>
-        <button className="ghost" onClick={logout}>Sign out</button>
       </nav>
-      {dictionaryOpen && <DictionaryPanel onClose={() => setDictionaryOpen(false)} />}
     </header>
   )
 }

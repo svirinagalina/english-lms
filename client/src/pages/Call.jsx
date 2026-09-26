@@ -292,6 +292,21 @@ export default function Call() {
     setNeedsTap(false)
     setUnlockTick((n) => n + 1)
   }
+  // No "tap to hear" overlay any more (on a phone it only got in the way):
+  // the first touch, click or key press anywhere in the call does the same.
+  useEffect(() => {
+    if (!needsTap) return
+    const unlock = () => unlockPlayback()
+    const opts = { capture: true, once: true }
+    document.addEventListener('pointerdown', unlock, opts)
+    document.addEventListener('touchend', unlock, opts)
+    document.addEventListener('keydown', unlock, opts)
+    return () => {
+      document.removeEventListener('pointerdown', unlock, opts)
+      document.removeEventListener('touchend', unlock, opts)
+      document.removeEventListener('keydown', unlock, opts)
+    }
+  }, [needsTap])
   const [blurStatus, setBlurStatus] = useState('')
   // The student's board, shown inside the call for everyone in it.
   // Boards this person may show in the call (students' boards, own boards).
@@ -557,6 +572,18 @@ export default function Call() {
         connectionsRef.current[peerId]?.close()
         delete connectionsRef.current[peerId]
         setPeers((prev) => { const next = { ...prev }; delete next[peerId]; return next })
+      })
+      // This person joined again from another tab or device: that one is
+      // the call now; this copy lets go of its camera and microphone.
+      socket.on('call:replaced', () => {
+        Object.values(connectionsRef.current).forEach((pc) => pc.close())
+        connectionsRef.current = {}
+        localStreamRef.current?.getTracks().forEach((t) => t.stop())
+        rawMicRef.current?.stop()
+        denoiserRef.current?.stop()
+        blurStreamRef.current?.getTracks().forEach((t) => t.stop())
+        socket.disconnect()
+        setError('You joined this call again from another tab or device, so it was closed here.')
       })
       socket.on('screen-share-started', ({ from }) => {
         setPeers((prev) => (prev[from] ? { ...prev, [from]: { ...prev[from], sharing: true } } : prev))
@@ -1183,11 +1210,6 @@ export default function Call() {
 
       <div className="view-pane">
         <Reactions socketRef={socketRef} ready={status === 'live'} />
-        {needsTap && (
-          <button className="tap-to-hear" onClick={unlockPlayback}>
-            🔊 Tap to hear and see the others
-          </button>
-        )}
         <VideoGrid
           peers={peers}
           micOn={micOn}
