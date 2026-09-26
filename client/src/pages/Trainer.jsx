@@ -13,8 +13,10 @@ export default function Trainer() {
   const [error, setError] = useState('')
   const [notConnected, setNotConnected] = useState(false)
 
+  const [attempt, setAttempt] = useState(0)
   useEffect(() => {
     let live = true
+    setError('')
     api.trainerLink()
       .then(({ url }) => { if (live) setUrl(url) })
       .catch((err) => {
@@ -23,7 +25,7 @@ export default function Trainer() {
         else setError(err.message)
       })
     return () => { live = false }
-  }, [])
+  }, [attempt])
 
   return (
     <div className="trainer-page">
@@ -32,13 +34,18 @@ export default function Trainer() {
         // allow="microphone" or the browser won't let the trainer hear the student.
         <iframe className="trainer-frame" src={url} title="Advent trainer" allow="microphone; autoplay; clipboard-write" allowFullScreen />
       )}
-      {!url && !error && !notConnected && <p className="muted trainer-note">Opening the trainer…</p>}
+      {!url && !error && !notConnected && <p className="muted trainer-note">Opening the trainer… (the very first time takes a little longer)</p>}
       {notConnected && (
         <p className="muted trainer-note">
           The trainer isn’t connected yet.{user.role === 'OWNER' ? <> Add its key in <Link to="/settings">Settings</Link>.</> : ' Ask your teacher.'}
         </p>
       )}
-      {error && <div className="error trainer-note">Could not open the trainer: {error}</div>}
+      {error && (
+        <div className="trainer-note">
+          <div className="error">Could not open the trainer: {error}</div>
+          <button type="button" style={{ marginTop: 12 }} onClick={() => setAttempt((n) => n + 1)}>Try again</button>
+        </div>
+      )}
     </div>
   )
 }

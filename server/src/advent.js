@@ -8,15 +8,25 @@ const BASE = 'https://trainer.advent-academy.online/partner/v1'
 
 export const adventEnabled = () => Boolean(adventKey())
 
-export async function advent(method, path, body) {
+// The first sign-in of a student sets up their account there (and checks
+// the school's GetCourse for their access), which can take a while: a 10 s
+// limit gave "The operation was aborted due to timeout". 30 s, and one retry
+// if the connection itself failed or timed out.
+export async function advent(method, path, body, { timeoutMs = 30000, retries = 1 } = {}) {
   const key = adventKey()
   if (!key) throw Object.assign(new Error('The trainer is not connected yet (Settings → Advent trainer)'), { status: 503 })
-  const response = await fetch(BASE + path, {
-    method,
-    headers: { 'X-Partner-Key': key, 'Content-Type': 'application/json' },
-    body: body ? JSON.stringify(body) : undefined,
-    signal: AbortSignal.timeout(10000)
-  })
+  let response
+  try {
+    response = await fetch(BASE + path, {
+      method,
+      headers: { 'X-Partner-Key': key, 'Content-Type': 'application/json' },
+      body: body ? JSON.stringify(body) : undefined,
+      signal: AbortSignal.timeout(timeoutMs)
+    })
+  } catch (error) {
+    if (retries > 0) return advent(method, path, body, { timeoutMs, retries: retries - 1 })
+    throw Object.assign(new Error(error.name === 'TimeoutError' ? 'The trainer is taking too long to answer — try again in a moment' : `Could not reach the trainer: ${error.message}`), { status: 504 })
+  }
   const data = await response.json().catch(() => ({}))
   if (!response.ok) throw Object.assign(new Error(data?.error || data?.detail || `Trainer error ${response.status}`), { status: response.status })
   return data

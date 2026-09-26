@@ -13,6 +13,9 @@ export default function StudentHome({ classrooms }) {
   const [homework, setHomework] = useState(null)
   const [billing, setBilling] = useState(null)
   const [mistakes, setMistakes] = useState(null)
+  // The Advent trainer, when the school has it connected: a tile of its own,
+  // so students find it without opening the menu.
+  const [trainer, setTrainer] = useState(false)
 
   useEffect(() => {
     api.listUnits().then(({ units }) => setUnits(units)).catch(() => setUnits([]))
@@ -20,6 +23,7 @@ export default function StudentHome({ classrooms }) {
     api.studentHome().then(({ homework }) => setHomework(homework)).catch(() => setHomework(null))
     api.myBilling().then(({ billing }) => setBilling(billing)).catch(() => setBilling(null))
     api.mistakePractice().then(({ exercises }) => setMistakes(exercises)).catch(() => setMistakes([]))
+    api.adventStatus().then(({ connected }) => setTrainer(connected)).catch(() => {})
   }, [])
 
   const classroom = classrooms[0] ?? null
@@ -98,6 +102,14 @@ export default function StudentHome({ classrooms }) {
               </>
             )}
           </Link>
+
+          {trainer && (
+            <Link className="tile" to="/trainer">
+              <span className="tile-kicker">Trainer</span>
+              <strong>Speaking & grammar</strong>
+              <span className="muted">Talk, get corrected, practise your words.</span>
+            </Link>
+          )}
 
           {pkg && (pkg.lessonsPaid != null || billing.priceAmount != null) && (
             <Link className="tile" to="/billing">
