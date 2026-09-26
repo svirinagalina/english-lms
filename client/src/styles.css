@@ -1283,3 +1283,6 @@ button.compact { padding: 6px 10px; font-size: 12px; align-self: flex-start; }
   .nav-menu { margin-left: 0; }
   .nav-menu-list { left: 0; right: auto; }
 }
+/* "Start lesson" on a timetable card: green on the pink card. */
+.timetable-start { display: inline-block; margin-top: 8px; background: #14453f; color: #ffd5ed; border: none; border-radius: 8px; padding: 6px 12px; font-size: 13px; font-weight: 600; cursor: pointer; }
+.timetable-start:disabled { opacity: 0.6; cursor: default; }

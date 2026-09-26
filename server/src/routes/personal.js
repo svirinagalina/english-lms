@@ -116,9 +116,13 @@ personalRouter.get('/calendar', async (req, res) => {
   const rangeEnd = end ? new Date(end) : new Date(rangeStart.getTime() + 365 * 24 * 60 * 60 * 1000)
 
   // Get all events (including recurring) that overlap with range
+  // A teacher sees their own plan; a student sees the lessons their
+  // teachers put them in (their own list used to be always empty).
   const events = await prisma.userCalendarEvent.findMany({
     where: {
-      userId: req.user.id,
+      ...(req.user.role === 'STUDENT'
+        ? { studentIds: { has: req.user.id }, user: { schoolId: req.user.schoolId } }
+        : { userId: req.user.id }),
       // Get events that could have instances in the range
       startTime: { lt: rangeEnd }
     },

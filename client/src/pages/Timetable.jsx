@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { api } from '../api'
 import { useAuth } from '../AuthContext'
 import Nav from '../components/Nav'
@@ -12,6 +13,53 @@ export default function Timetable() {
   const [error, setError] = useState('')
   const [view, setView] = useState('week') // week or month
   const [currentDate, setCurrentDate] = useState(new Date())
+  const navigate = useNavigate()
+  const isStaff = user.role !== 'STUDENT'
+  const [starting, setStarting] = useState(null) // the lesson whose call is being opened
+
+  // Starts the lesson's call. One student: the call is theirs (it counts, and
+  // "Join call" shows in their cabinet). Several: it goes on the board they
+  // share, so every one of them gets "Join call".
+  const startLesson = async (lesson) => {
+    if (starting) return
+    setStarting(lesson.id)
+    setError('')
+    try {
+      const ids = (lesson.students ?? []).map((s) => s.id)
+      const [{ classrooms }, { boards }] = await Promise.all([api.listClassrooms(), api.allBoards()])
+      const mineFirst = (list) => [...list].sort((a, b) => (a.teacherId === user.id ? -1 : 0) - (b.teacherId === user.id ? -1 : 0))
+      const rowsOf = (studentId) => mineFirst(boards.filter((b) => b.studentId === studentId))
+      const shared = ids.length > 1
+        ? rowsOf(ids[0]).find((row) => ids.every((sid) => boards.some((b) => b.id === row.id && b.studentId === sid)))
+        : null
+      const board = shared ?? (ids.length ? rowsOf(ids[0])[0] : null)
+      const classroom = ids.length === 1
+        ? [...classrooms].filter((c) => c.student?.id === ids[0]).sort((a, b) => (a.teacher?.id === user.id ? -1 : 0) - (b.teacher?.id === user.id ? -1 : 0))[0]
+        : null
+      const { call } = await api.createCall({
+        ...(classroom ? { classroomId: classroom.id } : {}),
+        ...(board ? { boardId: board.id } : {}),
+        title: lesson.title
+      })
+      navigate(`/call/${call.token}${board ? `?board=${board.id}` : ''}`)
+    } catch (err) {
+      setError(err.message)
+      setStarting(null)
+    }
+  }
+  const startButton = (lesson, small) => isStaff && (
+    <button
+      type="button"
+      className="timetable-start"
+      style={small ? { marginTop: 6, fontSize: 11, padding: '4px 8px' } : undefined}
+      onClick={() => startLesson(lesson)}
+      disabled={Boolean(starting)}
+      title="Start this lesson's call now"
+    >
+      {starting === lesson.id ? 'Starting…' : 'Start lesson'}
+    </button>
+  )
+  const namesOf = (lesson) => (lesson.students?.length ? lesson.students.map((s) => s.name).join(', ') : lesson.student?.name ?? '')
 
   const refresh = async () => {
     try {
@@ -33,10 +81,8 @@ export default function Timetable() {
 
       const { events } = await api.listCalendarEvents(start.toISOString(), end.toISOString())
       // For students, filter to show only lessons assigned to them
-      const filtered = user.role === 'STUDENT'
-        ? events.filter(e => e.studentId === user.id)
-        : events
-      setLessons(filtered)
+      // The server already gives a student only the lessons they're in.
+      setLessons(events)
     } catch (err) {
       setError(err.message)
     } finally {
@@ -189,9 +235,10 @@ export default function Timetable() {
                             {new Date(lesson.startTime).toLocaleTimeString('default', { hour: '2-digit', minute: '2-digit' })}
                           </div>
                           <div style={{ fontSize: 11, color: '#14453f' }}>{lesson.title}</div>
-                          {lesson.student && (
-                            <div style={{ fontSize: 11, color: 'rgba(20, 69, 63, 0.75)', marginTop: 2 }}>👤 {lesson.student.name}</div>
+                          {namesOf(lesson) && !lesson.title.includes(namesOf(lesson)) && (
+                            <div style={{ fontSize: 11, color: 'rgba(20, 69, 63, 0.75)', marginTop: 2 }}>👤 {namesOf(lesson)}</div>
                           )}
+                          {startButton(lesson, true)}
                         </div>
                       ))
                     )}
@@ -232,11 +279,12 @@ export default function Timetable() {
                             </div>
                             <div>
                               <strong style={{ color: '#14453f' }}>{lesson.title}</strong>
-                              {lesson.student && (
+                              {namesOf(lesson) && !lesson.title.includes(namesOf(lesson)) && (
                                 <div style={{ fontSize: 13, color: 'rgba(20, 69, 63, 0.75)', marginTop: 4 }}>
-                                  👤 {lesson.student.name}
+                                  👤 {namesOf(lesson)}
                                 </div>
                               )}
+                              {startButton(lesson)}
                             </div>
                           </div>
                         </div>
