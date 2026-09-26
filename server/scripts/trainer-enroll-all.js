@@ -1,5 +1,6 @@
-// Sets up an Advent trainer account for every student already on the
-// platform (new ones are enrolled when they join — see routes/invites.js).
+// Sets up an Advent trainer account, with full access, for every student
+// already on the platform (new ones are enrolled when they join — see
+// routes/invites.js; enrollStudent grants the access too).
 // Safe to run again: the trainer finds an existing account by email.
 //
 //   node --env-file=.env scripts/trainer-enroll-all.js
@@ -23,6 +24,6 @@ for (const student of students) {
   else failed.push(student.name)
   await new Promise((resolve) => setTimeout(resolve, 300)) // gently, one after another
 }
-console.log(`Trainer accounts ready: ${done} of ${students.length}${failed.length ? ` · failed: ${failed.join(', ')}` : ''}`)
+console.log(`Trainer accounts with full access: ${done} of ${students.length}${failed.length ? ` · failed: ${failed.join(', ')}` : ''}`)
 await prisma.$disconnect()
 process.exit(0)

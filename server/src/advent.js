@@ -41,16 +41,40 @@ export function shareWord(email, word, note) {
     .catch((error) => console.warn(`Trainer vocab sync failed for ${word}:`, error.message))
 }
 
-// A student gets their trainer account as soon as they join the platform
-// (Galina, 2026-09-26: "every student on the platform should have the
-// trainer") rather than on first opening it. Best effort, never blocks.
+// Being a student on the platform is what gives trainer access (Galina,
+// 2026-09-26: "if a student is on the platform, they have the trainer").
+// Full access with no end date; PRO stays whatever the student bought.
+// Each call replaces what this platform granted before; access bought on the
+// school's GetCourse is kept by the trainer regardless.
+export const grantAccess = (email, name) =>
+  advent('POST', '/access', { email, name, full: 'forever', pro: null, order_id: 'platform-student' })
+export const revokeAccess = (email) =>
+  advent('POST', '/access', { email, full: null, pro: null })
+
+// A student gets their trainer account and access as soon as they join the
+// platform, not on first opening it. Best effort, never blocks the caller.
 export async function enrollStudent(email, name) {
   if (!adventEnabled() || !email) return false
   try {
     await advent('POST', '/session', { email, name })
+    await grantAccess(email, name)
     return true
   } catch (error) {
     console.warn(`Trainer enrolment failed for a student: ${error.message}`)
     return false
   }
+}
+
+// Removed from the platform: the access the platform gave is taken back.
+export function unenrollStudent(email) {
+  if (!adventEnabled() || !email) return
+  revokeAccess(email).catch((error) => console.warn(`Trainer access revoke failed: ${error.message}`))
+}
+
+// A student's email changed: the trainer knows people by email, so access
+// moves to the new one (the old address loses what the platform gave it).
+export function moveStudent(oldEmail, newEmail, name) {
+  if (!adventEnabled() || !newEmail || oldEmail === newEmail) return
+  unenrollStudent(oldEmail)
+  enrollStudent(newEmail, name)
 }

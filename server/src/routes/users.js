@@ -1,6 +1,7 @@
 import { Router } from 'express'
 import { prisma } from '../db.js'
 import { requireAuth, requireRole, isAdmin } from '../auth.js'
+import { moveStudent, unenrollStudent } from '../advent.js'
 
 export const usersRouter = Router()
 
@@ -138,6 +139,7 @@ usersRouter.patch('/:id', requireRole('OWNER'), async (req, res) => {
   }
 
   await prisma.user.update({ where: { id: target.id }, data: { ...(name !== undefined ? { name } : {}), ...(email !== undefined ? { email } : {}) } })
+  if (target.role === 'STUDENT' && email && email !== target.email) moveStudent(target.email, email, name ?? target.name)
   res.json({ ok: true })
 })
 
@@ -152,5 +154,6 @@ usersRouter.delete('/:id', requireRole('OWNER'), async (req, res) => {
   }
 
   await prisma.user.delete({ where: { id: target.id } })
+  if (target.role === 'STUDENT') unenrollStudent(target.email)
   res.json({ ok: true })
 })

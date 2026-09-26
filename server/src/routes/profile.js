@@ -6,6 +6,7 @@ import { randomBytes } from 'crypto'
 import { fileURLToPath } from 'url'
 import { prisma } from '../db.js'
 import { requireAuth, hashPassword, verifyPassword } from '../auth.js'
+import { moveStudent } from '../advent.js'
 
 // A person's own profile: name, email, password and a small picture.
 export const profileRouter = Router()
@@ -67,6 +68,7 @@ profileRouter.patch('/', async (req, res) => {
     if (parsed.data[field] !== undefined) data[field] = parsed.data[field] || null
   }
   const updated = await prisma.user.update({ where: { id: user.id }, data })
+  if (user.role === 'STUDENT' && updated.email !== user.email) moveStudent(user.email, updated.email, updated.name)
   res.json({ user: view(updated), details: details(updated) })
 })
 
