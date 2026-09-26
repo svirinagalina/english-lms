@@ -942,6 +942,12 @@ const Whiteboard = forwardRef(function Whiteboard({ socketRef, boardId, title, s
   const [mistakeError, setMistakeError] = useState('')
   // Editing a mistake note that's already on the board: { element, said, correct, x, y, busy, error }.
   const [mistakeEdit, setMistakeEdit] = useState(null)
+  // Typing on a phone happens in a box at the top of the screen, above the
+  // keyboard — in place on the board, the keyboard covered what was being
+  // typed. { mode: 'new', x, y } (world point) or { mode: 'edit', element };
+  // plus the text so far.
+  const [phoneDraft, setPhoneDraft] = useState(null)
+  const phoneDraftRef = useRef(null)
   const editClickTimer = useRef(null)
   // A block handed in from outside (speaking questions from a lesson
   // summary) goes under everything once the board is in, once per block.
@@ -1780,6 +1786,7 @@ const Whiteboard = forwardRef(function Whiteboard({ socketRef, boardId, title, s
     // A mistake note is edited as the mistake (said / should be), so the
     // board and the student's notebook stay the same thing.
     if (target.type === 'note' && target.mistakeId && onMistake) { openMistakeEdit(target); return }
+    if (phone) { openPhoneDraft({ mode: 'edit', element: target }); return }
     const note = target.type === 'note'
     selectedRef.current = [target.id]
     liveCreatedRef.current = null
@@ -1796,6 +1803,34 @@ const Whiteboard = forwardRef(function Whiteboard({ socketRef, boardId, title, s
       before: structuredClone(target)
     })
     scheduleRender()
+  }
+
+  // The text as it reads (no colour/bold markup): what the phone box edits.
+  const plainOf = (text) => String(text ?? '').split('\n').map((line) => textRuns(line).map((run) => run.text).join('')).join('\n')
+  const openPhoneDraft = (draft) => {
+    selectedRef.current = draft.element ? [draft.element.id] : []
+    setPhoneDraft({ ...draft, value: draft.element ? plainOf(draft.element.text) : '' })
+    scheduleRender()
+  }
+  const finishPhoneDraft = () => {
+    const draft = phoneDraft
+    setPhoneDraft(null)
+    if (!draft) return
+    const value = draft.value.replace(/\s+$/, '')
+    if (draft.mode === 'new') {
+      if (!value.trim()) return
+      commit({ id: newId(), type: 'text', color, width, x: draft.x, y: draft.y, text: value, fontSize: lastFontSizeRef.current })
+    } else {
+      const before = elementsRef.current.find((item) => item.id === draft.element.id)
+      if (!before || value === plainOf(before.text)) { selectedRef.current = []; scheduleRender(); return } // unchanged: formatting kept
+      if (!value.trim() && before.type === 'text') { remove(before.id); return }
+      const after = { ...before, text: value }
+      replaceRaw(after)
+      record({ type: 'update', before: structuredClone(before), after: structuredClone(after) })
+    }
+    selectedRef.current = []
+    scheduleRender()
+    bump()
   }
 
   const openMistakeEdit = (element) => {
@@ -1925,6 +1960,8 @@ const Whiteboard = forwardRef(function Whiteboard({ socketRef, boardId, title, s
     // On a phone nothing is decided until the finger either lifts (a tap:
     // type) or travels (a drag: move the thing under it, or the board).
     if (phone) {
+      // A tap on the board while the typing box is open puts the text in.
+      if (phoneDraft) { finishPhoneDraft(); return }
       const target = [...elementsRef.current].reverse().find((element) => hitTest(element, point.x, point.y))
       pointerRef.current = { mode: 'tap', target, point, startX: event.clientX, startY: event.clientY, origin: { ...viewRef.current } }
       return
@@ -2181,9 +2218,7 @@ const Whiteboard = forwardRef(function Whiteboard({ socketRef, boardId, title, s
         return
       }
       if (target) return // a picture or a drawing: nothing to type into
-      selectedRef.current = []
-      liveCreatedRef.current = null
-      setTextInput({ x: pointer.point.x, y: pointer.point.y, value: '', fontSize: lastFontSizeRef.current, color })
+      openPhoneDraft({ mode: 'new', x: pointer.point.x, y: pointer.point.y })
       return
     }
 
@@ -2738,7 +2773,7 @@ const Whiteboard = forwardRef(function Whiteboard({ socketRef, boardId, title, s
           // iOS raises the keyboard only for a focus made inside a touch
           // handler; the tap's editor has just opened, so focus it here too.
           onTouchEnd={() => {
-            const area = textAreaRef.current
+            const area = phoneDraftRef.current ?? textAreaRef.current
             if (phone && area && document.activeElement !== area) area.focus({ preventScroll: true })
           }}
           onDoubleClick={handleDoubleClick}
@@ -2910,6 +2945,23 @@ const Whiteboard = forwardRef(function Whiteboard({ socketRef, boardId, title, s
               </div>
             </form>
             <div className="muted small-hint">Left: as it was said. Right: how it should be (leave blank to add it later). Enter moves along, ⌘Enter saves. To change a saved one, double-click its note on the board.</div>
+          </div>
+        )}
+
+        {phoneDraft && (
+          <div className="phone-draft" onPointerDown={(e) => e.stopPropagation()}>
+            <textarea
+              ref={phoneDraftRef}
+              autoFocus
+              rows={3}
+              value={phoneDraft.value}
+              placeholder={phoneDraft.mode === 'new' ? 'Type here — it goes on the board where you tapped' : ''}
+              onChange={(e) => setPhoneDraft({ ...phoneDraft, value: e.target.value })}
+            />
+            <div className="row-actions">
+              <button type="button" className="ghost" onClick={() => { setPhoneDraft(null); selectedRef.current = []; scheduleRender() }}>Cancel</button>
+              <button type="button" onClick={finishPhoneDraft}>Done</button>
+            </div>
           </div>
         )}
 

@@ -408,3 +408,19 @@ select.tool { appearance: auto; padding: 5px 8px; }
   background: #0f3731; color: var(--text); border: 1px solid #fca5a5; border-radius: 12px;
   box-shadow: 0 10px 30px rgba(0, 0, 0, 0.35);
 }
+
+/* A phone types in a box at the top, above the keyboard; the text then lands
+   on the board where the finger tapped. */
+.phone-draft {
+  position: fixed; top: calc(8px + env(safe-area-inset-top)); left: 8px; right: 8px; z-index: 80;
+  display: flex; flex-direction: column; gap: 8px; padding: 10px;
+  background: #0f3731; border: 1px solid var(--border); border-radius: 14px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4);
+}
+.phone-draft textarea { font-size: 16px; min-height: 76px; resize: none; } /* 16px: iOS doesn't zoom in */
+.phone-draft .row-actions { justify-content: flex-end; }
+@media (max-width: 720px) {
+  /* The mistake form too sits at the top, clear of the keyboard. */
+  .mistake-edit { position: fixed; top: calc(8px + env(safe-area-inset-top)) !important; left: 8px !important; right: 8px; width: auto; }
+  .mistake-edit input { font-size: 16px; }
+}
