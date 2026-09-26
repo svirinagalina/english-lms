@@ -13,8 +13,8 @@ export default function StudentHome({ classrooms }) {
   const [homework, setHomework] = useState(null)
   const [billing, setBilling] = useState(null)
   const [mistakes, setMistakes] = useState(null)
-  // The Advent trainer, when the school has it connected: a tile of its own,
-  // so students find it without opening the menu.
+  // Whether the Advent trainer is connected: it lives in the Practice section
+  // (no tile of its own — six tiles make an even grid).
   const [trainer, setTrainer] = useState(false)
 
   useEffect(() => {
@@ -65,51 +65,32 @@ export default function StudentHome({ classrooms }) {
             )}
           </Link>
 
-          <Link className="tile" to={nextUnit ? `/practice/${nextUnit.id}` : '/practice'}>
+          {/* The Practice section: grammar units and (when connected) the speaking trainer. */}
+          <Link className="tile" to="/practice">
             <span className="tile-kicker">Practice</span>
-            {nextUnit ? (
-              <>
-                <strong>{nextUnit.title}</strong>
-                <span className="muted">{nextUnit.solved} of {nextUnit.total} done · continue</span>
-              </>
-            ) : (
-              <>
-                <strong>Grammar practice</strong>
-                <span className="muted">{units === null ? 'Loading…' : 'No units yet'}</span>
-              </>
-            )}
+            <strong>Train your grammar</strong>
+            <span className="muted">
+              {nextUnit ? `${nextUnit.title} · ${nextUnit.solved} of ${nextUnit.total} done` : units === null ? 'Loading…' : 'Grammar units'}
+              {trainer ? ' · speaking trainer' : ''}
+            </span>
           </Link>
 
           <Link className="tile" to={due > 0 ? '/vocabulary?review=1' : (words ? `/vocabulary/${words.id}` : '/vocabulary')}>
             <span className="tile-kicker">Vocabulary</span>
-            <strong>{due > 0 ? `${due} ${due === 1 ? 'word' : 'words'} to review` : 'All words reviewed'}</strong>
+            <strong>Learn and revise new words</strong>
             <span className="muted">
-              {words ? `${words.total} in From my board` : 'Double-click a word on the board to save it'}
+              {due > 0 ? `${due} to review` : 'All reviewed'}
+              {words ? ` · ${words.total} in From my board` : ' · double-click a word on the board to save it'}
             </span>
           </Link>
 
           <Link className="tile" to={mistakes?.length ? '/practice/mistakes' : (classroom ? `/classroom/${classroom.id}` : '/practice')}>
             <span className="tile-kicker">Mistake notebook</span>
-            {mistakes?.length ? (
-              <>
-                <strong>{mistakes.length} to drill</strong>
-                <span className="muted">From your lessons — say them right.</span>
-              </>
-            ) : (
-              <>
-                <strong>Empty so far</strong>
-                <span className="muted">Mistakes your teacher notes in lessons collect here.</span>
-              </>
-            )}
+            <strong>Get rid of mistakes</strong>
+            <span className="muted">
+              {mistakes?.length ? `${mistakes.length} from your lessons to drill` : 'Mistakes your teacher notes in lessons collect here.'}
+            </span>
           </Link>
-
-          {trainer && (
-            <Link className="tile" to="/trainer">
-              <span className="tile-kicker">Trainer</span>
-              <strong>Speaking & grammar</strong>
-              <span className="muted">Talk, get corrected, practise your words.</span>
-            </Link>
-          )}
 
           {pkg && (pkg.lessonsPaid != null || billing.priceAmount != null) && (
             <Link className="tile" to="/billing">
