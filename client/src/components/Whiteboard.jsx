@@ -5,6 +5,7 @@ import { ocrWords } from '../utils/ocr'
 import { isMobile, useNarrow } from '../utils/device'
 import WordCard, { PlayButton } from './WordCard'
 import DictionaryPanel from './DictionaryPanel'
+import { api } from '../api'
 
 const COLORS = ['#111827', '#ef4444', '#16a34a', '#2563eb', '#f59e0b', '#9333ea']
 // Ink drawn while the board was dark, shown dark on the white board.
@@ -818,6 +819,21 @@ export async function exportBoardPdf(elements, title = 'Board') {
 
 // --- Component ----------------------------------------------------------------
 
+// A mistake note's text: what was said (red), how it should be (green), the
+// grammar labels (grey). Braces would break the colour markup, so they go.
+const noSpans = (t) => String(t ?? '').replace(/[{}]/g, '')
+function mistakeNoteText(said, correct, labels = []) {
+  const correctLine = correct ? `\n{{#15803d:✓ ${noSpans(correct)}}}` : '\n{{#6b7280:(no correction yet)}}'
+  const tag = labels.length ? `\n{{#6b7280:${noSpans(labels.join(' · '))}}}` : ''
+  return `{{#b91c1c:✗ ${noSpans(said)}}}${correctLine}${tag}`
+}
+function mistakeNoteParts(text) {
+  return {
+    said: String(text ?? '').match(/\{\{#b91c1c:✗ ([^}]*)\}\}/)?.[1] ?? '',
+    correct: String(text ?? '').match(/\{\{#15803d:✓ ([^}]*)\}\}/)?.[1] ?? ''
+  }
+}
+
 const Whiteboard = forwardRef(function Whiteboard({ socketRef, boardId, title, subtitle, onClose, backLabel = '← Back', onStartCall, onOpenWriting, canSpotlight = false, onUploadImage, onAssist, assistEnabled, wordPicker = false, focusElementId = null, onMistake, onMistakeRemoved, insertBlock = null, onInserted, onAddWords, students = null, writingStudents = null }, ref) {
   const [assisting, setAssisting] = useState(null)
   const [exporting, setExporting] = useState(false)
@@ -924,7 +940,8 @@ const Whiteboard = forwardRef(function Whiteboard({ socketRef, boardId, title, s
   const [mistakeRows, setMistakeRows] = useState([emptyRow(), emptyRow(), emptyRow()]) // up to 10
   const [mistakeBusy, setMistakeBusy] = useState(false)
   const [mistakeError, setMistakeError] = useState('')
-  const [mistakesSaved, setMistakesSaved] = useState([]) // this session's entries
+  // Editing a mistake note that's already on the board: { element, said, correct, x, y, busy, error }.
+  const [mistakeEdit, setMistakeEdit] = useState(null)
   const editClickTimer = useRef(null)
   // A block handed in from outside (speaking questions from a lesson
   // summary) goes under everything once the board is in, once per block.
@@ -1760,6 +1777,9 @@ const Whiteboard = forwardRef(function Whiteboard({ socketRef, boardId, title, s
   // Edit a text (or a note's text) in place: the text hides while the
   // editor sits over it. A note's editor sits inside its padding.
   const openEditor = (target, caretAt = null) => {
+    // A mistake note is edited as the mistake (said / should be), so the
+    // board and the student's notebook stay the same thing.
+    if (target.type === 'note' && target.mistakeId && onMistake) { openMistakeEdit(target); return }
     const note = target.type === 'note'
     selectedRef.current = [target.id]
     liveCreatedRef.current = null
@@ -1776,6 +1796,38 @@ const Whiteboard = forwardRef(function Whiteboard({ socketRef, boardId, title, s
       before: structuredClone(target)
     })
     scheduleRender()
+  }
+
+  const openMistakeEdit = (element) => {
+    const rect = canvasRef.current?.getBoundingClientRect() ?? { width: 800, height: 600 }
+    const v = viewRef.current
+    const b = boundsOf(element)
+    const x = Math.max(8, Math.min(b.x * v.scale + v.x, rect.width - 360))
+    const y = Math.max(8, Math.min((b.y + b.h) * v.scale + v.y + 8, rect.height - 190))
+    selectedRef.current = [element.id]
+    setMistakeEdit({ element, ...mistakeNoteParts(element.text), x, y, busy: false, error: '' })
+    scheduleRender()
+  }
+  const saveMistakeEdit = async (event) => {
+    event.preventDefault()
+    const edit = mistakeEdit
+    if (!edit || edit.busy) return
+    const said = edit.said.trim()
+    const correct = edit.correct.trim()
+    if (!said) { setMistakeEdit({ ...edit, error: 'What the student said is needed' }); return }
+    setMistakeEdit({ ...edit, busy: true, error: '' })
+    try {
+      const { mistake } = await api.updateMistake(edit.element.mistakeId, { said, correct })
+      const before = elementsRef.current.find((item) => item.id === edit.element.id) ?? edit.element
+      const after = { ...before, text: mistakeNoteText(said, correct, mistake.labels ?? []) }
+      replaceRaw(after)
+      record({ type: 'update', before: structuredClone(before), after: structuredClone(after) })
+      scheduleRender()
+      setMistakeEdit(null)
+      showToast('Mistake updated on the board and in the notebook')
+    } catch (err) {
+      setMistakeEdit((current) => current && { ...current, busy: false, error: err.message })
+    }
   }
 
   const addTipWord = (word) => {
@@ -2789,7 +2841,6 @@ const Whiteboard = forwardRef(function Whiteboard({ socketRef, boardId, title, s
                 if (students?.length && !target) { setMistakeError('Choose the student first'); return }
                 setMistakeBusy(true)
                 setMistakeError('')
-                const safe = (t) => t.replace(/[{}]/g, '')
                 // Anchored to where the teacher is working (last click or
                 // resting point, see workSpot) — not the raw last pointer
                 // position, which the trip over to this panel had already
@@ -2801,18 +2852,18 @@ const Whiteboard = forwardRef(function Whiteboard({ socketRef, boardId, title, s
                   for (const { said, correct } of filled) {
                     const elementId = newId()
                     const { mistake } = await onMistake({ said, correct, elementId }, target)
-                    const tag = mistake.labels?.length ? `\n{{#6b7280:${safe(mistake.labels.join(' · '))}}}` : ''
                     const { x, y } = nextPos
-                    const correctLine = correct ? `\n{{#15803d:✓ ${safe(correct)}}}` : '\n{{#6b7280:(no correction yet)}}'
                     const note = {
                       id: elementId, type: 'note', color: COLORS[0], width, x, y, w: 320, h: 90,
                       fill: '#fecaca', fontSize: 18, mistakeId: mistake.id,
-                      text: `{{#b91c1c:✗ ${safe(said)}}}${correctLine}${tag}`
+                      text: mistakeNoteText(said, correct, mistake.labels ?? [])
                     }
                     commit(note)
                     nextPos = { x, y: y + boundsOf(note).h + 16 }
-                    setMistakesSaved((list) => [{ id: mistake.id, said, correct, labels: mistake.labels ?? [] }, ...list])
                   }
+                  // The panel stays a clean form: what was saved is on the
+                  // board (double-click a note there to change it).
+                  showToast(`${filled.length === 1 ? 'Mistake' : `${filled.length} mistakes`} saved to the board and the notebook`)
                   setMistakeRows([emptyRow(), emptyRow(), emptyRow()])
                   e.target.querySelector('input')?.focus()
                 } catch (err) {
@@ -2858,17 +2909,27 @@ const Whiteboard = forwardRef(function Whiteboard({ socketRef, boardId, title, s
                 <span className="small-hint muted">{mistakeRows.length} / 10</span>
               </div>
             </form>
-            <div className="mistakes-list">
-              {mistakesSaved.length === 0 && <div className="muted small-hint">Left: as it was said. Right: how it should be (leave blank to add it later). Enter moves along, ⌘Enter saves.</div>}
-              {mistakesSaved.map((m) => (
-                <div key={m.id} className="mistakes-item">
-                  <div className="said">✗ {m.said}</div>
-                  <div className="correct">✓ {m.correct}</div>
-                  {m.labels.length > 0 && <div className="muted small-hint">{m.labels.join(' · ')}</div>}
-                </div>
-              ))}
-            </div>
+            <div className="muted small-hint">Left: as it was said. Right: how it should be (leave blank to add it later). Enter moves along, ⌘Enter saves. To change a saved one, double-click its note on the board.</div>
           </div>
+        )}
+
+        {mistakeEdit && (
+          <form
+            className="mistake-edit"
+            style={{ left: mistakeEdit.x, top: mistakeEdit.y }}
+            onSubmit={saveMistakeEdit}
+            onPointerDown={(e) => e.stopPropagation()}
+            onKeyDown={(e) => { if (e.key === 'Escape') setMistakeEdit(null) }}
+          >
+            <div className="muted small-hint">Changes the note here and the entry in the student’s notebook</div>
+            <input autoFocus value={mistakeEdit.said} placeholder="What the student said" onChange={(e) => setMistakeEdit({ ...mistakeEdit, said: e.target.value })} />
+            <input value={mistakeEdit.correct} placeholder="How it should be" onChange={(e) => setMistakeEdit({ ...mistakeEdit, correct: e.target.value })} />
+            {mistakeEdit.error && <div className="error">{mistakeEdit.error}</div>}
+            <div className="row-actions">
+              <button type="submit" disabled={mistakeEdit.busy}>{mistakeEdit.busy ? 'Saving…' : 'Save'}</button>
+              <button type="button" className="ghost" onClick={() => setMistakeEdit(null)}>Cancel</button>
+            </div>
+          </form>
         )}
 
         {tip && !wordCard && !pins.some((p) => p.word === tip.word) && (

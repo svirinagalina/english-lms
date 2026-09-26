@@ -50,7 +50,7 @@ export default function Textbooks() {
   const [over, setOver] = useState(false)
 
   return (
-    <Panel id="home:textbooks" title="Textbooks" count={books?.length ?? 0} defaultOpen={!books || books.length === 0} hint="PDFs for lessons">
+    <Panel id="home:textbooks" title="Textbooks" count={books?.length ?? 0} hint="PDFs for lessons">
       <p className="muted" style={{ marginBottom: 10 }}>
         Upload a PDF once; in a lesson, the <strong>Textbook</strong> button on the board puts any page on the board, where you draw and write on it and the student sees it live.
         {admin ? ' As administrator you see every teacher\'s books and may delete any of them.' : ' Your books are yours alone; the administrator can see and remove them.'}

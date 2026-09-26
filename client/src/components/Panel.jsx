@@ -2,21 +2,23 @@ import { useState } from 'react'
 
 // A named, collapsible block for the cabinets: the list lives behind its
 // title, so a page is a short stack of headings rather than a long scroll.
-// Whether a panel is open is remembered per browser under `id`.
-const KEY = (id) => `panel:${id}`
+// Every visit starts folded (only `defaultOpen` panels — a page's main
+// content — start open). What was opened is kept while moving around the
+// site, so going into a student and back doesn't fold it again, but not in
+// the browser: remembered state used to leave "My boards" spread out on
+// every visit after it had been opened once.
+const openedThisVisit = new Map()
 
-const remembered = (id, fallback) => {
-  try {
-    const value = localStorage.getItem(KEY(id))
-    return value === null ? fallback : value === '1'
-  } catch { return fallback }
-}
+// Clears what older versions kept in the browser.
+try {
+  for (const key of Object.keys(localStorage)) if (key.startsWith('panel:')) localStorage.removeItem(key)
+} catch { /* private window */ }
 
 export default function Panel({ id, title, count, hint, defaultOpen = false, actions, children, className = '' }) {
-  const [open, setOpen] = useState(() => remembered(id, defaultOpen))
+  const [open, setOpen] = useState(() => openedThisVisit.get(id) ?? defaultOpen)
   const toggle = () => {
     setOpen((v) => {
-      try { localStorage.setItem(KEY(id), v ? '0' : '1') } catch { /* private window */ }
+      openedThisVisit.set(id, !v)
       return !v
     })
   }
