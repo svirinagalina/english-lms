@@ -1,7 +1,8 @@
 import { Router } from 'express'
 import { z } from 'zod'
 import { prisma } from '../db.js'
-import { requireAuth, requireRole } from '../auth.js'
+import { requireAuth, requireRole, LOCKED } from '../auth.js'
+import { openSetIds } from '../freeTier.js'
 import { normalise } from '../answerCheck.js'
 import { cleanWord, lookupEntry } from './dictionary.js'
 import { shareWord } from '../advent.js'
@@ -13,8 +14,21 @@ export const vocabRouter = Router()
 
 vocabRouter.use(requireAuth)
 
+// A free user opens only the oldest ~30% of the shared sets (freeTier.js);
+// the list still shows the others, locked.
+vocabRouter.use(async (req, res, next) => {
+  if (req.user.free) req.user.openSetIds = await openSetIds(req.user.schoolId)
+  next()
+})
+
 // Sets this person may see: the school's shared sets, plus their own "My words".
-const visibleSets = (user) => ({ schoolId: user.schoolId, OR: [{ ownerId: null }, { ownerId: user.id }] })
+const listedSets = (user) => ({ schoolId: user.schoolId, OR: [{ ownerId: null }, { ownerId: user.id }] })
+const visibleSets = (user) => user.openSetIds
+  ? { schoolId: user.schoolId, OR: [{ ownerId: null, id: { in: user.openSetIds } }, { ownerId: user.id }] }
+  : listedSets(user)
+// A set that exists but is beyond the free share: the page offers the upgrade.
+const lockedSet = async (user, id) => Boolean(user.openSetIds) &&
+  Boolean(await prisma.vocabSet.findFirst({ where: { id, schoolId: user.schoolId, ownerId: null }, select: { id: true } }))
 
 // Who may change a set's cards: staff for shared sets, the owner for a personal one.
 const mayEditSet = (user, set) => (set.ownerId ? set.ownerId === user.id : user.role !== 'STUDENT')
@@ -70,7 +84,7 @@ export function parseBulk(text) {
 
 vocabRouter.get('/', async (req, res) => {
   const sets = await prisma.vocabSet.findMany({
-    where: visibleSets(req.user),
+    where: listedSets(req.user),
     orderBy: { createdAt: 'desc' },
     select: { id: true, title: true, ownerId: true, _count: { select: { cards: true } } }
   })
@@ -108,7 +122,8 @@ vocabRouter.get('/', async (req, res) => {
       title: set.title,
       personal: Boolean(set.ownerId),
       total: set._count.cards,
-      due: duePerSet[set.id] ?? 0
+      due: duePerSet[set.id] ?? 0,
+      ...(req.user.openSetIds && !set.ownerId && !req.user.openSetIds.includes(set.id) ? { locked: true } : {})
     }))
   })
 })
@@ -129,6 +144,7 @@ vocabRouter.get('/:id', async (req, res) => {
     where: { id: req.params.id, ...visibleSets(req.user) },
     include: { cards: { orderBy: { position: 'asc' } } }
   })
+  if (!set && await lockedSet(req.user, req.params.id)) return res.status(403).json(LOCKED)
   if (!set) return res.status(404).json({ error: 'Set not found' })
 
   res.json({ set: { id: set.id, title: set.title, personal: Boolean(set.ownerId), canEdit: mayEditSet(req.user, set), cards: set.cards } })
@@ -337,6 +353,7 @@ vocabRouter.get('/:id/study', async (req, res) => {
       }
     }
   })
+  if (!set && await lockedSet(req.user, req.params.id)) return res.status(403).json(LOCKED)
   if (!set) return res.status(404).json({ error: 'Set not found' })
 
   // ?all=1: every card in deck order, for a free run through the whole set —

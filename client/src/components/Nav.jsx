@@ -4,6 +4,7 @@ import { useAuth } from '../AuthContext'
 import { Brand } from './Brand'
 import { Avatar } from './Avatar'
 import { api } from '../api'
+import { isNativeApp } from '../utils/native'
 
 // Whether the Advent trainer is connected: asked once per page load, and
 // again when Settings connects or disconnects it (refreshTrainerStatus).
@@ -59,13 +60,25 @@ export default function Nav({ title, back }) {
       { to: '/vocabulary', label: 'Vocabulary' },
       { to: '/progress', label: 'Progress' }
     )
+  } else if (user.free) {
+    // The free tier: what is open, and the board to try.
+    links.push(
+      { to: '/try-board', label: 'Try the board' },
+      { to: '/practice', label: 'Practice' },
+      ...(trainer ? [{ to: '/trainer', label: 'Trainer' }] : []),
+      { to: '/vocabulary', label: 'Vocabulary' },
+      { to: '/dictionary', label: 'Dictionary' }
+    )
   } else {
     links.push(
       { to: '/timetable', label: 'My Schedule' },
       { to: '/practice', label: 'Practice' },
       ...(trainer ? [{ to: '/trainer', label: 'Trainer' }] : []),
       { to: '/vocabulary', label: 'Vocabulary' },
-      { to: '/billing', label: 'Payment' }
+      { to: '/dictionary', label: 'Dictionary' },
+      // Paying is on the website: the App Store does not allow leading to
+      // an outside payment from inside the app.
+      ...(isNativeApp() ? [] : [{ to: '/billing', label: 'Payment' }])
     )
   }
 

@@ -1,12 +1,14 @@
 import { Router } from 'express'
 import { prisma } from '../db.js'
-import { requireAuth, requireRole } from '../auth.js'
+import { requireAuth, requireRole, requirePaid } from '../auth.js'
 
 // Courses: self-paced learning modules (IELTS, FCE, etc), organized by
 // skillset. Content is text/image/video/file blocks plus exercises, imported
 // in bulk from an external source (see scripts/import-course.js).
 export const coursesRouter = Router()
 coursesRouter.use(requireAuth)
+// Not part of the free tier.
+coursesRouter.use(requirePaid)
 
 // GET /api/courses — list skillsets with their courses, for this school
 coursesRouter.get('/', async (req, res) => {

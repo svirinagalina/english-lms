@@ -167,6 +167,54 @@ export default function Profile() {
           </div>
         </form>
       </section>
+      {user.role === 'STUDENT' && <DeleteAccount />}
+      <p className="muted" style={{ marginTop: 16 }}><a href="/privacy.html" target="_blank" rel="noopener noreferrer">Privacy policy</a></p>
     </div>
+  )
+}
+
+// Deleting one's own account, as the App Store requires: everything in it
+// goes (progress, words, boards), so it asks for the password first.
+function DeleteAccount() {
+  const [open, setOpen] = useState(false)
+  const [password, setPassword] = useState('')
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState('')
+
+  const remove = async (event) => {
+    event.preventDefault()
+    setBusy(true)
+    setError('')
+    try {
+      // The server signed this browser out and removed the phone's push
+      // registration with the account: a fresh start from the sign-in page.
+      await api.deleteMyAccount(password)
+      window.location.assign('/login')
+    } catch (err) {
+      setError(err.message)
+      setBusy(false)
+    }
+  }
+
+  return (
+    <section className="profile" style={{ marginTop: 16 }}>
+      <h2>Delete my account</h2>
+      {!open ? (
+        <>
+          <p className="muted">Removes your account with your progress, saved words and boards. This cannot be undone.</p>
+          <div className="editor-actions"><button type="button" className="ghost" onClick={() => setOpen(true)}>Delete my account…</button></div>
+        </>
+      ) : (
+        <form onSubmit={remove} className="card danger-zone" style={{ maxWidth: 460 }}>
+          <p>Everything in your account will be deleted for good. Enter your password to confirm.</p>
+          <input type="password" autoComplete="current-password" placeholder="Password" value={password} onChange={(e) => setPassword(e.target.value)} required />
+          {error && <div className="error">{error}</div>}
+          <div className="editor-actions">
+            <button type="submit" className="danger-button" disabled={busy || !password}>{busy ? 'Deleting…' : 'Delete for good'}</button>
+            <button type="button" className="ghost" onClick={() => { setOpen(false); setPassword(''); setError('') }}>Cancel</button>
+          </div>
+        </form>
+      )}
+    </section>
   )
 }

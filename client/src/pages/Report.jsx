@@ -4,6 +4,7 @@ import { api } from '../api'
 import { useAuth } from '../AuthContext'
 import { Logo } from '../components/Brand'
 import { OFFER, formatRub, discountDeadline } from '../offer'
+import { isNativeApp } from '../utils/native'
 import { downloadReportPdf } from '../utils/reportPdf'
 import '../styles/report.css'
 
@@ -157,7 +158,9 @@ export default function Report() {
           </section>
         )}
 
-        <section className="report-offer">
+        {/* Prices and the way to pay are for the website: the App Store
+            allows no way to an outside payment from inside the app. */}
+        {!isNativeApp() && <section className="report-offer">
           <h2>{OFFER.heading}</h2>
           <p>{OFFER.intro}</p>
           <p>{OFFER.intro2}</p>
@@ -187,7 +190,7 @@ export default function Report() {
           <p><strong>{OFFER.guarantee}</strong></p>
           <Link className="offer-cta" to={OFFER.ctaLink}>{OFFER.ctaText}</Link>
           <div className="muted small-hint">{OFFER.expiry}</div>
-        </section>
+        </section>}
 
         <footer className="report-foot">
           <div>Advent Academy · lms.advent-academy.online</div>

@@ -11,11 +11,13 @@ export default function Login() {
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
   const [registrationOpen, setRegistrationOpen] = useState(false)
+  const [signupOpen, setSignupOpen] = useState(false)
 
   useEffect(() => {
     api.registrationStatus()
       .then(({ open }) => setRegistrationOpen(open))
       .catch(() => setRegistrationOpen(false))
+    api.signupStatus().then(({ open }) => setSignupOpen(open)).catch(() => setSignupOpen(false))
   }, [])
 
   const handleSubmit = async (event) => {
@@ -53,6 +55,11 @@ export default function Login() {
         />
         <button type="submit" disabled={busy}>{busy ? 'Signing in…' : 'Sign in'}</button>
         <p className="muted"><Link to="/forgot">Forgot password?</Link></p>
+        {signupOpen && !registrationOpen && (
+          <p className="muted">
+            New here? <Link to="/signup">Create a free account</Link>
+          </p>
+        )}
         {registrationOpen && (
           <p className="muted">
             New school? <Link to="/register">Create an account</Link>

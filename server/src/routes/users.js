@@ -1,7 +1,7 @@
 import { Router } from 'express'
 import { prisma } from '../db.js'
 import { requireAuth, requireRole, isAdmin } from '../auth.js'
-import { moveStudent, unenrollStudent } from '../advent.js'
+import { enrollStudent, moveStudent, unenrollStudent } from '../advent.js'
 
 export const usersRouter = Router()
 
@@ -17,6 +17,11 @@ const personView = (user) => ({
   priceCurrency: user.priceCurrency,
   paymentLink: user.paymentLink,
   paidUntil: user.paidUntil,
+  // Signed up in the app, no teacher yet (see freeTier.js).
+  free: user.free,
+  trialRequestedAt: user.trialRequestedAt,
+  trialRequestNote: user.trialRequestNote,
+  contact: [user.messenger, user.phone].filter(Boolean).join(' · ') || null,
   teachers: user.studentLinks?.map((link) => ({ id: link.teacher.id, name: link.teacher.name })),
   students: user.teacherLinks?.map((link) => ({ id: link.student.id, name: link.student.name }))
 })
@@ -24,6 +29,7 @@ const personView = (user) => ({
 const SELECT = {
   id: true, name: true, email: true, role: true, createdAt: true,
   priceAmount: true, priceCurrency: true, paymentLink: true, paidUntil: true,
+  free: true, trialRequestedAt: true, trialRequestNote: true, messenger: true, phone: true,
   studentLinks: { include: { teacher: { select: { id: true, name: true } } } },
   teacherLinks: { include: { student: { select: { id: true, name: true } } } }
 }
@@ -87,6 +93,12 @@ usersRouter.post('/links', requireRole('OWNER'), async (req, res) => {
     create: { teacherId, studentId },
     update: {}
   })
+  // A free app user with a teacher is a student: everything opens, and the
+  // trainer gets full access like every other student's.
+  if (student.free) {
+    await prisma.user.update({ where: { id: student.id }, data: { free: false } })
+    enrollStudent(student.email, student.name)
+  }
 
   res.status(201).json({ ok: true })
 })
@@ -118,7 +130,8 @@ usersRouter.patch('/:id/role', async (req, res) => {
   if (!target) return res.status(404).json({ error: 'User not found' })
   if (target.id === req.user.id) return res.status(400).json({ error: 'Cannot change your own role' })
 
-  await prisma.user.update({ where: { id: target.id }, data: { role } })
+  // Staff are never on the free tier.
+  await prisma.user.update({ where: { id: target.id }, data: { role, ...(role !== 'STUDENT' ? { free: false } : {}) } })
   res.json({ ok: true })
 })
 

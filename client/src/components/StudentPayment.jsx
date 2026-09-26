@@ -10,8 +10,9 @@ const formatPrice = (amount, currency) =>
 
 // The student's Payment page. A student who came through a trial lesson
 // sees the offer's plans at the offer's prices; everyone else sees what
-// their teacher set for them.
-export default function StudentPayment() {
+// their teacher set for them. `lessonsOnly` (the iOS app, where the App
+// Store allows no way to an outside payment) shows just the lessons left.
+export default function StudentPayment({ lessonsOnly = false }) {
   const [billing, setBilling] = useState(null)
   const [copied, setCopied] = useState(false)
   const [note, setNote] = useState('')
@@ -68,6 +69,16 @@ export default function StudentPayment() {
   const pkg = billing.package
   const nothingConfigured = !trial && priceAmount == null && !paymentLink && !paymentDetails && pkg?.lessonsPaid == null
   if (nothingConfigured) return null
+
+  if (lessonsOnly) {
+    return (
+      <section>
+        <h2>Your lessons</h2>
+        <div className="row"><div><PackageBadge pkg={pkg} /></div></div>
+        {trial && <p className="muted" style={{ marginTop: 12 }}>Level {trial.level ?? '—'} · <Link to={`/report/${trial.reportId}`}>trial lesson report</Link></p>}
+      </section>
+    )
+  }
 
   const details = parseDetails(paymentDetails)
   const copy = async (text) => {

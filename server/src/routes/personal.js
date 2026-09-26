@@ -77,7 +77,7 @@ personalRouter.delete('/todos/:id', async (req, res) => {
 })
 
 // Helper to generate recurring event instances
-function generateRecurringInstances(event, rangeStart, rangeEnd) {
+export function generateRecurringInstances(event, rangeStart, rangeEnd) {
   if (!event.recurrence || event.recurrence !== 'WEEKLY') {
     return [event]
   }

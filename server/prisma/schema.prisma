@@ -66,6 +66,15 @@ model User {
   // When the student last pressed "I have paid" — the teacher confirms by hand.
   paymentReportedAt DateTime?
 
+  // Signed up by themselves (the app, /signup), no teacher yet: the free tier
+  // — about 30% of grammar and vocabulary, the trainer's trial, a board to
+  // try, no lessons. Linking them to a teacher (People) makes them a student
+  // with everything. Invited students are never free.
+  free             Boolean   @default(false)
+  // A free user asked for a trial lesson; the owner is told.
+  trialRequestedAt DateTime?
+  trialRequestNote String?
+
   schoolId String
   school   School @relation(fields: [schoolId], references: [id], onDelete: Cascade)
 
@@ -84,8 +93,34 @@ model User {
   apiTokens         ApiToken[]
   todos             UserTodo[]
   calendarEvents    UserCalendarEvent[]
+  pushDevices       PushDevice[]
 
   @@index([schoolId])
+}
+
+// A phone that gets push notifications: the iOS app registers its APNs token
+// after sign-in. A token Apple calls unregistered is deleted on the next send.
+model PushDevice {
+  id        String   @id @default(cuid())
+  token     String   @unique
+  platform  String   @default("ios")
+  // A build run from Xcode gets tokens for Apple's sandbox, the App Store
+  // build for production; learned on the first send.
+  sandbox   Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+// A notification that must go out only once (a lesson reminder, an
+// after-lesson note): its key is recorded when it is sent.
+model PushSent {
+  key       String   @id
+  createdAt DateTime @default(now())
 }
 
 

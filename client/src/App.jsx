@@ -1,11 +1,16 @@
 import { useEffect, useRef, useState } from 'react'
-import { Routes, Route, Navigate, useSearchParams, useLocation } from 'react-router-dom'
+import { Routes, Route, Navigate, useSearchParams, useLocation, useNavigate } from 'react-router-dom'
 import { api } from './api'
 import { useAuth } from './AuthContext'
 import Login from './pages/Login'
 import ForgotPassword from './pages/ForgotPassword'
 import ResetPassword from './pages/ResetPassword'
 import Register from './pages/Register'
+import Signup from './pages/Signup'
+import Dictionary from './pages/Dictionary'
+import TryBoard from './pages/TryBoard'
+import TrialOffer from './components/TrialOffer'
+import { setUpPush } from './utils/native'
 import Classrooms from './pages/Classrooms'
 import Classroom from './pages/Classroom'
 import Practice from './pages/Practice'
@@ -70,9 +75,19 @@ function useFreshBuild() {
   return stale
 }
 
+// In the iOS app: once signed in, the phone registers for notifications,
+// and a tapped notification opens its page (a call, the board, practice).
+function usePush(user) {
+  const navigate = useNavigate()
+  useEffect(() => {
+    if (user) setUpPush((url) => navigate(url))
+  }, [user?.id])
+}
+
 export default function App() {
   const { user, loading } = useAuth()
   const stale = useFreshBuild()
+  usePush(user)
 
   if (loading) return <div className="centered">Loading…</div>
 
@@ -83,8 +98,12 @@ export default function App() {
         A new version is ready. <button onClick={() => window.location.reload()}>Reload</button>
       </div>
     )}
+    <TrialOffer />
     <Routes>
       <Route path="/login" element={<LoginRoute />} />
+      <Route path="/signup" element={user ? <Navigate to="/" replace /> : <Signup />} />
+      <Route path="/dictionary" element={<RequireAuth><Dictionary /></RequireAuth>} />
+      <Route path="/try-board" element={<RequireAuth><TryBoard /></RequireAuth>} />
       <Route path="/forgot" element={user ? <Navigate to="/" replace /> : <ForgotPassword />} />
       <Route path="/reset/:token" element={<ResetPassword />} />
       <Route path="/register" element={user ? <Navigate to="/" replace /> : <Register />} />

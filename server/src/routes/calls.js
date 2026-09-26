@@ -2,7 +2,8 @@ import { Router } from 'express'
 import { randomBytes, createHmac } from 'crypto'
 import { z } from 'zod'
 import { prisma } from '../db.js'
-import { requireAuth, requireRole } from '../auth.js'
+import { requireAuth, requireRole, LOCKED } from '../auth.js'
+import { notifyCallStarted } from '../push.js'
 import { accessibleClassroom, ensurePersonalSpace } from './classrooms.js'
 
 export const callsRouter = Router()
@@ -45,6 +46,8 @@ callsRouter.get('/ice', (req, res) => {
 // What a participant sees before joining. Only members of the school that
 // made the call can look it up — a link alone is not an invitation.
 callsRouter.get('/token/:token', async (req, res) => {
+  // Lessons are what the free tier leads up to, not part of it.
+  if (req.user.free) return res.status(403).json(LOCKED)
   const call = await prisma.call.findFirst({
     where: { token: req.params.token, schoolId: req.user.schoolId },
     include: { host: { select: { name: true } }, school: { select: { name: true } } }
@@ -131,6 +134,8 @@ callsRouter.post('/', requireRole('OWNER', 'TEACHER'), async (req, res) => {
     return { call: created, reused: false }
   })
 
+  // The students get a push in the app ("Your lesson has started").
+  if (!reused) notifyCallStarted(call.id)
   res.status(reused ? 200 : 201).json({ call: callView(call, originOf(req)) })
 })
 

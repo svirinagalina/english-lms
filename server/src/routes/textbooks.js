@@ -6,13 +6,15 @@ import { mkdir, writeFile, unlink, stat } from 'fs/promises'
 import { randomBytes } from 'crypto'
 import { fileURLToPath } from 'url'
 import { prisma } from '../db.js'
-import { requireAuth, requireRole, isAdmin } from '../auth.js'
+import { requireAuth, requireRole, isAdmin, requirePaid } from '../auth.js'
 
 // Textbooks: PDFs a teacher uploads once and opens on a board during lessons.
 // The files are copyrighted material, so they are never served as plain
 // static files — only to signed-in people of the school, streamed here.
 export const textbooksRouter = Router()
 textbooksRouter.use(requireAuth)
+// Not part of the free tier.
+textbooksRouter.use(requirePaid)
 
 const UPLOAD_ROOT = process.env.UPLOAD_DIR ?? path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../uploads')
 export const TEXTBOOK_DIR = path.join(UPLOAD_ROOT, 'textbooks')

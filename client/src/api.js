@@ -13,7 +13,14 @@ async function request(path, options = {}) {
     window.location.assign(`/login?next=${encodeURIComponent(window.location.pathname + window.location.search)}`)
     return new Promise(() => {})
   }
-  if (!response.ok) throw new Error(data.error ?? 'Request failed')
+  // Something the free tier doesn't include: the page shows the trial-lesson
+  // offer (TrialOffer, mounted once in App) on top of whatever it does.
+  if (response.status === 403 && data.locked) window.dispatchEvent(new CustomEvent('trial-offer'))
+  if (!response.ok) {
+    const error = new Error(data.error ?? 'Request failed')
+    error.locked = Boolean(data.locked)
+    throw error
+  }
   return data
 }
 
@@ -27,6 +34,16 @@ export const api = {
   me: () => request('/auth/me'),
   version: () => request('/version'),
   registrationStatus: () => request('/auth/registration-status'),
+  signupStatus: () => request('/auth/signup-status'),
+  signup: (body) => request('/auth/signup', { method: 'POST', body }),
+  requestTrial: (body) => request('/profile/trial-request', { method: 'POST', body }),
+  deleteMyAccount: (password) => request('/profile', { method: 'DELETE', body: { password } }),
+  registerPushDevice: (token) => request('/push/devices', { method: 'POST', body: { token, platform: 'ios' } }),
+  unregisterPushDevice: (token) => request('/push/devices', { method: 'DELETE', body: { token } }),
+  pushSettings: () => request('/push/settings'),
+  savePushSettings: (body) => request('/push/settings', { method: 'PUT', body }),
+  clearPushSettings: () => request('/push/settings', { method: 'DELETE' }),
+  testPush: () => request('/push/test', { method: 'POST' }),
 
   listPeople: () => request('/users'),
   listTeachers: () => request('/users/teachers'),

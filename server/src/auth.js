@@ -41,7 +41,7 @@ async function userFromCookie(req) {
   }
   return prisma.user.findUnique({
     where: { id: payload.sub },
-    select: { id: true, role: true, schoolId: true }
+    select: { id: true, role: true, schoolId: true, free: true }
   })
 }
 
@@ -68,7 +68,7 @@ async function userFromBearer(req) {
   const token = header.slice('Bearer '.length).trim()
   const row = await prisma.apiToken.findUnique({
     where: { tokenHash: hashApiToken(token) },
-    include: { user: { select: { id: true, role: true, schoolId: true } } }
+    include: { user: { select: { id: true, role: true, schoolId: true, free: true } } }
   })
   if (!row) return null
   prisma.apiToken.update({ where: { id: row.id }, data: { lastUsedAt: new Date() } }).catch(() => {})
@@ -80,6 +80,15 @@ export async function requireAuthOrToken(req, res, next) {
   const user = (await userFromCookie(req)) ?? (await userFromBearer(req))
   if (!user) return res.status(401).json({ error: 'Not authenticated' })
   req.user = user
+  next()
+}
+
+// The free tier (self-signed-up, no teacher yet) stops here: lessons, calls,
+// courses and textbooks are for students with a teacher. `locked` tells the
+// page to show the "request a trial lesson" offer instead of an error.
+export const LOCKED = { error: 'This is for students with a teacher. Request a trial lesson to unlock it.', locked: true }
+export function requirePaid(req, res, next) {
+  if (req.user.free) return res.status(403).json(LOCKED)
   next()
 }
 

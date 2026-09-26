@@ -1287,3 +1287,40 @@ button.compact { padding: 6px 10px; font-size: 12px; align-self: flex-start; }
 .timetable-start { display: inline-block; margin-top: 8px; background: #14453f; color: #ffd5ed; border: none; border-radius: 8px; padding: 6px 12px; font-size: 13px; font-weight: 600; cursor: pointer; }
 .timetable-start:disabled { opacity: 0.6; cursor: default; }
 .trainer-row { border-color: rgba(244, 185, 217, 0.45); }
+
+/* Free tier (2026-09-26): the trial-lesson offer, locked rows, the plan banner. */
+.trial-offer-backdrop {
+  position: fixed; inset: 0; z-index: 2000;
+  background: rgba(8, 30, 27, 0.72);
+  display: flex; align-items: center; justify-content: center;
+  padding: 16px;
+}
+.trial-offer { position: relative; max-width: 460px; max-height: calc(100vh - 32px); overflow-y: auto; }
+.trial-offer h2 { font-size: 20px; }
+.trial-offer .word-card-close { position: absolute; top: 12px; right: 12px; }
+.trial-offer-form { display: flex; flex-direction: column; gap: 12px; }
+.trial-offer-form label { display: flex; flex-direction: column; gap: 6px; font-size: 14px; }
+.trial-offer-form textarea { font: inherit; }
+.locked-row { opacity: .62; width: 100%; }
+button.locked-row { background: var(--surface); color: var(--text); border: 1px solid var(--border); font-weight: inherit; text-align: left; }
+button.locked-row:hover { border-color: var(--accent); opacity: .8; }
+.locked-row .unit-percent, .locked-badge { font-size: 13px; color: var(--muted); white-space: nowrap; }
+.free-plan {
+  display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px;
+  padding: 14px 18px; margin-bottom: 16px;
+  border: 1px solid var(--accent); border-radius: 12px;
+  background: rgba(244, 185, 217, 0.08);
+}
+.free-plan p { margin: 0; }
+.tile.tile-button { font: inherit; text-align: left; cursor: pointer; }
+.try-board-note { font-size: 13px; }
+.dictionary-page .dict-panel { position: static; width: 100%; max-width: 640px; max-height: none; box-shadow: none; }
+.danger-zone { border-color: rgba(239, 68, 68, 0.45); }
+.danger-button { background: var(--danger); color: #fff; }
+.free-request { margin-top: 6px; display: flex; flex-direction: column; gap: 4px; align-items: flex-start; }
+
+/* iPhones zoom the whole page in when a field under 16px gets focus (and
+   leave it zoomed): on touch screens every field is 16px. */
+@media (pointer: coarse) {
+  input, select, textarea { font-size: 16px; }
+}

@@ -36,6 +36,22 @@ export async function saveAdventKey(key) {
   else await prisma.platformSetting.deleteMany({ where: { key: 'advent.key' } })
   return loadAiSettings()
 }
+// Apple push notifications: the .p8 key from the Apple Developer account
+// (Keys → Apple Push Notifications service), its Key ID and the Team ID.
+const apns = { config: null }
+export function apnsConfig() {
+  if (process.env.APNS_KEY && process.env.APNS_KEY_ID && process.env.APNS_TEAM_ID) {
+    return { key: process.env.APNS_KEY.replace(/\\n/g, '\n'), keyId: process.env.APNS_KEY_ID, teamId: process.env.APNS_TEAM_ID, fromEnv: true }
+  }
+  return apns.config
+}
+export async function saveApnsConfig(config) {
+  if (config) {
+    const value = encrypt(JSON.stringify(config))
+    await prisma.platformSetting.upsert({ where: { key: 'apns.config' }, create: { key: 'apns.config', value }, update: { value } })
+  } else await prisma.platformSetting.deleteMany({ where: { key: 'apns.config' } })
+  return loadAiSettings()
+}
 export const stripeKey = () => process.env.STRIPE_SECRET_KEY || stripe.key
 export async function saveStripeKey(key) {
   if (key) await prisma.platformSetting.upsert({ where: { key: 'stripe.key' }, create: { key: 'stripe.key', value: encrypt(key) }, update: { value: encrypt(key) } })
@@ -53,12 +69,13 @@ export async function saveOfferLinks({ solo, mentor }) {
 }
 
 export async function loadAiSettings() {
-  const rows = await prisma.platformSetting.findMany({ where: { key: { in: ['ai.provider', 'ai.key', 'ai.model', 'offer.solo', 'offer.mentor', 'stripe.key', 'advent.key'] } } })
+  const rows = await prisma.platformSetting.findMany({ where: { key: { in: ['ai.provider', 'ai.key', 'ai.model', 'offer.solo', 'offer.mentor', 'stripe.key', 'advent.key', 'apns.config'] } } })
   const map = Object.fromEntries(rows.map((r) => [r.key, r.value]))
   offer.solo = map['offer.solo'] || null
   offer.mentor = map['offer.mentor'] || null
   try { stripe.key = map['stripe.key'] ? decrypt(map['stripe.key']) : null } catch { stripe.key = null }
   try { advent.key = map['advent.key'] ? decrypt(map['advent.key']) : null } catch { advent.key = null }
+  try { apns.config = map['apns.config'] ? JSON.parse(decrypt(map['apns.config'])) : null } catch { apns.config = null }
   ai.provider = map['ai.provider'] ?? null
   ai.model = map['ai.model'] || null
   try { ai.key = map['ai.key'] ? decrypt(map['ai.key']) : null } catch { ai.key = null }

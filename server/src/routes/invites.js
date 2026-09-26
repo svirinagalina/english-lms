@@ -150,6 +150,9 @@ invitesRouter.post('/', requireRole('OWNER', 'TEACHER'), async (req, res) => {
   }
 
   const existing = await prisma.user.findUnique({ where: { email } })
+  if (existing?.free && existing.schoolId === req.user.schoolId) {
+    return res.status(409).json({ error: 'This person already has a free account from the app. In People, under "Free app users", link them to a teacher — everything opens for them.' })
+  }
   if (existing) return res.status(409).json({ error: 'An account with this email already exists' })
 
   // The owner may invite a student on behalf of another teacher.

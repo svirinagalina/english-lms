@@ -7,6 +7,7 @@ import { SiteFooter } from '../components/Brand'
 import BoardRow from '../components/BoardRow'
 import { PackageBadge } from '../components/PackageBadge'
 import StudentHome from '../components/StudentHome'
+import FreeHome from '../components/FreeHome'
 import Panel from '../components/Panel'
 import Textbooks from '../components/Textbooks'
 
@@ -132,9 +133,10 @@ export default function Classrooms() {
 
       {error && <div className="error">{error}</div>}
 
-      {!isStaff && <StudentHome classrooms={classrooms} />}
+      {user.free && <FreeHome />}
+      {!isStaff && !user.free && <StudentHome classrooms={classrooms} />}
 
-      <Panel id="home:students" title={user.role === 'STUDENT' ? 'My teachers' : 'My students'} count={own.length} defaultOpen={user.role === 'STUDENT'}>
+      {!user.free && <Panel id="home:students" title={user.role === 'STUDENT' ? 'My teachers' : 'My students'} count={own.length} defaultOpen={user.role === 'STUDENT'}>
         <p className="muted" style={{ marginBottom: 10 }}>
           {user.role === 'STUDENT'
             ? 'Boards and materials from your lessons.'
@@ -150,7 +152,7 @@ export default function Classrooms() {
         )}
 
         {studentList(own)}
-      </Panel>
+      </Panel>}
 
       {isAdmin && others.length > 0 && (
         <Panel id="home:others" title="Other teachers’ students" count={others.length} hint="as administrator">

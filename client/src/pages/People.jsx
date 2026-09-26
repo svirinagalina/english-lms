@@ -199,7 +199,11 @@ export default function People() {
   if (loading) return <div className="centered">Loading…</div>
 
   const staff = people.filter((p) => p.role !== 'STUDENT')
-  const students = people.filter((p) => p.role === 'STUDENT')
+  const students = people.filter((p) => p.role === 'STUDENT' && !p.free)
+  // Signed up in the app, no teacher yet; trial-lesson requests first.
+  const freeUsers = people.filter((p) => p.role === 'STUDENT' && p.free)
+    .sort((a, b) => (b.trialRequestedAt ?? '').localeCompare(a.trialRequestedAt ?? '') || b.createdAt.localeCompare(a.createdAt))
+  const requests = freeUsers.filter((p) => p.trialRequestedAt).length
 
   // Only the administrator hands out roles.
   const roleSelect = (person) => user.role === 'OWNER' && (
@@ -315,6 +319,52 @@ export default function People() {
           ))}
         </div>
       </Panel>
+
+      {freeUsers.length > 0 && (
+        <Panel id="people:free" title="Free app users" count={freeUsers.length} defaultOpen={requests > 0}
+          hint={requests ? `${requests} asked for a trial lesson` : 'signed up in the app'}>
+          <p className="muted" style={{ marginBottom: 10 }}>
+            They signed up by themselves and use the free plan (the first grammar units, part of the vocabulary, the dictionary, the trainer's trial).
+            Linking one to a teacher makes them a student: everything opens, the trainer included.
+          </p>
+          <div className="list">
+            {freeUsers.map((person) => (
+              <div key={person.id} className="row column">
+                <div className="row-main">
+                  <div>
+                    <strong>{person.name}</strong>
+                    <div className="muted">{person.email} · signed up {new Date(person.createdAt).toLocaleDateString()}</div>
+                    {person.trialRequestedAt && (
+                      <div className="free-request">
+                        <span className="paid-badge active">Trial lesson requested {new Date(person.trialRequestedAt).toLocaleDateString()}</span>
+                        {person.trialRequestNote && <div>{person.trialRequestNote}</div>}
+                      </div>
+                    )}
+                  </div>
+                  <div className="row-actions">
+                    <button onClick={() => setLinking(linking === person.id ? null : person.id)}>
+                      {linking === person.id ? 'Close' : 'Make a student'}
+                    </button>
+                    <button className="ghost" onClick={() => removePerson(person.id, person.name, person.role)}>Remove</button>
+                  </div>
+                </div>
+                {linking === person.id && (
+                  <div className="link-editor">
+                    <div className="muted">Their teacher:</div>
+                    <div className="row-actions">
+                      {teachers.map((teacher) => (
+                        <button key={teacher.id} className="ghost" onClick={() => link(person.id, teacher.id)}>
+                          {teacher.name}{teacher.id === user.id ? ' (me)' : ''}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        </Panel>
+      )}
 
       <Panel id="people:students" title="Students" count={students.length} defaultOpen>
         {students.length === 0 && <p className="muted">No students yet. Send an invitation above — the student sets a password from the link and appears here.</p>}

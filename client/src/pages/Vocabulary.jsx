@@ -6,6 +6,7 @@ import Nav from '../components/Nav'
 import Panel from '../components/Panel'
 import { SiteFooter } from '../components/Brand'
 import { Study } from './VocabSet'
+import { openTrialOffer } from '../components/TrialOffer'
 
 export default function Vocabulary() {
   const { user } = useAuth()
@@ -115,7 +116,9 @@ export default function Vocabulary() {
 
         {!isStaff && !sets.some((set) => set.personal) && (
           <p className="muted" style={{ marginBottom: 10 }}>
-            Double-click any word on the board or in Writing to hear it, see its meanings and add it to <strong>From my board</strong>.
+            {user.free
+              ? <>Look words up in the <Link to="/dictionary">Dictionary</Link> and press <strong>+ Vocabulary</strong> — they collect here to learn.</>
+              : <>Double-click any word on the board or in Writing to hear it, see its meanings and add it to <strong>From my board</strong>.</>}
           </p>
         )}
       </section>
@@ -128,7 +131,16 @@ export default function Vocabulary() {
           </p>
         )}
         <div className="list">
-          {sets.map((set) => (
+          {sets.map((set) => set.locked ? (
+            // Beyond the free plan: listed, opening the trial-lesson offer.
+            <button key={set.id} type="button" className="row set-row unit-row locked-row tile-button" onClick={openTrialOffer}>
+              <div className="unit-main">
+                <strong>{set.title}</strong>
+                <div className="muted">{set.total} {set.total === 1 ? 'word' : 'words'} · with a teacher</div>
+              </div>
+              <span className="locked-badge" aria-label="Locked">🔒</span>
+            </button>
+          ) : (
             <div key={set.id} className="row set-row">
               {renaming === set.id ? (
                 <form className="row-actions" style={{ flex: 1 }} onSubmit={(e) => { e.preventDefault(); saveTitle(set.id) }}>

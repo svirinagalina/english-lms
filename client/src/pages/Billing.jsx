@@ -7,6 +7,7 @@ import { parseDetails, serializeDetails, emptyDetails, formatCard } from '../uti
 import { SiteFooter } from '../components/Brand'
 import BillingEditor from '../components/BillingEditor'
 import StudentPayment from '../components/StudentPayment'
+import { isNativeApp } from '../utils/native'
 import { PackageBadge } from '../components/PackageBadge'
 
 const formatPrice = (amount, currency) =>
@@ -57,8 +58,8 @@ export default function Billing() {
   if (!isStaff) {
     return (
       <div className="page">
-        <Nav title="Payment" />
-        <StudentPayment />
+        <Nav title={isNativeApp() ? 'Lessons' : 'Payment'} />
+        <StudentPayment lessonsOnly={isNativeApp()} />
       </div>
     )
   }

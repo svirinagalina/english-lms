@@ -127,9 +127,11 @@ classroomsRouter.get('/', async (req, res) => {
 // click away and they know it exists.
 classroomsRouter.get('/home', async (req, res) => {
   if (req.user.role !== 'STUDENT') return res.json({ homework: null })
+  // Their own boards and the ones assigned to them (after Assign, a
+  // student's board usually lives on the teacher's shelf, shared in).
   const boards = await prisma.board.findMany({
-    where: { classroom: { studentId: req.user.id } },
-    select: { id: true, title: true, classroomId: true, elements: true, updatedAt: true }
+    where: { OR: [{ classroom: { studentId: req.user.id } }, { sharedWith: { some: { studentId: req.user.id } } }] },
+    select: { id: true, title: true, classroomId: true, elements: true, updatedAt: true, sharedWith: { where: { studentId: req.user.id }, select: { id: true } } }
   })
   const isText = (e) => (e.type === 'text' || e.type === 'note') && typeof e.text === 'string'
   const clean = (text) => text.replace(/\{\{#[0-9a-f]{6}:([^}]*)\}\}/gi, '$1').replace(/\*\*|__/g, '').trim()
@@ -149,7 +151,8 @@ classroomsRouter.get('/home', async (req, res) => {
       .sort((a, b) => a.y - b.y || a.x - b.x)
       .map((e) => e.plain)]
       .filter(Boolean)
-    const candidate = { boardId: board.id, boardTitle: board.title, classroomId: board.classroomId, elementId: heading.id, updatedAt: board.updatedAt, lines: lines.slice(0, 6), more: Math.max(0, lines.length - 6) }
+    // Opened from the student's own classroom, where a shared board is listed too.
+    const candidate = { boardId: board.id, boardTitle: board.title, classroomId: board.sharedWith[0]?.id ?? board.classroomId, elementId: heading.id, updatedAt: board.updatedAt, lines: lines.slice(0, 6), more: Math.max(0, lines.length - 6) }
     if (!homework || candidate.updatedAt > homework.updatedAt) homework = candidate
   }
   res.json({ homework })

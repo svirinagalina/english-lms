@@ -1,7 +1,8 @@
 import { Router } from 'express'
 import { z } from 'zod'
 import { prisma } from '../db.js'
-import { requireAuth, requireRole } from '../auth.js'
+import { requireAuth, requireRole, LOCKED } from '../auth.js'
+import { openUnitIds } from '../freeTier.js'
 import { checkAnswer, normalise } from '../answerCheck.js'
 import { assistantEnabled, judgeExerciseAnswer } from '../assistant.js'
 import { classifyMistake, topicLabel } from '../errorAnalysis.js'
@@ -9,6 +10,9 @@ import { classifyMistake, topicLabel } from '../errorAnalysis.js'
 export const unitsRouter = Router()
 
 unitsRouter.use(requireAuth)
+
+// A free user opens only the first units of the book (see freeTier.js).
+const lockedFor = async (user, unitId) => user.free && !(await openUnitIds(user.schoolId)).includes(unitId)
 
 const FOLLOW_UP_COUNT = 3
 
@@ -66,6 +70,7 @@ unitsRouter.get('/', async (req, res) => {
     select: { id: true, unitId: true }
   })
 
+  const open = req.user.free ? new Set(await openUnitIds(req.user.schoolId)) : null
   const solvedPerUnit = {}
   for (const exercise of exercises) {
     if (solved.has(exercise.id)) {
@@ -79,7 +84,8 @@ unitsRouter.get('/', async (req, res) => {
       title: unit.title,
       position: unit.position,
       total: unit._count.exercises,
-      solved: solvedPerUnit[unit.id] ?? 0
+      solved: solvedPerUnit[unit.id] ?? 0,
+      ...(open && !open.has(unit.id) ? { locked: true } : {})
     }))
   })
 })
@@ -90,6 +96,7 @@ unitsRouter.get('/:id', async (req, res) => {
     include: { exercises: { orderBy: { position: 'asc' } } }
   })
   if (!unit) return res.status(404).json({ error: 'Unit not found' })
+  if (await lockedFor(req.user, unit.id)) return res.status(403).json(LOCKED)
 
   const solved = await prisma.attempt.findMany({
     where: { studentId: req.user.id, correct: true, exercise: { unitId: unit.id } },
@@ -119,6 +126,7 @@ unitsRouter.post('/exercises/:id/attempt', async (req, res) => {
     include: { unit: { select: { position: true, title: true } } }
   })
   if (!exercise) return res.status(404).json({ error: 'Exercise not found' })
+  if (await lockedFor(req.user, exercise.unitId)) return res.status(403).json(LOCKED)
 
   // The key first (free and instant); an answer it doesn't cover goes to the
   // AI configured in Settings, which accepts any correct variant in context.

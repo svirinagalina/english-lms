@@ -12,6 +12,7 @@ import {
 } from './boardStore.js'
 import { loadDocument, replaceDocument, runsSchema } from './docStore.js'
 import { buildSummary } from './lessonSummary.js'
+import { notifyHomeworkLater, notifyAfterLessonLater } from './push.js'
 
 // A call that resumes within this window continues the previous session rather
 // than counting as a second lesson — reconnects should not inflate the count.
@@ -43,6 +44,10 @@ async function openSession(classroomId, { counted = true } = {}) {
   return prisma.session.create({ data: { classroomId, counted } })
 }
 
+// The same test as the student's Homework tile (/classrooms/home).
+const isHomeworkHeading = (element) => (element.type === 'text' || element.type === 'note') && typeof element.text === 'string' &&
+  /^[—\-\s]*homework\b/i.test(element.text.replace(/\{\{#[0-9a-f]{6}:([^}]*)\}\}/gi, '$1').replace(/\*\*|__/g, '').trim())
+
 // Lets a route push an element onto a board everyone watching sees at once.
 export function broadcastBoardAdd(boardId, element) {
   for (const socket of boardWatchers.get(boardId) ?? []) socket.emit('board:add', element)
@@ -57,6 +62,8 @@ async function closeSession(classroomId) {
     await prisma.session.update({ where: { id: open.id }, data: { endedAt: new Date() } })
     // The lesson's summary: topics, words, mistakes, questions for next time.
     buildSummary(open.id).catch((error) => console.error('Lesson summary failed:', error.message))
+    // And the student's phone: what the lesson added to practise.
+    notifyAfterLessonLater(open.id)
   }
 }
 
@@ -144,7 +151,7 @@ export function setupSignaling(io) {
         const payload = jwt.verify(token, process.env.JWT_SECRET)
         const user = await prisma.user.findUnique({
           where: { id: payload.sub },
-          select: { id: true, role: true, schoolId: true }
+          select: { id: true, role: true, schoolId: true, free: true }
         })
         if (user) {
           socket.data.user = user
@@ -213,8 +220,9 @@ export function setupSignaling(io) {
         return
       }
 
-      // A call is open to the teachers and students of the school that made it.
-      if (call.schoolId !== user.schoolId) {
+      // A call is open to the teachers and students of the school that made
+      // it — not to the free tier (no teacher yet), even with the link.
+      if (call.schoolId !== user.schoolId || user.free) {
         if (typeof ack === 'function') ack({ error: 'This call is not available' })
         return
       }
@@ -385,6 +393,10 @@ export function setupSignaling(io) {
       const element = { ...parsed.data, authorId: user.id, at: parsed.data.at ?? Date.now() }
       if (await addElement(boardId, element)) {
         emitToWatchers(boardWatchers, boardId, socket, 'board:add', element)
+        // A teacher's "— Homework —" heading: the students' phones hear of it.
+        if (user.role !== 'STUDENT' && isHomeworkHeading(element)) {
+          notifyHomeworkLater(boardId, element.id, async () => (await loadBoard(boardId)).some((e) => e.id === element.id))
+        }
       }
     })
 

@@ -10,6 +10,7 @@ import { addElement } from '../boardStore.js'
 import { broadcastBoardAdd } from '../signaling.js'
 import { assistantEnabled } from '../assistant.js'
 import { sendTrialReportEmail } from '../mailer.js'
+import { notifyCallStarted } from '../push.js'
 
 // Trial lessons: a call that opens on the student's board with the
 // placement test laid out, then the teacher's marks and the level report.
@@ -72,6 +73,7 @@ trialsRouter.post('/', requireRole('OWNER', 'TEACHER'), async (req, res) => {
   const report = await prisma.trialReport.create({
     data: { classroomId: classroom.id, studentId: classroom.studentId, teacherId: req.user.id, callId: call.id }
   })
+  notifyCallStarted(call.id)
   res.status(201).json({ call: { id: call.id, token: call.token, link: `${originOf(req)}/call/${call.token}` }, reportId: report.id, boardId: board.id, focusId })
 })
 

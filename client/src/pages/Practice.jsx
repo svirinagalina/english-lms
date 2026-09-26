@@ -5,6 +5,7 @@ import { api } from '../api'
 import Nav from '../components/Nav'
 import Panel from '../components/Panel'
 import { SiteFooter } from '../components/Brand'
+import { openTrialOffer } from '../components/TrialOffer'
 
 export default function Practice() {
   const { user } = useAuth()
@@ -78,13 +79,32 @@ export default function Practice() {
         </Panel>
       )}
 
-      <Panel id="practice:units" title="Grammar units" count={units.length} defaultOpen>
+      <Panel id="practice:units" title="Grammar units" count={units.length} defaultOpen
+        hint={user.free ? `${units.filter((u) => !u.locked).length} open on the free plan` : undefined}>
+        {user.free && (
+          <p className="muted" style={{ marginBottom: 10 }}>
+            The free plan opens the first {units.filter((u) => !u.locked).length} units. <button type="button" className="link-button" onClick={openTrialOffer}>A trial lesson unlocks all {units.length}.</button>
+          </p>
+        )}
         {units.length === 0 && !error && (
           <p className="muted">No units yet. The textbook has not been imported for this school.</p>
         )}
         <div className="list">
           {units.map((unit) => {
             const percent = unit.total ? Math.round((unit.solved / unit.total) * 100) : 0
+
+            // Beyond the free plan: listed, but it opens the trial-lesson offer.
+            if (unit.locked) {
+              return (
+                <button key={unit.id} type="button" className="row unit-row locked-row tile-button" onClick={openTrialOffer}>
+                  <div className="unit-main">
+                    <strong>{unit.title}</strong>
+                    <div className="muted">{unit.total} exercises · with a teacher</div>
+                  </div>
+                  <span className="locked-badge" aria-label="Locked">🔒</span>
+                </button>
+              )
+            }
 
             return (
               <Link key={unit.id} className="row unit-row" to={`/practice/${unit.id}`}>

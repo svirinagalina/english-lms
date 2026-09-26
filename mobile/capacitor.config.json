@@ -4,7 +4,9 @@
   "webDir": "www",
   "server": {
     "url": "https://lms.advent-academy.online",
-    "allowNavigation": ["lms.advent-academy.online"],
+    "allowNavigation": [
+      "lms.advent-academy.online"
+    ],
     "errorPath": "offline.html"
   },
   "ios": {
@@ -23,6 +25,13 @@
       "style": "DARK",
       "backgroundColor": "#14453f",
       "overlaysWebView": false
+    },
+    "PushNotifications": {
+      "presentationOptions": [
+        "badge",
+        "sound",
+        "alert"
+      ]
     }
   }
 }

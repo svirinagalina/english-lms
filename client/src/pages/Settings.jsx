@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { api } from '../api'
 import Nav, { refreshTrainerStatus } from '../components/Nav'
 import { SiteFooter } from '../components/Brand'
+import PushSettings from '../components/PushSettings'
 
 // Owner's settings. The AI key is pasted here and stored encrypted on the
 // server; it is never shown again, only its last characters.
@@ -226,6 +227,8 @@ export default function Settings() {
           </form>
         )}
       </section>
+
+      <PushSettings />
 
       <section>
         <h2>Trial offer — payment links</h2>

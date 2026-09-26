@@ -1,5 +1,6 @@
 import { createContext, useContext, useEffect, useState } from 'react'
 import { api } from './api'
+import { forgetPush } from './utils/native'
 
 const AuthContext = createContext(null)
 
@@ -20,6 +21,13 @@ export function AuthProvider({ children }) {
     setUser(user)
   }
 
+  // A free account from the app (/signup).
+  const signup = async (details) => {
+    await api.signup(details)
+    const { user } = await api.me()
+    setUser(user)
+  }
+
   const register = async (details) => {
     await api.register(details)
     const { user } = await api.me()
@@ -33,12 +41,13 @@ export function AuthProvider({ children }) {
   }
 
   const logout = async () => {
+    await forgetPush()
     await api.logout()
     setUser(null)
   }
 
   return (
-    <AuthContext.Provider value={{ user, loading, login, register, logout, acceptInvite, updateUser: (u) => setUser((prev) => ({ ...prev, ...u })) }}>
+    <AuthContext.Provider value={{ user, loading, login, signup, register, logout, acceptInvite, updateUser: (u) => setUser((prev) => ({ ...prev, ...u })) }}>
       {children}
     </AuthContext.Provider>
   )

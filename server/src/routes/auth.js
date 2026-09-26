@@ -14,6 +14,12 @@ const registerSchema = z.object({
   password: z.string().min(8).max(200)
 })
 
+const signupSchema = z.object({
+  name: z.string().trim().min(2).max(100),
+  email: z.string().trim().toLowerCase().email(),
+  password: z.string().min(8).max(200)
+})
+
 const loginSchema = z.object({
   email: z.string().trim().toLowerCase().email(),
   password: z.string().min(1)
@@ -33,7 +39,10 @@ const publicUser = (user) => ({
   email: user.email,
   role: user.role,
   schoolId: user.schoolId,
-  avatar: user.avatar ?? null
+  avatar: user.avatar ?? null,
+  // The free tier (see freeTier.js); the page shows what is locked.
+  free: user.free,
+  trialRequestedAt: user.trialRequestedAt ?? null
 })
 
 authRouter.get('/registration-status', async (req, res) => {
@@ -61,6 +70,52 @@ authRouter.post('/register', async (req, res) => {
       data: { email, name, passwordHash, role: 'OWNER', schoolId: school.id }
     })
   })
+
+  issueToken(res, user)
+  res.status(201).json({ user: publicUser(user) })
+})
+
+// --- Free accounts -------------------------------------------------------------
+// Anyone who downloads the app (or opens /signup) can make an account: a
+// student with no teacher, on the free tier, in the school the app belongs to
+// (PUBLIC_SCHOOL_ID, else the oldest school). FREE_SIGNUP=false turns it off.
+const SIGNUPS_PER_HOUR = 5
+const signupsByIp = new Map()
+
+async function publicSchool() {
+  if (process.env.FREE_SIGNUP === 'false') return null
+  if (process.env.PUBLIC_SCHOOL_ID) return prisma.school.findUnique({ where: { id: process.env.PUBLIC_SCHOOL_ID } })
+  return prisma.school.findFirst({ orderBy: { createdAt: 'asc' } })
+}
+
+authRouter.get('/signup-status', async (req, res) => {
+  res.json({ open: Boolean(await publicSchool()) })
+})
+
+authRouter.post('/signup', async (req, res) => {
+  const school = await publicSchool()
+  if (!school) return res.status(403).json({ error: 'Sign-up is closed. Ask your teacher for an invitation.' })
+
+  const parsed = signupSchema.safeParse(req.body)
+  if (!parsed.success) {
+    const fields = parsed.error.flatten().fieldErrors
+    const error = fields.password ? 'Password must be at least 8 characters' : fields.email ? 'Check the email address' : 'Please enter your name'
+    return res.status(400).json({ error })
+  }
+
+  const now = Date.now()
+  const recent = (signupsByIp.get(req.ip) ?? []).filter((at) => now - at < 60 * 60 * 1000)
+  if (recent.length >= SIGNUPS_PER_HOUR) return res.status(429).json({ error: 'Too many new accounts from here. Please try again later.' })
+
+  const { name, email, password } = parsed.data
+  if (await prisma.user.findUnique({ where: { email } })) {
+    return res.status(409).json({ error: 'This email already has an account — sign in instead.' })
+  }
+
+  const user = await prisma.user.create({
+    data: { email, name, passwordHash: await hashPassword(password), role: 'STUDENT', free: true, schoolId: school.id }
+  })
+  signupsByIp.set(req.ip, [...recent, now])
 
   issueToken(res, user)
   res.status(201).json({ user: publicUser(user) })
