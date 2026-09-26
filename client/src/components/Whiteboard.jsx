@@ -661,7 +661,11 @@ function drawElement(ctx, element) {
         ctx.font = fontFor(size, run.bold, run.italic)
         ctx.fillStyle = inkOf(run.color ?? element.color)
         ctx.fillText(run.text, x, y)
-        x += measureWidth(run.text, size, run.bold, run.italic)
+        // Advance by the width at the size actually drawn: the system font
+        // on a Mac changes its spacing with size (optical sizes), so the
+        // width scaled from REFERENCE_SIZE fell short and the space where
+        // one coloured or bold run meets the next vanished ("Madridfor").
+        x += ctx.measureText(run.text).width
       }
     })
     return
@@ -710,7 +714,11 @@ function drawElement(ctx, element) {
         ctx.font = fontFor(size, run.bold, run.italic)
         ctx.fillStyle = inkOf(run.color ?? element.color)
         ctx.fillText(run.text, x, y)
-        x += measureWidth(run.text, size, run.bold, run.italic)
+        // Advance by the width at the size actually drawn: the system font
+        // on a Mac changes its spacing with size (optical sizes), so the
+        // width scaled from REFERENCE_SIZE fell short and the space where
+        // one coloured or bold run meets the next vanished ("Madridfor").
+        x += ctx.measureText(run.text).width
       }
     })
   }
