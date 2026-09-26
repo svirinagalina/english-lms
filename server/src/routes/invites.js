@@ -1,4 +1,5 @@
 import { Router } from 'express'
+import { enrollStudent } from '../advent.js'
 import { randomBytes } from 'crypto'
 import { z } from 'zod'
 import { prisma } from '../db.js'
@@ -102,6 +103,9 @@ invitesRouter.post('/token/:token/accept', async (req, res) => {
 
     return created
   })
+
+  // Their Advent trainer account, set up straight away (same email).
+  if (user.role === 'STUDENT') enrollStudent(user.email, user.name)
 
   issueToken(res, user)
   res.status(201).json({

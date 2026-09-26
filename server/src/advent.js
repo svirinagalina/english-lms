@@ -40,3 +40,17 @@ export function shareWord(email, word, note) {
   advent('POST', '/vocab', { email, word, note: note ? String(note).slice(0, 200) : undefined })
     .catch((error) => console.warn(`Trainer vocab sync failed for ${word}:`, error.message))
 }
+
+// A student gets their trainer account as soon as they join the platform
+// (Galina, 2026-09-26: "every student on the platform should have the
+// trainer") rather than on first opening it. Best effort, never blocks.
+export async function enrollStudent(email, name) {
+  if (!adventEnabled() || !email) return false
+  try {
+    await advent('POST', '/session', { email, name })
+    return true
+  } catch (error) {
+    console.warn(`Trainer enrolment failed for a student: ${error.message}`)
+    return false
+  }
+}

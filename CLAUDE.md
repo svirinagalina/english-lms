@@ -101,6 +101,8 @@ A board shared into a student (the normal post-Assign state: owned by the teache
 
 **Phone typing box (2026-09-26).** On a phone the in-place contentEditable editor sat under the iOS keyboard, so nobody could see what they typed. In phone mode `openEditor` (and a tap on empty space) opens `phoneDraft` instead: a fixed box at the top of the screen (`.phone-draft`, 16px font so iOS doesn't zoom) with Cancel/Done; Done creates the text at the tapped world point or replaces the edited element's text (plain text — `plainOf` strips colour/bold markup, and an unchanged text keeps its formatting untouched; emptying a text removes it). A tap on the board while the box is open finishes it. `onTouchEnd` focuses the box inside the gesture so iOS raises the keyboard. The mistake-note form is pinned to the top on phones too.
 
+**Every student has a trainer account (2026-09-26, Galina's call).** `enrollStudent` (`advent.js`, a `/session` call that creates the account by email) runs when a student accepts an invitation (`routes/invites.js`), and `scripts/trainer-enroll-all.js` enrolled everyone already on the platform. Trainer calls now have a 30 s timeout with one retry (the first sign-in could exceed the old 10 s). Known gap: the trainer matches by email, so a student who changes their email on /profile gets a fresh trainer account on next open.
+
 ## Known open items
 - Content-audit fixes (theory typos + 2 glued-answer exercises) are committed locally but not pushed, and not yet applied to production's DB — need Galina's go-ahead.
 - "She __ the very girl I saw yesterday." exercise content needs Galina's call, not an automated fix.
