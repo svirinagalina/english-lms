@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Advent Academy</string>
+    <string name="title_activity_main">Advent Academy</string>
+    <string name="package_name">online.adventacademy.lms</string>
+    <string name="custom_url_scheme">online.adventacademy.lms</string>
+</resources>

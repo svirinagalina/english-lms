@@ -33,5 +33,8 @@
         "alert"
       ]
     }
+  },
+  "android": {
+    "backgroundColor": "#14453f"
   }
 }

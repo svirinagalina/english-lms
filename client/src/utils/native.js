@@ -13,7 +13,9 @@ let listening = false
 // hand the phone's token to the server so lessons, homework and reminders
 // reach it. `open(url)` is called when a notification is tapped.
 export async function setUpPush(open) {
-  if (!isNativeApp()) return
+  // Android push needs Firebase, which isn't set up yet; register() without
+  // it crashes the app.
+  if (!isNativeApp() || Capacitor.getPlatform() === 'android') return
   try {
     if (!listening) {
       listening = true
