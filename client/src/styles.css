@@ -1286,6 +1286,10 @@ button.compact { padding: 6px 10px; font-size: 12px; align-self: flex-start; }
 /* "Start lesson" on a timetable card: green on the pink card. */
 .timetable-start { display: inline-block; margin-top: 8px; background: #14453f; color: #ffd5ed; border: none; border-radius: 8px; padding: 6px 12px; font-size: 13px; font-weight: 600; cursor: pointer; }
 .timetable-start:disabled { opacity: 0.6; cursor: default; }
+/* Edit/Delete on a timetable card: the plain .ghost style is tuned for the
+   dark app background and goes invisible on the pink card. */
+.timetable-edit { background: transparent; border: none; color: rgba(20, 69, 63, 0.75); text-decoration: underline; padding: 2px 4px; font-size: 12px; cursor: pointer; }
+.timetable-edit:hover { color: #14453f; }
 .trainer-row { border-color: rgba(244, 185, 217, 0.45); }
 
 /* Free tier (2026-09-26): the trial-lesson offer, locked rows, the plan banner. */

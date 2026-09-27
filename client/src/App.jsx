@@ -30,7 +30,6 @@ import Content from './pages/Content'
 import AudioCheck from './pages/AudioCheck'
 import Profile from './pages/Profile'
 import Todo from './pages/Todo'
-import Calendar from './pages/Calendar'
 import Timetable from './pages/Timetable'
 import Courses from './pages/Courses'
 import Course from './pages/Course'
@@ -128,7 +127,8 @@ export default function App() {
       <Route path="/profile" element={<RequireAuth><Profile /></RequireAuth>} />
       <Route path="/audio-check" element={<RequireAuth><AudioCheck /></RequireAuth>} />
       <Route path="/todo" element={<RequireAuth roles={['OWNER']}><Todo /></RequireAuth>} />
-      <Route path="/calendar" element={<RequireAuth roles={['OWNER', 'TEACHER', 'PARTNER']}><Calendar /></RequireAuth>} />
+      {/* Calendar merged into Timetable (2026-09-27) — old links/bookmarks still land somewhere useful. */}
+      <Route path="/calendar" element={<Navigate to="/timetable" replace />} />
       <Route path="/timetable" element={<RequireAuth><Timetable /></RequireAuth>} />
       <Route path="/settings" element={<RequireAuth roles={['OWNER']}><Settings /></RequireAuth>} />
       <Route path="/content" element={<RequireAuth roles={['OWNER', 'PARTNER']}><Content /></RequireAuth>} />

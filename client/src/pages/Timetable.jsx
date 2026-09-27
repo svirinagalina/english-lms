@@ -9,6 +9,7 @@ import Panel from '../components/Panel'
 export default function Timetable() {
   const { user } = useAuth()
   const [lessons, setLessons] = useState([])
+  const [students, setStudents] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [view, setView] = useState('week') // week or month
@@ -16,6 +17,18 @@ export default function Timetable() {
   const navigate = useNavigate()
   const isStaff = user.role !== 'STUDENT'
   const [starting, setStarting] = useState(null) // the lesson whose call is being opened
+
+  const [showForm, setShowForm] = useState(false)
+  const [formData, setFormData] = useState({
+    startTime: '',
+    studentIds: [],
+    recurrence: '',
+    recurrenceEndDate: ''
+  })
+  const [showStudentPicker, setShowStudentPicker] = useState(false)
+  const [editingId, setEditingId] = useState(null)
+  const [deleteConfirm, setDeleteConfirm] = useState(null)
+  const [eventToDelete, setEventToDelete] = useState(null)
 
   // Starts the lesson's call. One student: the call is theirs (it counts, and
   // "Join call" shows in their cabinet). Several: it goes on the board they
@@ -47,18 +60,6 @@ export default function Timetable() {
       setStarting(null)
     }
   }
-  const startButton = (lesson, small) => isStaff && (
-    <button
-      type="button"
-      className="timetable-start"
-      style={small ? { marginTop: 6, fontSize: 11, padding: '4px 8px' } : undefined}
-      onClick={() => startLesson(lesson)}
-      disabled={Boolean(starting)}
-      title="Start this lesson's call now"
-    >
-      {starting === lesson.id ? 'Starting…' : 'Start lesson'}
-    </button>
-  )
   const namesOf = (lesson) => (lesson.students?.length ? lesson.students.map((s) => s.name).join(', ') : lesson.student?.name ?? '')
 
   const refresh = async () => {
@@ -92,7 +93,116 @@ export default function Timetable() {
 
   useEffect(() => {
     refresh()
+    if (isStaff) {
+      api.listClassrooms().then(({ classrooms }) => {
+        const uniqueStudents = [...new Map(classrooms.map(c => [c.student?.id, c.student])).values()].filter(Boolean)
+        setStudents(uniqueStudents)
+      }).catch(() => setStudents([]))
+    }
   }, [currentDate, view])
+
+  const closeForm = () => {
+    setShowForm(false)
+    setShowStudentPicker(false)
+    setEditingId(null)
+    setFormData({ startTime: '', studentIds: [], recurrence: '', recurrenceEndDate: '' })
+  }
+
+  const handleAddEvent = async (e) => {
+    e.preventDefault()
+    if (!formData.startTime) {
+      setError('Please select a date and time')
+      return
+    }
+
+    const startTime = new Date(formData.startTime)
+    const title = formData.studentIds.length > 0
+      ? `Lesson with ${formData.studentIds.map(id => students.find(s => s.id === id)?.name).filter(Boolean).join(', ')}`
+      : 'Lesson'
+
+    try {
+      const body = {
+        title,
+        startTime: startTime.toISOString(),
+        endTime: startTime.toISOString(),
+        studentIds: formData.studentIds,
+        recurrence: formData.recurrence || null,
+        recurrenceEndDate: formData.recurrenceEndDate ? new Date(formData.recurrenceEndDate).toISOString() : null
+      }
+      if (editingId) await api.updateCalendarEvent(editingId, body)
+      else await api.createCalendarEvent(body)
+      closeForm()
+      setError('')
+      await refresh()
+    } catch (err) {
+      setError(err.message)
+    }
+  }
+
+  const handleDeleteEvent = (lesson) => {
+    setEventToDelete(lesson)
+    if (lesson.recurrence) setDeleteConfirm(true)
+    else confirmDelete(lesson.id, false)
+  }
+
+  const confirmDelete = async (id, deleteAll) => {
+    try {
+      await api.deleteCalendarEvent(id, deleteAll)
+      setError('')
+      setDeleteConfirm(false)
+      setEventToDelete(null)
+      await refresh()
+    } catch (err) {
+      setError(err.message)
+    }
+  }
+
+  const handleEditEvent = (lesson) => {
+    const startDateTime = new Date(lesson.startTime).toISOString().slice(0, 16)
+    const recurrenceEndDate = lesson.recurrenceEndDate ? new Date(lesson.recurrenceEndDate).toISOString().slice(0, 10) : ''
+    setFormData({
+      startTime: startDateTime,
+      studentIds: lesson.studentIds || [],
+      recurrence: lesson.recurrence || '',
+      recurrenceEndDate
+    })
+    setEditingId(lesson.id)
+    setShowForm(true)
+  }
+
+  const editDeleteButtons = (lesson, small) => isStaff && (
+    <div style={{ display: 'flex', gap: small ? 4 : 6, marginTop: small ? 4 : 6 }}>
+      <button
+        type="button"
+        className="timetable-edit"
+        style={small ? { fontSize: 10 } : undefined}
+        onClick={() => handleEditEvent(lesson)}
+      >
+        Edit
+      </button>
+      <button
+        type="button"
+        className="timetable-edit"
+        style={small ? { fontSize: 10 } : undefined}
+        onClick={() => handleDeleteEvent(lesson)}
+      >
+        Delete
+      </button>
+    </div>
+  )
+
+  const startButton = (lesson, small) => isStaff && (
+    <button
+      type="button"
+      className="timetable-start"
+      style={small ? { marginTop: 6, fontSize: 11, padding: '4px 8px' } : undefined}
+      onClick={() => startLesson(lesson)}
+      disabled={Boolean(starting)}
+      title="Start this lesson's call now"
+    >
+      {starting === lesson.id ? 'Starting…' : 'Start lesson'}
+    </button>
+  )
 
   if (loading) return <div className="centered">Loading…</div>
 
@@ -168,7 +278,7 @@ export default function Timetable() {
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20, gap: 10, flexWrap: 'wrap' }}>
           <button className="ghost" onClick={prevPeriod}>← Previous</button>
 
-          <div style={{ display: 'flex', gap: 10 }}>
+          <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', justifyContent: 'center' }}>
             <button
               className={`ghost ${view === 'week' ? '' : ''}`}
               onClick={() => setView('week')}
@@ -184,10 +294,122 @@ export default function Timetable() {
               Month
             </button>
             <button className="ghost" onClick={today}>Today</button>
+            {isStaff && (
+              <button onClick={() => (showForm ? closeForm() : setShowForm(true))}>
+                {showForm ? 'Cancel' : '+ Add lesson'}
+              </button>
+            )}
           </div>
 
           <button className="ghost" onClick={nextPeriod}>Next →</button>
         </div>
+
+        {showForm && (
+          <form onSubmit={handleAddEvent} style={{ marginBottom: 20, padding: 15, background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 10 }}>
+            <div style={{ display: 'flex', gap: 10, alignItems: 'flex-start', marginBottom: 15, flexWrap: 'wrap' }}>
+              <div style={{ flex: 1, minWidth: 220 }}>
+                <label style={{ display: 'block', marginBottom: 5, fontWeight: 600, color: 'var(--text)' }}>Plan a lesson</label>
+                <div style={{ position: 'relative' }}>
+                  <button
+                    type="button"
+                    onClick={() => setShowStudentPicker(!showStudentPicker)}
+                    style={{
+                      width: '100%',
+                      padding: '10px 12px',
+                      border: '1px solid var(--border)',
+                      borderRadius: 8,
+                      background: '#0f3731',
+                      color: 'var(--text)',
+                      cursor: 'pointer',
+                      textAlign: 'left',
+                      fontSize: 14
+                    }}
+                  >
+                    {formData.studentIds.length === 0
+                      ? '+ Select students'
+                      : `${formData.studentIds.length} student${formData.studentIds.length !== 1 ? 's' : ''} selected`}
+                  </button>
+                  {showStudentPicker && (
+                    // In the flow, not floating: it used to cover the Create button.
+                    <div style={{
+                      background: '#0f3731',
+                      color: 'var(--text)',
+                      border: '1px solid var(--border)',
+                      borderRadius: 8,
+                      marginTop: 4,
+                      maxHeight: 260,
+                      overflowY: 'auto'
+                    }}>
+                      {students.map(student => (
+                        <label key={student.id} style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          padding: '8px 12px',
+                          cursor: 'pointer',
+                          borderBottom: '1px solid var(--border)'
+                        }}>
+                          <input
+                            type="checkbox"
+                            checked={formData.studentIds.includes(student.id)}
+                            onChange={(e) => {
+                              if (e.target.checked) {
+                                setFormData({ ...formData, studentIds: [...formData.studentIds, student.id] })
+                              } else {
+                                setFormData({ ...formData, studentIds: formData.studentIds.filter(id => id !== student.id) })
+                              }
+                            }}
+                            style={{ marginRight: 8 }}
+                          />
+                          <span style={{ fontSize: 14, color: 'var(--text)' }}>{student.name}</span>
+                        </label>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              <div style={{ flex: 1, minWidth: 180 }}>
+                <label style={{ display: 'block', marginBottom: 5, fontWeight: 600, color: 'var(--text)' }}>When</label>
+                <input
+                  type="datetime-local"
+                  value={formData.startTime}
+                  onChange={(e) => setFormData({ ...formData, startTime: e.target.value })}
+                  style={{ width: '100%' }}
+                />
+              </div>
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 10 }}>
+              <div>
+                <label style={{ display: 'block', marginBottom: 5 }}>Repeat</label>
+                <select
+                  value={formData.recurrence}
+                  onChange={(e) => setFormData({ ...formData, recurrence: e.target.value })}
+                  style={{ width: '100%' }}
+                >
+                  <option value="">No repeat</option>
+                  <option value="WEEKLY">Weekly</option>
+                </select>
+              </div>
+              {formData.recurrence === 'WEEKLY' && (
+                <div>
+                  <label style={{ display: 'block', marginBottom: 5 }}>Repeat until</label>
+                  <input
+                    type="date"
+                    value={formData.recurrenceEndDate}
+                    onChange={(e) => setFormData({ ...formData, recurrenceEndDate: e.target.value })}
+                    style={{ width: '100%' }}
+                  />
+                </div>
+              )}
+            </div>
+
+            <div style={{ display: 'flex', gap: 10 }}>
+              <button type="submit">{editingId ? 'Update' : 'Create'} lesson</button>
+              <button className="ghost" type="button" onClick={closeForm}>Cancel</button>
+            </div>
+          </form>
+        )}
 
         {isWeekView ? (
           // Week view - calendar grid
@@ -239,6 +461,7 @@ export default function Timetable() {
                             <div style={{ fontSize: 11, color: 'rgba(20, 69, 63, 0.75)', marginTop: 2 }}>👤 {namesOf(lesson)}</div>
                           )}
                           {startButton(lesson, true)}
+                          {editDeleteButtons(lesson, true)}
                         </div>
                       ))
                     )}
@@ -273,19 +496,25 @@ export default function Timetable() {
                             marginBottom: 8
                           }}
                         >
-                          <div style={{ display: 'flex', gap: 12, alignItems: 'flex-start' }}>
-                            <div style={{ fontWeight: 700, color: '#14453f', minWidth: 50 }}>
-                              {new Date(lesson.startTime).toLocaleTimeString('default', { hour: '2-digit', minute: '2-digit' })}
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12, flexWrap: 'wrap' }}>
+                            <div style={{ display: 'flex', gap: 12, alignItems: 'flex-start' }}>
+                              <div style={{ fontWeight: 700, color: '#14453f', minWidth: 50 }}>
+                                {new Date(lesson.startTime).toLocaleTimeString('default', { hour: '2-digit', minute: '2-digit' })}
+                              </div>
+                              <div>
+                                <strong style={{ color: '#14453f' }}>{lesson.title}</strong>
+                                {lesson.recurrence === 'WEEKLY' && (
+                                  <span style={{ fontSize: 12, marginLeft: 8, color: 'rgba(20, 69, 63, 0.75)' }}>(Weekly)</span>
+                                )}
+                                {namesOf(lesson) && !lesson.title.includes(namesOf(lesson)) && (
+                                  <div style={{ fontSize: 13, color: 'rgba(20, 69, 63, 0.75)', marginTop: 4 }}>
+                                    👤 {namesOf(lesson)}
+                                  </div>
+                                )}
+                                {startButton(lesson)}
+                              </div>
                             </div>
-                            <div>
-                              <strong style={{ color: '#14453f' }}>{lesson.title}</strong>
-                              {namesOf(lesson) && !lesson.title.includes(namesOf(lesson)) && (
-                                <div style={{ fontSize: 13, color: 'rgba(20, 69, 63, 0.75)', marginTop: 4 }}>
-                                  👤 {namesOf(lesson)}
-                                </div>
-                              )}
-                              {startButton(lesson)}
-                            </div>
+                            {editDeleteButtons(lesson)}
                           </div>
                         </div>
                       ))}
@@ -297,6 +526,20 @@ export default function Timetable() {
           </div>
         )}
       </Panel>
+
+      {deleteConfirm && eventToDelete && eventToDelete.recurrence === 'WEEKLY' && (
+        <div style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.3)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
+          <div style={{ background: '#0f3731', color: 'var(--text)', border: '1px solid var(--border)', padding: 30, borderRadius: 12, maxWidth: 400, boxShadow: '0 10px 30px rgba(0,0,0,0.4)' }}>
+            <h3 style={{ marginTop: 0 }}>Delete recurring lesson</h3>
+            <p>This lesson repeats weekly. What would you like to delete?</p>
+            <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
+              <button className="ghost" onClick={() => { setDeleteConfirm(false); setEventToDelete(null) }}>Cancel</button>
+              <button onClick={() => confirmDelete(eventToDelete.id, false)} style={{ background: 'var(--accent)', color: 'var(--accent-ink)' }}>This lesson only</button>
+              <button onClick={() => confirmDelete(eventToDelete.id, true)} style={{ backgroundColor: '#ff6b6b', color: 'white' }}>All lessons in series</button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <SiteFooter />
     </div>

@@ -55,7 +55,6 @@ export default function Nav({ title, back }) {
   if (user.role !== 'STUDENT') {
     links.push(
       { to: '/timetable', label: 'Timetable' },
-      { to: '/calendar', label: 'Calendar' },
       { to: '/practice', label: 'Practice' },
       ...(trainer ? [{ to: '/trainer', label: 'Trainer' }] : []),
       { to: '/vocabulary', label: 'Vocabulary' },
@@ -89,7 +88,7 @@ export default function Nav({ title, back }) {
     links.push({ to: '/people', label: 'People' }, { to: '/billing', label: 'Payments' }, { to: '/content', label: 'Content' })
     if (user.role === 'OWNER') {
       links.push({ to: '/settings', label: 'Settings' })
-      // Todos are still owner-only; Calendar is pushed above for every staff role.
+      // Todos are still owner-only; the calendar lives in Timetable now.
       links.push({ to: '/todo', label: 'Todo' })
     }
   }
