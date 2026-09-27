@@ -412,8 +412,12 @@ export default function Timetable() {
         )}
 
         {isWeekView ? (
-          // Week view - calendar grid
-          <div style={{
+          // Week view - calendar grid. On a narrow screen 7 equal columns
+          // squeeze past reading width, so `.week-grid` switches this to a
+          // horizontally-scrollable row of fixed-width columns instead
+          // (see the phone media query in styles.css) rather than clipping
+          // Thursday–Saturday with no way to reach them.
+          <div className="week-grid" style={{
             display: 'grid',
             gridTemplateColumns: 'repeat(7, 1fr)',
             gap: 8,
@@ -425,6 +429,7 @@ export default function Timetable() {
               return (
                 <div
                   key={day.toDateString()}
+                  className="week-day"
                   style={{
                     background: isToday ? '#f4b9d9' : '#ffd5ed',
                     border: isToday ? '2px solid #14453f' : '1px solid rgba(20, 69, 63, 0.15)',

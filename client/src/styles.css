@@ -1284,13 +1284,25 @@ button.compact { padding: 6px 10px; font-size: 12px; align-self: flex-start; }
   .nav-menu-list { left: 0; right: auto; }
 }
 /* "Start lesson" on a timetable card: green on the pink card. */
-.timetable-start { display: inline-block; margin-top: 8px; background: #14453f; color: #ffd5ed; border: none; border-radius: 8px; padding: 6px 12px; font-size: 13px; font-weight: 600; cursor: pointer; }
+/* Block, not inline-block: in the month list, nothing else separates this
+   from the title text right before it when there's no recurrence badge or
+   student names between them, so an inline flow ran the two together. */
+.timetable-start { display: block; margin-top: 8px; background: #14453f; color: #ffd5ed; border: none; border-radius: 8px; padding: 6px 12px; font-size: 13px; font-weight: 600; cursor: pointer; width: fit-content; }
 .timetable-start:disabled { opacity: 0.6; cursor: default; }
 /* Edit/Delete on a timetable card: the plain .ghost style is tuned for the
    dark app background and goes invisible on the pink card. */
 .timetable-edit { background: transparent; border: none; color: rgba(20, 69, 63, 0.75); text-decoration: underline; padding: 2px 4px; font-size: 12px; cursor: pointer; }
 .timetable-edit:hover { color: #14453f; }
 .trainer-row { border-color: rgba(244, 185, 217, 0.45); }
+
+/* Timetable's week grid: 7 equal columns squeeze unreadable-narrow on a
+   phone and clip the later days out of view entirely (nothing scrolled to
+   reach them). Below 720px it becomes a horizontally-scrollable row of
+   fixed-width day columns instead — every day stays reachable by swipe. */
+@media (max-width: 720px) {
+  .week-grid { grid-template-columns: none !important; grid-auto-flow: column; grid-auto-columns: 150px; overflow-x: auto; padding-bottom: 4px; -webkit-overflow-scrolling: touch; }
+  .week-grid .week-day { min-height: auto; }
+}
 
 /* Free tier (2026-09-26): the trial-lesson offer, locked rows, the plan banner. */
 .trial-offer-backdrop {
