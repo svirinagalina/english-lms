@@ -128,7 +128,7 @@ export default function App() {
       <Route path="/profile" element={<RequireAuth><Profile /></RequireAuth>} />
       <Route path="/audio-check" element={<RequireAuth><AudioCheck /></RequireAuth>} />
       <Route path="/todo" element={<RequireAuth roles={['OWNER']}><Todo /></RequireAuth>} />
-      <Route path="/calendar" element={<RequireAuth roles={['OWNER']}><Calendar /></RequireAuth>} />
+      <Route path="/calendar" element={<RequireAuth roles={['OWNER', 'TEACHER', 'PARTNER']}><Calendar /></RequireAuth>} />
       <Route path="/timetable" element={<RequireAuth><Timetable /></RequireAuth>} />
       <Route path="/settings" element={<RequireAuth roles={['OWNER']}><Settings /></RequireAuth>} />
       <Route path="/content" element={<RequireAuth roles={['OWNER', 'PARTNER']}><Content /></RequireAuth>} />

@@ -55,6 +55,7 @@ export default function Nav({ title, back }) {
   if (user.role !== 'STUDENT') {
     links.push(
       { to: '/timetable', label: 'Timetable' },
+      { to: '/calendar', label: 'Calendar' },
       { to: '/practice', label: 'Practice' },
       ...(trainer ? [{ to: '/trainer', label: 'Trainer' }] : []),
       { to: '/vocabulary', label: 'Vocabulary' },
@@ -88,8 +89,8 @@ export default function Nav({ title, back }) {
     links.push({ to: '/people', label: 'People' }, { to: '/billing', label: 'Payments' }, { to: '/content', label: 'Content' })
     if (user.role === 'OWNER') {
       links.push({ to: '/settings', label: 'Settings' })
-      // Personal section (todos and calendar) only for owner
-      links.push({ to: '/todo', label: 'Todo' }, { to: '/calendar', label: 'Calendar' })
+      // Todos are still owner-only; Calendar is pushed above for every staff role.
+      links.push({ to: '/todo', label: 'Todo' })
     }
   }
 
