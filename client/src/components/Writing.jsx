@@ -768,6 +768,29 @@ export default function Writing({ socketRef, classroomId, user, title, subtitle,
     setPopover({ index, x: rect.left - host.left, y: rect.bottom - host.top + 6 })
   }
 
+  // Next to a picture or a screenshot box there is no text for the browser to
+  // put the caret into, and a click there sent it to the very start of the
+  // document — typing "under the screenshot" landed at the top. A click that
+  // doesn't land in text goes to the line right under the picture above it.
+  const handleMouseUp = (event) => {
+    const root = editorRef.current
+    if (!root || event.button !== 0 || !window.getSelection()?.isCollapsed) return
+    const r = document.caretRangeFromPoint?.(event.clientX, event.clientY)
+    const node = r?.startContainer
+    if (node?.nodeType === Node.TEXT_NODE && root.contains(node) && !node.parentElement.closest('.run.image')) {
+      const box = r.getBoundingClientRect()
+      if (box.height && event.clientY >= box.top - 4 && event.clientY <= box.bottom + 4) return // real text: the browser got it right
+    }
+    const pictures = [...root.querySelectorAll('.run.image')].filter((el) => el.getBoundingClientRect().bottom <= event.clientY + 2)
+    const above = pictures[pictures.length - 1]
+    if (!above) return
+    const index = Number(above.dataset.run)
+    let at = 0
+    for (let i = 0; i <= index; i++) at += runsRef.current[i].text.length
+    if (fullText(runsRef.current)[at] === '\n') at += 1
+    setCaret(root, at)
+  }
+
   const resolve = (index, accept) => {
     commit(resolveOne(runsRef.current, index, accept), null)
     setPopover(null)
@@ -893,6 +916,7 @@ export default function Writing({ socketRef, classroomId, user, title, subtitle,
           suppressContentEditableWarning
           spellCheck={false}
           onClick={handleClick}
+          onMouseUp={handleMouseUp}
           onDoubleClick={handleDoubleClick}
           onKeyDown={handleKeyDown}
           onPaste={handlePaste}
@@ -922,10 +946,11 @@ export default function Writing({ socketRef, classroomId, user, title, subtitle,
               onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); setOverSlot(ordinal) }}
               onDragLeave={() => setOverSlot(null)}
               onDrop={(e) => { e.preventDefault(); e.stopPropagation(); setOverSlot(null); fillSlot(ordinal, e.dataTransfer?.files?.[0]) }}>
-              <span className="slot-label">
-                {fillingSlot === ordinal ? 'Uploading…' : activeSlot === ordinal ? `Now paste the screenshot: ${isMac ? '⌘V' : 'Ctrl+V'}` : 'Screenshot — drag it here, or click and paste'}
-              </span>
-              <button type="button" className="slot-remove" title="Remove this box" onClick={(e) => { e.stopPropagation(); removeSlot(ordinal) }}>×</button>
+              {/* Label and × are drawn by CSS (::before), never as text nodes:
+                  anything textual in here would count as characters of the
+                  document and shift every offset after the box. */}
+              <span className="slot-label" data-label={fillingSlot === ordinal ? 'Uploading…' : activeSlot === ordinal ? `Now paste the screenshot: ${isMac ? '⌘V' : 'Ctrl+V'}` : 'Screenshot — drag it here, or click and paste'} />
+              <button type="button" className="slot-remove" title="Remove this box" aria-label="Remove this box" onClick={(e) => { e.stopPropagation(); removeSlot(ordinal) }} />
               <span className="obj">{run.text}</span>
             </span>
           ) : run.kind === 'image' ? (

@@ -177,3 +177,5 @@
 
 /* Where a dragged picture will land */
 .writing-drop-line { position: absolute; height: 4px; margin-top: -2px; border-radius: 2px; background: #db2777; box-shadow: 0 0 0 3px rgba(219, 39, 119, 0.2); pointer-events: none; z-index: 5; }
+.run.image.slot .slot-label::before { content: attr(data-label); }
+.run.image.slot .slot-remove::before { content: '×'; }
