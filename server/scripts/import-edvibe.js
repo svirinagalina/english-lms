@@ -59,6 +59,33 @@ function cleanHtml(html) {
 const TYPOS = [[/\bInifinitives\b/g, 'Infinitives']]
 const plain = (s) => TYPOS.reduce((t, [re, to]) => t.replace(re, to), cleanHtml(s).replace(/<\/?(b|i)>/g, ''))
 
+// Answers Edvibe left unmarked (listed in IMPORT_REPORT.md), decided with
+// Galina 2026-09-28. Choices in text: per lesson:exercise, in the order the
+// unmarked brackets appear — the answer, and a corrected option list where
+// the source had a typo that left no grammatical option. Tests: question → answer.
+const MARKED_SELECT = {
+  '21:3': [
+    { answer: 'I arrive at' }, { answer: 'will check' },
+    { options: ['I will meet', 'I meet'], answer: 'I meet' },
+    { answer: 'will have' },
+    { options: ['will be working', 'will have been working'], answer: 'will have been working' },
+    { answer: 'goes' }, { answer: 'will finish' }, { answer: 'will visit' },
+    { options: ['I will return', 'I return'], answer: 'I return' },
+    { options: ['leaves', 'will leave'], answer: 'leaves' },
+    { answer: 'will arrive' }, { answer: 'will have finished' }, { answer: 'will expand' },
+    { answer: 'will have been working' },
+  ],
+  '43:4': [{ answer: '-' }],
+}
+const MARKED_TEST = {
+  'Кто пил из моей чашки?': 'Who has been drinking from my cup?',
+  'Она посетила 6 стран': 'She has visited 6 countries',
+  'Когда я буду в Париже, я тебе позвоню': 'When I am in Paris, I will call you',
+  'Если ты будешь больше заниматься, ты сдашь экзамен': 'If you study more, you will pass the exam',
+  'By the time you)_______, I _____________ my homework.': 'arrive / will have finished',
+  'They like': 'both correct',
+}
+
 // A seeded shuffle, so a re-run gives the same order (and the order is
 // never the answer itself when that can be avoided).
 function shuffle(list, seed) {
@@ -79,14 +106,22 @@ const note = (lesson, ex, what, text) => report.push({ lesson: lesson.order, tit
 
 // "text [a/b*] text" → ["text ", { options, correct }, " text"]
 function selectParts(text, lesson, ex) {
+  let unmarked = 0
   const s = cleanHtml(text)
   const parts = []
   let last = 0
   for (const m of s.matchAll(/\[([^\]]*)\]/g)) {
     if (m.index > last) parts.push(s.slice(last, m.index))
     const raw = m[1].split('/').map((o) => o.trim()).filter(Boolean)
-    const correct = raw.findIndex((o) => o.includes('*'))
-    const options = raw.map((o) => o.replace(/\*/g, '').trim())
+    let correct = raw.findIndex((o) => o.includes('*'))
+    let options = raw.map((o) => o.replace(/\*/g, '').trim())
+    if (correct < 0) {
+      const fix = (MARKED_SELECT[`${lesson.order}:${ex.number}`] ?? [])[unmarked++]
+      if (fix) {
+        options = fix.options ?? options
+        correct = options.findIndex((o) => o === fix.answer)
+      }
+    }
     if (correct < 0) note(lesson, ex, 'Выбор в тексте: не отмечен правильный вариант', `[${options.join(' / ')}]`)
     parts.push({ options, correct: correct < 0 ? null : correct })
     last = m.index + m[0].length
@@ -108,8 +143,10 @@ function convert(ex, lesson) {
       })
     case 5: {
       const questions = (d.Test?.Questions ?? []).map((q) => {
-        const correct = (q.QuestionAnswers ?? []).map((a, i) => (a === 'true' ? i : -1)).filter((i) => i >= 0)
+        let correct = (q.QuestionAnswers ?? []).map((a, i) => (a === 'true' ? i : -1)).filter((i) => i >= 0)
         const options = (q.Answers ?? []).map(plain)
+        const decided = MARKED_TEST[plain(q.Question)]
+        if (!correct.length && decided) correct = options.map((o, i) => (o.replace(/\s+/g, ' ') === decided ? i : -1)).filter((i) => i >= 0)
         if (!correct.length) note(lesson, ex, 'Тест: не отмечен правильный ответ', `${plain(q.Question)} — ${options.join(' / ')}`)
         return { question: plain(q.Question), options, correct }
       })
