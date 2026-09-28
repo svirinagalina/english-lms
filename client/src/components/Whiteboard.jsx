@@ -931,7 +931,6 @@ const Whiteboard = forwardRef(function Whiteboard({ socketRef, boardId, title, s
     setTarget(classroomId)
     try { localStorage.setItem(`board-target:${boardId}`, classroomId) } catch { /* private window */ }
   }
-  const targetName = students?.find((s) => s.classroomId === target)?.name ?? null
   // Asks which student, when the board has several and none is chosen yet.
   const [studentPrompt, setStudentPrompt] = useState(null) // { run: (classroomId) => void }
   const withTarget = (run) => {
@@ -2831,8 +2830,13 @@ const Whiteboard = forwardRef(function Whiteboard({ socketRef, boardId, title, s
           {onClose && <button className="chip-back" onClick={onClose} title="Back">{backLabel}</button>}
           <strong>{title ?? 'Board'}</strong>
           {subtitle && <span className="muted"> · {subtitle}</span>}
-          {students?.length > 1 && targetName && (
-            <span className="muted board-chip-for" title="Mistakes and words saved from here go to this student — change it from the Mistakes panel or when adding a word">for {targetName}</span>
+          {students?.length > 1 && (
+            // A pair/group board: whose notebook and vocabulary the saves go to.
+            // Remembered per board, so it must stay switchable right here.
+            <select className="chip-call ghost-chip chip-select" value={target ?? ''} onChange={(e) => e.target.value && chooseTarget(e.target.value)} title="Mistakes and words saved from this board go to this student">
+              {!target && <option value="">Mistakes & words for…</option>}
+              {students.map((s) => <option key={s.classroomId} value={s.classroomId}>For {s.name}</option>)}
+            </select>
           )}
           {onOpenWriting && (writingStudents?.length > 1 ? (
             // A board shared with several students: pick whose writing.
