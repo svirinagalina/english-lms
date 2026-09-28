@@ -1340,3 +1340,23 @@ button.locked-row:hover { border-color: var(--accent); opacity: .8; }
 @media (pointer: coarse) {
   input, select, textarea { font-size: 16px; }
 }
+
+/* Course activities imported from Edvibe (CourseActivities.jsx) */
+.course-rich { white-space: normal; }
+.course-activity-title { display: block; margin-bottom: 6px; }
+.course-flow { line-height: 2.3; }
+.course-inline-select { width: auto; min-width: 90px; padding: 2px 6px; margin: 0 3px; display: inline-block; }
+.course-inline-select.correct, .course-chip.correct, .course-gap.correct, .course-sentence.correct { border-color: #7fd88f; background: rgba(127, 216, 143, 0.15); }
+.course-inline-select.wrong, .course-chip.wrong, .course-gap.wrong, .course-sentence.wrong { border-color: #e57373; background: rgba(229, 115, 115, 0.15); }
+.course-word-bank { display: flex; flex-wrap: wrap; gap: 6px; margin: 6px 0; }
+.course-chip { padding: 4px 12px; border-radius: 999px; border: 1px solid var(--border); background: rgba(255, 255, 255, 0.06); color: inherit; font-weight: 600; cursor: grab; }
+.course-chip:disabled { opacity: 0.35; cursor: default; }
+.course-chip.held { border-color: var(--accent); background: rgba(244, 185, 217, 0.2); }
+.course-gap { display: inline-block; min-width: 90px; padding: 0 10px; margin: 0 3px; line-height: 1.8; border-bottom: 2px dashed var(--border); border-radius: 6px; text-align: center; cursor: pointer; vertical-align: baseline; }
+.course-gap.filled { border: 1px solid var(--accent); font-weight: 600; }
+.course-gap.ready { border-bottom-color: var(--accent); background: rgba(244, 185, 217, 0.08); }
+.course-gap-answer { color: #7fd88f; font-weight: 600; }
+.course-sentence { display: flex; flex-wrap: wrap; gap: 6px; min-height: 44px; padding: 8px; border: 1px dashed var(--border); border-radius: 10px; align-items: center; }
+.course-columns { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 10px; margin-top: 8px; }
+.course-column { border: 1px solid var(--border); border-radius: 12px; padding: 10px; min-height: 120px; }
+.course-column.ready { border-color: var(--accent); cursor: pointer; }

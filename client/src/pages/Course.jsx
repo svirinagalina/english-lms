@@ -6,8 +6,9 @@ import { SiteFooter } from '../components/Brand'
 import WordCard from '../components/WordCard'
 import { isEnglishWord, wordAt } from '../utils/dictionary'
 import { speakDialogue, stopSpeaking } from '../utils/speech'
+import { RichText, ChoiceBlock, SelectTextBlock, DragWordsBlock, WordOrderBlock, GroupsBlock } from '../components/CourseActivities'
 
-const TYPE_LABEL = { theory: 'Theory', practice: 'Practice', supplementary: 'Extra' }
+const TYPE_LABEL = { theory: 'Theory', practice: 'Practice', supplementary: 'Extra', lesson: 'Lesson' }
 
 // Dialogue scripts are written as "Speaker: line", one per line — used to
 // give each speaker their own voice and to show the labelled transcript in
@@ -170,6 +171,19 @@ function Block({ block }) {
       </div>
     )
   }
+  if (type === 'html') {
+    return (
+      <div className="course-block">
+        {payload.title && <strong>{payload.title}</strong>}
+        <div className="course-text course-rich"><RichText text={payload.html} /></div>
+      </div>
+    )
+  }
+  if (type === 'choice') return <ChoiceBlock payload={payload} />
+  if (type === 'select-text') return <SelectTextBlock payload={payload} />
+  if (type === 'drag-words') return <DragWordsBlock payload={payload} />
+  if (type === 'word-order') return <WordOrderBlock payload={payload} />
+  if (type === 'groups') return <GroupsBlock payload={payload} />
   if (type === 'tts') return payload.lines ? <TtsAudioBlock payload={payload} /> : <TtsScriptBlock payload={payload} />
   if (type === 'video') {
     return (
