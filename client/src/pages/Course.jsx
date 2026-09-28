@@ -6,7 +6,7 @@ import { SiteFooter } from '../components/Brand'
 import WordCard from '../components/WordCard'
 import { isEnglishWord, wordAt } from '../utils/dictionary'
 import { speakDialogue, stopSpeaking } from '../utils/speech'
-import { RichText, ChoiceBlock, SelectTextBlock, DragWordsBlock, WordOrderBlock, GroupsBlock } from '../components/CourseActivities'
+import { RichText, ChoiceBlock, SelectTextBlock, DragWordsBlock, WordOrderBlock, GroupsBlock, WritingBlock } from '../components/CourseActivities'
 
 const TYPE_LABEL = { theory: 'Theory', practice: 'Practice', supplementary: 'Extra', lesson: 'Lesson' }
 
@@ -184,6 +184,7 @@ function Block({ block }) {
   if (type === 'drag-words') return <DragWordsBlock payload={payload} />
   if (type === 'word-order') return <WordOrderBlock payload={payload} />
   if (type === 'groups') return <GroupsBlock payload={payload} />
+  if (type === 'writing') return <WritingBlock block={block} />
   if (type === 'tts') return payload.lines ? <TtsAudioBlock payload={payload} /> : <TtsScriptBlock payload={payload} />
   if (type === 'video') {
     return (

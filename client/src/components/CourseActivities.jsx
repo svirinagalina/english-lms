@@ -1,4 +1,5 @@
 import { Fragment, useState } from 'react'
+import { api } from '../api'
 
 // Lesson blocks imported from Edvibe (scripts/import-edvibe.js): formatted
 // theory and the interactive exercise types. Text arrives with only <b>, <i>
@@ -229,6 +230,44 @@ export function GroupsBlock({ payload }) {
       </div>
       <Actions checked={checked} canCheck={Object.keys(where).length > 0} onCheck={() => setChecked(true)}
         onReset={() => { setWhere({}); setChecked(false) }} score={`${right} of ${payload.bank.length} correct`} />
+    </div>
+  )
+}
+
+// Rewrite with the correct punctuation: the sentence comes as text (then it
+// is already in the box, to edit) or as a picture. The platform's AI checks
+// it against the course answer; that answer can be revealed after a check.
+export function WritingBlock({ block }) {
+  const { payload } = block
+  const [answer, setAnswer] = useState(payload.source ?? '')
+  const [result, setResult] = useState(null)
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState('')
+  const [showKey, setShowKey] = useState(false)
+  const check = async () => {
+    setBusy(true); setError('')
+    try { setResult(await api.checkCourseWriting(block.id, answer)) } catch (err) { setError(err.message) } finally { setBusy(false) }
+  }
+  return (
+    <div className="course-block">
+      <Title text={payload.task} />
+      {payload.image && <img src={payload.image} alt="" className="course-image" />}
+      <textarea className="course-writing" value={answer} rows={Math.min(12, Math.max(3, answer.split('\n').length + 1))}
+        placeholder={payload.image ? 'Write the sentences from the picture with the correct punctuation…' : 'Your answer…'}
+        onChange={(e) => { setAnswer(e.target.value); setResult(null) }} />
+      <div className="row-actions">
+        <button className="ghost" disabled={busy || !answer.trim()} onClick={check}>{busy ? 'Checking…' : 'Check'}</button>
+        {result && payload.key && <button className="ghost" onClick={() => setShowKey((v) => !v)}>{showKey ? 'Hide the answer' : 'Show the answer'}</button>}
+      </div>
+      {error && <div className="error">{error}</div>}
+      {result && (
+        <div className={`course-writing-result ${result.correct ? 'ok' : 'bad'}`}>
+          <div className={`course-feedback ${result.correct ? 'ok' : 'bad'}`}>{result.correct ? 'Correct!' : 'Not quite'}</div>
+          <div>{result.feedback}</div>
+          {!result.correct && result.corrected && <div className="course-writing-fixed"><RichText text={result.corrected} /></div>}
+        </div>
+      )}
+      {showKey && <div className="course-text muted" style={{ marginTop: 8 }}><RichText text={payload.key} /></div>}
     </div>
   )
 }

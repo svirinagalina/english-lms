@@ -56,7 +56,7 @@ function cleanHtml(html) {
   return s.replace(/\n{3,}/g, '\n\n').trim()
 }
 // Typos in the Edvibe source, fixed on Galina's say-so.
-const TYPOS = [[/\bInifinitives\b/g, 'Infinitives']]
+const TYPOS = [[/\bInifinitives\b/g, 'Infinitives'], [/\bpucntuation\b/g, 'punctuation'], [/\bsentnces\b/g, 'sentences']]
 const plain = (s) => TYPOS.reduce((t, [re, to]) => t.replace(re, to), cleanHtml(s).replace(/<\/?(b|i)>/g, ''))
 
 // Answers Edvibe left unmarked (listed in IMPORT_REPORT.md), decided with
@@ -130,11 +130,33 @@ function selectParts(text, lesson, ex) {
   return parts
 }
 
+// Free writing: the sentence to rewrite is text or a picture of it. The
+// course's answer ("Check yourself!") is attached after all lessons are read.
+const essayOf = (ex) => {
+  if (ex.raw?.Essay) return ex.raw.Essay
+  try { return JSON.parse(ex.raw?.JsonData ?? '{}')?.Essay ?? null } catch { return null }
+}
+const WRITING_TASK = /use the correct pu|rewrite the following/i
+function writing(ex, title, source) {
+  // An "empty" block can keep its picture elsewhere in the raw object.
+  const image = essayOf(ex)?.ImageUrl ?? JSON.stringify(ex.raw ?? {}).match(/"ImageUrl": ?"(https:[^"]*LessonExerciseImages[^"]*)"/)?.[1]
+  return {
+    type: 'writing',
+    payload: {
+      task: title || 'Rewrite with the correct punctuation',
+      source: source ?? (plain(ex.data?.Essay?.Prompt || '') || null),
+      file: image ? `media/LessonExerciseImages_${path.basename(image)}` : null,
+    },
+  }
+}
+
 function convert(ex, lesson) {
   const d = ex.data ?? {}
   const title = plain(ex.title || '')
   switch (ex.type) {
     case 28:
+      // Some writing courses put the task's sentences into a theory block.
+      if (WRITING_TASK.test(title) && ex.data?.Text?.Text) return writing(ex, title, plain(ex.data.Text.Text))
       return { type: 'html', payload: { title, html: cleanHtml(d.Text?.Text) } }
     case 3:
       return (d.Videos ?? []).filter((v) => v.Link).map((v) => {
@@ -189,8 +211,11 @@ function convert(ex, lesson) {
     }
     case 27:
       return (ex.images ?? []).map((img, i) => ({ type: 'image', payload: { file: img.UrlFull || img.Url, caption: plain(d.Descriptions?.[i] || title) } }))
+    case 26:
+      return writing(ex, title)
     case 25:
-      return []
+      // Edvibe sometimes saved a real task as an "empty" block with only its picture.
+      return /"ImageUrl": ?"https:[^"]*LessonExerciseImages/.test(JSON.stringify(ex.raw ?? {})) ? writing(ex, title) : []
     default:
       note(lesson, ex, `Неизвестный тип упражнения ${ex.type} (${ex.typeName}) — пропущено`, '')
       return []
@@ -211,8 +236,24 @@ const lessons = course.lessons.map((l) => {
   return { position: l.order, title: plain(data.title), blocks }
 })
 
+// A writing task's answer is the "Check yourself" theory right after it.
+for (const l of lessons) l.blocks.forEach((b, i) => {
+  if (b.type !== 'writing') return
+  const next = l.blocks[i + 1]
+  if (next?.type === 'html' && (/check yourself/i.test(next.payload.title ?? '') || !next.payload.title)) {
+    b.payload.key = next.payload.html.replace(/<\/?(b|i)>/g, '')
+    l.blocks.splice(i + 1, 1)
+  }
+})
+lessons.forEach((l) => l.blocks.forEach((b, i) => { b.position = i }))
+
 // Media: only what the lessons use; image blocks point at the served copy.
 const used = new Set()
+for (const l of lessons) for (const b of l.blocks) if (b.type === 'writing' && b.payload.file) {
+  used.add(b.payload.file)
+  b.payload.image = mediaUrl(b.payload.file)
+  delete b.payload.file
+}
 for (const l of lessons) for (const b of l.blocks) if (b.type === 'image') {
   used.add(b.payload.file)
   b.payload = { url: mediaUrl(b.payload.file), caption: b.payload.caption }

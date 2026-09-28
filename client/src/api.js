@@ -223,6 +223,7 @@ export const api = {
   // openable during a call.
   listSkillsets: () => request('/courses'),
   getCourse: (courseId) => request(`/courses/${courseId}/full`),
+  checkCourseWriting: (blockId, answer) => request(`/courses/blocks/${blockId}/check`, { method: 'POST', body: { answer } }),
 
   // Audio tracks attached to a textbook (e.g. listening-test recordings).
   textbookAudio: (id) => request(`/textbooks/${id}/audio`),

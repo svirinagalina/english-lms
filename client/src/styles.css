@@ -1360,3 +1360,8 @@ button.locked-row:hover { border-color: var(--accent); opacity: .8; }
 .course-columns { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 10px; margin-top: 8px; }
 .course-column { border: 1px solid var(--border); border-radius: 12px; padding: 10px; min-height: 120px; }
 .course-column.ready { border-color: var(--accent); cursor: pointer; }
+.course-writing { width: 100%; font-size: 16px; line-height: 1.5; margin: 8px 0; resize: vertical; }
+.course-writing-result { border: 1px solid var(--border); border-radius: 10px; padding: 10px 12px; margin-top: 8px; display: flex; flex-direction: column; gap: 6px; }
+.course-writing-result.ok { border-color: #7fd88f; background: rgba(127, 216, 143, 0.08); }
+.course-writing-result.bad { border-color: #e57373; background: rgba(229, 115, 115, 0.08); }
+.course-writing-fixed { font-weight: 600; }

@@ -1,6 +1,7 @@
 import { Router } from 'express'
 import { prisma } from '../db.js'
 import { requireAuth, requireRole, requirePaid } from '../auth.js'
+import { assistantEnabled, judgeWriting } from '../assistant.js'
 
 // Courses: self-paced learning modules (IELTS, FCE, etc), organized by
 // skillset. Content is text/image/video/file blocks plus exercises, imported
@@ -9,6 +10,35 @@ export const coursesRouter = Router()
 coursesRouter.use(requireAuth)
 // Not part of the free tier.
 coursesRouter.use(requirePaid)
+
+// POST /api/courses/blocks/:id/check { answer } — AI check of a writing
+// block. The task and the key are read from the block, never from the client.
+const writingVerdicts = new Map()
+coursesRouter.post('/blocks/:id/check', async (req, res) => {
+  const answer = String(req.body?.answer ?? '').trim().slice(0, 4000)
+  if (!answer) return res.status(400).json({ error: 'Write your answer first' })
+  if (!assistantEnabled()) return res.status(503).json({ error: 'AI checking is not set up on this platform' })
+  const block = await prisma.courseLessonBlock.findUnique({
+    where: { id: req.params.id },
+    include: { lesson: { include: { course: { include: { skillset: true } } } } },
+  })
+  if (!block || block.type !== 'writing' || block.lesson.course.skillset.schoolId !== req.user.schoolId) {
+    return res.status(404).json({ error: 'Exercise not found' })
+  }
+  const key = `${block.id}\u0000${answer.replace(/\s+/g, ' ')}`
+  let verdict = writingVerdicts.get(key)
+  if (!verdict) {
+    const { task, source, key: courseAnswer } = block.payload
+    verdict = await Promise.race([
+      judgeWriting({ lesson: block.lesson.title, task, source, key: courseAnswer, answer }).catch(() => null),
+      new Promise((resolve) => setTimeout(() => resolve(null), 30000)),
+    ])
+    if (!verdict) return res.status(502).json({ error: 'The check did not answer — try again in a minute' })
+    if (writingVerdicts.size > 5000) writingVerdicts.clear()
+    writingVerdicts.set(key, verdict)
+  }
+  res.json(verdict)
+})
 
 // GET /api/courses — list skillsets with their courses, for this school
 coursesRouter.get('/', async (req, res) => {

@@ -122,6 +122,30 @@ export async function judgeExerciseAnswer({ chapter, type, prompt, accepted, ans
   })
 }
 
+const WritingSchema = z.object({ correct: z.boolean(), corrected: z.string(), feedback: z.string() })
+
+// A course's writing task ("rewrite with the correct punctuation"): judged
+// against the course's own answer where it has one ("Check yourself"),
+// otherwise on the rules. Returns the learner's text corrected and one or
+// two sentences in Russian on what was wrong.
+export async function judgeWriting({ lesson, task, source, key, answer }) {
+  return structured({
+    name: 'writing_judge',
+    schema: WritingSchema,
+    maxTokens: 3000,
+    effort: 'low',
+    system:
+      "You check a Russian-speaking learner's answer in an English writing course about punctuation and sentence structure. You get the lesson, the task, " +
+      'the original text the learner had to rewrite (if given), the course answer (if given) and the learner\'s answer. The learner must keep the words and fix ' +
+      "the punctuation (commas, full stops, capitals, semicolons…) as the lesson teaches. Mark it correct when the punctuation is right — any variant a careful " +
+      'editor would accept counts, the course answer is not the only one. Mark it wrong if a needed comma is missing or a wrong one is added, or words are ' +
+      'missing or changed; ignore a typo that does not concern punctuation but mention it. `corrected`: the learner\'s text with the punctuation fixed (the ' +
+      'same text if already correct). `feedback`: one or two short sentences in Russian (grammar terms may stay in English) — what is right, or exactly which ' +
+      'comma is missing or extra and why.',
+    user: `Lesson: ${lesson}\nTask: ${task}\n${source ? `Original text: ${source}\n` : ''}${key ? `Course answer: ${key}\n` : ''}Learner's answer: ${answer}`
+  })
+}
+
 const RuEnSchema = z.object({ items: z.array(z.object({
   english: z.string(),
   transcription: z.string(),
