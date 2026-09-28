@@ -2,7 +2,6 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } fr
 import { api } from '../api'
 import { isEnglishWord, lookupWord, wordAt } from '../utils/dictionary'
 import WordCard from './WordCard'
-import RegionCapture, { canCaptureScreen } from './RegionCapture'
 import DictionaryPanel from './DictionaryPanel'
 import { autocorrectWord } from '../utils/autocorrect'
 import { isMisspelled, loadSpeller, obviousFix } from '../utils/spell'
@@ -526,11 +525,8 @@ export default function Writing({ socketRef, classroomId, user, title, subtitle,
   }
 
   // A screenshot goes in at the caret on its own line, as a base run.
-  const [uploading, setUploading] = useState(false)
-  const fileInputRef = useRef(null)
   const insertImage = async (file, at = currentSelection()?.end ?? totalLength(runsRef.current)) => {
     if (!file || !file.type.startsWith('image/')) return
-    setUploading(true)
     try {
       const dataUrl = await new Promise((resolve, reject) => {
         const reader = new FileReader()
@@ -555,8 +551,6 @@ export default function Writing({ socketRef, classroomId, user, title, subtitle,
       })
     } catch (err) {
       setError(err.message)
-    } finally {
-      setUploading(false)
     }
   }
 
@@ -565,32 +559,77 @@ export default function Writing({ socketRef, classroomId, user, title, subtitle,
     if (file) { event.preventDefault(); insertImage(file) }
   }
 
-  const [capturing, setCapturing] = useState(null) // caret offset to insert at
-  // The screenshot box: remembers where the caret was (or the end of the
-  // selected lines) and takes a pasted or dropped picture for that spot.
-  const [dropAt, setDropAt] = useState(null)
-  const [dropOver, setDropOver] = useState(false)
-  const openDrop = () => setDropAt((open) => (open !== null ? null : currentSelection()?.end ?? totalLength(runsRef.current)))
-  const dropImage = (file) => {
+  // A screenshot place: an image run with no picture yet (a dashed box in
+  // the text). Made first, filled later — drag a screenshot onto it, or
+  // click it and paste. Slots are told apart by their order in the text.
+  const isMac = typeof navigator !== 'undefined' && /Mac/.test(navigator.platform)
+  const [activeSlot, setActiveSlot] = useState(null) // ordinal of the clicked slot
+  const [overSlot, setOverSlot] = useState(null)
+  const [fillingSlot, setFillingSlot] = useState(null)
+  const addSlot = () => {
+    const at = Math.min(currentSelection()?.end ?? totalLength(runsRef.current), totalLength(runsRef.current))
+    const next = runsRef.current.map((r) => ({ ...r }))
+    const index = splitAt(next, at)
+    const before = next[index - 1]
+    const after = next[index]
+    const lead = before && !before.text.endsWith('\n') ? '\n' : ''
+    const trail = after && after.text.startsWith('\n') ? '' : '\n'
+    next.splice(index, 0, { text: lead, kind: 'base' }, { text: IMAGE_CHAR, kind: 'image' }, { text: trail, kind: 'base' })
+    commit(normalise(next), at + lead.length + 1 + trail.length)
+  }
+  const slotIndex = (ordinal) => {
+    let n = -1
+    return runsRef.current.findIndex((r) => r.kind === 'image' && !r.src && ++n === ordinal)
+  }
+  const fillSlot = async (ordinal, file) => {
     if (!file || !file.type.startsWith('image/')) return false
-    const at = dropAt
-    setDropAt(null)
-    insertImage(file, at)
+    setFillingSlot(ordinal)
+    setActiveSlot(null)
+    try {
+      const dataUrl = await new Promise((resolve, reject) => {
+        const reader = new FileReader()
+        reader.onload = () => resolve(reader.result)
+        reader.onerror = reject
+        reader.readAsDataURL(file)
+      })
+      const { src } = await api.uploadWritingImage(classroomId, dataUrl)
+      const index = slotIndex(ordinal)
+      if (index < 0) return true // the box was deleted meanwhile
+      const next = runsRef.current.map((r, i) => (i === index ? { ...r, src } : r))
+      commit(next, null)
+    } catch (err) {
+      setError(err.message)
+    } finally {
+      setFillingSlot(null)
+    }
     return true
   }
+  const removeSlot = (ordinal) => {
+    const index = slotIndex(ordinal)
+    if (index < 0) return
+    let start = 0
+    for (let i = 0; i < index; i++) start += runsRef.current[i].text.length
+    const result = applyEdit(runsRef.current, start, start + 1, '', actor)
+    commit(result.runs, result.caret)
+  }
+  // A clicked box takes the next pasted picture (Esc lets it go).
   useEffect(() => {
-    if (dropAt === null) return
+    if (activeSlot === null) return
     const onPaste = (event) => {
       const file = [...(event.clipboardData?.files ?? [])].find((f) => f.type.startsWith('image/'))
-      if (file) { event.preventDefault(); event.stopPropagation(); dropImage(file) }
+      if (file) { event.preventDefault(); event.stopPropagation(); fillSlot(activeSlot, file) }
     }
-    const onKey = (event) => { if (event.key === 'Escape') setDropAt(null) }
+    const onKey = (event) => { if (event.key === 'Escape') setActiveSlot(null) }
+    const onDown = (event) => { if (!event.target.closest?.('.run.slot')) setActiveSlot(null) }
     document.addEventListener('paste', onPaste, true)
     document.addEventListener('keydown', onKey)
-    return () => { document.removeEventListener('paste', onPaste, true); document.removeEventListener('keydown', onKey) }
+    document.addEventListener('pointerdown', onDown)
+    return () => {
+      document.removeEventListener('paste', onPaste, true)
+      document.removeEventListener('keydown', onKey)
+      document.removeEventListener('pointerdown', onDown)
+    }
   }) // eslint-disable-line react-hooks/exhaustive-deps
-  const dropFileRef = useRef(null)
-  const isMac = typeof navigator !== 'undefined' && /Mac/.test(navigator.platform)
 
   // Heading: the whole line(s) under the caret, toggled.
   const toggleHeading = () => {
@@ -774,40 +813,11 @@ export default function Writing({ socketRef, classroomId, user, title, subtitle,
           <button className={`tool ${autocorrect ? 'active' : ''}`} onMouseDown={(e) => e.preventDefault()} onClick={toggleAutocorrect} title="Fix common typos as you type (teh → the, i → I, capital letters) and underline misspellings">
             Autocorrect {autocorrect ? 'on' : 'off'}
           </button>
-          <button className={`tool ${dropAt !== null ? 'active' : ''}`} onMouseDown={(e) => e.preventDefault()} onClick={openDrop} disabled={uploading} title="Put a screenshot where the caret is (or after the selected lines): paste it or drag it in">Screenshot</button>
-          <button className="tool" onMouseDown={(e) => e.preventDefault()} onClick={() => fileInputRef.current?.click()} disabled={uploading} title="Insert a picture from a file (or just paste one)">
-            {uploading ? 'Uploading…' : 'Image'}
-          </button>
-          <input ref={fileInputRef} type="file" accept="image/png,image/jpeg,image/gif,image/webp" hidden onChange={(e) => { insertImage(e.target.files?.[0]); e.target.value = '' }} />
+          <button className="tool" onMouseDown={(e) => e.preventDefault()} onClick={addSlot} title="Make a place for a screenshot where the caret is — drag a screenshot onto it later, or click it and paste">Screenshot</button>
         </div>
       </div>
 
       {error && <div className="error">{error}</div>}
-
-      {dropAt !== null && (
-        <div
-          className={`writing-drop ${dropOver ? 'over' : ''}`}
-          tabIndex={-1}
-          ref={(el) => el?.focus({ preventScroll: true })}
-          onDragOver={(e) => { e.preventDefault(); setDropOver(true) }}
-          onDragLeave={() => setDropOver(false)}
-          onDrop={(e) => { e.preventDefault(); setDropOver(false); dropImage(e.dataTransfer?.files?.[0]) }}
-        >
-          <strong>Paste a screenshot ({isMac ? '⌘V' : 'Ctrl+V'}) or drag it here</strong>
-          <span className="muted">
-            {isMac
-              ? 'Take one of any area: Control ⌃ + Shift ⇧ + Command ⌘ + 4, drag over the part you need — it is copied, then press ⌘V.'
-              : 'Take one of any area: Windows + Shift + S, drag over the part you need — it is copied, then press Ctrl+V.'}
-            {' '}It goes where the caret was, or after the lines you selected.
-          </span>
-          <span className="row-actions">
-            <button className="tool" onClick={() => dropFileRef.current?.click()}>Choose a file</button>
-            {canCaptureScreen && <button className="tool" onClick={() => { const at = dropAt; setDropAt(null); setCapturing(at) }}>Capture a window…</button>}
-            <button className="tool" onClick={() => setDropAt(null)}>Cancel</button>
-          </span>
-          <input ref={dropFileRef} type="file" accept="image/png,image/jpeg,image/gif,image/webp" hidden onChange={(e) => { dropImage(e.target.files?.[0]); e.target.value = '' }} />
-        </div>
-      )}
 
       <div className="writing-body">
       {outline.length > 0 && (
@@ -835,7 +845,20 @@ export default function Writing({ socketRef, classroomId, user, title, subtitle,
           onDrop={(e) => { const f = e.dataTransfer?.files?.[0]; if (f) { e.preventDefault(); insertImage(f) } }}
           data-placeholder={actor.tracked ? 'The student has not written anything yet.' : 'Write your text here…'}
         >
-          {(() => { let at = 0; const doc = fullText(runs); return runs.map((run, index) => { const start = at; at += run.text.length; return run.kind === 'image' ? (
+          {(() => { let at = 0; let slotCount = 0; const doc = fullText(runs); return runs.map((run, index) => { const start = at; at += run.text.length; const ordinal = run.kind === 'image' && !run.src ? slotCount++ : null; return ordinal !== null ? (
+            <span key={index} data-run={index} contentEditable={false}
+              className={`run image slot ${activeSlot === ordinal ? 'active' : ''} ${overSlot === ordinal ? 'over' : ''}`}
+              onClick={(e) => { e.stopPropagation(); setActiveSlot(ordinal) }}
+              onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); setOverSlot(ordinal) }}
+              onDragLeave={() => setOverSlot(null)}
+              onDrop={(e) => { e.preventDefault(); e.stopPropagation(); setOverSlot(null); fillSlot(ordinal, e.dataTransfer?.files?.[0]) }}>
+              <span className="slot-label">
+                {fillingSlot === ordinal ? 'Uploading…' : activeSlot === ordinal ? `Now paste the screenshot: ${isMac ? '⌘V' : 'Ctrl+V'}` : 'Screenshot — drag it here, or click and paste'}
+              </span>
+              <button type="button" className="slot-remove" title="Remove this box" onClick={(e) => { e.stopPropagation(); removeSlot(ordinal) }}>×</button>
+              <span className="obj">{run.text}</span>
+            </span>
+          ) : run.kind === 'image' ? (
             // The placeholder character keeps text offsets honest; the picture is decoration.
             <span key={index} data-run={index} className="run image" contentEditable={false}>
               <img src={run.src} alt="" draggable={false} />
@@ -868,13 +891,6 @@ export default function Writing({ socketRef, classroomId, user, title, subtitle,
       </div>
 
       {dictionaryOpen && <DictionaryPanel onClose={() => setDictionaryOpen(false)} onAdd={(term) => addToVocabulary(term)} />}
-
-      {capturing !== null && (
-        <RegionCapture
-          onCancel={() => setCapturing(null)}
-          onDone={(file) => { const at = capturing; setCapturing(null); insertImage(file, at) }}
-        />
-      )}
 
       <div className="writing-hint muted">
         {actor.tracked
