@@ -2159,13 +2159,12 @@ const Whiteboard = forwardRef(function Whiteboard({ socketRef, boardId, title, s
       const dx = point.x - pointer.last.x
       const dy = point.y - pointer.last.y
       if (Math.abs(dx) + Math.abs(dy) > 0) pointer.moved = true
-      // A student can select and click into text (see editOnClick above) but
-      // dragging shouldn't rearrange the teacher's board for everyone else —
-      // only staff actually move elements.
-      if (!wordPicker) {
-        const ids = new Set(pointer.ids)
-        elementsRef.current = elementsRef.current.map((item) => (ids.has(item.id) ? moveElement(item, dx, dy) : item))
-      }
+      // A student can drag an element and see it move on their own screen —
+      // it just never saves or reaches anyone else (see the emit gate below):
+      // one student's fidgeting must never shift what the teacher or other
+      // students on the same board see.
+      const ids = new Set(pointer.ids)
+      elementsRef.current = elementsRef.current.map((item) => (ids.has(item.id) ? moveElement(item, dx, dy) : item))
       pointer.last = point
       scheduleRender()
       return
@@ -2898,7 +2897,7 @@ const Whiteboard = forwardRef(function Whiteboard({ socketRef, boardId, title, s
                     const { x, y } = nextPos
                     const note = {
                       id: elementId, type: 'note', color: COLORS[0], width, x, y, w: 320, h: 90,
-                      fill: '#fecaca', fontSize: 18, mistakeId: mistake.id,
+                      fill: '#fecaca', fontSize: 12, mistakeId: mistake.id,
                       text: mistakeNoteText(said, correct, mistake.labels ?? [])
                     }
                     commit(note)
@@ -3069,9 +3068,6 @@ const Whiteboard = forwardRef(function Whiteboard({ socketRef, boardId, title, s
                 >
                   Mistakes
                 </button>
-              )}
-              {onUploadImage && (
-                <button className="tool" onClick={() => window.open('/textbooks', 'textbooks', 'width=1000,height=700')} title="Open textbook in a new window to share your screen">Textbook</button>
               )}
               {onUploadImage && (
                 <button className={`tool ${dictionaryOpen ? 'active' : ''}`} onClick={() => setDictionaryOpen((v) => !v)} title="Dictionary: any word or phrase, Russian ⇄ English">Dictionary</button>

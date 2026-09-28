@@ -382,6 +382,11 @@ export default function Call() {
     // The denoiser's files start downloading now, so they are in by the time
     // the person joins — they are small, but the link may be slow.
     preloadDenoiser()
+    // Same idea for blur: its WASM runtime is ~2.5MB, the single biggest
+    // reason turning blur on sometimes has a visible "Loading the blur
+    // model…" pause. Idempotent (videoProcessor.initialize() is a no-op
+    // once initialized), so it's cheap even if blur never gets turned on.
+    videoProcessor.initialize().catch(() => {})
     previewPendingRef.current = (async () => {
       let raw = null
       try {
