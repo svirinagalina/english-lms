@@ -174,3 +174,6 @@
 .run.image.slot .slot-label { font: 600 15px/1.4 system-ui, sans-serif; padding: 0 44px; text-align: center; }
 .run.image.slot .slot-remove { position: absolute; top: 6px; right: 8px; border: none; background: none; font-size: 20px; line-height: 1; color: #6b7280; cursor: pointer; padding: 4px 6px; }
 .run.image.slot .obj { position: absolute; opacity: 0; pointer-events: none; }
+
+/* Where a dragged picture will land */
+.writing-drop-line { position: absolute; height: 4px; margin-top: -2px; border-radius: 2px; background: #db2777; box-shadow: 0 0 0 3px rgba(219, 39, 119, 0.2); pointer-events: none; z-index: 5; }

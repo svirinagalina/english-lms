@@ -210,6 +210,23 @@ function selectionOffsets(root) {
   }
 }
 
+// A DOM range over text offsets [start, end).
+function rangeOf(root, start, end) {
+  const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT)
+  const range = document.createRange()
+  let pos = 0
+  let startSet = false
+  let node = walker.nextNode()
+  while (node) {
+    const len = node.textContent.length
+    if (!startSet && start <= pos + len) { range.setStart(node, start - pos); startSet = true }
+    if (startSet && end <= pos + len) { range.setEnd(node, end - pos); return range }
+    pos += len
+    node = walker.nextNode()
+  }
+  return startSet ? range : null
+}
+
 function setCaret(root, offset) {
   const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT)
   let remaining = offset
@@ -554,6 +571,45 @@ export default function Writing({ socketRef, classroomId, user, title, subtitle,
     }
   }
 
+  // Dropping a picture on the text: it goes exactly where it's dropped —
+  // before or after the paragraph under the pointer (never splitting one),
+  // shown by a line while dragging.
+  const [dropLine, setDropLine] = useState(null) // { offset, top } in the page wrap
+  const dropSpot = (event) => {
+    const root = editorRef.current
+    if (!root) return null
+    let node = null
+    let nodeOffset = 0
+    if (document.caretRangeFromPoint) {
+      const r = document.caretRangeFromPoint(event.clientX, event.clientY)
+      if (r) { node = r.startContainer; nodeOffset = r.startOffset }
+    } else if (document.caretPositionFromPoint) {
+      const pos = document.caretPositionFromPoint(event.clientX, event.clientY)
+      if (pos) { node = pos.offsetNode; nodeOffset = pos.offset }
+    }
+    const all = fullText(runsRef.current)
+    const wrap = root.parentElement
+    const hostRect = wrap.getBoundingClientRect()
+    // Positions inside the scrolling wrap, aligned with the page.
+    const host = { top: hostRect.top - wrap.scrollTop }
+    if (!node || !root.contains(node)) {
+      // Above or below all the text.
+      const box = root.getBoundingClientRect()
+      const first = event.clientY < box.top + 40
+      return { offset: first ? 0 : all.length, top: (first ? box.top + 30 : box.bottom - 30) - host.top }
+    }
+    const at = offsetOf(root, node, nodeOffset)
+    const start = all.lastIndexOf('\n', at - 1) + 1
+    let end = all.indexOf('\n', at)
+    if (end < 0) end = all.length
+    // The paragraph's box decides before/after by the pointer's height.
+    const range = rangeOf(root, start, Math.max(start, end))
+    const rect = range?.getBoundingClientRect()
+    if (!rect || (!rect.width && !rect.height)) return { offset: start, top: event.clientY - host.top }
+    const before = event.clientY < rect.top + rect.height / 2
+    return { offset: before ? start : end, top: (before ? rect.top - 4 : rect.bottom + 4) - host.top }
+  }
+
   const handlePaste = (event) => {
     const file = [...(event.clipboardData?.files ?? [])].find((f) => f.type.startsWith('image/'))
     if (file) { event.preventDefault(); insertImage(file) }
@@ -842,7 +898,21 @@ export default function Writing({ socketRef, classroomId, user, title, subtitle,
           onPaste={handlePaste}
           onMouseMove={handleMouseMove}
           onMouseLeave={() => { tipWordRef.current = null; clearTimeout(tipTimer.current); setTip(null) }}
-          onDrop={(e) => { const f = e.dataTransfer?.files?.[0]; if (f) { e.preventDefault(); insertImage(f) } }}
+          onDragOver={(e) => {
+            if (![...(e.dataTransfer?.types ?? [])].includes('Files')) return
+            e.preventDefault()
+            const spot = dropSpot(e)
+            if (spot && (spot.offset !== dropLine?.offset || spot.top !== dropLine?.top)) setDropLine(spot)
+          }}
+          onDragLeave={(e) => { if (!e.currentTarget.contains(e.relatedTarget)) setDropLine(null) }}
+          onDrop={(e) => {
+            const f = [...(e.dataTransfer?.files ?? [])].find((file) => file.type.startsWith('image/'))
+            if (!f) { setDropLine(null); return }
+            e.preventDefault()
+            const spot = dropSpot(e)
+            setDropLine(null)
+            insertImage(f, spot?.offset ?? totalLength(runsRef.current))
+          }}
           data-placeholder={actor.tracked ? 'The student has not written anything yet.' : 'Write your text here…'}
         >
           {(() => { let at = 0; let slotCount = 0; const doc = fullText(runs); return runs.map((run, index) => { const start = at; at += run.text.length; const ordinal = run.kind === 'image' && !run.src ? slotCount++ : null; return ordinal !== null ? (
@@ -874,6 +944,11 @@ export default function Writing({ socketRef, classroomId, user, title, subtitle,
           {fullText(runs).endsWith('\n') && <br />}
         </div>
 
+        {dropLine && (() => {
+          const page = editorRef.current?.getBoundingClientRect()
+          const wrap = editorRef.current?.parentElement.getBoundingClientRect()
+          return <div className="writing-drop-line" style={{ top: dropLine.top, left: page && wrap ? page.left - wrap.left + 12 : 24, width: page ? page.width - 24 : undefined }} />
+        })()}
         {wordCard && <WordCard word={wordCard.word} x={wordCard.x} y={wordCard.y} onClose={() => setWordCard(null)} />}
         {tip && !wordCard && (
           <div className="writing-popover word-tip" style={{ left: tip.x, top: tip.y }}>
