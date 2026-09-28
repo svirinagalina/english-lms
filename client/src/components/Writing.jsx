@@ -5,6 +5,7 @@ import WordCard from './WordCard'
 import RegionCapture, { canCaptureScreen } from './RegionCapture'
 import DictionaryPanel from './DictionaryPanel'
 import { autocorrectWord } from '../utils/autocorrect'
+import { isMisspelled, loadSpeller, obviousFix } from '../utils/spell'
 import '../styles/writing.css'
 
 // A shared writing document with tracked changes, Google-Docs style.
@@ -355,6 +356,44 @@ export default function Writing({ socketRef, classroomId, user, title, subtitle,
     } catch { /* storage unavailable */ }
     return user.role !== 'STUDENT'
   })
+  // The dictionary behind the red underline and the one-letter fixes;
+  // loaded the first time autocorrect is on.
+  const [speller, setSpeller] = useState(null)
+  useEffect(() => {
+    if (!autocorrect || speller) return
+    let live = true
+    loadSpeller().then((sp) => live && setSpeller(() => sp)).catch(() => {})
+    return () => { live = false }
+  }, [autocorrect, speller])
+  const spellCache = useRef(new Map())
+  const misspelled = (word) => {
+    if (!speller) return false
+    let bad = spellCache.current.get(word)
+    if (bad === undefined) {
+      bad = isMisspelled(speller, word)
+      if (spellCache.current.size > 20000) spellCache.current.clear()
+      spellCache.current.set(word, bad)
+    }
+    return bad
+  }
+  // A run's text with every finished misspelled word wrapped for the red
+  // underline. The word still being typed (nothing after it yet) is left alone.
+  const withSpelling = (text, runStart, docText) => {
+    if (!autocorrect || !speller) return text
+    const parts = []
+    let last = 0
+    for (const m of text.matchAll(/[A-Za-z][A-Za-z']*/g)) {
+      const after = docText[runStart + m.index + m[0].length]
+      if (after === undefined || /[A-Za-z']/.test(after) || !misspelled(m[0])) continue
+      if (m.index > last) parts.push(text.slice(last, m.index))
+      parts.push(<span key={m.index} className="spell-err">{m[0]}</span>)
+      last = m.index + m[0].length
+    }
+    if (!parts.length) return text
+    if (last < text.length) parts.push(text.slice(last))
+    return parts
+  }
+
   const toggleAutocorrect = () => {
     setAutocorrect((on) => {
       try { localStorage.setItem(autocorrectKey, on ? '0' : '1') } catch { /* storage unavailable */ }
@@ -377,7 +416,13 @@ export default function Writing({ socketRef, classroomId, user, title, subtitle,
       if (!own) return null
     }
     const before = all.slice(Math.max(0, from - 40), from)
-    const fixed = autocorrectWord(word, before)
+    let fixed = autocorrectWord(word, before)
+    // Beyond the list of common typos: one missing, extra or swapped letter
+    // the dictionary is sure about.
+    if (!fixed && speller) {
+      const spelled = obviousFix(speller, word)
+      if (spelled) fixed = autocorrectWord(spelled, before) ?? spelled
+    }
     return fixed ? { from, to: at, fixed } : null
   }
 
@@ -730,7 +775,7 @@ export default function Writing({ socketRef, classroomId, user, title, subtitle,
           translate="no"
           contentEditable={loaded}
           suppressContentEditableWarning
-          spellCheck={autocorrect}
+          spellCheck={false}
           onClick={handleClick}
           onDoubleClick={handleDoubleClick}
           onKeyDown={handleKeyDown}
@@ -740,7 +785,7 @@ export default function Writing({ socketRef, classroomId, user, title, subtitle,
           onDrop={(e) => { const f = e.dataTransfer?.files?.[0]; if (f) { e.preventDefault(); insertImage(f) } }}
           data-placeholder={actor.tracked ? 'The student has not written anything yet.' : 'Write your text here…'}
         >
-          {runs.map((run, index) => run.kind === 'image' ? (
+          {(() => { let at = 0; const doc = fullText(runs); return runs.map((run, index) => { const start = at; at += run.text.length; return run.kind === 'image' ? (
             // The placeholder character keeps text offsets honest; the picture is decoration.
             <span key={index} data-run={index} className="run image" contentEditable={false}>
               <img src={run.src} alt="" draggable={false} />
@@ -749,9 +794,9 @@ export default function Writing({ socketRef, classroomId, user, title, subtitle,
           ) : (
             <span key={index} data-run={index} className={`run ${run.kind}${run.h ? ' h1' : ''}${run.hl ? ` hl-${run.hl}` : ''}`}>
               {/* A struck line break is shown as ↵ (same length), so the lines it joins already read as joined. */}
-              {run.kind === 'del' ? run.text.replace(/\n/g, '↵') : run.text}
+              {run.kind === 'del' ? run.text.replace(/\n/g, '↵') : withSpelling(run.text, start, doc)}
             </span>
-          ))}
+          ) }) })()}
           {/* A line break at the very end only shows (and takes the caret) with something after it. */}
           {fullText(runs).endsWith('\n') && <br />}
         </div>

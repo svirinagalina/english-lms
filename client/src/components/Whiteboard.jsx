@@ -1,4 +1,4 @@
-import { forwardRef, useCallback, useEffect, useImperativeHandle, useRef, useState } from 'react'
+import { forwardRef, useCallback, useEffect, useImperativeHandle, useLayoutEffect, useRef, useState } from 'react'
 import '../styles/whiteboard.css'
 import { isEnglishWord, lookupWord, wordAt } from '../utils/dictionary'
 import { ocrWords } from '../utils/ocr'
@@ -2257,7 +2257,7 @@ const Whiteboard = forwardRef(function Whiteboard({ socketRef, boardId, title, s
 
     if (pointer.mode === 'text') {
       liveCreatedRef.current = null
-      setTextInput({ x: pointer.point.x, y: pointer.point.y, value: '', fontSize: textInput?.fontSize ?? lastFontSizeRef.current, color })
+      setTextInput({ x: pointer.point.x, y: pointer.point.y, value: '', fontSize: lastFontSizeRef.current, color })
       return
     }
     if (pointer.mode === 'open-editor') {
@@ -2399,7 +2399,6 @@ const Whiteboard = forwardRef(function Whiteboard({ socketRef, boardId, title, s
     const area = textAreaRef.current
     const latest = area ? htmlToMarkup(area, draft.color) : draft.value
     setTextInput(null)
-    lastFontSizeRef.current = draft.fontSize
     const text = latest.replace(/\s+$/, '')
     if (phone) selectedRef.current = [] // a phone shows no selection handles
 
@@ -2560,6 +2559,9 @@ const Whiteboard = forwardRef(function Whiteboard({ socketRef, boardId, title, s
 
   // Changes the size of the text being edited, or of the selected text elements.
   const setFontSize = (size) => {
+    // Only a size picked here carries over to the next new text — editing a
+    // big heading must not make every later text heading-sized.
+    lastFontSizeRef.current = size
     if (textInput) {
       setTextInput({ ...textInput, fontSize: size })
       requestAnimationFrame(() => textAreaRef.current?.focus({ preventScroll: true }))
@@ -2570,7 +2572,6 @@ const Whiteboard = forwardRef(function Whiteboard({ socketRef, boardId, title, s
     const befores = items.map((item) => structuredClone(item))
     for (const item of items) replaceRaw({ ...item, fontSize: size })
     recordUpdates(befores)
-    lastFontSizeRef.current = size
     scheduleRender()
     bump()
   }
@@ -2758,6 +2759,21 @@ const Whiteboard = forwardRef(function Whiteboard({ socketRef, boardId, title, s
       color: barColor
     }
   })()
+  // Zoomed in, the text's spot can be off screen or near an edge: the bar
+  // is nudged back inside the board after every render.
+  const textToolbarRef = useRef(null)
+  useLayoutEffect(() => {
+    const bar = textToolbarRef.current
+    const host = canvasRef.current?.getBoundingClientRect()
+    if (!bar || !host) return
+    bar.style.transform = ''
+    const r = bar.getBoundingClientRect()
+    const right = Math.min(host.right, window.innerWidth) - 8
+    const bottom = Math.min(host.bottom, window.innerHeight) - 8
+    const dx = r.right > right ? right - r.right : r.left < host.left + 8 ? host.left + 8 - r.left : 0
+    const dy = r.bottom > bottom ? bottom - r.bottom : r.top < host.top + 8 ? host.top + 8 - r.top : 0
+    if (dx || dy) bar.style.transform = `translate(${Math.round(dx)}px, ${Math.round(dy)}px)`
+  })
   const textLike = textInput ? [] : selectedElements().filter((i) => i.type === 'text' || i.type === 'note')
   const showTextControls = Boolean(textInput) || textLike.length > 0
 
@@ -3122,6 +3138,7 @@ const Whiteboard = forwardRef(function Whiteboard({ socketRef, boardId, title, s
         {/* Floating bar above the selection: text styling, and actions for whatever is selected. */}
         {textBar && !dragging && !phone && (
           <div
+            ref={textToolbarRef}
             className="text-toolbar"
             style={{ left: textBar.x, top: textBar.y }}
             onMouseDown={(e) => {
