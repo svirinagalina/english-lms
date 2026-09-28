@@ -86,6 +86,15 @@ export default function Todo() {
     }
   }
 
+  const clearCompleted = async () => {
+    const done = todos.filter(t => t.completed)
+    if (!done.length || !window.confirm(`Delete all ${done.length} completed tasks?`)) return
+    const results = await Promise.allSettled(done.map(t => api.deleteTodo(t.id)))
+    const deleted = new Set(done.filter((_, i) => results[i].status === 'fulfilled').map(t => t.id))
+    setTodos(todos.filter(t => !deleted.has(t.id)))
+    setError(deleted.size < done.length ? 'Some completed tasks could not be deleted — try again' : '')
+  }
+
   if (loading) return <div className="centered">Loading…</div>
 
   const activeTodos = todos.filter(t => !t.completed)
@@ -181,6 +190,9 @@ export default function Todo() {
 
       {completedTodos.length > 0 && (
         <Panel id="personal:completed-todos" title="Completed" count={completedTodos.length}>
+          <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 10 }}>
+            <button className="ghost" onClick={clearCompleted}>Clear all</button>
+          </div>
           <div className="list">
             {completedTodos.map(todo => (
               <div key={todo.id} className="row" style={{ alignItems: 'center', opacity: 0.6 }}>
