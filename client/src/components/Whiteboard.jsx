@@ -3198,7 +3198,8 @@ const Whiteboard = forwardRef(function Whiteboard({ socketRef, boardId, title, s
           <div
             key={editorKey}
             ref={textAreaRef}
-            className="board-text-input"
+            className="board-text-input notranslate"
+            translate="no"
             contentEditable
             suppressContentEditableWarning
             spellCheck={false}

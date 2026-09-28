@@ -726,7 +726,8 @@ export default function Writing({ socketRef, classroomId, user, title, subtitle,
       <div className="writing-page-wrap" onClick={(e) => { if (e.target === e.currentTarget) setPopover(null) }}>
         <div
           ref={editorRef}
-          className="writing-page"
+          className="writing-page notranslate"
+          translate="no"
           contentEditable={loaded}
           suppressContentEditableWarning
           spellCheck={autocorrect}
