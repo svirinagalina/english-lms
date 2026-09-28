@@ -10,7 +10,10 @@ const todoSchema = z.object({
   title: z.string().trim().min(1).max(500),
   completed: z.boolean().optional(),
   dueDate: z.string().datetime().optional().nullable(),
-  notes: z.string().max(2000).optional()
+  // The client round-trips a todo's own fields back on every update
+  // (toggling done, editing) — a todo with no notes has notes: null from
+  // the database, and .optional() alone rejects null, not just missing.
+  notes: z.string().max(2000).optional().nullable()
 })
 
 const eventSchema = z.object({
