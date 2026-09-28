@@ -1513,7 +1513,10 @@ const Whiteboard = forwardRef(function Whiteboard({ socketRef, boardId, title, s
 
   useEffect(() => {
     const onPaste = (event) => {
-      if (textInput || event.target.tagName === 'INPUT' || event.target.tagName === 'TEXTAREA') return
+      // Typing or pasting anywhere else (Writing open next to the board in a
+      // call, a form…) is not for the board: its letter shortcuts, Delete and
+      // image paste would fire.
+      if (textInput || event.target.tagName === 'INPUT' || event.target.tagName === 'TEXTAREA' || event.target.tagName === 'SELECT' || event.target.isContentEditable) return
 
       const image = [...(event.clipboardData?.items ?? [])].find((i) => i.type.startsWith('image/'))
       if (image) {
@@ -1724,7 +1727,10 @@ const Whiteboard = forwardRef(function Whiteboard({ socketRef, boardId, title, s
         toggleItalic()
         return
       }
-      if (textInput || event.target.tagName === 'INPUT' || event.target.tagName === 'TEXTAREA') return
+      // Typing or pasting anywhere else (Writing open next to the board in a
+      // call, a form…) is not for the board: its letter shortcuts, Delete and
+      // image paste would fire.
+      if (textInput || event.target.tagName === 'INPUT' || event.target.tagName === 'TEXTAREA' || event.target.tagName === 'SELECT' || event.target.isContentEditable) return
 
       if (cropRef.current) {
         if (event.key === 'Escape') cancelCrop()

@@ -166,3 +166,8 @@
 
 /* Misspelled word (Writing's own spell-check, utils/spell.js) */
 .writing-page .spell-err { text-decoration: underline wavy #e5484d; text-decoration-skip-ink: none; text-underline-offset: 3px; }
+
+/* Screenshot box: paste or drop a picture into the text */
+.writing-drop { margin: 10px auto 0; max-width: 820px; width: calc(100% - 24px); display: flex; flex-direction: column; gap: 6px; align-items: flex-start; padding: 18px 20px; border: 2px dashed #9ca3af; border-radius: 14px; background: #fff; color: #14453f; outline: none; }
+.writing-drop.over { border-color: #db2777; background: #fdf2f8; }
+.writing-drop .muted { color: #5f7a74; font-size: 14px; }

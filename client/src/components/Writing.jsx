@@ -331,12 +331,14 @@ export default function Writing({ socketRef, classroomId, user, title, subtitle,
   // away (a file dialog, the screen picker) before they insert anything.
   const lastSelRef = useRef(null)
   const [selection, setSelection] = useState(null) // { start, end } while something is highlighted
+  const [caretAt, setCaretAt] = useState(null) // the caret, while it's in the text
   useEffect(() => {
     const onChange = () => {
       const root = editorRef.current
       const sel = root ? selectionOffsets(root) : null
       if (sel) lastSelRef.current = sel
       setSelection(sel && sel.end > sel.start ? sel : null)
+      setCaretAt(sel && sel.end === sel.start ? sel.end : null)
     }
     document.addEventListener('selectionchange', onChange)
     return () => document.removeEventListener('selectionchange', onChange)
@@ -377,14 +379,15 @@ export default function Writing({ socketRef, classroomId, user, title, subtitle,
     return bad
   }
   // A run's text with every finished misspelled word wrapped for the red
-  // underline. The word still being typed (nothing after it yet) is left alone.
+  // underline. The word still being typed (the caret right at its end) is left alone.
   const withSpelling = (text, runStart, docText) => {
     if (!autocorrect || !speller) return text
     const parts = []
     let last = 0
     for (const m of text.matchAll(/[A-Za-z][A-Za-z']*/g)) {
-      const after = docText[runStart + m.index + m[0].length]
-      if (after === undefined || /[A-Za-z']/.test(after) || !misspelled(m[0])) continue
+      const end = runStart + m.index + m[0].length
+      const after = docText[end]
+      if (caretAt === end || /[A-Za-z']/.test(after ?? '') || !misspelled(m[0])) continue
       if (m.index > last) parts.push(text.slice(last, m.index))
       parts.push(<span key={m.index} className="spell-err">{m[0]}</span>)
       last = m.index + m[0].length
@@ -563,7 +566,31 @@ export default function Writing({ socketRef, classroomId, user, title, subtitle,
   }
 
   const [capturing, setCapturing] = useState(null) // caret offset to insert at
-  const startCapture = () => setCapturing(currentSelection()?.end ?? totalLength(runsRef.current))
+  // The screenshot box: remembers where the caret was (or the end of the
+  // selected lines) and takes a pasted or dropped picture for that spot.
+  const [dropAt, setDropAt] = useState(null)
+  const [dropOver, setDropOver] = useState(false)
+  const openDrop = () => setDropAt((open) => (open !== null ? null : currentSelection()?.end ?? totalLength(runsRef.current)))
+  const dropImage = (file) => {
+    if (!file || !file.type.startsWith('image/')) return false
+    const at = dropAt
+    setDropAt(null)
+    insertImage(file, at)
+    return true
+  }
+  useEffect(() => {
+    if (dropAt === null) return
+    const onPaste = (event) => {
+      const file = [...(event.clipboardData?.files ?? [])].find((f) => f.type.startsWith('image/'))
+      if (file) { event.preventDefault(); event.stopPropagation(); dropImage(file) }
+    }
+    const onKey = (event) => { if (event.key === 'Escape') setDropAt(null) }
+    document.addEventListener('paste', onPaste, true)
+    document.addEventListener('keydown', onKey)
+    return () => { document.removeEventListener('paste', onPaste, true); document.removeEventListener('keydown', onKey) }
+  }) // eslint-disable-line react-hooks/exhaustive-deps
+  const dropFileRef = useRef(null)
+  const isMac = typeof navigator !== 'undefined' && /Mac/.test(navigator.platform)
 
   // Heading: the whole line(s) under the caret, toggled.
   const toggleHeading = () => {
@@ -747,9 +774,7 @@ export default function Writing({ socketRef, classroomId, user, title, subtitle,
           <button className={`tool ${autocorrect ? 'active' : ''}`} onMouseDown={(e) => e.preventDefault()} onClick={toggleAutocorrect} title="Fix common typos as you type (teh → the, i → I, capital letters) and underline misspellings">
             Autocorrect {autocorrect ? 'on' : 'off'}
           </button>
-          {canCaptureScreen && (
-            <button className="tool" onMouseDown={(e) => e.preventDefault()} onClick={startCapture} disabled={uploading} title="Take a screenshot and select the area to insert">Screenshot</button>
-          )}
+          <button className={`tool ${dropAt !== null ? 'active' : ''}`} onMouseDown={(e) => e.preventDefault()} onClick={openDrop} disabled={uploading} title="Put a screenshot where the caret is (or after the selected lines): paste it or drag it in">Screenshot</button>
           <button className="tool" onMouseDown={(e) => e.preventDefault()} onClick={() => fileInputRef.current?.click()} disabled={uploading} title="Insert a picture from a file (or just paste one)">
             {uploading ? 'Uploading…' : 'Image'}
           </button>
@@ -758,6 +783,31 @@ export default function Writing({ socketRef, classroomId, user, title, subtitle,
       </div>
 
       {error && <div className="error">{error}</div>}
+
+      {dropAt !== null && (
+        <div
+          className={`writing-drop ${dropOver ? 'over' : ''}`}
+          tabIndex={-1}
+          ref={(el) => el?.focus({ preventScroll: true })}
+          onDragOver={(e) => { e.preventDefault(); setDropOver(true) }}
+          onDragLeave={() => setDropOver(false)}
+          onDrop={(e) => { e.preventDefault(); setDropOver(false); dropImage(e.dataTransfer?.files?.[0]) }}
+        >
+          <strong>Paste a screenshot ({isMac ? '⌘V' : 'Ctrl+V'}) or drag it here</strong>
+          <span className="muted">
+            {isMac
+              ? 'Take one of any area: Control ⌃ + Shift ⇧ + Command ⌘ + 4, drag over the part you need — it is copied, then press ⌘V.'
+              : 'Take one of any area: Windows + Shift + S, drag over the part you need — it is copied, then press Ctrl+V.'}
+            {' '}It goes where the caret was, or after the lines you selected.
+          </span>
+          <span className="row-actions">
+            <button className="tool" onClick={() => dropFileRef.current?.click()}>Choose a file</button>
+            {canCaptureScreen && <button className="tool" onClick={() => { const at = dropAt; setDropAt(null); setCapturing(at) }}>Capture a window…</button>}
+            <button className="tool" onClick={() => setDropAt(null)}>Cancel</button>
+          </span>
+          <input ref={dropFileRef} type="file" accept="image/png,image/jpeg,image/gif,image/webp" hidden onChange={(e) => { dropImage(e.target.files?.[0]); e.target.value = '' }} />
+        </div>
+      )}
 
       <div className="writing-body">
       {outline.length > 0 && (
