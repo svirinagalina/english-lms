@@ -40,6 +40,15 @@ export const elementSchema = z.object({
   at: z.number().int().positive().optional()
 })
 
+// Rounding noise from the client's crop maths (1.0000000002, -1e-17) is not
+// a reason to throw a whole edit away.
+export function tidyElement(raw) {
+  if (!raw || typeof raw !== 'object' || !raw.crop || typeof raw.crop !== 'object') return raw
+  const clamp = (v, lo) => (typeof v === 'number' && Number.isFinite(v) ? Math.min(1, Math.max(lo, v)) : v)
+  const { x, y, w, h } = raw.crop
+  return { ...raw, crop: { x: clamp(x, 0), y: clamp(y, 0), w: clamp(w, 0.01), h: clamp(h, 0.01) } }
+}
+
 const boards = new Map()
 const saveTimers = new Map()
 

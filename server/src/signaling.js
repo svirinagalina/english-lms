@@ -3,6 +3,7 @@ import { prisma } from './db.js'
 import { accessibleClassroom } from './routes/classrooms.js'
 import {
   elementSchema,
+  tidyElement,
   loadBoard,
   addElement,
   updateElement,
@@ -387,8 +388,13 @@ export function setupSignaling(io) {
       const { boardId, roomId } = socket.data
       if (!boardId) return
 
-      const parsed = elementSchema.safeParse(raw)
-      if (!parsed.success) return
+      const parsed = elementSchema.safeParse(tidyElement(raw))
+      if (!parsed.success) {
+        // Nobody else will ever see it: take it off the sender's board too.
+        console.warn('[board] add rejected', raw?.type, raw?.id, parsed.error.issues.map((i) => i.path.join('.')).join(','))
+        if (typeof raw?.id === 'string') socket.emit('board:delete', raw.id)
+        return
+      }
 
       const element = { ...parsed.data, authorId: user.id, at: parsed.data.at ?? Date.now() }
       if (await addElement(boardId, element)) {
@@ -404,8 +410,16 @@ export function setupSignaling(io) {
       const { boardId, roomId } = socket.data
       if (!boardId) return
 
-      const parsed = elementSchema.safeParse(raw)
-      if (!parsed.success) return
+      const parsed = elementSchema.safeParse(tidyElement(raw))
+      if (!parsed.success) {
+        // Dropped silently, the change stayed on the sender's screen only and
+        // the students saw the old version (a crop by 1.0000000001 did this).
+        // The sender gets the stored copy back so both sides match again.
+        console.warn('[board] update rejected', raw?.type, raw?.id, parsed.error.issues.map((i) => i.path.join('.')).join(','))
+        const stored = (await loadBoard(boardId)).find((e) => e.id === raw?.id)
+        socket.emit(stored ? 'board:update' : 'board:delete', stored ?? raw?.id)
+        return
+      }
 
       if (await updateElement(boardId, parsed.data)) {
         emitToWatchers(boardWatchers, boardId, socket, 'board:update', parsed.data)

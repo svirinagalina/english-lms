@@ -522,6 +522,8 @@ function fullImageBox(element) {
 }
 
 // Converts a visible box inside the full image back into crop fractions.
+const unit = (v) => Math.min(1, Math.max(0, v))
+
 function cropFromBox(element, visible) {
   const full = fullImageBox(element)
   const clampedX = Math.max(full.x, Math.min(visible.x, full.x + full.w - MIN_SIZE))
@@ -535,11 +537,13 @@ function cropFromBox(element, visible) {
     y: clampedY,
     w: clampedW,
     h: clampedH,
+    // Kept strictly inside 0–1: the server refuses a crop of 1.0000000002,
+    // and a refused crop showed only on the teacher's screen.
     crop: {
-      x: (clampedX - full.x) / full.w,
-      y: (clampedY - full.y) / full.h,
-      w: clampedW / full.w,
-      h: clampedH / full.h
+      x: unit((clampedX - full.x) / full.w),
+      y: unit((clampedY - full.y) / full.h),
+      w: Math.max(0.01, unit(clampedW / full.w)),
+      h: Math.max(0.01, unit(clampedH / full.h))
     }
   }
 }
