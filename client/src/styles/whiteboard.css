@@ -143,8 +143,6 @@
 .board-canvas.tool-arrow { cursor: crosshair; }
 .board-canvas.tool-select { cursor: default; }
 .board-canvas.tool-text { cursor: text; }
-.board-canvas.tool-hand { cursor: grab; }
-.board-canvas.tool-hand:active { cursor: grabbing; }
 .board-canvas.tool-eraser { cursor: cell; }
 
 .board-text-input {
