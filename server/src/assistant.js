@@ -150,8 +150,16 @@ const RuEnSchema = z.object({ items: z.array(z.object({
   english: z.string(),
   transcription: z.string(),
   pos: z.string(),
-  note: z.string()
+  note: z.string(),
+  forms: z.string(),
+  countability: z.string()
 })) })
+
+const GRAMMAR_RULES =
+  '`forms`: for a verb, its three forms "V1 – V2 – V3" (e.g. "go – went – gone", "work – worked – worked"; both variants where two are used, ' +
+  'e.g. "learn – learnt/learned – learnt/learned"); for a phrasal verb, the forms of the verb part inside the phrase ("give up – gave up – given up"); ' +
+  'empty for anything that is not a verb. `countability`: for a noun, exactly one of "countable", "uncountable", "always plural", ' +
+  '"countable and uncountable" (when both uses are common, e.g. coffee, time); empty for anything that is not a noun.'
 
 // The teacher's dictionary, Russian → English: the usual English
 // equivalents of a word or phrase, most common first, each with IPA and a
@@ -166,10 +174,27 @@ export async function translateRussian(text) {
       'You are a Russian→English dictionary for an English teacher. For the Russian word or phrase given, return its usual English equivalents, ' +
       'most common first, 1 to 5 of them (fewer when one is clearly the answer). For each: `english` (the word or phrase as it is normally used; a verb ' +
       'without "to" unless the particle is part of the phrase), `transcription` (American IPA in slashes), `pos` (noun, verb, adjective, phrase…) and `note`: ' +
-      'a few words in Russian on the meaning or context that sets it apart from the others (e.g. «о человеке», «разг.», «офиц.»). No examples, no extra text.',
+      'a few words in Russian on the meaning or context that sets it apart from the others (e.g. «о человеке», «разг.», «офиц.»). ' + GRAMMAR_RULES +
+      ' No examples, no extra text.',
     user: text
   })
   return out?.items ?? []
+}
+
+const GrammarSchema = z.object({ forms: z.string(), countability: z.string() })
+
+// The teacher's dictionary, English side: a verb's three forms, a noun's
+// countability — what a teacher checks before putting a word on the board.
+export async function wordGrammar(word) {
+  return structured({
+    name: 'word_grammar',
+    schema: GrammarSchema,
+    maxTokens: 1000,
+    effort: 'low',
+    system: 'You describe the grammar of an English word or phrase for an English teacher, taking its most common use. ' + GRAMMAR_RULES +
+      ' A word that is commonly both a verb and a noun (e.g. "work", "run") gets both fields.',
+    user: word
+  })
 }
 
 const PromptSchema = z.object({ prompt: z.string() })

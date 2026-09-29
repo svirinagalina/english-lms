@@ -1,7 +1,7 @@
 import { Router } from 'express'
 import { requireAuth } from '../auth.js'
 import { prisma } from '../db.js'
-import { assistantEnabled, translateRussian, translateWords } from '../assistant.js'
+import { assistantEnabled, translateRussian, translateWords, wordGrammar } from '../assistant.js'
 
 // Hover dictionary: one English word → Russian, with IPA when the AI
 // assistant is configured. Results are cached for the life of the process.
@@ -147,6 +147,17 @@ async function googleRussian(text) {
   if (!items.length && main) items.push({ english: main, transcription: '', pos: '', note: '' })
   return items.slice(0, 6)
 }
+const grammarCache = new Map()
+async function grammarOf(word) {
+  if (grammarCache.has(word)) return grammarCache.get(word)
+  const grammar = await wordGrammar(word).catch(() => null)
+  if (grammar) {
+    if (grammarCache.size >= MAX_CACHE) grammarCache.clear()
+    grammarCache.set(word, grammar)
+  }
+  return grammar
+}
+
 dictionaryRouter.get('/translate', async (req, res) => {
   const text = String(req.query.q ?? '').trim().replace(/\s+/g, ' ')
   if (!text || text.length > 80) return res.status(400).json({ error: 'Type a word or a short phrase' })
@@ -163,8 +174,12 @@ dictionaryRouter.get('/translate', async (req, res) => {
       const withAudio = items.map((item) => ({ ...item, audio: `/api/dictionary/audio?word=${encodeURIComponent(item.english)}` }))
       return res.json({ direction: 'ru-en', query: text, items: withAudio })
     }
-    const entry = await lookupEntry(text.toLowerCase())
-    res.json({ direction: 'en-ru', query: text, entry })
+    const word = text.toLowerCase()
+    const [entry, grammar] = await Promise.all([
+      lookupEntry(word),
+      assistantEnabled() ? grammarOf(word) : null
+    ])
+    res.json({ direction: 'en-ru', query: text, entry, grammar })
   } catch (error) {
     res.status(502).json({ error: error.message })
   }

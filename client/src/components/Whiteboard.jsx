@@ -461,6 +461,29 @@ function cornerAt(box, point, scale) {
   })
 }
 
+// While cropping, a side can be taken anywhere along its line, not only at
+// its middle handle; corners (checked first) take priority.
+function cropSideAt(box, point, scale) {
+  const r = (HANDLE_PX + 2) / scale
+  const inX = point.x >= box.x - r && point.x <= box.x + box.w + r
+  const inY = point.y >= box.y - r && point.y <= box.y + box.h + r
+  if (inX && Math.abs(point.y - box.y) <= r) return 'n'
+  if (inX && Math.abs(point.y - (box.y + box.h)) <= r) return 's'
+  if (inY && Math.abs(point.x - box.x) <= r) return 'w'
+  if (inY && Math.abs(point.x - (box.x + box.w)) <= r) return 'e'
+  return null
+}
+
+// Moves one side of a crop box; the other three stay put.
+function moveSide(box, side, point) {
+  const right = box.x + box.w
+  const bottom = box.y + box.h
+  if (side === 'n') { const y = Math.min(point.y, bottom - MIN_SIZE); return { ...box, y, h: bottom - y } }
+  if (side === 's') return { ...box, h: Math.max(MIN_SIZE, point.y - box.y) }
+  if (side === 'w') { const x = Math.min(point.x, right - MIN_SIZE); return { ...box, x, w: right - x } }
+  return { ...box, w: Math.max(MIN_SIZE, point.x - box.x) }
+}
+
 // Resizes a box by dragging one corner; the opposite corner stays put.
 function resizeBox(box, corner, point, keepRatio) {
   const anchor = cornerPoint(box, { dx: 1 - corner.dx, dy: 1 - corner.dy })
@@ -2088,7 +2111,17 @@ const Whiteboard = forwardRef(function Whiteboard({ socketRef, boardId, title, s
         pointerRef.current = { mode: 'crop', corner, start: { ...cropRef.current } }
         return
       }
-      if (!hitTest(cropRef.current, point.x, point.y)) finishCrop()
+      const side = cropSideAt(cropRef.current, point, scale)
+      if (side) {
+        pointerRef.current = { mode: 'crop', side, start: { ...cropRef.current } }
+        return
+      }
+      // Inside the frame: slide the frame over the picture, same size.
+      if (hitTest(cropRef.current, point.x, point.y)) {
+        pointerRef.current = { mode: 'crop', slide: point, start: { ...cropRef.current } }
+        return
+      }
+      finishCrop()
       return
     }
 
@@ -2224,9 +2257,14 @@ const Whiteboard = forwardRef(function Whiteboard({ socketRef, boardId, title, s
       return
     }
 
-    // Crop mode: crosshair
+    // Crop mode: resize arrows on a corner or side, a move cross inside.
     if (cropRef.current) {
-      canvas.style.cursor = ''
+      const crop = cropRef.current
+      const point = toWorld(event)
+      const scale = viewRef.current.scale
+      const corner = cornerAt(crop, point, scale)
+      const side = corner ? null : cropSideAt(crop, point, scale)
+      canvas.style.cursor = corner ? CURSOR_FOR[corner.id] : side ? CURSOR_FOR[side] : hitTest(crop, point.x, point.y) ? 'move' : ''
       return
     }
 
@@ -2341,8 +2379,16 @@ const Whiteboard = forwardRef(function Whiteboard({ socketRef, boardId, title, s
     }
 
     if (pointer.mode === 'crop' && cropRef.current) {
-      const box = resizeBox(pointer.start, pointer.corner, point, false)
-      cropRef.current = cropFromBox(pointer.start, box)
+      const start = pointer.start
+      let box
+      if (pointer.slide) {
+        const full = fullImageBox(start)
+        const x = Math.max(full.x, Math.min(start.x + point.x - pointer.slide.x, full.x + full.w - start.w))
+        const y = Math.max(full.y, Math.min(start.y + point.y - pointer.slide.y, full.y + full.h - start.h))
+        box = { x, y, w: start.w, h: start.h }
+      } else if (pointer.side) box = moveSide(start, pointer.side, point)
+      else box = resizeBox(start, pointer.corner, point, false)
+      cropRef.current = cropFromBox(start, box)
       scheduleRender()
     }
   }
@@ -2506,15 +2552,34 @@ const Whiteboard = forwardRef(function Whiteboard({ socketRef, boardId, title, s
     const onEnd = (event) => { event.preventDefault(); gestureRef.current.base = null }
     // React's wheel listener is passive, so the page would zoom too.
     const blockPageZoom = (event) => event.preventDefault()
+    // A pinch that starts over the toolbar, a video or any other overlay
+    // never reached the canvas, and the browser zoomed the whole page —
+    // toolbars and videos went off screen. While the board is up, a pinch
+    // (ctrl+wheel) anywhere on the page zooms the board instead.
+    const pinchAnywhere = (event) => {
+      if (!event.ctrlKey || event.target === canvas) return
+      const rect = canvas.getBoundingClientRect()
+      if (!rect.width) return // the board is hidden (Writing is open)
+      event.preventDefault()
+      if (gestureRef.current.base !== null) return
+      zoomAroundRef.current(Math.exp(-event.deltaY * 0.006), event.clientX - rect.left, event.clientY - rect.top)
+    }
+    const gestureAnywhere = (event) => { if (event.target !== canvas && canvas.getBoundingClientRect().width) event.preventDefault() }
     canvas.addEventListener('wheel', blockPageZoom, { passive: false })
     canvas.addEventListener('gesturestart', onStart)
     canvas.addEventListener('gesturechange', onChange)
     canvas.addEventListener('gestureend', onEnd)
+    window.addEventListener('wheel', pinchAnywhere, { passive: false })
+    document.addEventListener('gesturestart', gestureAnywhere)
+    document.addEventListener('gesturechange', gestureAnywhere)
     return () => {
       canvas.removeEventListener('wheel', blockPageZoom)
       canvas.removeEventListener('gesturestart', onStart)
       canvas.removeEventListener('gesturechange', onChange)
       canvas.removeEventListener('gestureend', onEnd)
+      window.removeEventListener('wheel', pinchAnywhere)
+      document.removeEventListener('gesturestart', gestureAnywhere)
+      document.removeEventListener('gesturechange', gestureAnywhere)
     }
   }, [])
 
@@ -3210,7 +3275,7 @@ const Whiteboard = forwardRef(function Whiteboard({ socketRef, boardId, title, s
 
         {cropping ? (
           <div className="board-dock">
-            <span className="muted">Drag the corners to crop, then press Enter</span>
+            <span className="muted">Drag a corner or a side to crop, drag inside to move the frame, then press Enter</span>
             <button className="tool active" onClick={finishCrop}>Done</button>
             <button className="tool" onClick={cancelCrop}>Cancel</button>
           </div>

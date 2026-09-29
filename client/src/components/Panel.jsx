@@ -14,8 +14,9 @@ try {
   for (const key of Object.keys(localStorage)) if (key.startsWith('panel:')) localStorage.removeItem(key)
 } catch { /* private window */ }
 
-export default function Panel({ id, title, count, hint, defaultOpen = false, actions, children, className = '' }) {
-  const [open, setOpen] = useState(() => openedThisVisit.get(id) ?? defaultOpen)
+export default function Panel({ id, title, count, hint, defaultOpen = false, forceOpen = false, actions, children, className = '' }) {
+  const [openState, setOpen] = useState(() => openedThisVisit.get(id) ?? defaultOpen)
+  const open = forceOpen || openState
   const toggle = () => {
     setOpen((v) => {
       openedThisVisit.set(id, !v)

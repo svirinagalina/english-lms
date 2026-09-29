@@ -17,6 +17,7 @@ export default function Classrooms() {
   const [classrooms, setClassrooms] = useState([])
   const [mine, setMine] = useState(null)
   const [boardTitle, setBoardTitle] = useState('')
+  const [query, setQuery] = useState('')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(true)
   const [starting, setStarting] = useState(false)
@@ -88,8 +89,13 @@ export default function Classrooms() {
   // first, the other teachers' in a separate panel. A teacher only ever
   // receives their own from the server.
   const isAdmin = user.role === 'OWNER' || user.role === 'PARTNER'
-  const own = classrooms.filter((c) => user.role === 'STUDENT' || c.teacher?.id === user.id)
-  const others = isAdmin ? classrooms.filter((c) => c.teacher?.id !== user.id) : []
+  // Staff search: a student by name, a board by its title or who it's with.
+  const q = query.trim().toLowerCase()
+  const nameMatches = (c) => !q || (c.student?.name ?? '').toLowerCase().includes(q)
+  const boardMatches = (b) => !q || [b.title, ...(b.sharedWith?.map((c) => c.name) ?? [])].some((t) => (t ?? '').toLowerCase().includes(q))
+  const own = classrooms.filter((c) => user.role === 'STUDENT' || (c.teacher?.id === user.id && nameMatches(c)))
+  const others = isAdmin ? classrooms.filter((c) => c.teacher?.id !== user.id && nameMatches(c)) : []
+  const myBoards = mine ? mine.boards.filter(boardMatches) : []
   const otherTeachers = [...new Map(others.map((c) => [c.teacher.id, c.teacher])).values()]
 
   const studentList = (items) => (
@@ -136,7 +142,12 @@ export default function Classrooms() {
       {user.free && <FreeHome />}
       {!isStaff && !user.free && <StudentHome classrooms={classrooms} />}
 
-      {!user.free && <Panel id="home:students" title={user.role === 'STUDENT' ? 'My teachers' : 'My students'} count={own.length} defaultOpen={user.role === 'STUDENT'}>
+      {isStaff && (
+        <input className="home-search" type="search" placeholder="Search students and boards…" value={query}
+          onChange={(e) => setQuery(e.target.value)} />
+      )}
+
+      {!user.free && <Panel id="home:students" title={user.role === 'STUDENT' ? 'My teachers' : 'My students'} count={own.length} defaultOpen={user.role === 'STUDENT'} forceOpen={Boolean(q)}>
         <p className="muted" style={{ marginBottom: 10 }}>
           {user.role === 'STUDENT'
             ? 'Boards and materials from your lessons.'
@@ -147,7 +158,7 @@ export default function Classrooms() {
           <p className="muted">
             {user.role === 'STUDENT'
               ? 'You are not linked to a teacher yet.'
-              : 'No students yet. Invite one in the People section.'}
+              : q ? 'No student matches.' : 'No students yet. Invite one in the People section.'}
           </p>
         )}
 
@@ -155,7 +166,7 @@ export default function Classrooms() {
       </Panel>}
 
       {isAdmin && others.length > 0 && (
-        <Panel id="home:others" title="Other teachers’ students" count={others.length} hint="as administrator">
+        <Panel id="home:others" title="Other teachers’ students" count={others.length} hint="as administrator" forceOpen={Boolean(q)}>
           <p className="muted" style={{ marginBottom: 10 }}>
             Students linked to other teachers. Only the administrator sees this list; each teacher sees their own students only.
           </p>
@@ -169,7 +180,7 @@ export default function Classrooms() {
       )}
 
       {isStaff && mine && (
-        <Panel id="home:boards" title="My boards" count={mine.boards.length}>
+        <Panel id="home:boards" title="My boards" count={myBoards.length} forceOpen={Boolean(q)}>
           <p className="muted" style={{ marginBottom: 10 }}>
             Boards that belong to you rather than to a student — drafts, screenshots, reusable material.
             Use <strong>Assign</strong> to give one of these to a student (or several, for a pair or group lesson) — it becomes their one board, replacing whatever they had before.
@@ -183,10 +194,10 @@ export default function Classrooms() {
             <button type="submit">New board</button>
           </form>
 
-          {mine.boards.length === 0 && <p className="muted">No boards of your own yet — most work happens on the students' boards above.</p>}
+          {myBoards.length === 0 && <p className="muted">{q ? 'No board matches.' : 'No boards of your own yet — most work happens on the students\' boards above.'}</p>}
 
           <div className="list">
-            {mine.boards.map((board) => (
+            {myBoards.map((board) => (
               <BoardRow
                 key={board.id}
                 board={board}

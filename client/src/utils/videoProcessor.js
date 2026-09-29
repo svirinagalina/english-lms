@@ -1,6 +1,10 @@
 import { FilesetResolver, ImageSegmenter } from '@mediapipe/tasks-vision'
 import { isHandheld } from './device'
 
+/* global __MEDIAPIPE_VERSION__ */
+const CDN_WASM = `https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@${__MEDIAPIPE_VERSION__}/wasm`
+const withTimeout = (promise, ms) => Promise.race([promise, new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), ms))])
+
 // Person segmentation for the background blur. Runtime and model are served
 // from our own origin (see scripts/copy-mediapipe.js). Frames are analysed
 // at a reduced size — the mask is only used to cut the person out, so a
@@ -28,14 +32,33 @@ class VideoProcessor {
 
   async initialize() {
     if (this.initialized) return
-    this.vision = await FilesetResolver.forVisionTasks('/mediapipe/wasm')
+    // The runtime is ~2.5 MB even compressed and our server sends it slowly
+    // (half a minute on some links); jsDelivr has the same files in well
+    // under a second. Our own copy stays as the fallback for a blocked CDN.
+    try {
+      this.vision = await FilesetResolver.forVisionTasks(CDN_WASM)
+      await withTimeout(this.createSegmenterOnce(this.pickDelegate()), 20000)
+      this.initialized = true
+      this.maskStats = []
+      return
+    } catch {
+      this.vision = await FilesetResolver.forVisionTasks('/mediapipe/wasm')
+    }
     // Safari's WebGL gives the GPU path a mask that is all person or all
     // background (the blur then shows nothing): iPhones and iPads run the
     // model on the CPU from the start; elsewhere the GPU is tried first.
-    this.delegate = /iPhone|iPad|iPod/i.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1) ? 'CPU' : 'GPU'
+    this.delegate = this.pickDelegate()
     await this.createSegmenter(this.delegate)
     this.initialized = true
     this.maskStats = []
+  }
+
+  pickDelegate() {
+    return /iPhone|iPad|iPod/i.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1) ? 'CPU' : 'GPU'
+  }
+
+  async createSegmenterOnce(delegate) {
+    await this.createSegmenter(delegate)
   }
 
   async createSegmenter(delegate) {

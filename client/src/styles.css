@@ -1369,3 +1369,8 @@ button.locked-row:hover { border-color: var(--accent); opacity: .8; }
 .course-writing-result.ok { border-color: #7fd88f; background: rgba(127, 216, 143, 0.08); }
 .course-writing-result.bad { border-color: #e57373; background: rgba(229, 115, 115, 0.08); }
 .course-writing-fixed { font-weight: 600; }
+
+.home-search { width: 100%; box-sizing: border-box; margin: 0 0 12px; }
+.dict-grammar { display: flex; flex-wrap: wrap; gap: 6px; margin: 4px 0 2px; font-size: 13px; }
+.dict-forms { font-weight: 600; }
+.dict-count { padding: 1px 8px; border-radius: 999px; background: rgba(244, 185, 217, 0.22); }

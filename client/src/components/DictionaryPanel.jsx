@@ -75,6 +75,7 @@ export default function DictionaryPanel({ onClose, onAdd }) {
                   {addButton(item.english)}
                 </div>
                 {(item.pos || item.note) && <div className="muted dict-note">{[item.pos, item.note].filter(Boolean).join(' · ')}</div>}
+                <Grammar forms={item.forms} countability={item.countability} />
               </li>
             ))}
           </ul>
@@ -88,11 +89,23 @@ export default function DictionaryPanel({ onClose, onAdd }) {
             <PlayButton src={result.entry.audio} small />
             {addButton(result.query)}
           </div>
+          <Grammar forms={result.grammar?.forms} countability={result.grammar?.countability} />
           {result.entry.senses?.length
             ? <ul className="word-senses">{result.entry.senses.map((s) => <li key={s.pos}><em>{s.pos}</em> {s.translations.join(', ')}</li>)}</ul>
             : <div>{result.entry.translation}</div>}
         </div>
       )}
+    </div>
+  )
+}
+
+// A verb's three forms and a noun's countability, when the word has them.
+function Grammar({ forms, countability }) {
+  if (!forms && !countability) return null
+  return (
+    <div className="dict-grammar">
+      {forms && <span className="dict-forms">{forms}</span>}
+      {countability && <span className="dict-count">{countability}</span>}
     </div>
   )
 }
