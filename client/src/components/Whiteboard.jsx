@@ -885,6 +885,8 @@ const Whiteboard = forwardRef(function Whiteboard({ socketRef, boardId, title, s
   // (instead of panning) and clicks adding to the selection — for grabbing
   // several things at once without holding Shift.
   const [boxSelect, setBoxSelect] = useState(false)
+  // Space key pressed: temporary hand tool for panning
+  const spaceHeldRef = useRef(false)
   // A phone: no toolbars at all, just the board and the finger. A tap types
   // (into the text under it, or a new one), a drag moves what's under the
   // finger (or the board, on empty space), two fingers zoom.
@@ -895,7 +897,7 @@ const Whiteboard = forwardRef(function Whiteboard({ socketRef, boardId, title, s
   const pickTool = (id) => {
     setBoxSelect(id === 'area')
     setTool(id === 'area' ? 'select' : id)
-    if (id !== 'select' && id !== 'area') selectedRef.current = []
+    if (id !== 'select' && id !== 'area' && id !== 'hand') selectedRef.current = []
   }
   // render() reads the tool through a ref so its identity never changes:
   // the sync effect below must not re-open the board on every tool switch.
@@ -1716,6 +1718,12 @@ const Whiteboard = forwardRef(function Whiteboard({ socketRef, boardId, title, s
 
   useEffect(() => {
     const onKey = (event) => {
+      // Space: hold for temporary hand tool (pan)
+      if (event.code === 'Space') {
+        spaceHeldRef.current = true
+        return
+      }
+
       if (textInput && (event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'b') {
         event.preventDefault()
         toggleBold()
@@ -1741,14 +1749,82 @@ const Whiteboard = forwardRef(function Whiteboard({ socketRef, boardId, title, s
         event.preventDefault()
         remove(selectedRef.current)
       }
-      if (event.key === 'Escape') { selectedRef.current = []; scheduleRender(); bump() }
+      if (event.key === 'Escape') {
+        // Escape: cancel tool and return to select, or just clear selection
+        if (tool !== 'select') {
+          pickTool('select')
+          scheduleRender()
+          bump()
+        } else {
+          selectedRef.current = []
+          scheduleRender()
+          bump()
+        }
+        return
+      }
+
       const mod = event.metaKey || event.ctrlKey
       if (!mod && !event.altKey) {
+        // H: Hand Tool (pan)
+        if (event.key.toLowerCase() === 'h') {
+          event.preventDefault()
+          pickTool('hand')
+          scheduleRender()
+          bump()
+          return
+        }
+
+        // Tool shortcuts from TOOLS array
         const shortcut = TOOLS.find((item) => item.key.toLowerCase() === event.key.toLowerCase())
           ?? null
-        if (onMistake && event.key.toLowerCase() === 'x' && !shortcut) { event.preventDefault(); setMistakesOpen((v) => !v); return }
-        if (shortcut) { pickTool(shortcut.id); scheduleRender(); bump(); return }
+        if (onMistake && event.key.toLowerCase() === 'x' && !shortcut) {
+          event.preventDefault()
+          setMistakesOpen((v) => !v)
+          return
+        }
+        if (shortcut) {
+          pickTool(shortcut.id)
+          scheduleRender()
+          bump()
+          return
+        }
+
+        // Zoom hotkeys
+        if (event.key === '1') {
+          event.preventDefault()
+          if (event.shiftKey) {
+            // Shift+1: zoom to 100%
+            zoomTo(1)
+          } else {
+            // 1: fit all on screen
+            fitAll(1)
+          }
+          return
+        }
+        if (event.key === '+' || event.key === '=') {
+          event.preventDefault()
+          zoomAround(1.25, window.innerWidth / 2, window.innerHeight / 2)
+          return
+        }
+        if (event.key === '-' || event.key === '_') {
+          event.preventDefault()
+          zoomAround(0.8, window.innerWidth / 2, window.innerHeight / 2)
+          return
+        }
       }
+
+      // Cmd/Ctrl + zoom
+      if (mod && (event.key === '+' || event.key === '=')) {
+        event.preventDefault()
+        zoomAround(1.25, window.innerWidth / 2, window.innerHeight / 2)
+        return
+      }
+      if (mod && (event.key === '-' || event.key === '_')) {
+        event.preventDefault()
+        zoomAround(0.8, window.innerWidth / 2, window.innerHeight / 2)
+        return
+      }
+
       if (mod && event.key.toLowerCase() === 'z') {
         event.preventDefault()
         event.shiftKey ? redo() : undo()
@@ -1778,8 +1854,18 @@ const Whiteboard = forwardRef(function Whiteboard({ socketRef, boardId, title, s
       }
       // Cmd+V is handled by the paste listener so image and object pastes share one path.
     }
+    const onKeyUp = (event) => {
+      // Space released: return to previous tool
+      if (event.code === 'Space') {
+        spaceHeldRef.current = false
+      }
+    }
     document.addEventListener('keydown', onKey)
-    return () => document.removeEventListener('keydown', onKey)
+    document.addEventListener('keyup', onKeyUp)
+    return () => {
+      document.removeEventListener('keydown', onKey)
+      document.removeEventListener('keyup', onKeyUp)
+    }
   })
 
   // --- Pointer ----------------------------------------------------------------
@@ -1954,7 +2040,20 @@ const Whiteboard = forwardRef(function Whiteboard({ socketRef, boardId, title, s
     clearTimeout(dwellTimerRef.current)
     workSpotRef.current = point
 
+    // Middle mouse button (button === 1) or Alt key always enable panning, regardless of tool
     if (event.button === 1 || event.altKey) {
+      pointerRef.current = { mode: 'pan', startX: event.clientX, startY: event.clientY, origin: { ...viewRef.current } }
+      return
+    }
+
+    // Space key held: temporary hand tool for panning
+    if (spaceHeldRef.current && event.button === 0) {
+      pointerRef.current = { mode: 'pan', startX: event.clientX, startY: event.clientY, origin: { ...viewRef.current } }
+      return
+    }
+
+    // Hand tool: left click + drag to pan
+    if (tool === 'hand' && event.button === 0) {
       pointerRef.current = { mode: 'pan', startX: event.clientX, startY: event.clientY, origin: { ...viewRef.current } }
       return
     }
@@ -2095,7 +2194,26 @@ const Whiteboard = forwardRef(function Whiteboard({ socketRef, boardId, title, s
   const updateHoverCursor = (event) => {
     const canvas = canvasRef.current
     if (!canvas) return
-    if (tool !== 'select' || cropRef.current) { canvas.style.cursor = ''; return }
+
+    // Hand tool: always grab cursor (panning is always possible)
+    if (tool === 'hand' || spaceHeldRef.current) {
+      canvas.style.cursor = 'grab'
+      return
+    }
+
+    // Crop mode: crosshair
+    if (cropRef.current) {
+      canvas.style.cursor = ''
+      return
+    }
+
+    // Pen/marker/shapes: crosshair (already set via CSS for tool-pen, etc.)
+    if (tool !== 'select') {
+      canvas.style.cursor = ''
+      return
+    }
+
+    // Select tool: depends on what's under the cursor
     const point = toWorld(event)
     const scale = viewRef.current.scale
     const items = selectedElements()
