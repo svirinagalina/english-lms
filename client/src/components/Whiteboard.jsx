@@ -1718,8 +1718,9 @@ const Whiteboard = forwardRef(function Whiteboard({ socketRef, boardId, title, s
 
   useEffect(() => {
     const onKey = (event) => {
-      // Space: hold for temporary hand tool (pan)
-      if (event.code === 'Space') {
+      // Space held (not while typing anywhere): a temporary hand tool.
+      const typing = textInput || ['INPUT', 'TEXTAREA', 'SELECT'].includes(event.target.tagName) || event.target.isContentEditable
+      if (event.code === 'Space' && !typing) {
         spaceHeldRef.current = true
         return
       }
@@ -1803,12 +1804,12 @@ const Whiteboard = forwardRef(function Whiteboard({ socketRef, boardId, title, s
         }
         if (event.key === '+' || event.key === '=') {
           event.preventDefault()
-          zoomAround(1.25, window.innerWidth / 2, window.innerHeight / 2)
+          zoomAroundCentre(1.25)
           return
         }
         if (event.key === '-' || event.key === '_') {
           event.preventDefault()
-          zoomAround(0.8, window.innerWidth / 2, window.innerHeight / 2)
+          zoomAroundCentre(0.8)
           return
         }
       }
@@ -1816,12 +1817,12 @@ const Whiteboard = forwardRef(function Whiteboard({ socketRef, boardId, title, s
       // Cmd/Ctrl + zoom
       if (mod && (event.key === '+' || event.key === '=')) {
         event.preventDefault()
-        zoomAround(1.25, window.innerWidth / 2, window.innerHeight / 2)
+        zoomAroundCentre(1.25)
         return
       }
       if (mod && (event.key === '-' || event.key === '_')) {
         event.preventDefault()
-        zoomAround(0.8, window.innerWidth / 2, window.innerHeight / 2)
+        zoomAroundCentre(0.8)
         return
       }
 
@@ -1854,6 +1855,12 @@ const Whiteboard = forwardRef(function Whiteboard({ socketRef, boardId, title, s
       }
       // Cmd+V is handled by the paste listener so image and object pastes share one path.
     }
+    const zoomAroundCentre = (factor) => {
+      const box = canvasRef.current?.getBoundingClientRect()
+      if (box) zoomAround(factor, box.width / 2, box.height / 2)
+    }
+    const onBlur = () => { spaceHeldRef.current = false }
+    window.addEventListener('blur', onBlur)
     const onKeyUp = (event) => {
       // Space released: return to previous tool
       if (event.code === 'Space') {
@@ -1865,6 +1872,7 @@ const Whiteboard = forwardRef(function Whiteboard({ socketRef, boardId, title, s
     return () => {
       document.removeEventListener('keydown', onKey)
       document.removeEventListener('keyup', onKeyUp)
+      window.removeEventListener('blur', onBlur)
     }
   })
 
