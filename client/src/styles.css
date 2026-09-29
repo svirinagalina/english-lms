@@ -669,6 +669,10 @@ select.pill { padding: 0 16px; color: var(--text); border: none; }
   justify-content: center;
   cursor: pointer;
 }
+/* Writing has a full-width bar of its own at the top and no dock: the call
+   controls go to the bottom instead of covering Accept/Reject. */
+.lesson-page.board-mode.writing-mode .controls { top: auto; bottom: 16px; }
+.lesson-page.board-mode.writing-mode .more-menu { top: auto; bottom: calc(100% + 8px); }
 .lesson-page.board-mode .controls {
   /* The same 44px row as the board chip (left) and the zoom group (right);
      centred between them by script (see Call.jsx), not in the whole width. */

@@ -334,18 +334,26 @@ export default function Writing({ socketRef, classroomId, user, title, subtitle,
     return () => { socket.off('connect', reopen); socket.off('doc:update', onUpdate) }
   }, [socketRef, classroomId])
 
+  const lastSelRef = useRef(null)
   // Restore the caret after every re-render caused by an edit.
+  // Also after a render that only moved the caret: the spelling underline
+  // is re-wrapped around the words then, which replaces the text node the
+  // caret sat in — left alone, the next letter landed at the word's start.
   useLayoutEffect(() => {
     const root = editorRef.current
-    if (root && caretRef.current !== null && document.activeElement === root) {
-      setCaret(root, caretRef.current)
+    if (root && document.activeElement === root) {
+      const last = lastSelRef.current
+      if (caretRef.current !== null) setCaret(root, caretRef.current)
+      else if (last && last.start === last.end) {
+        const now = selectionOffsets(root)
+        if (!now || now.start !== last.start || now.end !== last.end) setCaret(root, last.end)
+      }
     }
     caretRef.current = null
   })
 
   // The last place the caret was in the text, for tools that take focus
   // away (a file dialog, the screen picker) before they insert anything.
-  const lastSelRef = useRef(null)
   const [selection, setSelection] = useState(null) // { start, end } while something is highlighted
   const [caretAt, setCaretAt] = useState(null) // the caret, while it's in the text
   useEffect(() => {
