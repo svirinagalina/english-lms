@@ -168,7 +168,7 @@ function markupToHtml(text) {
         run.color ? `color:${inkOf(run.color)}` : ''
       ].filter(Boolean).join(';')
       return style ? `<span style="${style}">${escapeHtml(run.text)}</span>` : escapeHtml(run.text)
-    }).join('') || '<br>'
+    }).join('') || '&nbsp;'
   ).join('<br>')
 }
 
