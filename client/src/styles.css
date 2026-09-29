@@ -1374,3 +1374,8 @@ button.locked-row:hover { border-color: var(--accent); opacity: .8; }
 .dict-grammar { display: flex; flex-wrap: wrap; gap: 6px; margin: 4px 0 2px; font-size: 13px; }
 .dict-forms { font-weight: 600; }
 .dict-count { padding: 1px 8px; border-radius: 999px; background: rgba(244, 185, 217, 0.22); }
+
+/* A double-click or a drag across the videos selected them like text and
+   painted a tile blue; they are pictures, never selectable. */
+.tiles, .video-tile, .video-tile video, .tile-label, .lesson-page .controls { -webkit-user-select: none; user-select: none; }
+.video-tile video::selection, .video-tile::selection { background: transparent; }
