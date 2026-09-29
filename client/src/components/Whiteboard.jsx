@@ -65,7 +65,11 @@ function imageFor(src) {
 // --- Text ---------------------------------------------------------------------
 // Text keeps a light markup: **bold** spans. Everything else is plain.
 
-const FONT_FAMILY = '-apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif'
+// One web font for everyone (self-hosted, see main.jsx): with the system
+// font, a line was a different length on a Mac, Windows and a phone, so text
+// laid over a picture sat off on the other side and a pointed-at word wasn't
+// where the other person saw it.
+const FONT_FAMILY = 'Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif'
 const LINE_HEIGHT = 1.25
 // Big enough for a heading read from far out on a zoomed-out board.
 const MAX_FONT_SIZE = 2000
@@ -1187,6 +1191,17 @@ const Whiteboard = forwardRef(function Whiteboard({ socketRef, boardId, title, s
       viewHookRef.current?.()
     })
   }, [render])
+
+  // Text drawn before the font arrived was measured in a fallback font:
+  // measure and draw again once it's in.
+  useEffect(() => {
+    if (!document.fonts?.load) return
+    let live = true
+    Promise.all(['400', '700', 'italic 400', 'italic 700'].map((w) => document.fonts.load(`${w} 16px Inter`)))
+      .then(() => { if (!live) return; widthCache.clear(); layoutCache.clear(); scheduleRender() })
+      .catch(() => {})
+    return () => { live = false }
+  }, [scheduleRender])
 
   useEffect(() => { requestRepaint = scheduleRender }, [scheduleRender])
   useEffect(() => { scheduleRender() }, [tool, scheduleRender])

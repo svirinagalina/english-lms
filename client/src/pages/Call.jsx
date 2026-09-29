@@ -896,7 +896,42 @@ export default function Call() {
     }
   }, [isBlurEnabled, blurAmount, background])
 
+  // Camera off releases the device (a disabled track kept the camera's light
+  // on); camera on opens it again and puts it back into the call and the blur.
+  const cameraBusyRef = useRef(false)
+  const setCamera = async (next) => {
+    if (cameraBusyRef.current) return
+    const stream = localStreamRef.current
+    cameraOnRef.current = next
+    setCameraOn(next)
+    if (blurOutRef.current) blurOutRef.current.track.enabled = next
+    if (!stream) return
+    if (!next) {
+      stream.getVideoTracks().forEach((t) => { t.stop(); stream.removeTrack(t) })
+      return
+    }
+    const live = stream.getVideoTracks().find((t) => t.readyState === 'live')
+    if (live) { live.enabled = true; return }
+    cameraBusyRef.current = true
+    try {
+      const fresh = await navigator.mediaDevices.getUserMedia({ video: true })
+      const track = fresh.getVideoTracks()[0]
+      if (!cameraOnRef.current) { track.stop(); return }
+      stream.addTrack(track)
+      if (localVideoRef.current) { localVideoRef.current.srcObject = stream; localVideoRef.current.play().catch(() => {}) }
+      if (!blurOutRef.current && !screenStreamRef.current) await swapOutgoingVideo(track)
+    } catch (err) {
+      cameraOnRef.current = false
+      setCameraOn(false)
+      if (blurOutRef.current) blurOutRef.current.track.enabled = false
+      setMediaWarning(`Camera is not available (${err?.name === 'NotAllowedError' ? 'not allowed' : err?.message ?? err}).`)
+    } finally {
+      cameraBusyRef.current = false
+    }
+  }
+
   const toggleTrack = (kind) => () => {
+    if (kind === 'video') { setCamera(!cameraOnRef.current); return }
     localStreamRef.current?.getTracks().filter((t) => t.kind === kind).forEach((t) => { t.enabled = !t.enabled })
     if (kind === 'audio') {
       const next = !micOnRef.current
@@ -905,12 +940,6 @@ export default function Call() {
       micOnRef.current = next
       setMicOn(next)
       socketRef.current?.emit('mic:state', { muted: !next, denoised: denoisedRef.current })
-    } else {
-      // The blurred picture goes dark with the camera, not frozen on a frame.
-      const next = !cameraOn
-      cameraOnRef.current = next
-      if (blurOutRef.current) blurOutRef.current.track.enabled = next
-      setCameraOn(next)
     }
   }
   // On the join screen the same switches act on the preview stream.
