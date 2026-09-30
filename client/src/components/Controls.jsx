@@ -120,11 +120,10 @@ const Controls = forwardRef(function Controls({
             title="Open a board"
           >
             <option value="">Board…</option>
-            {boards.map((board) => (
-              <option key={board.id} value={board.id}>
-                {board.student ? `${board.student} — ${board.title}` : board.title}
-              </option>
-            ))}
+            {/* Alphabetical: typing a name with the list open jumps to it. */}
+            {[...boards].map((board) => ({ board, label: board.student ? `${board.student} — ${board.title}` : board.title }))
+              .sort((a, b) => a.label.localeCompare(b.label))
+              .map(({ board, label }) => <option key={board.id} value={board.id}>{label}</option>)}
           </select>
         )
       )}

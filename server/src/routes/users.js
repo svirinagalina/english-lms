@@ -23,7 +23,9 @@ const personView = (user) => ({
   trialRequestNote: user.trialRequestNote,
   contact: [user.messenger, user.phone].filter(Boolean).join(' · ') || null,
   teachers: user.studentLinks?.map((link) => ({ id: link.teacher.id, name: link.teacher.name })),
-  students: user.teacherLinks?.map((link) => ({ id: link.student.id, name: link.student.name }))
+  students: user.teacherLinks?.map((link) => ({ id: link.student.id, name: link.student.name })),
+  // A student's cabinets (one per teacher), for "Open cabinet" in People.
+  classrooms: user.studentClassrooms?.map((c) => ({ id: c.id, teacherId: c.teacherId }))
 })
 
 const SELECT = {
@@ -31,7 +33,8 @@ const SELECT = {
   priceAmount: true, priceCurrency: true, paymentLink: true, paidUntil: true,
   free: true, trialRequestedAt: true, trialRequestNote: true, messenger: true, phone: true,
   studentLinks: { include: { teacher: { select: { id: true, name: true } } } },
-  teacherLinks: { include: { student: { select: { id: true, name: true } } } }
+  teacherLinks: { include: { student: { select: { id: true, name: true } } } },
+  studentClassrooms: { select: { id: true, teacherId: true } }
 }
 
 // Everyone sees a different slice: the owner sees the school, a teacher sees
@@ -136,9 +139,16 @@ usersRouter.patch('/:id/role', async (req, res) => {
 })
 
 // Name and email of a student or teacher can be corrected by an admin.
-usersRouter.patch('/:id', requireRole('OWNER'), async (req, res) => {
+// The owner edits anyone's name and email; a teacher, the name of one of
+// their own students (a typo, a surname added after a trial lesson).
+usersRouter.patch('/:id', requireRole('OWNER', 'TEACHER', 'PARTNER'), async (req, res) => {
   const name = typeof req.body?.name === 'string' ? req.body.name.trim() : undefined
-  const email = typeof req.body?.email === 'string' ? req.body.email.trim().toLowerCase() : undefined
+  let email = typeof req.body?.email === 'string' ? req.body.email.trim().toLowerCase() : undefined
+  if (req.user.role !== 'OWNER') {
+    const own = await prisma.teacherStudent.findFirst({ where: { teacherId: req.user.id, studentId: req.params.id } })
+    if (!own) return res.status(403).json({ error: 'You can only rename your own students' })
+    email = undefined
+  }
   if (name !== undefined && (name.length < 2 || name.length > 80)) return res.status(400).json({ error: 'Name must be 2–80 characters' })
   if (email !== undefined && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return res.status(400).json({ error: 'Invalid email' })
 

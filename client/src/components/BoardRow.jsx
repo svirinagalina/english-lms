@@ -7,6 +7,7 @@ export default function BoardRow({ board, classroomId, targets, canEdit, onOpen,
   const [assigning, setAssigning] = useState(false)
   const [busy, setBusy] = useState(null) // the target id currently toggling
   const [notice, setNotice] = useState('')
+  const [find, setFind] = useState('')
 
   const currentIds = new Set([board.classroomId, ...(board.sharedWith?.map((c) => c.id) ?? [])].filter(Boolean))
 
@@ -63,8 +64,9 @@ export default function BoardRow({ board, classroomId, targets, canEdit, onOpen,
           <span className="muted" style={{ display: 'block', marginBottom: 8 }}>
             Who this board belongs to. Checking a student gives them this board and takes away whatever they had before — a student is only ever on one board.
           </span>
+          <input className="home-search" type="search" placeholder="Find a student…" value={find} onChange={(e) => setFind(e.target.value)} />
           <div className="assign-list">
-            {targets.map((target) => {
+            {targets.filter((t) => currentIds.has(t.id) || !find.trim() || (t.label ?? '').toLowerCase().includes(find.trim().toLowerCase())).map((target) => {
               const checked = currentIds.has(target.id)
               return (
                 <label key={target.id} className="assign-item">

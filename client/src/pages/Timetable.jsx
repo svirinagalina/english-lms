@@ -19,6 +19,7 @@ export default function Timetable() {
   const [starting, setStarting] = useState(null) // the lesson whose call is being opened
 
   const [showForm, setShowForm] = useState(false)
+  const [studentFind, setStudentFind] = useState('')
   const [formData, setFormData] = useState({
     startTime: '',
     studentIds: [],
@@ -362,7 +363,9 @@ export default function Timetable() {
                       maxHeight: 260,
                       overflowY: 'auto'
                     }}>
-                      {students.map(student => (
+                      <input type="search" placeholder="Find a student…" value={studentFind} onChange={(e) => setStudentFind(e.target.value)}
+                        style={{ width: 'calc(100% - 16px)', margin: 8, boxSizing: 'border-box' }} />
+                      {students.filter((s) => formData.studentIds.includes(s.id) || !studentFind.trim() || s.name.toLowerCase().includes(studentFind.trim().toLowerCase())).map(student => (
                         <label key={student.id} style={{
                           display: 'flex',
                           alignItems: 'center',

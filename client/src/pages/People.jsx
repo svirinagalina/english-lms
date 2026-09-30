@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../AuthContext'
 import { api } from '../api'
 import Nav from '../components/Nav'
@@ -147,10 +148,12 @@ export default function People() {
   }
 
   const [editing, setEditing] = useState(null) // { id, name, email }
+  const [query, setQuery] = useState('')
+  const navigate = useNavigate()
   const saveEdit = async () => {
     setError('')
     try {
-      await api.updateUser(editing.id, { name: editing.name, email: editing.email })
+      await api.updateUser(editing.id, user.role === 'OWNER' ? { name: editing.name, email: editing.email } : { name: editing.name })
       setEditing(null)
       await refresh()
     } catch (err) {
@@ -161,7 +164,7 @@ export default function People() {
     <div className="link-editor">
       <div className="row-actions">
         <input value={editing.name} onChange={(e) => setEditing({ ...editing, name: e.target.value })} placeholder="Full name" />
-        <input type="email" value={editing.email} onChange={(e) => setEditing({ ...editing, email: e.target.value })} placeholder="Email" />
+        {user.role === 'OWNER' && <input type="email" value={editing.email} onChange={(e) => setEditing({ ...editing, email: e.target.value })} placeholder="Email" />}
         <button onClick={saveEdit}>Save</button>
         <button className="ghost" onClick={() => setEditing(null)}>Cancel</button>
       </div>
@@ -198,13 +201,18 @@ export default function People() {
 
   if (loading) return <div className="centered">Loading…</div>
 
-  const staff = people.filter((p) => p.role !== 'STUDENT')
-  const students = people.filter((p) => p.role === 'STUDENT' && !p.free)
+  // One search for every list here: a name or an email.
+  const q = query.trim().toLowerCase()
+  const found = people.filter((p) => !q || [p.name, p.email].some((t) => (t ?? '').toLowerCase().includes(q)))
+  const staff = found.filter((p) => p.role !== 'STUDENT')
+  const students = found.filter((p) => p.role === 'STUDENT' && !p.free)
   // Signed up in the app, no teacher yet; trial-lesson requests first.
-  const freeUsers = people.filter((p) => p.role === 'STUDENT' && p.free)
+  const freeUsers = found.filter((p) => p.role === 'STUDENT' && p.free)
     .sort((a, b) => (b.trialRequestedAt ?? '').localeCompare(a.trialRequestedAt ?? '') || b.createdAt.localeCompare(a.createdAt))
   const requests = freeUsers.filter((p) => p.trialRequestedAt).length
 
+  // The student's cabinet (board, Writing, lessons paid…): mine first.
+  const cabinetOf = (person) => (person.classrooms?.find((c) => c.teacherId === user.id) ?? person.classrooms?.[0])?.id
   // Only the administrator hands out roles.
   const roleSelect = (person) => user.role === 'OWNER' && (
     <select
@@ -223,6 +231,8 @@ export default function People() {
       <Nav title="People" />
 
       {error && <div className="error">{error}</div>}
+
+      <input className="home-search" type="search" placeholder="Search people by name or email…" value={query} onChange={(e) => setQuery(e.target.value)} />
 
       {!mail.enabled && (
         <div className="notice">
@@ -287,7 +297,7 @@ export default function People() {
         </Panel>
       )}
 
-      <Panel id="people:team" title="Team" count={staff.length}>
+      <Panel id="people:team" title="Team" count={staff.length} forceOpen={Boolean(q)}>
         <p className="muted" style={{ marginBottom: 10 }}>
           A partner has the same access as the administrator, except for changing roles.
         </p>
@@ -321,7 +331,7 @@ export default function People() {
       </Panel>
 
       {freeUsers.length > 0 && (
-        <Panel id="people:free" title="Free app users" count={freeUsers.length} defaultOpen={requests > 0}
+        <Panel id="people:free" title="Free app users" count={freeUsers.length} defaultOpen={requests > 0} forceOpen={Boolean(q)}
           hint={requests ? `${requests} asked for a trial lesson` : 'signed up in the app'}>
           <p className="muted" style={{ marginBottom: 10 }}>
             They signed up by themselves and use the free plan (the first grammar units, part of the vocabulary, the dictionary, the trainer's trial).
@@ -383,19 +393,24 @@ export default function People() {
                   </div>
                 </div>
                 <div className="row-actions">
+                  {cabinetOf(person) && (
+                    <button onClick={() => navigate(`/classroom/${cabinetOf(person)}`)} title="Board, Writing, lessons paid and held">Open cabinet</button>
+                  )}
                   {roleSelect(person)}
                   <button className="ghost" onClick={() => setEditing(editing?.id === person.id ? null : { id: person.id, name: person.name, email: person.email })}>
                     {editing?.id === person.id ? 'Close' : 'Edit'}
                   </button>
-                  <button
+                  {user.role === 'OWNER' && <button
                     className="ghost"
                     onClick={() => setLinking(linking === person.id ? null : person.id)}
                   >
                     {linking === person.id ? 'Close' : 'Change teacher'}
-                  </button>
-                  <button className="ghost" onClick={() => removePerson(person.id, person.name, person.role)}>
-                    Remove
-                  </button>
+                  </button>}
+                  {user.role === 'OWNER' && (
+                    <button className="ghost" onClick={() => removePerson(person.id, person.name, person.role)}>
+                      Remove
+                    </button>
+                  )}
                 </div>
               </div>
 
