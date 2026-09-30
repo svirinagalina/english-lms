@@ -583,6 +583,27 @@ export default function Writing({ socketRef, classroomId, user, title, subtitle,
   // before or after the paragraph under the pointer (never splitting one),
   // shown by a line while dragging.
   const [dropLine, setDropLine] = useState(null) // { offset, top } in the page wrap
+  // The line lives only while dragover keeps coming (every ~50 ms): a drag
+  // that ends anywhere else — dropped outside, cancelled, the macOS
+  // screenshot thumbnail pulled back — gave no dragleave and left it stuck.
+  const dropLineTimer = useRef(null)
+  useEffect(() => {
+    if (!dropLine) return
+    clearTimeout(dropLineTimer.current)
+    dropLineTimer.current = setTimeout(() => setDropLine(null), 400)
+    return () => clearTimeout(dropLineTimer.current)
+  }, [dropLine])
+  useEffect(() => {
+    const clear = () => setDropLine(null)
+    window.addEventListener('dragend', clear)
+    window.addEventListener('drop', clear)
+    window.addEventListener('pointerdown', clear)
+    return () => {
+      window.removeEventListener('dragend', clear)
+      window.removeEventListener('drop', clear)
+      window.removeEventListener('pointerdown', clear)
+    }
+  }, [])
   const dropSpot = (event) => {
     const root = editorRef.current
     if (!root) return null
@@ -934,7 +955,7 @@ export default function Writing({ socketRef, classroomId, user, title, subtitle,
             if (![...(e.dataTransfer?.types ?? [])].includes('Files')) return
             e.preventDefault()
             const spot = dropSpot(e)
-            if (spot && (spot.offset !== dropLine?.offset || spot.top !== dropLine?.top)) setDropLine(spot)
+            if (spot) setDropLine(spot)
           }}
           onDragLeave={(e) => { if (!e.currentTarget.contains(e.relatedTarget)) setDropLine(null) }}
           onDrop={(e) => {
