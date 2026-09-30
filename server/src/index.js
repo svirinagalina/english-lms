@@ -37,7 +37,6 @@ import { startPushJobs } from './push.js'
 import { loadAiSettings } from './settings.js'
 import { setupSignaling } from './signaling.js'
 import { flushBoards } from './boardStore.js'
-import { adventWebhook } from './adventLessons.js'
 import { flushDocuments } from './docStore.js'
 
 const app = express()
@@ -47,8 +46,6 @@ app.set('trust proxy', 1)
 const clientOrigin = process.env.CLIENT_ORIGIN ?? 'http://localhost:5173'
 
 app.use(cors({ origin: clientOrigin, credentials: true }))
-// Advent's lesson webhook reads its raw body (signed), so it comes first.
-app.use('/api/advent/webhook', adventWebhook)
 app.use(express.json({ limit: '8mb' }))
 app.use(cookieParser())
 

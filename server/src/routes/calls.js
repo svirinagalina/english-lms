@@ -4,7 +4,6 @@ import { z } from 'zod'
 import { prisma } from '../db.js'
 import { requireAuth, requireRole, LOCKED } from '../auth.js'
 import { notifyCallStarted } from '../push.js'
-import { linkCallToAdventLesson, adventCallEnded } from '../adventLessons.js'
 import { accessibleClassroom, ensurePersonalSpace } from './classrooms.js'
 
 export const callsRouter = Router()
@@ -132,7 +131,6 @@ callsRouter.post('/', requireRole('OWNER', 'TEACHER'), async (req, res) => {
       },
       include: { host: { select: { id: true, name: true } } }
     })
-    await linkCallToAdventLesson(created).catch((error) => console.error('[advent] link', error.message))
     return { call: created, reused: false }
   })
 
@@ -199,6 +197,5 @@ callsRouter.post('/:id/end', requireRole('OWNER', 'TEACHER'), async (req, res) =
   if (!call) return res.status(404).json({ error: 'Call not found' })
 
   await prisma.call.update({ where: { id: call.id }, data: { endedAt: new Date() } })
-  adventCallEnded(call.id).catch(() => {})
   res.json({ ok: true })
 })

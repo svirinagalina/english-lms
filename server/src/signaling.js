@@ -13,7 +13,6 @@ import {
 } from './boardStore.js'
 import { loadDocument, replaceDocument, runsSchema } from './docStore.js'
 import { buildSummary } from './lessonSummary.js'
-import { adventCallPresence, adventCallEnded } from './adventLessons.js'
 import { notifyHomeworkLater, notifyAfterLessonLater } from './push.js'
 
 // A call that resumes within this window continues the previous session rather
@@ -124,7 +123,7 @@ export function setupSignaling(io) {
       }
       if (idle.length) {
         await prisma.call.updateMany({ where: { id: { in: idle }, endedAt: null }, data: { endedAt: new Date() } })
-        for (const id of idle) { callLastSeen.delete(id); adventCallEnded(id).catch(() => {}) }
+        for (const id of idle) callLastSeen.delete(id)
         console.log(`Closed ${idle.length} idle call(s)`)
       }
       // Scratch boards belong to one call each; a restart can orphan them.
@@ -257,7 +256,6 @@ export function setupSignaling(io) {
       socket.data.inCall = true
       socket.join(roomId)
       callLastSeen.set(call.id, Date.now())
-      adventCallPresence(call.id, user.role, true).catch(() => {})
 
       const peers = []
       for (const id of io.sockets.adapter.rooms.get(roomId) ?? []) {
@@ -537,7 +535,6 @@ export function setupSignaling(io) {
       if (!roomId) return
 
       socket.to(roomId).emit('user-left', socket.id)
-      if (socket.data.inCall) adventCallPresence(socket.data.callId, user.role, false).catch(() => {})
 
       // Close the session once nobody is left on the call.
       let stillOnCall = 0
@@ -560,7 +557,6 @@ export function setupSignaling(io) {
           const still = [...(io.sockets.adapter.rooms.get(roomId) ?? [])].length
           if (still) return
           await prisma.call.updateMany({ where: { id: callId, endedAt: null }, data: { endedAt: new Date() } }).catch(() => {})
-          adventCallEnded(callId).catch(() => {})
           // A scratch board made for a boardless call (no student attached)
           // was only ever for this one call: gone with it, not left behind
           // cluttering the teacher's own boards.
