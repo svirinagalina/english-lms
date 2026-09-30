@@ -712,3 +712,46 @@ model CourseExercise {
 
   @@index([lessonId])
 }
+
+// A lesson booked on the Advent site (advent.js/adventLessons.js): Advent
+// sends it by webhook, it lands in the teacher's Timetable, and once a call
+// is started for it the platform reports back when it started, how it ended
+// and — for a trial — the report.
+model AdventLesson {
+  id              String    @id @default(cuid())
+  adventId        String    @unique
+  kind            String    // trial | regular
+  title           String
+  topic           String?
+  startsAt        DateTime
+  durationMin     Int
+  status          String    // scheduled | cancelled
+  isTest          Boolean   @default(false)
+  teacherId       String
+  studentAdventId String?
+  studentName     String?
+  studentTelegram String?
+  studentEmail    String?
+  calendarEventId String?
+  callId          String?   @unique
+  classroomId     String?
+  teacherJoinedAt DateTime?
+  teacherLeftAt   DateTime?
+  studentJoinedAt DateTime?
+  studentLeftAt   DateTime?
+  startedSentAt   DateTime?
+  finishedSentAt  DateTime?
+  outcome         String?
+  reportSentAt    DateTime?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  @@index([teacherId, startsAt])
+}
+
+// Advent webhook events already handled, so a retry never creates a lesson twice.
+model AdventEvent {
+  id        String   @id
+  lessonId  String?
+  createdAt DateTime @default(now())
+}

@@ -10,6 +10,7 @@ import { addElement } from '../boardStore.js'
 import { broadcastBoardAdd } from '../signaling.js'
 import { assistantEnabled } from '../assistant.js'
 import { sendTrialReportEmail } from '../mailer.js'
+import { linkCallToAdventLesson, adventTrialReport } from '../adventLessons.js'
 import { notifyCallStarted } from '../push.js'
 
 // Trial lessons: a call that opens on the student's board with the
@@ -74,6 +75,7 @@ trialsRouter.post('/', requireRole('OWNER', 'TEACHER'), async (req, res) => {
     data: { classroomId: classroom.id, studentId: classroom.studentId, teacherId: req.user.id, callId: call.id }
   })
   notifyCallStarted(call.id)
+  await linkCallToAdventLesson(call).catch((error) => console.error('[advent] link', error.message))
   res.status(201).json({ call: { id: call.id, token: call.token, link: `${originOf(req)}/call/${call.token}` }, reportId: report.id, boardId: board.id, focusId })
 })
 
@@ -144,6 +146,7 @@ trialsRouter.post('/:id/publish', requireRole('OWNER', 'TEACHER'), async (req, r
   if (!report.generated) return res.status(400).json({ error: 'Generate the report first' })
   const publishing = !req.body?.unpublish
   const updated = await prisma.trialReport.update({ where: { id: report.id }, data: { publishedAt: publishing ? new Date() : null } })
+  if (publishing) adventTrialReport(updated).catch(() => {})
   // The student gets the report by email the moment it is published.
   let mailed = false
   if (publishing) {
