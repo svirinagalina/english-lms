@@ -1013,7 +1013,11 @@ export default function Call() {
   const shareScreen = async () => {
     if (screenStreamRef.current) { await stopSharing(); return }
     try {
-      const stream = await navigator.mediaDevices.getDisplayMedia({ video: true, audio: false })
+      // A Retina screen at full size is ~5K pixels a frame: heavy to send and
+      // no sharper for the viewer. Full HD at 15 fps, tuned for crisp text.
+      const stream = await navigator.mediaDevices.getDisplayMedia({ video: { width: { max: 1920 }, height: { max: 1080 }, frameRate: { max: 15 } }, audio: false })
+      const screenTrack = stream.getVideoTracks()[0]
+      if (screenTrack && 'contentHint' in screenTrack) screenTrack.contentHint = 'detail'
       screenStreamRef.current = stream
       setScreenStream(stream)
       if (screenVideoRef.current) screenVideoRef.current.srcObject = stream

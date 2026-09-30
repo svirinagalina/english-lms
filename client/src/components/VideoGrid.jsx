@@ -207,6 +207,16 @@ export default function VideoGrid({
     lastPoint.current = null
   }
 
+  // The preview <video> only exists once sharing has started, so the stream
+  // is attached here, after it renders — set before, it went nowhere and the
+  // sharer saw a black box (and could not draw on it).
+  useEffect(() => {
+    const video = screenVideoRef.current
+    if (!video || !screenStream) return
+    if (video.srcObject !== screenStream) video.srcObject = screenStream
+    video.play().catch(() => {})
+  }, [screenStream, screenVideoRef])
+
   const handleScreenLoaded = () => {
     const video = screenVideoRef.current
     const canvas = drawingCanvasRef.current
