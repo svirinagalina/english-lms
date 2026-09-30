@@ -139,6 +139,21 @@ export default function Timetable() {
     }
   }
 
+  // A lesson booked on Advent is cancelled there too: Advent tells the
+  // student. Editing or plain deleting it here would leave Advent out of step.
+  const cancelAdvent = async (lesson) => {
+    const reason = window.prompt('Отменить урок? Advent сообщит ученику.\nПричина:')
+    if (reason === null) return
+    if (!reason.trim()) { setError('Write the reason for cancelling'); return }
+    try {
+      await api.cancelAdventLesson(lesson.advent.id, reason.trim())
+      setError('')
+      await refresh()
+    } catch (err) {
+      setError(err.message)
+    }
+  }
+
   const handleDeleteEvent = (lesson) => {
     setEventToDelete(lesson)
     if (lesson.recurrence) setDeleteConfirm(true)
@@ -170,7 +185,14 @@ export default function Timetable() {
     setShowForm(true)
   }
 
-  const editDeleteButtons = (lesson, small) => isStaff && (
+  const editDeleteButtons = (lesson, small) => isStaff && (lesson.advent ? (
+    <div style={{ display: 'flex', gap: small ? 4 : 6, marginTop: small ? 4 : 6 }}>
+      <button type="button" className="timetable-edit" style={small ? { fontSize: 10 } : undefined} onClick={() => cancelAdvent(lesson)}
+        title="Cancel this lesson here and on Advent; the student is told">
+        Cancel lesson
+      </button>
+    </div>
+  ) : (
     <div style={{ display: 'flex', gap: small ? 4 : 6, marginTop: small ? 4 : 6 }}>
       <button
         type="button"
@@ -189,7 +211,7 @@ export default function Timetable() {
         Delete
       </button>
     </div>
-  )
+  ))
 
   const startButton = (lesson, small) => isStaff && (
     <button

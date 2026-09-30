@@ -167,6 +167,18 @@ adventWebhook.post('/', express.raw({ type: '*/*', limit: '1mb' }), async (req, 
   }
 })
 
+// Cancelled on the platform (a Timetable button): its teacher or an admin.
+export async function cancelAdventLesson(id, user, reason) {
+  const lesson = await prisma.adventLesson.findUnique({ where: { id } })
+  const admin = user.role === 'OWNER' || user.role === 'PARTNER'
+  if (!lesson || (lesson.teacherId !== user.id && !admin)) throw Object.assign(new Error('Lesson not found'), { status: 404 })
+  if (lesson.status === 'cancelled') return
+  if (!adventLessonsEnabled()) throw Object.assign(new Error('The Advent connection is not set up'), { status: 503 })
+  await adventApi('POST', `/lessons/${encodeURIComponent(lesson.adventId)}/cancel`, { reason, cancelled_by: lesson.teacherId === user.id ? 'teacher' : 'admin' })
+  if (lesson.calendarEventId) await prisma.userCalendarEvent.deleteMany({ where: { id: lesson.calendarEventId } })
+  await prisma.adventLesson.update({ where: { id }, data: { status: 'cancelled', calendarEventId: null } })
+}
+
 // --- The call side ------------------------------------------------------------
 
 // A call a teacher starts is the lesson Advent booked for them now: the same

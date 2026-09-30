@@ -217,6 +217,7 @@ export const api = {
   listCalendarEvents: (start, end) => request(`/personal/calendar${start || end ? `?${new URLSearchParams({ ...(start && { start }), ...(end && { end }) }).toString()}` : ''}`),
   createCalendarEvent: (body) => request('/personal/calendar', { method: 'POST', body }),
   updateCalendarEvent: (id, body) => request(`/personal/calendar/${id}`, { method: 'PATCH', body }),
+  cancelAdventLesson: (id, reason) => request(`/personal/advent-lessons/${id}/cancel`, { method: 'POST', body: { reason } }),
   deleteCalendarEvent: (id, deleteAll) => request(`/personal/calendar/${id}${deleteAll ? '?deleteAll=true' : ''}`, { method: 'DELETE' }),
 
   // Courses: self-paced skillsets (IELTS, etc), browsable on their own and

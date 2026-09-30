@@ -1,3 +1,4 @@
+import { cancelAdventLesson } from '../adventLessons.js'
 import { Router } from 'express'
 import { z } from 'zod'
 import { prisma } from '../db.js'
@@ -146,17 +147,36 @@ personalRouter.get('/calendar', async (req, res) => {
     select: { id: true, name: true }
   })
   const studentMap = new Map(students.map(s => [s.id, s]))
+  // Lessons booked on the Advent site carry their link, for "Cancel lesson".
+  const advent = new Map((await prisma.adventLesson.findMany({
+    where: { calendarEventId: { in: events.map((e) => e.id) } }, select: { id: true, kind: true, calendarEventId: true }
+  })).map((a) => [a.calendarEventId, { id: a.id, kind: a.kind }]))
 
   // Expand recurring events into instances
   const allInstances = events.flatMap(event => {
     const instances = generateRecurringInstances(event, rangeStart, rangeEnd)
     return instances.map(inst => ({
       ...inst,
+      advent: req.user.role === 'STUDENT' ? null : advent.get(event.id) ?? null,
       students: (inst.studentIds || []).map(id => studentMap.get(id)).filter(Boolean)
     }))
   })
 
   res.json({ events: allInstances })
+})
+
+// A lesson booked on Advent, cancelled from the platform: Advent is told
+// (it warns the student and Maxim) and the lesson leaves the Timetable.
+personalRouter.post('/advent-lessons/:id/cancel', async (req, res) => {
+  if (req.user.role === 'STUDENT') return res.status(403).json({ error: 'Only staff can cancel lessons' })
+  const reason = String(req.body?.reason ?? '').trim().slice(0, 300)
+  if (!reason) return res.status(400).json({ error: 'Write the reason' })
+  try {
+    await cancelAdventLesson(req.params.id, req.user, reason)
+    res.json({ ok: true })
+  } catch (error) {
+    res.status(error.status ?? 502).json({ error: error.message })
+  }
 })
 
 personalRouter.post('/calendar', async (req, res) => {
