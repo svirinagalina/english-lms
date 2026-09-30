@@ -471,6 +471,7 @@ export default function Call() {
         if (pc.iceConnectionState === 'failed') restart()
         else if (pc.iceConnectionState === 'disconnected') restartTimer = setTimeout(() => { if (pc.iceConnectionState === 'disconnected') restart() }, 4000)
       }
+      pc.onconnectionstatechange = () => { if (pc.connectionState === 'connected') limitVideoRef.current?.() }
       connectionsRef.current[peerId] = pc
       return pc
     }
@@ -930,6 +931,39 @@ export default function Call() {
     }
   }
 
+  // Every participant sends their video to every other one directly, so in a
+  // group each person uploads it two, three times over — upload speed is
+  // what ran out and made pictures and sound break up. With three or more
+  // people the camera goes out smaller (360p, 15 fps, ~300 kbps); a shared
+  // screen keeps full size so text stays readable; one-to-one is untouched.
+  const limitVideo = () => {
+    const pcs = Object.values(connectionsRef.current)
+    const group = pcs.length >= 2
+    const sharing = Boolean(screenStreamRef.current)
+    for (const pc of pcs) {
+      const sender = pc.getSenders().find((s) => s.track?.kind === 'video')
+      if (!sender) continue
+      const params = sender.getParameters()
+      if (!params.encodings?.length) continue
+      const height = sender.track.getSettings?.().height || 480
+      const encoding = params.encodings[0]
+      if (group && !sharing) {
+        encoding.maxBitrate = 300000
+        encoding.maxFramerate = 15
+        encoding.scaleResolutionDownBy = Math.max(1, height / 360)
+      } else {
+        delete encoding.maxBitrate
+        delete encoding.maxFramerate
+        encoding.scaleResolutionDownBy = 1
+      }
+      sender.setParameters(params).catch(() => {})
+    }
+  }
+  const limitVideoRef = useRef(null)
+  limitVideoRef.current = limitVideo
+  const peerCount = Object.keys(peers).length
+  useEffect(() => { limitVideo() }, [peerCount, screenStream]) // eslint-disable-line react-hooks/exhaustive-deps
+
   const toggleTrack = (kind) => () => {
     if (kind === 'video') { setCamera(!cameraOnRef.current); return }
     localStreamRef.current?.getTracks().filter((t) => t.kind === kind).forEach((t) => { t.enabled = !t.enabled })
@@ -966,6 +1000,7 @@ export default function Call() {
       const sender = pc.getSenders().find((s) => s.track?.kind === 'video')
       if (sender && track) await sender.replaceTrack(track).catch(() => {})
     }
+    limitVideoRef.current?.()
   }
   const stopSharing = async () => {
     const stream = screenStreamRef.current
