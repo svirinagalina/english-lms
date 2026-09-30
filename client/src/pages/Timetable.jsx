@@ -465,6 +465,10 @@ export default function Timetable() {
                           {namesOf(lesson) && !lesson.title.includes(namesOf(lesson)) && (
                             <div style={{ fontSize: 11, color: 'rgba(20, 69, 63, 0.75)', marginTop: 2 }}>👤 {namesOf(lesson)}</div>
                           )}
+                          {/* A trial booked on Advent: the steps before it, in short (full text in the day list). */}
+                          {/Пробный урок/.test(lesson.title) && /Advent/.test(lesson.title) && (
+                            <div style={{ fontSize: 10, color: '#9d174d', marginTop: 4, lineHeight: 1.3 }}>Доска → Assign ученику → кнопка Trial lesson</div>
+                          )}
                           {startButton(lesson, true)}
                           {editDeleteButtons(lesson, true)}
                         </div>
@@ -515,6 +519,9 @@ export default function Timetable() {
                                   <div style={{ fontSize: 13, color: 'rgba(20, 69, 63, 0.75)', marginTop: 4 }}>
                                     👤 {namesOf(lesson)}
                                   </div>
+                                )}
+                                {lesson.description && (
+                                  <div style={{ fontSize: 13, color: '#14453f', marginTop: 6, whiteSpace: 'pre-line', lineHeight: 1.4 }}>{lesson.description}</div>
                                 )}
                                 {startButton(lesson)}
                               </div>
