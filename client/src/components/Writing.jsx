@@ -4,6 +4,7 @@ import { isEnglishWord, lookupWord, wordAt } from '../utils/dictionary'
 import WordCard from './WordCard'
 import DictionaryPanel from './DictionaryPanel'
 import { autocorrectWord } from '../utils/autocorrect'
+import { initialVim, vimKey, clampNormal, lineStart, lineEnd } from '../utils/vim'
 import { isMisspelled, loadSpeller, obviousFix } from '../utils/spell'
 import '../styles/writing.css'
 
@@ -428,6 +429,77 @@ export default function Writing({ socketRef, classroomId, user, title, subtitle,
     })
   }
 
+  // Vim mode: per browser, off by default. Starts in insert mode, so the
+  // page behaves as usual until Esc.
+  const [vimOn, setVimOn] = useState(() => { try { return localStorage.getItem('writing.vim') === '1' } catch { return false } })
+  const vimRef = useRef(initialVim())
+  const [vimMode, setVimMode] = useState('insert')
+  const toggleVim = () => {
+    setVimOn((on) => {
+      try { localStorage.setItem('writing.vim', on ? '0' : '1') } catch { /* storage unavailable */ }
+      vimRef.current = initialVim(); setVimMode('insert')
+      return !on
+    })
+    editorRef.current?.focus()
+  }
+  const selectOffsets = (from, to) => {
+    const range = rangeOf(editorRef.current, from, to)
+    if (!range) return
+    const selection = window.getSelection()
+    selection.removeAllRanges()
+    selection.addRange(range)
+  }
+  // Returns true when the key was Vim's.
+  const handleVimKey = (event) => {
+    const state = vimRef.current
+    if (event.key === 'Escape' && state.mode === 'insert') {
+      event.preventDefault()
+      const sel = selectionOffsets(editorRef.current)
+      const text = fullText(runsRef.current)
+      vimRef.current = { ...state, mode: 'normal' }; setVimMode('normal')
+      if (sel) setCaret(editorRef.current, clampNormal(text, Math.max(lineStart(text, sel.start), sel.start - 1)))
+      return true
+    }
+    if (state.mode === 'insert') return false
+    if (event.ctrlKey && event.key.toLowerCase() === 'r') { event.preventDefault(); redo(); return true }
+    if (event.metaKey || event.ctrlKey || event.altKey) return false // ⌘C, ⌘A… stay the browser's
+    if (event.key.startsWith('Arrow') || event.key === 'Tab') return false
+    const key = { Backspace: 'h', Enter: 'j', ' ': 'l' }[event.key] ?? event.key
+    if (key.length !== 1 && key !== 'Escape') return true
+    event.preventDefault()
+    const text = fullText(runsRef.current)
+    const sel = selectionOffsets(editorRef.current)
+    const visual = state.mode === 'visual' || state.mode === 'vline'
+    // The teacher's deletions stay in the text, struck through: step over them.
+    const at = visual ? (state.cursor ?? sel?.end ?? 0) : skipStruck(runsRef.current, sel?.start ?? 0, 1)
+    const result = vimKey(state, key, text, at)
+    const next = result.state
+    if (result.undo) for (let n = 0; n < result.undo; n++) undo()
+    let cursor = result.cursor
+    if (result.edits?.length) {
+      let runs = runsRef.current
+      for (const [from, to, insert] of result.edits) if (from !== to || insert) runs = applyEdit(runs, from, to, insert, actor).runs
+      if (cursor != null) cursor = skipStruck(runs, Math.min(cursor, totalLength(runs)), 1)
+      if (next.mode !== 'insert' && cursor != null) cursor = clampNormal(fullText(runs), cursor)
+      commit(runs, cursor)
+    } else if (result.select) {
+      const [anchor, head] = result.select
+      next.cursor = head
+      let from = Math.min(anchor, head), to = Math.max(anchor, head) + 1
+      if (next.mode === 'vline') { from = lineStart(text, from); to = lineEnd(text, to - 1) }
+      selectOffsets(from, Math.min(to, text.length))
+    } else if (cursor != null) {
+      setCaret(editorRef.current, next.mode === 'insert' ? cursor : clampNormal(text, cursor))
+    }
+    // The caret-restoring effect trusts the last selection it saw; tell it
+    // about the move now, before selectionchange would.
+    if (!result.edits?.length) lastSelRef.current = selectionOffsets(editorRef.current)
+    if (next.mode !== 'visual' && next.mode !== 'vline') { next.anchor = null; next.cursor = null }
+    vimRef.current = next
+    setVimMode(next.mode)
+    return true
+  }
+
   // After a space, punctuation or Enter, fixes the word just finished —
   // only when it's the actor's own text, never someone else's.
   const autocorrectBefore = (runs, at) => {
@@ -472,6 +544,8 @@ export default function Writing({ socketRef, classroomId, user, title, subtitle,
     // browser must never change the DOM on its own (bold, native undo…),
     // or the marks would drift away from the text.
     event.preventDefault()
+    // Vim normal/visual mode: keys are commands, nothing gets typed.
+    if (vimOn && vimRef.current.mode !== 'insert') return
     let { start, end } = sel
     // The browser says exactly what it meant to replace (a word for
     // Option+Backspace, the misspelling for an autocorrect).
@@ -529,7 +603,9 @@ export default function Writing({ socketRef, classroomId, user, title, subtitle,
   // Backspace and Delete are handled on keydown: it always fires, while some
   // browsers skip beforeinput for them in a contentEditable.
   const handleKeyDown = (event) => {
-    if (event.key === 'Escape') { setPopover(null); return }
+    if (event.key === 'Escape') setPopover(null)
+    if (vimOn && handleVimKey(event)) return
+    if (event.key === 'Escape') return
     if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'z') {
       event.preventDefault()
       event.shiftKey ? redo() : undo()
@@ -921,6 +997,9 @@ export default function Writing({ socketRef, classroomId, user, title, subtitle,
           <button className={`tool ${autocorrect ? 'active' : ''}`} onMouseDown={(e) => e.preventDefault()} onClick={toggleAutocorrect} title="Fix common typos as you type (teh → the, i → I, capital letters) and underline misspellings">
             Autocorrect {autocorrect ? 'on' : 'off'}
           </button>
+          <button className={`tool ${vimOn ? 'active' : ''}`} onMouseDown={(e) => e.preventDefault()} onClick={toggleVim} title="Vim keys: Esc for normal mode (hjkl, w b e, dd, yy, p, u, v…), i to type again">
+            {vimOn ? `Vim: ${{ insert: 'INSERT', normal: 'NORMAL', visual: 'VISUAL', vline: 'V-LINE' }[vimMode]}` : 'Vim off'}
+          </button>
           <button className="tool" onMouseDown={(e) => e.preventDefault()} onClick={addSlot} title="Make a place for a screenshot where the caret is — drag a screenshot onto it later, or click it and paste">Screenshot</button>
         </div>
       </div>
@@ -939,7 +1018,7 @@ export default function Writing({ socketRef, classroomId, user, title, subtitle,
       <div className="writing-page-wrap" onClick={(e) => { if (e.target === e.currentTarget) setPopover(null) }}>
         <div
           ref={editorRef}
-          className="writing-page notranslate"
+          className={`writing-page notranslate${vimOn && vimMode !== 'insert' ? ' vim-normal' : ''}`}
           translate="no"
           contentEditable={loaded}
           suppressContentEditableWarning
