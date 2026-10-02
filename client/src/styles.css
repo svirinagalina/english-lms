@@ -370,8 +370,13 @@ input[type='range'] { width: 110px; padding: 0; }
   max-height: 60vh;
   overflow-y: auto;
 }
-.theory p { margin: 0 0 14px; white-space: pre-line; } /* a single line break is a list row */
+.theory-block { margin: 0 0 14px; }
+.theory-block:last-child { margin-bottom: 0; }
+.theory p { margin: 0 0 10px; white-space: pre-line; } /* a single line break is a list row */
 .theory p:last-child { margin-bottom: 0; }
+.theory-list { margin: 0 0 10px; padding-left: 20px; display: flex; flex-direction: column; gap: 10px; }
+.theory-list:last-child { margin-bottom: 0; }
+.theory-list li::marker { color: var(--accent); }
 .theory-note {
   padding: 10px 14px;
   border-left: 3px solid var(--accent);

@@ -1,0 +1,12 @@
+{
+  "theory": [
+    { "chapter": 8, "find": "на такое уж simple", "replace": "не такое уж simple" },
+    { "chapter": 8, "find": "I am meeting my friends tomorrow.\n\nОбратите внимание", "replace": "I am meeting my friends tomorrow. Обратите внимание" },
+    { "chapter": 8, "find": "(Завтра я буду дома). — Когда", "replace": "(Завтра я буду дома).\n— Когда" },
+    { "chapter": 8, "find": "The\n\ntrain comes", "replace": "The train comes" },
+    { "chapter": 9, "find": "(Я еще не нашел новую работу). — Опыт", "replace": "(Я еще не нашел новую работу).\n— Опыт" },
+    { "chapter": 11, "find": "желательно ставить\n\nперед ними can", "replace": "желательно ставить перед ними can" },
+    { "chapter": 11, "find": "Но иногда\n\nappear", "replace": "Но иногда appear" },
+    { "chapter": 16, "find": "предлогов for\n\nи since", "replace": "предлогов for и since" }
+  ]
+}

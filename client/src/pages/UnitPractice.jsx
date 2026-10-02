@@ -5,6 +5,13 @@ import { api } from '../api'
 // Theory text: paragraphs, "!" notes as callouts, English examples set apart.
 const ENGLISH_RUN = /((?:[A-Za-z][A-Za-z'’]*[,.!?;:]?\s?){2,}|\b[A-Za-z][A-Za-z'’]{2,}\b)/g
 
+const ITEM = /^[—–•-]\s+/
+const withEnglish = (text) => text.split(ENGLISH_RUN).map((part, i) =>
+  i % 2 === 1 ? <span key={i} className="theory-en">{part}</span> : part
+)
+
+// Lines starting with a dash are the book's lists ("— Если вы…"): shown as
+// list items, each with room around it, instead of one dense block.
 function Theory({ text }) {
   const paragraphs = text.split(/\n\n+/).map((p) => p.trim()).filter(Boolean)
   return (
@@ -12,13 +19,22 @@ function Theory({ text }) {
       {paragraphs.map((paragraph, index) => {
         const note = paragraph.startsWith('!')
         const body = note ? paragraph.replace(/^!\s*/, '') : paragraph
-        const parts = body.split(ENGLISH_RUN)
+        const blocks = []
+        for (const line of body.split('\n')) {
+          const item = ITEM.test(line)
+          const last = blocks[blocks.length - 1]
+          if (item) {
+            if (last?.list) last.items.push(line.replace(ITEM, ''))
+            else blocks.push({ list: true, items: [line.replace(ITEM, '')] })
+          } else if (last && !last.list) last.lines.push(line)
+          else blocks.push({ list: false, lines: [line] })
+        }
         return (
-          <p key={index} className={note ? 'theory-note' : undefined}>
-            {parts.map((part, i) =>
-              i % 2 === 1 ? <span key={i} className="theory-en">{part}</span> : part
-            )}
-          </p>
+          <div key={index} className={`theory-block${note ? ' theory-note' : ''}`}>
+            {blocks.map((block, i) => block.list
+              ? <ul key={i} className="theory-list">{block.items.map((item, j) => <li key={j}>{withEnglish(item)}</li>)}</ul>
+              : <p key={i}>{withEnglish(block.lines.join('\n'))}</p>)}
+          </div>
         )
       })}
     </div>

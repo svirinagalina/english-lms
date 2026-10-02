@@ -22,7 +22,19 @@ const CONTRACTIONS = [
   [/\bwe are\b/g, "we're"],
   [/\byou are\b/g, "you're"],
   [/\bhe is\b/g, "he's"],
-  [/\bshe is\b/g, "she's"]
+  [/\bshe is\b/g, "she's"],
+  [/\bwould not\b/g, "wouldn't"],
+  [/\bshould not\b/g, "shouldn't"],
+  [/\bcould not\b/g, "couldn't"],
+  [/\bmust not\b/g, "mustn't"],
+  [/\bneed not\b/g, "needn't"],
+  [/\bshall not\b/g, "shan't"],
+  [/\blet us\b/g, "let's"],
+  [/\b(what|where|who|how|here) is\b/g, "$1's"],
+  // will → 'll and have → 've after a pronoun ("I will have" = "I'll have").
+  // 'd and 's-for-has are left out: they stand for two different words.
+  [/\b(i|you|he|she|it|we|they|there|that) will\b/g, "$1'll"],
+  [/\b(i|you|we|they) have\b/g, "$1've"]
 ]
 
 // Spellings and short forms that mean the same word. Each entry maps a

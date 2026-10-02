@@ -885,8 +885,17 @@ export default function Writing({ socketRef, classroomId, user, title, subtitle,
     if (node?.nodeType === Node.TEXT_NODE && root.contains(node) && !node.parentElement.closest('.run.image')) {
       const box = r.getBoundingClientRect()
       if (box.height && event.clientY >= box.top - 4 && event.clientY <= box.bottom + 4) return // real text: the browser got it right
+      // An empty line between paragraphs is only a line break, whose caret
+      // box has no height: the browser still put the caret on that line,
+      // unless it fell back to the very start of the document.
+      if (offsetOf(root, node, r.startOffset) > 0) return
     }
-    const pictures = [...root.querySelectorAll('.run.image')].filter((el) => el.getBoundingClientRect().bottom <= event.clientY + 2)
+    // Only a picture right above the click (its row, or the gap just under
+    // it) — a click far below must never pull the caret up to it.
+    const pictures = [...root.querySelectorAll('.run.image')].filter((el) => {
+      const box = el.getBoundingClientRect()
+      return box.bottom <= event.clientY + 2 && event.clientY - box.bottom < 40
+    })
     const above = pictures[pictures.length - 1]
     if (!above) return
     const index = Number(above.dataset.run)
