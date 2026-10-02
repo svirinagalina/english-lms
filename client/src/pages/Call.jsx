@@ -267,6 +267,14 @@ export default function Call() {
     startDenoiser(rawTrack, () => false)
     return true
   }
+  // Key presses anywhere on the page (board, writing, chat) are passed to the
+  // gate, which keeps keyboard clicks out of the microphone.
+  useEffect(() => {
+    const onKey = (event) => { if (!event.repeat) denoiserRef.current?.keystroke?.() }
+    window.addEventListener('keydown', onKey, true)
+    window.addEventListener('keyup', onKey, true)
+    return () => { window.removeEventListener('keydown', onKey, true); window.removeEventListener('keyup', onKey, true) }
+  }, [])
   // Microphone picker (More): the browser's list, refreshed when a device is
   // plugged in or out. Labels only appear once mic access was granted.
   const [mics, setMics] = useState([])

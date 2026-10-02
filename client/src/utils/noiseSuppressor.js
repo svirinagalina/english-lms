@@ -32,6 +32,23 @@ class QuietGate extends AudioWorkletProcessor {
     this.gain = 0
     this.hold = 0
     this.isOpen = false
+    // Typing: the page tells us about every key press/release. For ~200 ms
+    // after one, a click must not open the gate: it takes a louder and
+    // longer sound (a voice, -36 dBFS for 40 ms) to open it, and an already
+    // open gate (speaking while typing) is ducked to a quarter.
+    this.keyBlocks = 0
+    this.keyWindow = Math.ceil(0.2 * sampleRate / 128)
+    this.typingOpen = Math.pow(10, -36 / 20)
+    this.above = 0
+    this.openFor = 0
+    this.port.onmessage = () => {
+      this.keyBlocks = this.keyWindow
+      // A click that already began to open the gate is closed again.
+      if (this.isOpen && this.openFor < this.longBlocks) { this.isOpen = false; this.hold = 0 }
+    }
+    // Opening from silence needs ~15 ms of sound (a click is shorter).
+    this.shortBlocks = Math.ceil(0.015 * sampleRate / 128)
+    this.longBlocks = Math.ceil(0.04 * sampleRate / 128)
   }
   process(inputs, outputs) {
     const input = inputs[0]
@@ -41,9 +58,18 @@ class QuietGate extends AudioWorkletProcessor {
     let sum = 0
     for (let i = 0; i < x.length; i++) sum += x[i] * x[i]
     const rms = Math.sqrt(sum / x.length)
-    if (rms > this.open) { this.isOpen = true; this.hold = this.holdBlocks }
-    else if (rms < this.close) { if (this.hold > 0) this.hold--; else this.isOpen = false }
-    const target = this.isOpen ? 1 : 0
+    const typing = this.keyBlocks > 0
+    if (typing) this.keyBlocks--
+    const threshold = typing ? this.typingOpen : this.open
+    if (rms > threshold) {
+      this.above++
+      if (this.isOpen || this.above >= (typing ? this.longBlocks : this.shortBlocks)) { this.isOpen = true; this.hold = this.holdBlocks }
+    } else {
+      this.above = 0
+      if (rms < this.close) { if (this.hold > 0) this.hold--; else this.isOpen = false }
+    }
+    this.openFor = this.isOpen ? this.openFor + 1 : 0
+    const target = this.isOpen ? (typing ? 0.25 : 1) : 0
     const coef = target > this.gain ? this.attack : this.release
     this.gain = target + (this.gain - target) * coef
     if (this.gain < 0.001) this.gain = 0
@@ -166,6 +192,7 @@ async function buildDenoiser(micTrack, engine) {
     engine,
     levels: () => ({ raw: rms(rawMeter), clean: rms(cleanMeter), out: rms(outMeter), state: ctx.state }),
     resume: () => ctx.resume().catch(() => {}),
+    keystroke: () => gate.port.postMessage(1),
     stop() {
       ctx.removeEventListener('statechange', onState)
       try { source.disconnect(); node.disconnect(); gate.disconnect(); node.destroy?.() } catch { /* already gone */ }
