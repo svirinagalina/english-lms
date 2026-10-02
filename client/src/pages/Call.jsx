@@ -10,7 +10,7 @@ import Whiteboard from '../components/Whiteboard'
 import Writing from '../components/Writing'
 import { videoProcessor } from '../utils/videoProcessor'
 import { denoiseTrack, primeDenoiser, preloadDenoiser, isDenoiserSupported } from '../utils/noiseSuppressor'
-import { isMobile, isHandheld, useNarrow } from '../utils/device'
+import { isMobile, isHandheld, isLowPower, useNarrow } from '../utils/device'
 import { BACKGROUNDS } from '../backgrounds'
 
 // Older Safari cannot blur inside a canvas; there the layer is blurred by CSS.
@@ -73,7 +73,7 @@ const AUDIO_CONSTRAINTS = { echoCancellation: true, noiseSuppression: true, auto
 // A phone draws 15 frames a second but runs the model on every other one
 // (videoProcessor.recompose fills in with the last mask).
 const BLUR_FPS = 15
-const SEGMENT_EVERY = isHandheld() ? 2 : 1
+const SEGMENT_EVERY = isLowPower() ? 2 : 1
 const OUT_WIDTH = 640
 // A line in the server log about what this device did: enough to read a
 // failure without asking the person for screenshots.
@@ -105,6 +105,8 @@ export default function Call() {
   const [mediaWarning, setMediaWarning] = useState('')
   const [peers, setPeers] = useState({})
   const peersRef = useRef(peers)
+  // Upload the browser estimates on the worst link, in bit/s (null = unknown).
+  const availOutRef = useRef(null)
   peersRef.current = peers
   const [screenStream, setScreenStream] = useState(null)
   // Blur is on from the start; it can be switched off in the call.
@@ -947,30 +949,52 @@ export default function Call() {
 
   // Every participant sends their video to every other one directly, so in a
   // group each person uploads it two, three times over — upload speed is
-  // what ran out and made pictures and sound break up. With three or more
-  // people the camera goes out smaller (360p, 15 fps, ~300 kbps); a shared
-  // screen keeps full size so text stays readable; one-to-one is untouched.
+  // what ran out and made pictures and sound break up. In a group the camera
+  // goes out at 240p/12 fps/200 kbps (180p/120 kbps from five people); a
+  // shared screen keeps full size so text stays readable.
+  // Sound comes first: audio is marked high priority so a congested link
+  // drops picture before voice. The camera budget per copy shrinks with the
+  // group and with the upload the browser measures (availOutRef, from the
+  // net.health poll); below ~60 kbps a copy the camera is paused for that
+  // peer and only voice goes out, until the link recovers.
   const limitVideo = () => {
     const pcs = Object.values(connectionsRef.current)
-    const group = pcs.length >= 2
+    const n = pcs.length
     const sharing = Boolean(screenStreamRef.current)
+    const avail = availOutRef.current
     for (const pc of pcs) {
-      const sender = pc.getSenders().find((s) => s.track?.kind === 'video')
-      if (!sender) continue
-      const params = sender.getParameters()
-      if (!params.encodings?.length) continue
-      const height = sender.track.getSettings?.().height || 480
-      const encoding = params.encodings[0]
-      if (group && !sharing) {
-        encoding.maxBitrate = 300000
-        encoding.maxFramerate = 15
-        encoding.scaleResolutionDownBy = Math.max(1, height / 360)
-      } else {
-        delete encoding.maxBitrate
-        delete encoding.maxFramerate
-        encoding.scaleResolutionDownBy = 1
+      for (const sender of pc.getSenders()) {
+        if (!sender.track) continue
+        const params = sender.getParameters()
+        if (!params.encodings?.length) continue
+        const encoding = params.encodings[0]
+        if (sender.track.kind === 'audio') {
+          encoding.priority = 'high'
+          encoding.networkPriority = 'high'
+          sender.setParameters(params).catch(() => {})
+          continue
+        }
+        const height = sender.track.getSettings?.().height || 480
+        let budget = null, targetHeight = null, fps = null
+        if (sharing) {
+          if (n >= 2) budget = 500000
+        } else if (n >= 4) { budget = 120000; targetHeight = 180; fps = 12 }
+        else if (n >= 2) { budget = 200000; targetHeight = 240; fps = 12 }
+        if (avail && !sharing) {
+          // Leave room for every copy of the voice (~40 kbps each).
+          const fair = Math.floor(((avail - 40000 * n) * 0.8) / n)
+          if (budget === null || fair < budget) budget = Math.max(0, fair)
+          if (budget < 250000) { targetHeight = Math.min(targetHeight ?? 240, budget < 120000 ? 180 : 240); fps = Math.min(fps ?? 15, 12) }
+        }
+        encoding.active = budget === null || budget >= 60000
+        if (budget !== null) encoding.maxBitrate = Math.max(budget, 60000); else delete encoding.maxBitrate
+        if (fps) encoding.maxFramerate = fps; else delete encoding.maxFramerate
+        encoding.scaleResolutionDownBy = targetHeight ? Math.max(1, height / targetHeight) : 1
+        encoding.priority = 'low'
+        encoding.networkPriority = 'low'
+        if (!sharing) params.degradationPreference = 'maintain-framerate'
+        sender.setParameters(params).catch(() => {})
       }
-      sender.setParameters(params).catch(() => {})
     }
   }
   const limitVideoRef = useRef(null)
@@ -983,7 +1007,10 @@ export default function Call() {
   useEffect(() => {
     if (status !== 'live') return
     const prev = {}
+    let tick = 0
     const timer = setInterval(async () => {
+      let worst = null
+      tick += 1
       for (const [peerId, pc] of Object.entries(connectionsRef.current)) {
         try {
           const stats = await pc.getStats()
@@ -995,10 +1022,11 @@ export default function Call() {
             if (item.type === 'outbound-rtp') { outBytes += item.bytesSent ?? 0; if (item.kind === 'video') outVideo = item }
             if (item.type === 'inbound-rtp') { inLost += item.packetsLost ?? 0; inPackets += item.packetsReceived ?? 0 }
           })
+          if (pair?.availableOutgoingBitrate) worst = worst === null ? pair.availableOutgoingBitrate * Object.keys(connectionsRef.current).length : Math.min(worst, pair.availableOutgoingBitrate * Object.keys(connectionsRef.current).length)
           const p = prev[peerId]
           const now = Date.now()
           prev[peerId] = { outBytes, inLost, inPackets, now }
-          if (!p) continue
+          if (!p || tick % 3) continue
           const lost = inLost - p.inLost, got = inPackets - p.inPackets
           report(token, 'net.health', pc.connectionState, {
             peer: peersRef.current[peerId]?.name ?? null, peers: Object.keys(connectionsRef.current).length,
@@ -1011,7 +1039,10 @@ export default function Call() {
           })
         } catch { /* stats unavailable */ }
       }
-    }, 30000)
+      // Re-tune only on a real change (>25 %), so the picture doesn't pump.
+      const old = availOutRef.current
+      if (worst !== null && (old === null || Math.abs(worst - old) / old > 0.25)) { availOutRef.current = worst; limitVideoRef.current?.() }
+    }, 10000)
     return () => clearInterval(timer)
   }, [status]) // eslint-disable-line react-hooks/exhaustive-deps
 

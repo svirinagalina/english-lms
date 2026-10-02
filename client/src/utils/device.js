@@ -25,3 +25,7 @@ export const isMobile = () =>
 export const isHandheld = () =>
   typeof navigator !== 'undefined' && (/Android|iPhone|iPad|iPod/i.test(navigator.userAgent) ||
     (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1))
+
+// A phone, or a computer with few cores (an old MacBook Air with 2): in a
+// group call these run out of processor before the network does.
+export const isLowPower = () => isHandheld() || (navigator.hardwareConcurrency || 8) <= 4

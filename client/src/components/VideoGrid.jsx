@@ -1,12 +1,12 @@
 import { useEffect, useRef, useState } from 'react'
 import { denoiseTrack } from '../utils/noiseSuppressor'
 import { api } from '../api'
-import { isHandheld } from '../utils/device'
+import { isLowPower } from '../utils/device'
 
 // A phone doesn't clean what it hears: the sender's side already did (or
 // its own denoiser runs on the phone's microphone), and a second neural
 // denoiser on a phone's CPU made both sounds crackle.
-const RECEIVER_CAN_CLEAN = !isHandheld()
+const RECEIVER_CAN_CLEAN = !isLowPower()
 
 // A crossed-out microphone, shown on a tile whose owner is muted.
 function MutedIcon() {
