@@ -104,6 +104,8 @@ export default function Call() {
   }, [status])
   const [mediaWarning, setMediaWarning] = useState('')
   const [peers, setPeers] = useState({})
+  const peersRef = useRef(peers)
+  peersRef.current = peers
   const [screenStream, setScreenStream] = useState(null)
   // Blur is on from the start; it can be switched off in the call.
   // What stands behind the person: nothing, a blur, or one of the pictures.
@@ -164,10 +166,21 @@ export default function Call() {
     let silent = 0
     let lastEnergy = null
     let ticks = 0
+    let deadMic = 0
     const timer = setInterval(async () => {
       if (denoiserRef.current !== cleaned) { clearInterval(timer); return }
       const { raw, clean, out, state } = cleaned.levels()
       ticks += 1
+      // A microphone that delivers exact digital silence: on a Mac that is
+      // almost always Chrome missing the system microphone permission (Zoom
+      // has its own, so it still works there), or a dead/virtual input.
+      deadMic = micOnRef.current && raw === 0 ? deadMic + 1 : 0
+      if (deadMic === 6) {
+        report(token, 'mic.dead', cleaned.engine, { label: rawMicRef.current?.label?.slice(0, 40) ?? null })
+        setMediaWarning(/Mac/.test(navigator.platform)
+          ? 'Your microphone sends no sound. On a Mac: System Settings → Privacy & Security → Microphone → turn on your browser, then reload this page. If a headset is plugged in, check it is the selected input.'
+          : 'Your microphone sends no sound. Check that the right microphone is selected and not muted in system settings, then reload this page.')
+      }
       if (ticks === 20 || ticks % 30 === 0) {
         const senders = Object.values(connectionsRef.current).map((pc) => pc.getSenders().find((sd) => sd.track?.kind === 'audio')?.track)
         // Independent of our meters: the level the browser itself reports for
@@ -468,6 +481,7 @@ export default function Call() {
       }
       pc.oniceconnectionstatechange = () => {
         clearTimeout(restartTimer)
+        if (pc.iceConnectionState !== 'new' && pc.iceConnectionState !== 'checking') report(token, 'net.state', pc.iceConnectionState, { peer: peerName })
         if (pc.iceConnectionState === 'failed') restart()
         else if (pc.iceConnectionState === 'disconnected') restartTimer = setTimeout(() => { if (pc.iceConnectionState === 'disconnected') restart() }, 4000)
       }
@@ -963,6 +977,43 @@ export default function Call() {
   limitVideoRef.current = limitVideo
   const peerCount = Object.keys(peers).length
   useEffect(() => { limitVideo() }, [peerCount, screenStream]) // eslint-disable-line react-hooks/exhaustive-deps
+  // Connection quality per peer, every 30 s: path (direct or relay), round
+  // trip, loss and what we actually send — the log could not tell a weak
+  // home connection from a bug without it.
+  useEffect(() => {
+    if (status !== 'live') return
+    const prev = {}
+    const timer = setInterval(async () => {
+      for (const [peerId, pc] of Object.entries(connectionsRef.current)) {
+        try {
+          const stats = await pc.getStats()
+          const byId = {}
+          stats.forEach((item) => { byId[item.id] = item })
+          let pair = null, outBytes = 0, inLost = 0, inPackets = 0, outVideo = null
+          stats.forEach((item) => {
+            if (item.type === 'candidate-pair' && item.nominated && item.state === 'succeeded') pair = item
+            if (item.type === 'outbound-rtp') { outBytes += item.bytesSent ?? 0; if (item.kind === 'video') outVideo = item }
+            if (item.type === 'inbound-rtp') { inLost += item.packetsLost ?? 0; inPackets += item.packetsReceived ?? 0 }
+          })
+          const p = prev[peerId]
+          const now = Date.now()
+          prev[peerId] = { outBytes, inLost, inPackets, now }
+          if (!p) continue
+          const lost = inLost - p.inLost, got = inPackets - p.inPackets
+          report(token, 'net.health', pc.connectionState, {
+            peer: peersRef.current[peerId]?.name ?? null, peers: Object.keys(connectionsRef.current).length,
+            path: pair ? `${byId[pair.localCandidateId]?.candidateType}/${byId[pair.remoteCandidateId]?.candidateType}` : null,
+            rttMs: pair?.currentRoundTripTime != null ? Math.round(pair.currentRoundTripTime * 1000) : null,
+            outKbps: Math.round(((outBytes - p.outBytes) * 8) / (now - p.now)),
+            availOutKbps: pair?.availableOutgoingBitrate ? Math.round(pair.availableOutgoingBitrate / 1000) : null,
+            inLossPct: got + lost > 0 ? Number(((100 * lost) / (got + lost)).toFixed(1)) : null,
+            limited: outVideo?.qualityLimitationReason ?? null, sendHeight: outVideo?.frameHeight ?? null
+          })
+        } catch { /* stats unavailable */ }
+      }
+    }, 30000)
+    return () => clearInterval(timer)
+  }, [status]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const toggleTrack = (kind) => () => {
     if (kind === 'video') { setCamera(!cameraOnRef.current); return }
