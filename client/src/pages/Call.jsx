@@ -180,8 +180,8 @@ export default function Call() {
       if (deadMic === 6) {
         report(token, 'mic.dead', cleaned.engine, { label: rawMicRef.current?.label?.slice(0, 40) ?? null })
         setMediaWarning(/Mac/.test(navigator.platform)
-          ? 'Your microphone sends no sound. On a Mac: System Settings → Privacy & Security → Microphone → turn on your browser, then reload this page. If a headset is plugged in, check it is the selected input.'
-          : 'Your microphone sends no sound. Check that the right microphone is selected and not muted in system settings, then reload this page.')
+          ? 'Your microphone sends no sound. Try another one in More → Microphone. On a Mac also System Settings → Privacy & Security → Microphone → your browser is on, then reload this page.'
+          : 'Your microphone sends no sound. Try another one in More → Microphone, or check that the right microphone is selected and not muted in system settings, then reload this page.')
       }
       if (ticks === 20 || ticks % 30 === 0) {
         const senders = Object.values(connectionsRef.current).map((pc) => pc.getSenders().find((sd) => sd.track?.kind === 'audio')?.track)
@@ -249,21 +249,41 @@ export default function Call() {
   }
   // A microphone that goes away (unplugged, a headset switched off) is taken
   // again from whatever the browser now offers, through the denoiser as before.
-  const reacquireMic = async () => {
+  const reacquireMic = async (deviceId) => {
     let raw
     try {
-      raw = await navigator.mediaDevices.getUserMedia({ audio: AUDIO_CONSTRAINTS })
-    } catch { return }
+      raw = await navigator.mediaDevices.getUserMedia({ audio: deviceId ? { ...AUDIO_CONSTRAINTS, deviceId: { exact: deviceId } } : AUDIO_CONSTRAINTS })
+    } catch { return false }
     const rawTrack = raw.getAudioTracks()[0]
-    if (!rawTrack) return
+    if (!rawTrack) return false
+    const previous = rawMicRef.current
     rawMicRef.current = rawTrack
     rawTrack.addEventListener('ended', () => { if (rawMicRef.current === rawTrack) reacquireMic() })
     denoiserRef.current?.stop()
     denoiserRef.current = null
     rawTrack.enabled = micOnRef.current
     await swapOutgoingAudio(rawTrack)
+    if (previous && previous !== rawTrack) previous.stop()
     startDenoiser(rawTrack, () => false)
+    return true
   }
+  // Microphone picker (More): the browser's list, refreshed when a device is
+  // plugged in or out. Labels only appear once mic access was granted.
+  const [mics, setMics] = useState([])
+  const [micId, setMicId] = useState('')
+  useEffect(() => {
+    const refresh = () => navigator.mediaDevices?.enumerateDevices().then((list) => {
+      setMics(list.filter((d) => d.kind === 'audioinput' && d.deviceId !== 'default' && d.deviceId !== 'communications'))
+    }).catch(() => {})
+    refresh()
+    navigator.mediaDevices?.addEventListener?.('devicechange', refresh)
+    return () => navigator.mediaDevices?.removeEventListener?.('devicechange', refresh)
+  }, [status])
+  const currentMicId = micId || rawMicRef.current?.getSettings?.().deviceId || ''
+  const chooseMic = async (id) => {
+    if (await reacquireMic(id)) { setMicId(id); setMediaWarning(''); report(token, 'mic.switch', mics.find((m) => m.deviceId === id)?.label?.slice(0, 40) ?? id.slice(0, 8)) }
+  }
+
   // Builds the denoiser for `rawTrack` in the background and swaps its output
   // in when ready; on every failure the plain microphone simply stays.
   const [noiseState, setNoiseState] = useState('starting') // starting | on | browser
@@ -1480,6 +1500,9 @@ export default function Call() {
         background={background}
         onBackgroundChange={setBackground}
         noiseState={noiseState}
+        mics={mics}
+        micId={currentMicId}
+        onMicChange={chooseMic}
         blurAmount={blurAmount}
         onBlurChange={setBlurAmount}
       />

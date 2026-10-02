@@ -29,6 +29,9 @@ const Controls = forwardRef(function Controls({
   onBackgroundChange,
   // 'starting' | 'on' | 'browser': whether the neural noise removal is on the microphone.
   noiseState,
+  mics,
+  micId,
+  onMicChange,
   blurAmount,
   onBlurChange,
   // A board can arrive once per classroom it belongs to (its owner's shelf,
@@ -261,6 +264,15 @@ const Controls = forwardRef(function Controls({
                 />
               )}
             </div>
+            )}
+            {mics?.length > 0 && onMicChange && (
+              <div className="blur-control">
+                <div className="more-label">Microphone</div>
+                <select className="mic-select" value={micId} onChange={(e) => onMicChange(e.target.value)}>
+                  {!mics.some((m) => m.deviceId === micId) && <option value="">Default</option>}
+                  {mics.map((m, i) => <option key={m.deviceId} value={m.deviceId}>{m.label || `Microphone ${i + 1}`}</option>)}
+                </select>
+              </div>
             )}
             {noiseState && (
               <div className="more-status" title="Background noise (keyboard, fan, street) is removed from your microphone before it is sent">

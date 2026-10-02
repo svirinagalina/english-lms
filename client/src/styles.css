@@ -1379,3 +1379,5 @@ button.locked-row:hover { border-color: var(--accent); opacity: .8; }
    painted a tile blue; they are pictures, never selectable. */
 .tiles, .video-tile, .video-tile video, .tile-label, .lesson-page .controls { -webkit-user-select: none; user-select: none; }
 .video-tile video::selection, .video-tile::selection { background: transparent; }
+
+.mic-select { width: 100%; max-width: 240px; font: inherit; padding: 4px 6px; border-radius: 8px; }
