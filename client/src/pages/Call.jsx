@@ -80,6 +80,17 @@ const OUT_WIDTH = 640
 const deviceLine = () => `${navigator.userAgent.slice(0, 160)} · ${screen.width}x${screen.height} · cores ${navigator.hardwareConcurrency ?? '?'}`
 const report = (call, kind, message, details, thumb) => api.diag({ kind, message, details, device: deviceLine(), call, thumb })
 const RECONNECTING = 'Connection lost — reconnecting…'
+// Why the browser refused the camera and microphone, in words the person
+// can act on.
+const mediaErrorText = (err) => {
+  const name = err?.name
+  if (name === 'NotAllowedError' || name === 'SecurityError') return /iPhone|iPad/.test(navigator.userAgent)
+    ? 'access is not allowed — tap aA in the address bar → Website Settings → allow Camera and Microphone'
+    : 'access is not allowed — click the icon left of the address and allow Camera and Microphone'
+  if (name === 'NotReadableError' || name === 'AbortError') return 'another app or tab is using them — close it (or finish a phone call / FaceTime) and try again'
+  if (name === 'NotFoundError' || name === 'OverconstrainedError') return 'no microphone was found'
+  return err?.message || 'unknown reason'
+}
 
 export default function Call() {
   const { token } = useParams()
@@ -431,6 +442,7 @@ export default function Call() {
   joinedRef.current = joined
   const [previewState, setPreviewState] = useState('idle') // idle | asking | ready | denied
   const [previewTry, setPreviewTry] = useState(0)
+  const [previewError, setPreviewError] = useState('')
   useEffect(() => {
     if (!user || !call || joined) return
     let disposed = false
@@ -447,8 +459,11 @@ export default function Call() {
       let raw = null
       try {
         raw = await navigator.mediaDevices.getUserMedia({ audio: AUDIO_CONSTRAINTS, video: true })
-      } catch {
-        try { raw = await navigator.mediaDevices.getUserMedia({ audio: AUDIO_CONSTRAINTS }) } catch { /* nothing at all */ }
+      } catch (first) {
+        try { raw = await navigator.mediaDevices.getUserMedia({ audio: AUDIO_CONSTRAINTS }) } catch (err) {
+          setPreviewError(mediaErrorText(err))
+          report(token, 'media.denied', 'preview', { name: err?.name ?? null, message: String(err?.message ?? '').slice(0, 120), first: first?.name ?? null })
+        }
       }
       if (disposed && !joinedRef.current) { raw?.getTracks().forEach((t) => t.stop()); return }
       previewRawRef.current = raw
@@ -577,8 +592,9 @@ export default function Call() {
         if (audio) startDenoiser(audio, () => disposed)
         if (audio) stream.addTrack(audio)
         localStreamRef.current = stream
-      } catch {
-        setMediaWarning('Camera and microphone are off — others will not see or hear you.')
+      } catch (err) {
+        report(token, 'media.denied', 'join', { name: err?.name ?? null, message: String(err?.message ?? '').slice(0, 120) })
+        setMediaWarning(`Camera and microphone are off — others will not see or hear you: ${mediaErrorText(err)}. Then reload this page.`)
         setCameraOn(false)
         setMicOn(false)
         micOnRef.current = false
@@ -1349,7 +1365,7 @@ export default function Call() {
             {previewState === 'asking' && <span className="preview-note">Allow the camera and microphone in the browser prompt…</span>}
             {previewState === 'denied' && (
               <span className="preview-note">
-                Camera and microphone are off — the others will not see or hear you.{' '}
+                Camera and microphone are off — the others will not see or hear you{previewError ? `: ${previewError}` : ''}.{' '}
                 <button type="button" className="link-button" onClick={() => setPreviewTry((n) => n + 1)}>Try again</button>
               </span>
             )}
