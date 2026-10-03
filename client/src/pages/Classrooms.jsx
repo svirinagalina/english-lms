@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '../AuthContext'
 import { api } from '../api'
+import { matchesSearch } from '../utils/search'
 import Nav from '../components/Nav'
 import { SiteFooter } from '../components/Brand'
 import BoardRow from '../components/BoardRow'
@@ -91,8 +92,8 @@ export default function Classrooms() {
   const isAdmin = user.role === 'OWNER' || user.role === 'PARTNER'
   // Staff search: a student by name, a board by its title or who it's with.
   const q = query.trim().toLowerCase()
-  const nameMatches = (c) => !q || (c.student?.name ?? '').toLowerCase().includes(q)
-  const boardMatches = (b) => !q || [b.title, ...(b.sharedWith?.map((c) => c.name) ?? [])].some((t) => (t ?? '').toLowerCase().includes(q))
+  const nameMatches = (c) => matchesSearch(q, c.student?.name)
+  const boardMatches = (b) => matchesSearch(q, b.title, b.sharedWith?.map((c) => c.name) ?? [])
   const own = classrooms.filter((c) => user.role === 'STUDENT' || (c.teacher?.id === user.id && nameMatches(c)))
   const others = isAdmin ? classrooms.filter((c) => c.teacher?.id !== user.id && nameMatches(c)) : []
   const myBoards = mine ? mine.boards.filter(boardMatches) : []

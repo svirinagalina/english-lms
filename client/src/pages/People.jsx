@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../AuthContext'
 import { api } from '../api'
+import { matchesSearch } from '../utils/search'
 import Nav from '../components/Nav'
 import Panel from '../components/Panel'
 import { SiteFooter } from '../components/Brand'
@@ -203,7 +204,7 @@ export default function People() {
 
   // One search for every list here: a name or an email.
   const q = query.trim().toLowerCase()
-  const found = people.filter((p) => !q || [p.name, p.email].some((t) => (t ?? '').toLowerCase().includes(q)))
+  const found = people.filter((p) => matchesSearch(q, p.name, p.email))
   const staff = found.filter((p) => p.role !== 'STUDENT')
   const students = found.filter((p) => p.role === 'STUDENT' && !p.free)
   // Signed up in the app, no teacher yet; trial-lesson requests first.

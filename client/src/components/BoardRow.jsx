@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { api } from '../api'
+import { matchesSearch } from '../utils/search'
 
 // One board in a list, with open/delete and who it belongs to.
 // `targets` are the students this board could be assigned to.
@@ -66,7 +67,7 @@ export default function BoardRow({ board, classroomId, targets, canEdit, onOpen,
           </span>
           <input className="home-search" type="search" placeholder="Find a student…" value={find} onChange={(e) => setFind(e.target.value)} />
           <div className="assign-list">
-            {targets.filter((t) => currentIds.has(t.id) || !find.trim() || (t.label ?? '').toLowerCase().includes(find.trim().toLowerCase())).map((target) => {
+            {targets.filter((t) => currentIds.has(t.id) || matchesSearch(find, t.label)).map((target) => {
               const checked = currentIds.has(target.id)
               return (
                 <label key={target.id} className="assign-item">

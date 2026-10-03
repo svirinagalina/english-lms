@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { api } from '../api'
+import { matchesSearch } from '../utils/search'
 import { useAuth } from '../AuthContext'
 import Nav from '../components/Nav'
 import { SiteFooter } from '../components/Brand'
@@ -365,7 +366,7 @@ export default function Timetable() {
                     }}>
                       <input type="search" placeholder="Find a student…" value={studentFind} onChange={(e) => setStudentFind(e.target.value)}
                         style={{ width: 'calc(100% - 16px)', margin: 8, boxSizing: 'border-box' }} />
-                      {students.filter((s) => formData.studentIds.includes(s.id) || !studentFind.trim() || s.name.toLowerCase().includes(studentFind.trim().toLowerCase())).map(student => (
+                      {students.filter((s) => formData.studentIds.includes(s.id) || matchesSearch(studentFind, s.name)).map(student => (
                         <label key={student.id} style={{
                           display: 'flex',
                           alignItems: 'center',
