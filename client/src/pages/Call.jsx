@@ -136,6 +136,8 @@ export default function Call() {
   const cameraOnRef = useRef(true)
   const [joined, setJoined] = useState(false)
   const rawMicRef = useRef(null)
+  // Automatic re-captures after a silent microphone (see watchDenoiser).
+  const micRetriesRef = useRef(0)
   const denoiserRef = useRef(null)
   // If the denoiser's output stays silent while the microphone has sound —
   // or the browser sends silence from it — the others hear nothing: fall
@@ -165,6 +167,7 @@ export default function Call() {
     console.warn(`Noise removal ${reason}; the plain microphone is sent instead.`)
   }
   const watchDenoiser = (cleaned) => {
+    const micRetries = micRetriesRef.current
     let silent = 0
     let lastEnergy = null
     let ticks = 0
@@ -178,7 +181,17 @@ export default function Call() {
       // has its own, so it still works there), or a dead/virtual input.
       deadMic = micOnRef.current && raw === 0 ? deadMic + 1 : 0
       if (deadMic === 6) {
-        report(token, 'mic.dead', cleaned.engine, { label: rawMicRef.current?.label?.slice(0, 40) ?? null })
+        const mic = rawMicRef.current
+        report(token, 'mic.dead', cleaned.engine, { label: mic?.label?.slice(0, 40) ?? null, muted: mic?.muted ?? null, state: mic?.readyState ?? null, retry: micRetries })
+        // iPhones especially: the system can silence a capture (another app,
+        // the camera restarting, a call) and a fresh one usually comes back.
+        // Two quiet retries before telling the person.
+        if (micRetries < 2) {
+          micRetriesRef.current = micRetries + 1
+          clearInterval(timer)
+          reacquireMic()
+          return
+        }
         setMediaWarning(/Mac/.test(navigator.platform)
           ? 'Your microphone sends no sound. Try another one in More → Microphone. On a Mac also System Settings → Privacy & Security → Microphone → your browser is on, then reload this page.'
           : 'Your microphone sends no sound. Try another one in More → Microphone, or check that the right microphone is selected and not muted in system settings, then reload this page.')
@@ -204,7 +217,7 @@ export default function Call() {
           senderLabels: senders.map((t) => t?.label?.slice(0, 18) ?? 'none').join(','),
           streamAudio: localStreamRef.current?.getAudioTracks().map((t) => t.label.slice(0, 18)).join(',') ?? '',
           sentLevel: sent?.level ?? null, sentEnergy: sent?.energy ?? null, sentTrack: sent?.id ?? null, cleanedId: cleaned.track.id.slice(0, 8),
-          micOn: micOnRef.current
+          micOn: micOnRef.current, micMuted: rawMicRef.current?.muted ?? null
         })
       }
       if (state !== 'running') { cleaned.resume(); return }
@@ -1044,11 +1057,11 @@ export default function Call() {
           const stats = await pc.getStats()
           const byId = {}
           stats.forEach((item) => { byId[item.id] = item })
-          let pair = null, outBytes = 0, inLost = 0, inPackets = 0, outVideo = null
+          let pair = null, outBytes = 0, inLost = 0, inPackets = 0, outVideo = null, inAudio = null
           stats.forEach((item) => {
             if (item.type === 'candidate-pair' && item.nominated && item.state === 'succeeded') pair = item
             if (item.type === 'outbound-rtp') { outBytes += item.bytesSent ?? 0; if (item.kind === 'video') outVideo = item }
-            if (item.type === 'inbound-rtp') { inLost += item.packetsLost ?? 0; inPackets += item.packetsReceived ?? 0 }
+            if (item.type === 'inbound-rtp') { inLost += item.packetsLost ?? 0; inPackets += item.packetsReceived ?? 0; if (item.kind === 'audio') inAudio = item.audioLevel ?? null }
           })
           if (pair?.availableOutgoingBitrate) worst = worst === null ? pair.availableOutgoingBitrate * Object.keys(connectionsRef.current).length : Math.min(worst, pair.availableOutgoingBitrate * Object.keys(connectionsRef.current).length)
           const p = prev[peerId]
@@ -1063,6 +1076,7 @@ export default function Call() {
             outKbps: Math.round(((outBytes - p.outBytes) * 8) / (now - p.now)),
             availOutKbps: pair?.availableOutgoingBitrate ? Math.round(pair.availableOutgoingBitrate / 1000) : null,
             inLossPct: got + lost > 0 ? Number(((100 * lost) / (got + lost)).toFixed(1)) : null,
+            inAudioLevel: inAudio != null ? Number(inAudio.toFixed(3)) : null,
             limited: outVideo?.qualityLimitationReason ?? null, sendHeight: outVideo?.frameHeight ?? null
           })
         } catch { /* stats unavailable */ }
