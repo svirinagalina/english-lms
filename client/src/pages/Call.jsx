@@ -149,6 +149,11 @@ export default function Call() {
   const rawMicRef = useRef(null)
   // Automatic re-captures after a silent microphone (see watchDenoiser).
   const micRetriesRef = useRef(0)
+  // The microphone picked in More ('' = the system default), a capture in
+  // progress, and "the microphone was lost, not muted by the person".
+  const micChosenRef = useRef('')
+  const micBusyRef = useRef(false)
+  const micLostRef = useRef(false)
   const denoiserRef = useRef(null)
   // If the denoiser's output stays silent while the microphone has sound —
   // or the browser sends silence from it — the others hear nothing: fall
@@ -158,9 +163,20 @@ export default function Call() {
   // and in the local stream (the tile stays muted, so nothing is heard twice).
   const swapOutgoingAudio = async (track) => {
     track.enabled = micOnRef.current
-    for (const pc of Object.values(connectionsRef.current)) {
+    for (const [peerId, pc] of Object.entries(connectionsRef.current)) {
       const sender = pc.getSenders().find((s) => s.track?.kind === 'audio')
-      if (sender) await sender.replaceTrack(track).catch(() => {})
+      if (sender) { await sender.replaceTrack(track).catch(() => {}); continue }
+      // Joined without a microphone: the audio line only received so far.
+      // It starts sending now, which needs one more offer.
+      const transceiver = pc.getTransceivers().find((t) => t.receiver.track?.kind === 'audio' && !t.stopped)
+      if (!transceiver || pc.signalingState === 'closed') continue
+      try {
+        await transceiver.sender.replaceTrack(track)
+        transceiver.direction = 'sendrecv'
+        const offer = await pc.createOffer()
+        await pc.setLocalDescription(offer)
+        socketRef.current?.emit('offer', { to: peerId, offer })
+      } catch (err) { console.error('Could not start sending audio:', err) }
     }
     const stream = localStreamRef.current
     if (stream) { stream.getAudioTracks().forEach((t) => { if (t !== track) stream.removeTrack(t) }); if (!stream.getAudioTracks().includes(track)) stream.addTrack(track) }
@@ -273,11 +289,25 @@ export default function Call() {
   }
   // A microphone that goes away (unplugged, a headset switched off) is taken
   // again from whatever the browser now offers, through the denoiser as before.
-  const reacquireMic = async (deviceId) => {
+  const reacquireMic = async (deviceId = micChosenRef.current) => {
+    if (micBusyRef.current) return false
+    micBusyRef.current = true
     let raw
     try {
-      raw = await navigator.mediaDevices.getUserMedia({ audio: deviceId ? { ...AUDIO_CONSTRAINTS, deviceId: { exact: deviceId } } : AUDIO_CONSTRAINTS })
-    } catch { return false }
+      try {
+        raw = await navigator.mediaDevices.getUserMedia({ audio: deviceId ? { ...AUDIO_CONSTRAINTS, deviceId: { exact: deviceId } } : AUDIO_CONSTRAINTS })
+      } catch (err) {
+        // The chosen microphone is gone (unplugged): any one will do.
+        if (!deviceId) throw err
+        raw = await navigator.mediaDevices.getUserMedia({ audio: AUDIO_CONSTRAINTS })
+      }
+    } catch { micBusyRef.current = false; return false }
+    micBusyRef.current = false
+    // Joined with no microphone at all: the call gets one now.
+    if (!localStreamRef.current) localStreamRef.current = new MediaStream()
+    if (!micOnRef.current && micLostRef.current) { micOnRef.current = true; setMicOn(true) }
+    micLostRef.current = false
+    setMediaWarning((w) => (/microphone/i.test(w) ? '' : w))
     const rawTrack = raw.getAudioTracks()[0]
     if (!rawTrack) return false
     const previous = rawMicRef.current
@@ -323,7 +353,47 @@ export default function Call() {
     document.addEventListener('visibilitychange', check)
     window.addEventListener('focus', check)
     window.addEventListener('pageshow', check)
+    // And all the time, not only on coming back: no microphone yet (it was
+    // busy or refused at join), a capture that ended or stays muted.
+    let mutedTicks = 0
+    const watchdog = setInterval(() => {
+      // A phone can't capture from a hidden page; a computer can.
+      if ((isHandheld() && document.visibilityState !== 'visible') || micBusyRef.current) return
+      const mic = rawMicRef.current
+      if (!mic) { if (micLostRef.current) reacquireMic(); return }
+      mutedTicks = mic.muted ? mutedTicks + 1 : 0
+      if (mic.readyState === 'ended' || mutedTicks >= 2) {
+        mutedTicks = 0
+        report(token, 'mic.revive', mic.readyState === 'ended' ? 'ended' : 'muted')
+        reacquireMic()
+      }
+    }, 3000)
+    // A headset plugged in or out, or another default microphone chosen in
+    // the system settings: follow it (unless one was picked in More).
+    let deviceTimer = null
+    const onDevices = () => {
+      clearTimeout(deviceTimer)
+      deviceTimer = setTimeout(async () => {
+        if (micChosenRef.current) {
+          const list = await navigator.mediaDevices.enumerateDevices().catch(() => [])
+          if (list.some((d) => d.deviceId === micChosenRef.current)) return
+          micChosenRef.current = ''
+          setMicId('')
+        }
+        const current = rawMicRef.current?.getSettings?.().deviceId
+        const list = await navigator.mediaDevices.enumerateDevices().catch(() => [])
+        const fallback = list.find((d) => d.kind === 'audioinput' && d.deviceId === 'default')
+        const sameDefault = fallback && rawMicRef.current && list.some((d) => d.kind === 'audioinput' && d.deviceId === current && d.groupId === fallback.groupId)
+        if (sameDefault) return
+        report(token, 'mic.revive', 'devicechange')
+        reacquireMic()
+      }, 1000)
+    }
+    navigator.mediaDevices?.addEventListener?.('devicechange', onDevices)
     return () => {
+      clearInterval(watchdog)
+      clearTimeout(deviceTimer)
+      navigator.mediaDevices?.removeEventListener?.('devicechange', onDevices)
       clearTimeout(timer)
       document.removeEventListener('visibilitychange', check)
       window.removeEventListener('focus', check)
@@ -345,7 +415,7 @@ export default function Call() {
   }, [status])
   const currentMicId = micId || rawMicRef.current?.getSettings?.().deviceId || ''
   const chooseMic = async (id) => {
-    if (await reacquireMic(id)) { setMicId(id); setMediaWarning(''); report(token, 'mic.switch', mics.find((m) => m.deviceId === id)?.label?.slice(0, 40) ?? id.slice(0, 8)) }
+    if (await reacquireMic(id)) { micChosenRef.current = id; setMicId(id); setMediaWarning(''); report(token, 'mic.switch', mics.find((m) => m.deviceId === id)?.label?.slice(0, 40) ?? id.slice(0, 8)) }
   }
 
   // Builds the denoiser for `rawTrack` in the background and swaps its output
@@ -626,7 +696,8 @@ export default function Call() {
         localStreamRef.current = stream
       } catch (err) {
         report(token, 'media.denied', 'join', { name: err?.name ?? null, message: String(err?.message ?? '').slice(0, 120) })
-        setMediaWarning(`Camera and microphone are off — others will not see or hear you: ${mediaErrorText(err)}. Then reload this page.`)
+        setMediaWarning(`Camera and microphone are off — others will not see or hear you: ${mediaErrorText(err)}. The call keeps trying to connect the microphone.`)
+        micLostRef.current = true
         setCameraOn(false)
         setMicOn(false)
         micOnRef.current = false
