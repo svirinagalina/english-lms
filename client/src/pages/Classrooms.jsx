@@ -143,7 +143,7 @@ export default function Classrooms() {
       {!isStaff && !user.free && <StudentHome classrooms={classrooms} />}
 
       {isStaff && (
-        <input className="home-search" type="search" placeholder="Search students and boards…" value={query}
+        <input className="home-search" type="search" placeholder="Search students and boards" value={query}
           onChange={(e) => setQuery(e.target.value)} />
       )}
 

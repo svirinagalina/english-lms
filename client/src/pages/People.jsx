@@ -232,7 +232,7 @@ export default function People() {
 
       {error && <div className="error">{error}</div>}
 
-      <input className="home-search" type="search" placeholder="Search people by name or email…" value={query} onChange={(e) => setQuery(e.target.value)} />
+      <input className="home-search" type="search" placeholder="Search people by name or email" value={query} onChange={(e) => setQuery(e.target.value)} />
 
       {!mail.enabled && (
         <div className="notice">
