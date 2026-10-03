@@ -299,6 +299,38 @@ export default function Call() {
     window.addEventListener('keyup', onKey, true)
     return () => { window.removeEventListener('keydown', onKey, true); window.removeEventListener('keyup', onKey, true) }
   }, [])
+  // Back from another app (iPhone: a call, a voice message, another app that
+  // took the microphone): the system leaves our capture muted or silent and
+  // never gives it back by itself, so it is taken again.
+  useEffect(() => {
+    if (status !== 'live') return
+    let timer = null
+    const check = () => {
+      if (document.visibilityState !== 'visible') return
+      clearTimeout(timer)
+      timer = setTimeout(() => {
+        const mic = rawMicRef.current
+        if (!mic || !micOnRef.current) return
+        const levels = denoiserRef.current?.levels()
+        const silent = levels && levels.state === 'running' && levels.raw === 0
+        if (mic.readyState === 'ended' || mic.muted || silent) {
+          report(token, 'mic.revive', mic.readyState === 'ended' ? 'ended' : mic.muted ? 'muted' : 'silent')
+          micRetriesRef.current = 0
+          reacquireMic()
+        }
+      }, 1500)
+    }
+    document.addEventListener('visibilitychange', check)
+    window.addEventListener('focus', check)
+    window.addEventListener('pageshow', check)
+    return () => {
+      clearTimeout(timer)
+      document.removeEventListener('visibilitychange', check)
+      window.removeEventListener('focus', check)
+      window.removeEventListener('pageshow', check)
+    }
+  }, [status]) // eslint-disable-line react-hooks/exhaustive-deps
+
   // Microphone picker (More): the browser's list, refreshed when a device is
   // plugged in or out. Labels only appear once mic access was granted.
   const [mics, setMics] = useState([])
