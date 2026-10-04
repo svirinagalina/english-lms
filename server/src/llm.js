@@ -3,6 +3,7 @@
 // feature asks for a structured answer (a zod schema), so the provider is
 // interchangeable.
 import { aiConfig } from './settings.js'
+import { breaker } from './resilience.js'
 
 export const llmEnabled = () => Boolean(aiConfig())
 export const llmProvider = () => aiConfig()?.provider ?? null
@@ -31,14 +32,14 @@ async function clientFor(config) {
   let client
   if (config.provider === 'openai') {
     const { default: OpenAI } = await import('openai')
-    client = new OpenAI({ apiKey: config.key })
+    client = new OpenAI({ apiKey: config.key, timeout: 30000, maxRetries: 1 })
   } else if (BASE_URL[config.provider]) {
     // xAI and DeepSeek speak the OpenAI protocol at their own address.
     const { default: OpenAI } = await import('openai')
-    client = new OpenAI({ apiKey: config.key, baseURL: BASE_URL[config.provider] })
+    client = new OpenAI({ apiKey: config.key, baseURL: BASE_URL[config.provider], timeout: 30000, maxRetries: 1 })
   } else {
     const { default: Anthropic } = await import('@anthropic-ai/sdk')
-    client = new Anthropic({ apiKey: config.key })
+    client = new Anthropic({ apiKey: config.key, timeout: 30000, maxRetries: 1 })
   }
   clients.set(id, client)
   return client
@@ -48,7 +49,16 @@ async function clientFor(config) {
 // `effort` ('low' | 'medium' | 'high') asks an OpenAI reasoning model to
 // think less for quick yes/no checks; the token cap has to leave room for
 // that thinking too, or the answer comes back empty.
-export async function structured({ system, user, schema, name = 'result', maxTokens = 3000, effort }) {
+// Every model call goes through one breaker: when the provider is down or
+// out of credit, features fall back at once instead of waiting 30 s each.
+export function structured(options) {
+  return breaker('ai').run(() => structuredOnce(options).catch((error) => {
+    // A request the provider refused (bad input, 4xx other than 429) is not an outage.
+    if (error?.status && error.status < 500 && error.status !== 429) error.countsAsFailure = false
+    throw error
+  }))
+}
+async function structuredOnce({ system, user, schema, name = 'result', maxTokens = 3000, effort }) {
   const config = aiConfig()
   if (!config) throw new Error('No AI key is configured')
   const client = await clientFor(config)

@@ -13,6 +13,7 @@ import { prisma } from './db.js'
 import { stripeKey, encrypt, decrypt } from './settings.js'
 import { PLANS, PLAN_IDS, PERIODS, setPlan } from './plans.js'
 import { requireAuth, requireRole } from './auth.js'
+import { guardedFetch } from './resilience.js'
 
 const lookupKey = (plan, period) => `lms_${plan}_${period}`
 
@@ -22,12 +23,11 @@ async function stripe(path, params, method) {
   const flat = params && new URLSearchParams(flatten(params)).toString()
   const verb = method ?? (params ? 'POST' : 'GET')
   const url = `https://api.stripe.com/v1${path}${verb === 'GET' && flat ? `?${flat}` : ''}`
-  const response = await fetch(url, {
+  const response = await guardedFetch('stripe', url, {
     method: verb,
     headers: { Authorization: `Bearer ${key}`, ...(verb === 'POST' ? { 'Content-Type': 'application/x-www-form-urlencoded' } : {}) },
-    body: verb === 'POST' && flat ? flat : undefined,
-    signal: AbortSignal.timeout(20000)
-  })
+    body: verb === 'POST' && flat ? flat : undefined
+  }, { timeoutMs: 20000 })
   const data = await response.json()
   if (!response.ok) throw new Error(data?.error?.message ?? `Stripe returned ${response.status}`)
   return data

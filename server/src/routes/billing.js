@@ -5,6 +5,7 @@ import { requireAuth, requireRole, isAdmin } from '../auth.js'
 import { sendPaymentReportedEmail } from '../mailer.js'
 import { offerLinks, stripeKey } from '../settings.js'
 import { OFFER_PLANS, discountActive } from '../offer.js'
+import { guardedFetch } from '../resilience.js'
 
 export const billingRouter = Router()
 
@@ -104,12 +105,11 @@ async function eurRate() {
 const stripeCall = async (path, params) => {
   const key = stripeKey()
   if (!key) throw new Error('Stripe is not configured')
-  const response = await fetch(`https://api.stripe.com/v1${path}`, {
+  const response = await guardedFetch('stripe', `https://api.stripe.com/v1${path}`, {
     method: params ? 'POST' : 'GET',
     headers: { Authorization: `Bearer ${key}`, ...(params ? { 'Content-Type': 'application/x-www-form-urlencoded' } : {}) },
-    body: params ? new URLSearchParams(params).toString() : undefined,
-    signal: AbortSignal.timeout(15000)
-  })
+    body: params ? new URLSearchParams(params).toString() : undefined
+  }, { timeoutMs: 15000 })
   const data = await response.json()
   if (!response.ok) throw new Error(data?.error?.message ?? `Stripe returned ${response.status}`)
   return data

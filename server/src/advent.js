@@ -3,6 +3,7 @@
 // progress and access. Every call goes from this server with the partner
 // key; the key never reaches a browser.
 import { adventKey } from './settings.js'
+import { breaker } from './resilience.js'
 
 const BASE = 'https://trainer.advent-academy.online/partner/v1'
 
@@ -12,7 +13,10 @@ export const adventEnabled = () => Boolean(adventKey())
 // the school's GetCourse for their access), which can take a while: a 10 s
 // limit gave "The operation was aborted due to timeout". 30 s, and one retry
 // if the connection itself failed or timed out.
-export async function advent(method, path, body, { timeoutMs = 30000, retries = 1 } = {}) {
+export function advent(method, path, body, options) {
+  return breaker('trainer').run(() => adventOnce(method, path, body, options))
+}
+async function adventOnce(method, path, body, { timeoutMs = 30000, retries = 1 } = {}) {
   const key = adventKey()
   if (!key) throw Object.assign(new Error('The trainer is not connected yet (Settings → Advent trainer)'), { status: 503 })
   let response
@@ -24,11 +28,11 @@ export async function advent(method, path, body, { timeoutMs = 30000, retries = 
       signal: AbortSignal.timeout(timeoutMs)
     })
   } catch (error) {
-    if (retries > 0) return advent(method, path, body, { timeoutMs, retries: retries - 1 })
+    if (retries > 0) return adventOnce(method, path, body, { timeoutMs, retries: retries - 1 })
     throw Object.assign(new Error(error.name === 'TimeoutError' ? 'The trainer is taking too long to answer — try again in a moment' : `Could not reach the trainer: ${error.message}`), { status: 504 })
   }
   const data = await response.json().catch(() => ({}))
-  if (!response.ok) throw Object.assign(new Error(data?.error || data?.detail || `Trainer error ${response.status}`), { status: response.status })
+  if (!response.ok) throw Object.assign(new Error(data?.error || data?.detail || `Trainer error ${response.status}`), { status: response.status, countsAsFailure: response.status >= 500 })
   return data
 }
 

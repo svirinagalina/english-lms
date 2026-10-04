@@ -142,6 +142,20 @@ export function setupSignaling(io) {
   setTimeout(sweepCalls, 60 * 1000)
   setInterval(sweepCalls, SWEEP_EVERY_MS)
 
+  // Open sockets per address: a tab holds one, a school's class a few dozen.
+  const socketsPerIp = new Map()
+  io.use((socket, next) => {
+    const ip = socket.handshake.headers['x-forwarded-for']?.split(',')[0].trim() || socket.handshake.address
+    const count = socketsPerIp.get(ip) ?? 0
+    if (count >= 60) return next(new Error('Too many connections'))
+    socketsPerIp.set(ip, count + 1)
+    socket.on('disconnect', () => {
+      const left = (socketsPerIp.get(ip) ?? 1) - 1
+      if (left > 0) socketsPerIp.set(ip, left)
+      else socketsPerIp.delete(ip)
+    })
+    next()
+  })
   io.use(async (socket, next) => {
     const token = readTokenCookie(socket.handshake.headers.cookie)
 

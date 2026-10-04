@@ -1,6 +1,7 @@
 import crypto from 'crypto'
 import express from 'express'
 import { prisma } from './db.js'
+import { guardedFetch } from './resilience.js'
 
 // Lessons booked on the Advent site (Maxim's partner API, see
 // ~/Downloads/Интеграция_платформы_уроков_Галины_с_Advent.md). Advent sends
@@ -13,12 +14,11 @@ const APP_URL = () => (process.env.APP_URL ?? 'https://lms.advent-academy.online
 export const adventLessonsEnabled = () => Boolean(process.env.ADVENT_API_KEY && process.env.ADVENT_WEBHOOK_SECRET)
 
 export async function adventApi(method, path, body) {
-  const response = await fetch(`${API_URL()}${path}`, {
+  const response = await guardedFetch('advent-site', `${API_URL()}${path}`, {
     method,
     headers: { 'X-API-Key': process.env.ADVENT_API_KEY, 'Content-Type': 'application/json' },
-    body: body ? JSON.stringify(body) : undefined,
-    signal: AbortSignal.timeout(15000)
-  })
+    body: body ? JSON.stringify(body) : undefined
+  }, { timeoutMs: 15000 })
   const text = await response.text()
   if (!response.ok) throw new Error(`Advent ${method} ${path}: ${response.status} ${text.slice(0, 200)}`)
   return text ? JSON.parse(text) : null

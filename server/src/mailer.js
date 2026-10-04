@@ -1,3 +1,4 @@
+import { guardedFetch } from './resilience.js'
 // Email delivery through Resend. Without RESEND_API_KEY the app keeps working:
 // invitations still produce a link, it just has to be passed on by hand.
 const RESEND_ENDPOINT = 'https://api.resend.com/emails'
@@ -16,14 +17,14 @@ async function send({ to, subject, html, text }) {
   const from = process.env.MAIL_FROM ?? 'onboarding@resend.dev'
 
   try {
-    const response = await fetch(RESEND_ENDPOINT, {
+    const response = await guardedFetch('mail', RESEND_ENDPOINT, {
       method: 'POST',
       headers: {
         Authorization: `Bearer ${apiKey}`,
         'Content-Type': 'application/json'
       },
       body: JSON.stringify({ from, to, subject, html, text })
-    })
+    }, { timeoutMs: 10000 })
 
     if (!response.ok) {
       const body = await response.json().catch(() => ({}))

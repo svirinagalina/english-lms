@@ -35,6 +35,8 @@ import { coursesRouter } from './routes/courses.js'
 import { pushRouter } from './routes/push.js'
 import { startPushJobs } from './push.js'
 import { loadAiSettings } from './settings.js'
+import { prisma } from './db.js'
+import { rateLimit, breakerStatus } from './resilience.js'
 import { stripeWebhook, plansRouter, loadSubscriptionSettings } from './subscriptions.js'
 import { startPlanSweep } from './plans.js'
 import { setupSignaling } from './signaling.js'
@@ -53,6 +55,14 @@ app.use(cors({ origin: clientOrigin, credentials: true }))
 app.use('/api/advent/webhook', adventWebhook)
 // Stripe signs the raw body too.
 app.use('/api/stripe/webhook', stripeWebhook)
+// Requests per address. Generous for normal use (a whole school can share
+// one address), tight where a flood costs money or guesses passwords.
+app.use('/api/auth/login', rateLimit({ windowMs: 10 * 60_000, max: 30 }))
+app.use('/api/auth/signup', rateLimit({ windowMs: 60 * 60_000, max: 20 }))
+app.use(['/api/auth/forgot', '/api/auth/verify-resend', '/api/auth/reset'], rateLimit({ windowMs: 10 * 60_000, max: 20 }))
+app.use(['/api/assist', '/api/dictionary'], rateLimit({ windowMs: 60_000, max: 120 }))
+app.use('/api/diag', rateLimit({ windowMs: 60_000, max: 240 }))
+app.use('/api', rateLimit({ windowMs: 60_000, max: 900 }))
 app.use(express.json({ limit: '8mb' }))
 app.use(cookieParser())
 
@@ -81,7 +91,15 @@ app.use('/api/courses', coursesRouter)
 app.use('/api/push', pushRouter)
 app.use('/api/plans', plansRouter)
 
-app.get('/api/health', (req, res) => res.json({ ok: true }))
+// For the deploy script and Docker: the database must answer within 3 s.
+app.get('/api/health', async (req, res) => {
+  try {
+    await Promise.race([prisma.$queryRaw`SELECT 1`, new Promise((_, reject) => setTimeout(() => reject(new Error('database timeout')), 3000))])
+    res.json({ ok: true, breakers: breakerStatus().filter((b) => b.open).map((b) => b.name) })
+  } catch (error) {
+    res.status(503).json({ ok: false, error: error.message })
+  }
+})
 
 // Changes with every deploy; the client reloads itself when it sees a new one.
 const BUILD_ID = process.env.BUILD_ID ?? String(Date.now())
@@ -151,6 +169,12 @@ startPushJobs()
 loadAiSettings().catch((error) => console.error('Could not load AI settings:', error.message))
 loadSubscriptionSettings().catch((error) => console.error('Could not load subscription settings:', error.message))
 startPlanSweep()
+
+// Slow or stuck clients can't hold connections open forever: headers must
+// arrive in 20 s, a whole request in 5 min (big content uploads included).
+httpServer.headersTimeout = 20_000
+httpServer.requestTimeout = 5 * 60_000
+httpServer.keepAliveTimeout = 65_000
 
 const port = process.env.PORT ?? 4000
 httpServer.listen(port, () => {

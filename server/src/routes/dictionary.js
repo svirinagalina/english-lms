@@ -2,6 +2,7 @@ import { Router } from 'express'
 import { requireAuth } from '../auth.js'
 import { prisma } from '../db.js'
 import { assistantEnabled, translateRussian, translateWords, wordGrammar } from '../assistant.js'
+import { guardedFetch } from '../resilience.js'
 
 // Hover dictionary: one English word → Russian, with IPA when the AI
 // assistant is configured. Results are cached for the life of the process.
@@ -31,7 +32,7 @@ const USER_AGENT = 'AdventAcademyLMS/1.0 (https://lms.advent-academy.online)'
 // [{ pos: 'noun', translations: ['учитель', 'преподаватель'] }, …]
 async function googleSenses(word) {
   const url = `https://translate.googleapis.com/translate_a/single?client=gtx&sl=en&tl=ru&dt=t&dt=bd&q=${encodeURIComponent(word)}`
-  const response = await fetch(url, { signal: AbortSignal.timeout(6000) })
+  const response = await guardedFetch(`dictionary:${new URL(url).host}`, url, {}, { timeoutMs: 6000 })
   if (!response.ok) return { senses: [], main: null }
   const data = await response.json()
   const senses = Array.isArray(data?.[1])
@@ -44,7 +45,7 @@ async function googleSenses(word) {
 // pronunciation when it is listed separately, else the first one).
 async function wiktionaryIpa(word) {
   const url = `https://en.wiktionary.org/w/api.php?action=parse&page=${encodeURIComponent(word)}&prop=wikitext&format=json&formatversion=2&redirects=1`
-  const response = await fetch(url, { headers: { 'User-Agent': USER_AGENT }, signal: AbortSignal.timeout(6000) })
+  const response = await guardedFetch(`dictionary:${new URL(url).host}`, url, { headers: { 'User-Agent': USER_AGENT } }, { timeoutMs: 6000 })
   if (!response.ok) return null
   const text = (await response.json())?.parse?.wikitext ?? ''
   const english = text.split(/\n==[^=]/)[0] || text
@@ -87,7 +88,7 @@ async function lookup(word) {
   if (!google.senses.length && !ipa && !ai && (translation ?? '').trim().toLowerCase() === word) throw new Error('No entry for this word')
   if (!translation) {
     const url = `https://api.mymemory.translated.net/get?q=${encodeURIComponent(word)}&langpair=en|ru`
-    const response = await fetch(url, { signal: AbortSignal.timeout(6000) })
+    const response = await guardedFetch(`dictionary:${new URL(url).host}`, url, {}, { timeoutMs: 6000 })
     if (!response.ok) throw new Error('Dictionary unavailable')
     const data = await response.json()
     const text = data?.responseData?.translatedText
@@ -136,7 +137,7 @@ dictionaryRouter.get('/', async (req, res) => {
 const ruCache = new Map()
 async function googleRussian(text) {
   const url = `https://translate.googleapis.com/translate_a/single?client=gtx&sl=ru&tl=en&dt=t&dt=bd&q=${encodeURIComponent(text)}`
-  const response = await fetch(url, { signal: AbortSignal.timeout(6000) })
+  const response = await guardedFetch(`dictionary:${new URL(url).host}`, url, {}, { timeoutMs: 6000 })
   if (!response.ok) throw new Error('Dictionary unavailable')
   const data = await response.json()
   const items = []
@@ -197,7 +198,7 @@ dictionaryRouter.get('/audio', async (req, res) => {
     let clip = audioCache.get(word)
     if (!clip) {
       const url = `https://translate.google.com/translate_tts?ie=UTF-8&q=${encodeURIComponent(word)}&tl=en&client=tw-ob`
-      const response = await fetch(url, { headers: { 'User-Agent': 'Mozilla/5.0' }, signal: AbortSignal.timeout(8000) })
+      const response = await guardedFetch(`dictionary:${new URL(url).host}`, url, { headers: { 'User-Agent': 'Mozilla/5.0' } }, { timeoutMs: 8000 })
       if (!response.ok) return res.status(502).end()
       clip = Buffer.from(await response.arrayBuffer())
       if (audioCache.size >= MAX_AUDIO_CACHE) audioCache.clear()
