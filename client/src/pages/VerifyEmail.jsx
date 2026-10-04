@@ -23,12 +23,12 @@ export default function VerifyEmail() {
         <div className="login-brand"><Brand /></div>
         {error ? (
           <>
-            <h1>The link didn't work</h1>
+            <h1>Ссылка не сработала</h1>
             <div className="error">{error}</div>
-            <Link className="button" to="/login">Sign in to get a new letter</Link>
+            <Link className="button" to="/login">Войдите, чтобы получить новое письмо</Link>
           </>
         ) : (
-          <h1>Confirming your email…</h1>
+          <h1>Подтверждаем почту…</h1>
         )}
       </div>
     </div>

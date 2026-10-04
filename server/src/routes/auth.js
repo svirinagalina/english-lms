@@ -102,7 +102,7 @@ authRouter.post('/signup', async (req, res) => {
   const parsed = signupSchema.safeParse(req.body)
   if (!parsed.success) {
     const fields = parsed.error.flatten().fieldErrors
-    const error = fields.password ? 'Password must be at least 8 characters' : fields.email ? 'Check the email address' : 'Please enter your name'
+    const error = fields.password ? 'Пароль — не меньше 8 символов' : fields.email ? 'Проверьте адрес почты' : 'Введите имя'
     return res.status(400).json({ error })
   }
 
@@ -112,7 +112,7 @@ authRouter.post('/signup', async (req, res) => {
 
   const { name, email, password } = parsed.data
   if (await prisma.user.findUnique({ where: { email } })) {
-    return res.status(409).json({ error: 'This email already has an account — sign in instead.' })
+    return res.status(409).json({ error: 'С этой почтой уже есть аккаунт — войдите.' })
   }
 
   // With mail set up, the address is confirmed by a link before the first
@@ -146,7 +146,7 @@ async function sendVerification(req, user) {
 // The link from the letter: the account is confirmed and signed in.
 authRouter.post('/verify/:token', async (req, res) => {
   const record = await prisma.emailVerification.findUnique({ where: { tokenHash: hashToken(req.params.token) } })
-  if (!record || record.expiresAt < new Date()) return res.status(410).json({ error: 'This link has expired. Sign in to get a new one.' })
+  if (!record || record.expiresAt < new Date()) return res.status(410).json({ error: 'Срок ссылки истёк. Войдите, чтобы получить новое письмо.' })
   const user = await prisma.user.update({ where: { id: record.userId }, data: { emailVerified: true } })
   await prisma.emailVerification.deleteMany({ where: { userId: user.id } })
   issueToken(res, user)
@@ -158,7 +158,7 @@ const resentAt = new Map()
 authRouter.post('/verify-resend', async (req, res) => {
   const email = typeof req.body?.email === 'string' ? req.body.email.trim().toLowerCase() : ''
   const last = resentAt.get(email) ?? 0
-  if (Date.now() - last < 60 * 1000) return res.status(429).json({ error: 'A letter was just sent — check your inbox and spam, or try again in a minute.' })
+  if (Date.now() - last < 60 * 1000) return res.status(429).json({ error: 'Письмо только что отправлено — проверьте почту и «Спам» или попробуйте через минуту.' })
   resentAt.set(email, Date.now())
   const user = email && await prisma.user.findUnique({ where: { email } })
   if (user && !user.emailVerified && mailEnabled()) {
@@ -195,11 +195,11 @@ authRouter.post('/login', async (req, res) => {
   const user = await prisma.user.findUnique({ where: { email } })
   if (!user || !(await verifyPassword(password, user.passwordHash))) {
     for (const key of keys) loginFailures.set(key, [...failuresFor(key), Date.now()])
-    return res.status(401).json({ error: 'Invalid email or password' })
+    return res.status(401).json({ error: 'Неверная почта или пароль' })
   }
   for (const key of keys) loginFailures.delete(key)
 
-  if (!user.emailVerified) return res.status(403).json({ error: 'Confirm your email first — we sent you a letter with a link.', unverified: true, email: user.email })
+  if (!user.emailVerified) return res.status(403).json({ error: 'Сначала подтвердите почту — мы отправили вам письмо со ссылкой.', unverified: true, email: user.email })
 
   issueToken(res, user)
   res.json({ user: publicUser(user) })

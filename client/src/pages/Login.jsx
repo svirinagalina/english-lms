@@ -42,27 +42,27 @@ export default function Login() {
     <div className="auth-page">
       <form className="card" onSubmit={handleSubmit}>
         <div className="login-brand"><Brand /></div>
-        <h1>Sign in</h1>
+        <h1>Вход</h1>
         {error && <div className="error">{error}</div>}
         <input
           type="email"
-          placeholder="Email"
+          placeholder="Почта"
           value={email}
           onChange={(e) => setEmail(e.target.value)}
           required
         />
         <input
           type="password"
-          placeholder="Password"
+          placeholder="Пароль"
           value={password}
           onChange={(e) => setPassword(e.target.value)}
           required
         />
-        <button type="submit" disabled={busy}>{busy ? 'Signing in…' : 'Sign in'}</button>
-        <p className="muted"><Link to="/forgot">Forgot password?</Link></p>
+        <button type="submit" disabled={busy}>{busy ? 'Входим…' : 'Войти'}</button>
+        <p className="muted"><Link to="/forgot">Забыли пароль?</Link></p>
         {signupOpen && !registrationOpen && (
           <p className="muted">
-            New here? <Link to="/signup">Create a free account</Link>
+            Впервые здесь? <Link to="/signup">Создать аккаунт бесплатно</Link>
           </p>
         )}
         {registrationOpen && (

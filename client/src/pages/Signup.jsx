@@ -41,9 +41,9 @@ export default function Signup() {
     return (
       <div className="auth-page">
         <div className="card">
-          <h1>Sign-up is closed</h1>
-          <p className="muted">Accounts are created by your teacher. Ask them for an invitation.</p>
-          <Link className="button" to="/login">Back to sign in</Link>
+          <h1>Регистрация закрыта</h1>
+          <p className="muted">Аккаунты создаёт преподаватель — попросите у него приглашение.</p>
+          <Link className="button" to="/login">Ко входу</Link>
         </div>
       </div>
     )
@@ -53,25 +53,25 @@ export default function Signup() {
     <div className="auth-page">
       <form className="card" onSubmit={handleSubmit}>
         <div className="login-brand"><Brand /></div>
-        <h1>Start learning for free</h1>
-        <p className="muted">A dictionary, grammar practice and a speaking trainer — free to begin with. Lessons with a teacher whenever you're ready.</p>
+        <h1>Начните бесплатно</h1>
+        <p className="muted">Грамматика с умной проверкой, словарь, карточки и чат-бот для разговора — открываются сразу. Без карты.</p>
         {error && <div className="error">{error}</div>}
-        <input placeholder="Your name" value={form.name} onChange={update('name')} autoComplete="name" required minLength={2} />
-        <input type="email" placeholder="Email" value={form.email} onChange={update('email')} autoComplete="email" required />
+        <input placeholder="Ваше имя" value={form.name} onChange={update('name')} autoComplete="name" required minLength={2} />
+        <input type="email" placeholder="Почта" value={form.email} onChange={update('email')} autoComplete="email" required />
         <input
           type="password"
-          placeholder="Password (min 8 characters)"
+          placeholder="Пароль (не меньше 8 символов)"
           value={form.password}
           onChange={update('password')}
           autoComplete="new-password"
           minLength={8}
           required
         />
-        <button type="submit" disabled={busy}>{busy ? 'Creating…' : 'Create a free account'}</button>
+        <button type="submit" disabled={busy}>{busy ? 'Создаём…' : 'Создать аккаунт бесплатно'}</button>
         <p className="muted">
-          By signing up you accept the <a href="/privacy.html" target="_blank" rel="noopener noreferrer">privacy policy</a>.
+          Регистрируясь, вы принимаете <a href="/privacy.html" target="_blank" rel="noopener noreferrer">политику конфиденциальности</a>.
         </p>
-        <p className="muted">Already have an account? <Link to="/login">Sign in</Link></p>
+        <p className="muted">Уже есть аккаунт? <Link to="/login">Войти</Link></p>
       </form>
     </div>
   )
@@ -88,14 +88,14 @@ export function CheckInbox({ email }) {
     <div className="auth-page">
       <div className="card">
         <div className="login-brand"><Brand /></div>
-        <h1>Check your inbox</h1>
-        <p>We sent a letter to <strong>{email}</strong>. Open it and press <strong>Confirm</strong> to finish signing up.</p>
-        <p className="muted">Nothing there? Look in Spam or Promotions. The link works for 3 days.</p>
+        <h1>Проверьте почту</h1>
+        <p>Мы отправили письмо на <strong>{email}</strong>. Откройте его и нажмите <strong>«Подтвердить»</strong> — и вы внутри.</p>
+        <p className="muted">Письма нет? Загляните в «Спам» или «Промоакции». Ссылка действует 3 дня.</p>
         <button type="button" className="ghost" onClick={resend} disabled={state === 'sending'}>
-          {state === 'sending' ? 'Sending…' : state === 'sent' ? 'Sent again ✓' : 'Send the letter again'}
+          {state === 'sending' ? 'Отправляем…' : state === 'sent' ? 'Отправили ещё раз ✓' : 'Отправить письмо ещё раз'}
         </button>
         {state && !['sending', 'sent'].includes(state) && <div className="error">{state}</div>}
-        <p className="muted">Wrong address? <Link to="/signup" onClick={() => window.location.reload()}>Sign up again</Link></p>
+        <p className="muted">Ошиблись адресом? <Link to="/signup" onClick={() => window.location.reload()}>Зарегистрироваться заново</Link></p>
       </div>
     </div>
   )
