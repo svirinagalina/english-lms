@@ -8,7 +8,7 @@ import PushSettings from '../components/PushSettings'
 // server; it is never shown again, only its last characters.
 export default function Settings() {
   const [ai, setAi] = useState(null)
-  const [provider, setProvider] = useState('openai')
+  const [provider, setProvider] = useState('auto')
   const [key, setKey] = useState('')
   const [model, setModel] = useState('')
   const [busy, setBusy] = useState('')
@@ -63,7 +63,6 @@ export default function Settings() {
 
   const refresh = () => api.aiSettings().then(({ ai }) => {
     setAi(ai)
-    if (ai.provider) setProvider(ai.provider)
     setModel(ai.model ?? '')
   }).catch((err) => setError(err.message))
   useEffect(() => {
@@ -123,7 +122,7 @@ export default function Settings() {
         <h2>AI assistant</h2>
         <p className="muted" style={{ marginBottom: 12 }}>
           Powers the trial-lesson report, lesson summaries with speaking questions, mistake classification, and Translate / Questions on the board.
-          Paste an API key from <strong>platform.openai.com</strong> (OpenAI) or <strong>console.anthropic.com</strong> (Claude). It is stored encrypted and never shown again.
+          Paste an API key from <strong>platform.openai.com</strong> (OpenAI), <strong>platform.deepseek.com</strong> (DeepSeek), <strong>console.x.ai</strong> (Grok) or <strong>console.anthropic.com</strong> (Claude). It is stored encrypted and never shown again.
         </p>
 
         <div className={`row ${ai.configured ? '' : 'column'}`} style={{ marginBottom: 14 }}>
@@ -131,7 +130,7 @@ export default function Settings() {
             <strong>{ai.configured ? 'Configured' : 'Not configured'}</strong>
             <div className="muted">
               {ai.configured
-                ? `${ai.provider === 'openai' ? 'OpenAI' : 'Claude'} · key ending ${ai.keyHint}${ai.model ? ` · model ${ai.model}` : ''}${ai.source === 'env' ? ' · set on the server' : ''}`
+                ? `${{ openai: 'OpenAI', anthropic: 'Claude', xai: 'Grok', deepseek: 'DeepSeek' }[ai.provider] ?? ai.provider} · key ending ${ai.keyHint}${ai.model ? ` · model ${ai.model}` : ''}${ai.source === 'env' ? ' · set on the server' : ''}`
                 : 'AI features are off; reports and summaries use templates.'}
             </div>
           </div>
@@ -152,15 +151,18 @@ export default function Settings() {
             <label>
               Provider
               <select value={provider} onChange={(e) => setProvider(e.target.value)}>
+                <option value="auto">Detect from the key</option>
                 <option value="openai">OpenAI (GPT)</option>
+                <option value="deepseek">DeepSeek</option>
                 <option value="anthropic">Anthropic (Claude)</option>
+                <option value="xai">xAI (Grok)</option>
               </select>
             </label>
             <label>
               API key {ai.source === 'settings' && <span className="muted">(leave empty to keep the current one)</span>}
               <input
                 type="password"
-                placeholder={provider === 'openai' ? 'sk-proj-…' : 'sk-ant-…'}
+                placeholder={{ auto: 'paste the key', openai: 'sk-proj-…', deepseek: 'sk-…', anthropic: 'sk-ant-…', xai: 'xai-…' }[provider]}
                 value={key}
                 onChange={(e) => setKey(e.target.value)}
                 autoComplete="new-password"
@@ -168,8 +170,8 @@ export default function Settings() {
               />
             </label>
             <label>
-              Model <span className="muted">(optional — default {provider === 'openai' ? 'gpt-5.5' : 'claude-opus-5'})</span>
-              <input placeholder={provider === 'openai' ? 'gpt-5.5' : 'claude-opus-5'} value={model} onChange={(e) => setModel(e.target.value)} />
+              Model <span className="muted">(optional — default {{ auto: 'the service\'s usual model', openai: 'gpt-5.5', deepseek: 'deepseek-chat', anthropic: 'claude-opus-5', xai: 'the newest Grok' }[provider]})</span>
+              <input placeholder={{ auto: '', openai: 'gpt-5.5', deepseek: 'deepseek-chat', anthropic: 'claude-opus-5', xai: 'grok-…' }[provider]} value={model} onChange={(e) => setModel(e.target.value)} />
             </label>
             <div className="editor-actions">
               <button type="submit" disabled={busy === 'save' || (!key.trim() && ai.source !== 'settings')}>{busy === 'save' ? 'Saving…' : 'Save'}</button>

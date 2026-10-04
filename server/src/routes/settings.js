@@ -3,7 +3,7 @@ import { z } from 'zod'
 import { requireAuth, requireRole } from '../auth.js'
 import { aiConfig, saveAiSettings, clearAiKey, offerLinks, saveOfferLinks, stripeKey, saveStripeKey, adventKey, saveAdventKey } from '../settings.js'
 import { advent } from '../advent.js'
-import { testConnection } from '../llm.js'
+import { testConnection, detectProvider } from '../llm.js'
 
 // Platform settings — the owner only. The key is never sent back, only
 // its provider, model and last characters.
@@ -71,7 +71,7 @@ settingsRouter.put('/offer', async (req, res) => {
 })
 
 const aiSchema = z.object({
-  provider: z.enum(['openai', 'anthropic']),
+  provider: z.enum(['auto', 'openai', 'anthropic', 'xai', 'deepseek']),
   key: z.string().trim().min(20).max(400).optional(),
   model: z.string().trim().max(80).optional()
 })
@@ -79,9 +79,16 @@ const aiSchema = z.object({
 settingsRouter.put('/ai', async (req, res) => {
   const parsed = aiSchema.safeParse(req.body)
   if (!parsed.success) return res.status(400).json({ error: 'Choose a provider and paste the key' })
-  const { provider, key, model } = parsed.data
+  let { provider, key, model } = parsed.data
+  if (key && provider === 'auto') {
+    provider = await detectProvider(key)
+    if (!provider) return res.status(400).json({ error: 'This key was not accepted by OpenAI, DeepSeek, Grok or Claude — check that it was copied whole' })
+  }
+  if (provider === 'auto') provider = aiConfig()?.provider ?? 'openai'
   if (key && provider === 'openai' && !key.startsWith('sk-')) return res.status(400).json({ error: 'An OpenAI key starts with "sk-"' })
+  if (key && provider === 'deepseek' && !key.startsWith('sk-')) return res.status(400).json({ error: 'A DeepSeek key starts with "sk-"' })
   if (key && provider === 'anthropic' && !key.startsWith('sk-ant-')) return res.status(400).json({ error: 'An Anthropic key starts with "sk-ant-"' })
+  if (key && provider === 'xai' && !key.startsWith('xai-')) return res.status(400).json({ error: 'A Grok (xAI) key starts with "xai-"' })
   const current = aiConfig()
   if (!key && !(current && current.source === 'settings')) return res.status(400).json({ error: 'Paste the key' })
   await saveAiSettings({ provider, key, model: model ?? '' })
