@@ -42,15 +42,18 @@ export default function FreeHome() {
         <p>
           {access.plan ? (
             <><strong>{{ practice: 'Practice', calls: 'Calls', all: 'Everything' }[access.plan]} plan</strong>{' '}
-            <span className="muted">until {new Date(access.planUntil).toLocaleDateString()}</span></>
+            <span className="muted">до {new Date(access.planUntil).toLocaleDateString('ru-RU')}</span></>
           ) : (
             <><strong>Free plan.</strong>{' '}
             <span className="muted">
-              {units ? `${open.length} of ${units.length} grammar units` : 'Part of the grammar'}, 20 AI checks a day, the dictionary, your own vocabulary and the speaking trainer's trial.
+              {units ? `${open.length} из ${units.length} тем грамматики` : 'Часть грамматики'}, 20 проверок ИИ в день, словарь, свои слова и пробный доступ к разговорному тренажёру.
             </span></>
           )}
         </p>
-        <Link className="button" to="/plans">{access.plan ? 'My plan' : 'See plans'}</Link>
+        <div className="free-plan-actions">
+          <Link className="button" to="/plans">{access.plan ? 'My plan' : 'See plans'}</Link>
+          <button type="button" className="ghost" onClick={openTrialOffer}>{requested ? 'Trial lesson requested ✓' : 'Book a trial lesson'}</button>
+        </div>
       </div>
 
       <section>
@@ -58,52 +61,43 @@ export default function FreeHome() {
           <button type="button" className="tile accent tile-button" onClick={startCall}>
             <span className="tile-kicker">Video calls {access.calls ? '' : '🔒'}</span>
             <strong>{starting ? 'Starting…' : 'Start a call'}</strong>
-            <span className="muted">{access.calls ? 'Your own call with the board and Writing — send the link, guests join free.' : 'Your own video calls are in the Calls plan. Joining a call you were invited to is free.'}</span>
+            <span className="muted">{access.calls ? 'Свой звонок с доской и Writing — отправьте ссылку, гости заходят бесплатно.' : 'Свои видеозвонки — в тарифе Calls. Зайти в звонок, куда вас пригласили, можно бесплатно.'}</span>
           </button>
 
           <Link className="tile" to="/try-board">
             <span className="tile-kicker">Lessons</span>
             <strong>Try the lesson board</strong>
-            <span className="muted">Write, draw and move things around — then see how a video lesson starts.</span>
+            <span className="muted">Пишите, рисуйте, двигайте элементы — и посмотрите, как начинается видеоурок.</span>
           </Link>
 
           <Link className="tile" to={nextUnit ? `/practice/${nextUnit.id}` : '/practice'}>
             <span className="tile-kicker">Practice</span>
             <strong>Train your grammar</strong>
             <span className="muted">
-              {nextUnit ? `${nextUnit.title} · ${nextUnit.solved} of ${nextUnit.total} done` : units === null ? 'Loading…' : 'Grammar units'}
+              {nextUnit ? `${nextUnit.title} · сделано ${nextUnit.solved} из ${nextUnit.total}` : units === null ? 'Загрузка…' : 'Темы грамматики'}
             </span>
           </Link>
 
           <Link className="tile" to="/dictionary">
             <span className="tile-kicker">Dictionary</span>
             <strong>Look up a word</strong>
-            <span className="muted">Russian ⇄ English, with sound. Save words to learn them.</span>
+            <span className="muted">Русский ⇄ английский, с произношением. Сохраняйте слова, чтобы выучить их.</span>
           </Link>
 
           <Link className="tile" to={due > 0 ? '/vocabulary?review=1' : '/vocabulary'}>
             <span className="tile-kicker">Vocabulary</span>
             <strong>Learn and revise new words</strong>
-            <span className="muted">{due > 0 ? `${due} to review` : 'Your saved words and word sets'}</span>
+            <span className="muted">{due > 0 ? `${due} на повторение` : 'Ваши сохранённые слова и наборы слов'}</span>
           </Link>
 
           {trainer && (
             <Link className="tile" to="/trainer">
               <span className="tile-kicker">Speaking</span>
               <strong>Practice speaking</strong>
-              <span className="muted">Talk to the trainer and get corrected — the trial is free.</span>
+              <span className="muted">Говорите с тренажёром и получайте исправления — пробный доступ бесплатный.</span>
             </Link>
           )}
 
-          <button type="button" className="tile tile-button" onClick={openTrialOffer}>
-            <span className="tile-kicker">With a teacher</span>
-            <strong>{requested ? 'Your request is in' : 'Book a trial lesson'}</strong>
-            <span className="muted">
-              {requested
-                ? "We'll get in touch to arrange it. Tap to add something."
-                : 'Video lessons, homework, your mistake notebook and everything else unlocked.'}
-            </span>
-          </button>
         </div>
       </section>
     </>

@@ -1768,3 +1768,6 @@ a:hover .gs-arrow { transform: translateX(5px); }
 @media (max-width: 520px) { .gs-env-grid { grid-template-columns: 1fr; } .gs-aside { display: none; } .gs-foot-grid { grid-template-columns: 1fr; } }
 .gs-review-col { display: flex; flex-direction: column; }
 .gs-review-col .gs-review:last-child { flex: 1; }
+
+.free-plan-actions { display: flex; flex-wrap: wrap; gap: 10px; }
+.free-plan-actions .ghost { border: 1.5px solid var(--accent); color: var(--text); background: transparent; }
