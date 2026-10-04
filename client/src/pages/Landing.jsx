@@ -3,11 +3,29 @@ import { Brand, SiteFooter } from '../components/Brand'
 
 // What a signed-out visitor sees at the site's address: why it's worth it,
 // what it costs, and the two ways in. Russian — that's who comes here.
+// Line icons in the brand colours (drawn here, not emoji).
+const Icon = ({ name }) => {
+  const paths = {
+    call: <><rect x="3" y="6" width="13" height="12" rx="3" /><path d="M16 10.5 21 7.5v9l-5-3" /><path d="M7 12h5" /></>,
+    grammar: <><path d="M5 4h10l4 4v12H5z" /><path d="M15 4v4h4" /><path d="m8.5 14 2 2 4-4.5" /></>,
+    words: <><rect x="4" y="6" width="12" height="14" rx="2" /><path d="M8 3h10a2 2 0 0 1 2 2v12" /><path d="M7.5 11h5M7.5 15h3" /></>,
+    speak: <><path d="M4 6a3 3 0 0 1 3-3h10a3 3 0 0 1 3 3v7a3 3 0 0 1-3 3h-6l-5 4v-4H7a3 3 0 0 1-3-3z" /><path d="M9 9.5v1M12 8v4M15 9.5v1" /></>
+  }
+  return (
+    <svg className="landing-icon" viewBox="0 0 24 24" width="30" height="30" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      {paths[name]}
+    </svg>
+  )
+}
+
 const FEATURES = [
-  { icon: '🎥', kicker: 'Видеозвонки', title: 'Урок, где всё под рукой', text: 'Видео, общая доска и документ, который правите вместе. Размытие фона и шумоподавление — ни кухни, ни соседского ремонта. До 6 человек.' },
-  { icon: '✍️', kicker: 'Грамматика', title: 'Упражнения, которые проверяют сами', text: '34 темы от Present Simple до косвенной речи. ИИ засчитает любой правильный вариант и объяснит ошибку по-русски — как репетитор, только в 2 часа ночи тоже.' },
-  { icon: '🧠', kicker: 'Слова', title: 'Слова, которые не забываются', text: 'Словарь с произношением, свои слова в один клик прямо с доски и карточки с интервальным повторением: приложение само напомнит, что пора повторить.' },
-  { icon: '🗣️', kicker: 'Разговор', title: 'Чат-бот, с которым не стыдно', text: 'Говорите вслух сколько угодно и получайте исправления. Никто не смотрит, никто не торопит — лучший способ перестать бояться говорить.' }
+  { icon: 'call', kicker: 'Видеозвонки', title: 'Видеозвонки для уроков', text: 'Удобная интерактивная онлайн-доска со встроенным переводом и озвучкой слов.' },
+  {
+    icon: 'grammar', kicker: 'Грамматика', title: 'Упражнения для самопроверки',
+    text: <>Наш ИИ-ментор, обученный на авторской методике преподавания <Link to="/author">Галины Свириной</Link>, проверит ваши упражнения и покажет аналитику прогресса. Занимайтесь в любое время и в любом месте.</>
+  },
+  { icon: 'words', kicker: 'Слова', title: 'Слова, которые не забываются', text: 'Словарь с произношением, свои слова в один клик прямо с доски и карточки с интервальным повторением: приложение само напомнит, что пора повторить.' },
+  { icon: 'speak', kicker: 'Разговор', title: 'Чат-бот, с которым не стыдно', text: 'Говорите вслух сколько угодно и получайте исправления. Никто не смотрит, никто не торопит — лучший способ перестать бояться говорить.' }
 ]
 
 const STEPS = [
@@ -40,11 +58,11 @@ export default function Landing() {
       </header>
       <main>
         <section className="landing-hero">
-          <span className="landing-eyebrow">Английский без разрозненных приложений</span>
-          <h1>Заговорите по-английски — уроки, грамматика и практика в одном месте</h1>
+          <span className="landing-eyebrow">Все инструменты для изучения английского в одном месте</span>
+          <h1>Эффективная среда изучения английского</h1>
           <p className="landing-lead">
             Видеоуроки на общей доске, упражнения с умной проверкой, слова, которые запоминаются, и чат-бот для разговора.
-            Начните бесплатно сегодня — полный доступ <strong>от 390 ₽ в месяц</strong>.
+            Начните бесплатно сегодня.
           </p>
           <div className="landing-actions">
             <Link className="button big" to="/signup">Начать бесплатно</Link>
@@ -56,7 +74,7 @@ export default function Landing() {
         <section className="landing-features">
           {FEATURES.map((f) => (
             <div key={f.kicker} className="tile landing-feature">
-              <span className="landing-icon" aria-hidden="true">{f.icon}</span>
+              <Icon name={f.icon} />
               <span className="tile-kicker">{f.kicker}</span>
               <strong>{f.title}</strong>
               <span className="muted">{f.text}</span>

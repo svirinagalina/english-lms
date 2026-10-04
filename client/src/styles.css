@@ -1438,7 +1438,8 @@ button.locked-row:hover { border-color: var(--accent); opacity: .8; }
 .button.ghost { background: transparent; color: var(--text); border: 1.5px solid var(--accent); }
 .landing-features { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 14px; margin-bottom: 56px; }
 .landing-feature { min-height: 0; }
-.landing-icon { font-size: 28px; line-height: 1; margin-bottom: 4px; }
+.landing-icon { color: var(--accent); padding: 9px; box-sizing: content-box; border-radius: 12px; background: rgba(244, 185, 217, 0.12); margin-bottom: 6px; }
+.landing-feature a { color: var(--accent); }
 .landing-steps { margin-bottom: 56px; }
 .landing-steps-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 14px; }
 .landing-step { display: flex; flex-direction: column; gap: 6px; padding: 18px; border: 1px dashed var(--border); border-radius: 12px; }
@@ -1462,3 +1463,8 @@ button.locked-row:hover { border-color: var(--accent); opacity: .8; }
 .landing-faq details p { margin: 10px 0 0; }
 .landing-final { text-align: center; padding: 34px 18px; margin-bottom: 40px; border-radius: 16px; background: linear-gradient(135deg, rgba(244, 185, 217, 0.18), rgba(244, 185, 217, 0.05)); border: 1px solid rgba(244, 185, 217, 0.35); }
 .landing-final p { margin: -6px 0 20px; }
+
+.author-page { padding: 40px 0 50px; text-align: center; }
+.author-page h1 { font-size: clamp(30px, 5vw, 46px); margin: 0 0 16px; }
+.author-points { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 14px; margin: 10px 0 30px; text-align: left; }
+.author-points .tile { min-height: 0; }
