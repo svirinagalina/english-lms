@@ -98,10 +98,11 @@ export async function clearAiKey() {
   return loadAiSettings()
 }
 
-// What the language-model layer uses: environment first, then the saved settings.
+// What the language-model layer uses: a key saved in Settings first (so the
+// owner can replace an expired server key herself), then the environment.
 export function aiConfig() {
+  if (ai.key && ai.provider) return { provider: ai.provider, key: ai.key, model: ai.model, source: 'settings' }
   if (process.env.OPENAI_API_KEY) return { provider: 'openai', key: process.env.OPENAI_API_KEY, model: process.env.OPENAI_MODEL || null, source: 'env' }
   if (process.env.ANTHROPIC_API_KEY) return { provider: 'anthropic', key: process.env.ANTHROPIC_API_KEY, model: process.env.ANTHROPIC_MODEL || null, source: 'env' }
-  if (ai.key && ai.provider) return { provider: ai.provider, key: ai.key, model: ai.model, source: 'settings' }
   return null
 }

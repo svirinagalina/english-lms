@@ -146,8 +146,9 @@ export default function Settings() {
         {error && <div className="error">{error}</div>}
         {notice && <div className="notice">{notice}</div>}
 
-        {ai.source !== 'env' && (
+        {(
           <form className="billing-editor" onSubmit={save} autoComplete="off">
+            {ai.source === 'env' && <p className="muted" style={{ margin: 0 }}>A key saved here replaces the one set on the server.</p>}
             <label>
               Provider
               <select value={provider} onChange={(e) => setProvider(e.target.value)}>
@@ -156,7 +157,7 @@ export default function Settings() {
               </select>
             </label>
             <label>
-              API key {ai.configured && <span className="muted">(leave empty to keep the current one)</span>}
+              API key {ai.source === 'settings' && <span className="muted">(leave empty to keep the current one)</span>}
               <input
                 type="password"
                 placeholder={provider === 'openai' ? 'sk-proj-…' : 'sk-ant-…'}
@@ -171,7 +172,7 @@ export default function Settings() {
               <input placeholder={provider === 'openai' ? 'gpt-5.5' : 'claude-opus-5'} value={model} onChange={(e) => setModel(e.target.value)} />
             </label>
             <div className="editor-actions">
-              <button type="submit" disabled={busy === 'save' || (!key.trim() && !ai.configured)}>{busy === 'save' ? 'Saving…' : 'Save'}</button>
+              <button type="submit" disabled={busy === 'save' || (!key.trim() && ai.source !== 'settings')}>{busy === 'save' ? 'Saving…' : 'Save'}</button>
             </div>
           </form>
         )}
