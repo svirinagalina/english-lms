@@ -8,7 +8,7 @@ set -euo pipefail
 
 SSH_KEY="${SSH_KEY:-$HOME/.ssh/lms_deploy}"
 SSH_USER="${SSH_USER:-root}"
-SSH_HOST="${SSH_HOST:-srv3.advent-academy.online}"
+SSH_HOST="${SSH_HOST:-91.239.6.107}"
 APP_DIR="${APP_DIR:-/opt/srv3/lms}"
 
 PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
