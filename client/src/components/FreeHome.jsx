@@ -61,22 +61,26 @@ export default function FreeHome() {
           <button type="button" className="tile accent tile-button" onClick={startCall}>
             <span className="tile-kicker">Video calls {access.calls ? '' : '🔒'}</span>
             <strong>{starting ? 'Starting…' : 'Start a call'}</strong>
-            <span className="muted">{access.calls ? 'Свой звонок с доской и Writing — отправьте ссылку, гости заходят бесплатно.' : 'Свои видеозвонки — в тарифе Calls. Зайти в звонок, куда вас пригласили, можно бесплатно.'}</span>
+            <span className="muted">{access.calls ? 'Свой звонок с доской и Writing — отправьте ссылку, гости заходят бесплатно.' : 'Подключите тариф Calls, чтобы пользоваться функцией видеосвязи.'}</span>
           </button>
 
           <Link className="tile" to="/try-board">
             <span className="tile-kicker">Lessons</span>
             <strong>Try the lesson board</strong>
-            <span className="muted">Пишите, рисуйте, двигайте элементы — и посмотрите, как начинается видеоурок.</span>
+            <span className="muted">Удобная интерактивная онлайн-доска со встроенным переводом и озвучкой слов.</span>
           </Link>
 
-          <Link className="tile" to={nextUnit ? `/practice/${nextUnit.id}` : '/practice'}>
+          {/* A div, not a link: the text carries its own link to the author page. */}
+          <div className="tile tile-button" role="link" tabIndex={0}
+            onClick={() => navigate(nextUnit ? `/practice/${nextUnit.id}` : '/practice')}
+            onKeyDown={(e) => { if (e.key === 'Enter') navigate(nextUnit ? `/practice/${nextUnit.id}` : '/practice') }}>
             <span className="tile-kicker">Practice</span>
             <strong>Train your grammar</strong>
             <span className="muted">
-              {nextUnit ? `${nextUnit.title} · сделано ${nextUnit.solved} из ${nextUnit.total}` : units === null ? 'Загрузка…' : 'Темы грамматики'}
+              Наш ИИ-ментор, обученный на авторской методике преподавания{' '}
+              <Link to="/author" onClick={(e) => e.stopPropagation()}>Галины Свириной</Link>, проверит ваши упражнения и предоставит аналитику прогресса. Занимайтесь в любое время и в любом месте.
             </span>
-          </Link>
+          </div>
 
           <Link className="tile" to="/dictionary">
             <span className="tile-kicker">Dictionary</span>
@@ -87,7 +91,7 @@ export default function FreeHome() {
           <Link className="tile" to={due > 0 ? '/vocabulary?review=1' : '/vocabulary'}>
             <span className="tile-kicker">Vocabulary</span>
             <strong>Learn and revise new words</strong>
-            <span className="muted">{due > 0 ? `${due} на повторение` : 'Ваши сохранённые слова и наборы слов'}</span>
+            <span className="muted">Добавляйте новые слова из урока или создавайте свои наборы карточек для повторения. Платформа подскажет оптимальные интервалы для повторения по методу spaced repetition.{due > 0 ? ` Сейчас на повторение: ${due}.` : ''}</span>
           </Link>
 
           {trainer && (

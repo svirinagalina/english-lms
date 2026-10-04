@@ -1771,3 +1771,4 @@ a:hover .gs-arrow { transform: translateX(5px); }
 
 .free-plan-actions { display: flex; flex-wrap: wrap; gap: 10px; }
 .free-plan-actions .ghost { border: 1.5px solid var(--accent); color: var(--text); background: transparent; }
+.tiles-grid .tile .muted a { color: var(--accent); text-decoration: underline; text-underline-offset: 3px; }
