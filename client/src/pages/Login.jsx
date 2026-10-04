@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { CheckInbox } from './Signup'
 import { Link } from 'react-router-dom'
 import { useAuth } from '../AuthContext'
 import { api } from '../api'
@@ -12,6 +13,7 @@ export default function Login() {
   const [busy, setBusy] = useState(false)
   const [registrationOpen, setRegistrationOpen] = useState(false)
   const [signupOpen, setSignupOpen] = useState(false)
+  const [unverified, setUnverified] = useState('')
 
   useEffect(() => {
     api.registrationStatus()
@@ -27,11 +29,14 @@ export default function Login() {
     try {
       await login({ email, password })
     } catch (err) {
+      if (err.data?.unverified) { setUnverified(err.data.email); setBusy(false); return }
       setError(err.message)
     } finally {
       setBusy(false)
     }
   }
+
+  if (unverified) return <CheckInbox email={unverified} />
 
   return (
     <div className="auth-page">

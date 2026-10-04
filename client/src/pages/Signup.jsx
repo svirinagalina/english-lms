@@ -10,6 +10,7 @@ export default function Signup() {
   const { signup } = useAuth()
   const [form, setForm] = useState({ name: '', email: '', password: '' })
   const [error, setError] = useState('')
+  const [sentTo, setSentTo] = useState('')
   const [busy, setBusy] = useState(false)
   const [open, setOpen] = useState(null)
 
@@ -24,7 +25,8 @@ export default function Signup() {
     setError('')
     setBusy(true)
     try {
-      await signup(form)
+      const result = await signup(form)
+      if (result?.verify) { setSentTo(result.email); setBusy(false) }
     } catch (err) {
       setError(err.message)
       setBusy(false)
@@ -32,6 +34,8 @@ export default function Signup() {
   }
 
   if (open === null) return <div className="centered">Loading…</div>
+
+  if (sentTo) return <CheckInbox email={sentTo} />
 
   if (!open) {
     return (
@@ -69,6 +73,30 @@ export default function Signup() {
         </p>
         <p className="muted">Already have an account? <Link to="/login">Sign in</Link></p>
       </form>
+    </div>
+  )
+}
+
+// After sign-up (and from the sign-in page): the letter is on its way.
+export function CheckInbox({ email }) {
+  const [state, setState] = useState('')
+  const resend = async () => {
+    setState('sending')
+    try { await api.resendVerification(email); setState('sent') } catch (err) { setState(err.message) }
+  }
+  return (
+    <div className="auth-page">
+      <div className="card">
+        <div className="login-brand"><Brand /></div>
+        <h1>Check your inbox</h1>
+        <p>We sent a letter to <strong>{email}</strong>. Open it and press <strong>Confirm</strong> to finish signing up.</p>
+        <p className="muted">Nothing there? Look in Spam or Promotions. The link works for 3 days.</p>
+        <button type="button" className="ghost" onClick={resend} disabled={state === 'sending'}>
+          {state === 'sending' ? 'Sending…' : state === 'sent' ? 'Sent again ✓' : 'Send the letter again'}
+        </button>
+        {state && !['sending', 'sent'].includes(state) && <div className="error">{state}</div>}
+        <p className="muted">Wrong address? <Link to="/signup" onClick={() => window.location.reload()}>Sign up again</Link></p>
+      </div>
     </div>
   )
 }

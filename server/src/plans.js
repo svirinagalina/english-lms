@@ -92,6 +92,9 @@ export function startPlanSweep() {
       await syncTrainer(id)
     }
   }
+  // Sign-ups never confirmed within a week are removed.
+  const cleanUnconfirmed = () => prisma.user.deleteMany({ where: { free: true, emailVerified: false, createdAt: { lt: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000) } } })
+  setInterval(() => cleanUnconfirmed().catch(() => {}), 6 * 60 * 60 * 1000)
   setTimeout(() => sweep().catch(() => {}), 60 * 1000)
   setInterval(() => sweep().catch(() => {}), 60 * 60 * 1000)
 }

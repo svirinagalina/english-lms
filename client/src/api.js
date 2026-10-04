@@ -19,6 +19,7 @@ async function request(path, options = {}) {
   if (!response.ok) {
     const error = new Error(data.error ?? 'Request failed')
     error.locked = Boolean(data.locked)
+    error.data = data
     throw error
   }
   return data
@@ -36,6 +37,8 @@ export const api = {
   registrationStatus: () => request('/auth/registration-status'),
   signupStatus: () => request('/auth/signup-status'),
   signup: (body) => request('/auth/signup', { method: 'POST', body }),
+  verifyEmail: (token) => request(`/auth/verify/${encodeURIComponent(token)}`, { method: 'POST' }),
+  resendVerification: (email) => request('/auth/verify-resend', { method: 'POST', body: { email } }),
   requestTrial: (body) => request('/profile/trial-request', { method: 'POST', body }),
   listPlans: () => request('/plans'),
   subscribe: (plan, period) => request('/plans/subscribe', { method: 'POST', body: { plan, period } }),

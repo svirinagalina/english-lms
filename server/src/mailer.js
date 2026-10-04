@@ -145,6 +145,22 @@ export function sendPasswordResetEmail({ to, name, link }) {
   return send({ to, subject: 'Reset your Advent Academy password', html, text })
 }
 
+// The link that confirms a new account's address.
+export function sendVerifyEmail({ to, name, link }) {
+  const html = `
+<div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;max-width:520px;margin:0 auto;padding:32px 24px;color:#14453f">
+  <div style="font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:#b5539a;font-weight:700">Advent Academy</div>
+  <h1 style="font-size:20px;margin:8px 0 16px">${escapeHtml(name)}, подтвердите почту</h1>
+  <p style="font-size:15px;line-height:1.55;margin:0 0 24px">Нажмите кнопку, чтобы закончить регистрацию и войти. Ссылка действует 3 дня.<br><span style="color:#5f7a74">Confirm your email to finish signing up — the link works for 3 days.</span></p>
+  <p style="margin:0 0 24px">
+    <a href="${escapeHtml(link)}" style="display:inline-block;background:#14453f;color:#fff;text-decoration:none;padding:12px 22px;border-radius:8px;font-weight:600;font-size:15px">Подтвердить / Confirm</a>
+  </p>
+  <p style="font-size:13px;color:#666;line-height:1.5;margin:0">Если вы не регистрировались, просто проигнорируйте это письмо.</p>
+</div>`
+  const text = `${name}, подтвердите почту, чтобы закончить регистрацию (ссылка действует 3 дня): ${link}\nConfirm your email to finish signing up: ${link}`
+  return send({ to, subject: 'Подтвердите почту — Advent Academy', html, text })
+}
+
 // The trial-lesson report, sent when the teacher publishes it.
 export function sendTrialReportEmail({ to, name, level, summary, reportLink, paymentLink }) {
   const html = `

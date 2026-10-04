@@ -4,7 +4,7 @@ import { prisma } from '../db.js'
 import { planView } from '../plans.js'
 import { createHash, randomBytes } from 'crypto'
 import { hashPassword, verifyPassword, issueToken, clearToken, requireAuth } from '../auth.js'
-import { mailEnabled, sendPasswordResetEmail } from '../mailer.js'
+import { mailEnabled, sendPasswordResetEmail, sendVerifyEmail } from '../mailer.js'
 
 export const authRouter = Router()
 
@@ -115,13 +115,57 @@ authRouter.post('/signup', async (req, res) => {
     return res.status(409).json({ error: 'This email already has an account — sign in instead.' })
   }
 
+  // With mail set up, the address is confirmed by a link before the first
+  // sign-in (no made-up addresses, and "Forgot password" always reaches them).
+  const verify = mailEnabled()
   const user = await prisma.user.create({
-    data: { email, name, passwordHash: await hashPassword(password), role: 'STUDENT', free: true, schoolId: school.id }
+    data: { email, name, passwordHash: await hashPassword(password), role: 'STUDENT', free: true, schoolId: school.id, emailVerified: !verify }
   })
   signupsByIp.set(req.ip, [...recent, now])
 
+  if (verify) {
+    try {
+      await sendVerification(req, user)
+    } catch (error) {
+      console.error('Verification email failed:', error.message)
+    }
+    return res.status(201).json({ verify: true, email: user.email })
+  }
   issueToken(res, user)
   res.status(201).json({ user: publicUser(user) })
+})
+
+const VERIFY_WINDOW_MS = 3 * 24 * 60 * 60 * 1000
+async function sendVerification(req, user) {
+  const token = randomBytes(32).toString('base64url')
+  await prisma.emailVerification.create({ data: { tokenHash: hashToken(token), userId: user.id, expiresAt: new Date(Date.now() + VERIFY_WINDOW_MS) } })
+  const origin = process.env.CLIENT_ORIGIN ?? `${req.protocol}://${req.get('host')}`
+  await sendVerifyEmail({ to: user.email, name: user.name, link: `${origin}/verify/${token}` })
+}
+
+// The link from the letter: the account is confirmed and signed in.
+authRouter.post('/verify/:token', async (req, res) => {
+  const record = await prisma.emailVerification.findUnique({ where: { tokenHash: hashToken(req.params.token) } })
+  if (!record || record.expiresAt < new Date()) return res.status(410).json({ error: 'This link has expired. Sign in to get a new one.' })
+  const user = await prisma.user.update({ where: { id: record.userId }, data: { emailVerified: true } })
+  await prisma.emailVerification.deleteMany({ where: { userId: user.id } })
+  issueToken(res, user)
+  res.json({ user: publicUser(user) })
+})
+
+// Another letter, at most one a minute per address.
+const resentAt = new Map()
+authRouter.post('/verify-resend', async (req, res) => {
+  const email = typeof req.body?.email === 'string' ? req.body.email.trim().toLowerCase() : ''
+  const last = resentAt.get(email) ?? 0
+  if (Date.now() - last < 60 * 1000) return res.status(429).json({ error: 'A letter was just sent — check your inbox and spam, or try again in a minute.' })
+  resentAt.set(email, Date.now())
+  const user = email && await prisma.user.findUnique({ where: { email } })
+  if (user && !user.emailVerified && mailEnabled()) {
+    try { await sendVerification(req, user) } catch (error) { console.error('Verification email failed:', error.message) }
+  }
+  // The same answer either way: this must not tell who has an account.
+  res.json({ ok: true })
 })
 
 // Failed sign-ins are counted per address and per account; too many in a
@@ -154,6 +198,8 @@ authRouter.post('/login', async (req, res) => {
     return res.status(401).json({ error: 'Invalid email or password' })
   }
   for (const key of keys) loginFailures.delete(key)
+
+  if (!user.emailVerified) return res.status(403).json({ error: 'Confirm your email first — we sent you a letter with a link.', unverified: true, email: user.email })
 
   issueToken(res, user)
   res.json({ user: publicUser(user) })
@@ -214,7 +260,8 @@ authRouter.post('/reset/:token', async (req, res) => {
   if (!reset || reset.usedAt || reset.expiresAt < new Date()) return res.status(410).json({ error: 'This link has expired or was already used. Ask for a new one.' })
   const passwordHash = await hashPassword(password)
   const user = await prisma.$transaction(async (tx) => {
-    const updated = await tx.user.update({ where: { id: reset.userId }, data: { passwordHash } })
+    // The reset link came by email, so the address is confirmed too.
+    const updated = await tx.user.update({ where: { id: reset.userId }, data: { passwordHash, emailVerified: true } })
     await tx.passwordReset.update({ where: { id: reset.id }, data: { usedAt: new Date() } })
     // Any other outstanding links for this account die with this one.
     await tx.passwordReset.updateMany({ where: { userId: reset.userId, usedAt: null }, data: { usedAt: new Date() } })

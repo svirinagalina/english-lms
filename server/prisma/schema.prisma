@@ -72,6 +72,10 @@ model User {
   // with everything. Invited students are never free.
   free             Boolean   @default(false)
   // A free user asked for a trial lesson; the owner is told.
+  // A self-signed-up account confirms its email before the first sign-in
+  // (a link in a letter). Invited and existing accounts count as confirmed.
+  emailVerified    Boolean   @default(true)
+  emailVerifications EmailVerification[]
   trialRequestedAt DateTime?
   trialRequestNote String?
 
@@ -762,5 +766,15 @@ model AdventLesson {
 model AdventEvent {
   id        String   @id
   lessonId  String?
+  createdAt DateTime @default(now())
+}
+
+// A link sent at sign-up to confirm the address (see routes/auth.js).
+model EmailVerification {
+  id        String   @id @default(cuid())
+  tokenHash String   @unique
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt DateTime
   createdAt DateTime @default(now())
 }

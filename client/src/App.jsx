@@ -19,6 +19,7 @@ import UnitPractice from './pages/UnitPractice'
 import Plans from './pages/Plans'
 import { isNativeApp } from './utils/native'
 import Landing from './pages/Landing'
+import VerifyEmail from './pages/VerifyEmail'
 import MistakePractice from './pages/MistakePractice'
 import Vocabulary from './pages/Vocabulary'
 import VocabSet from './pages/VocabSet'
@@ -118,6 +119,7 @@ export default function App() {
       <Route path="/try-board" element={<RequireAuth><TryBoard /></RequireAuth>} />
       <Route path="/forgot" element={user ? <Navigate to="/" replace /> : <ForgotPassword />} />
       <Route path="/reset/:token" element={<ResetPassword />} />
+      <Route path="/verify/:token" element={<VerifyEmail />} />
       <Route path="/register" element={user ? <Navigate to="/" replace /> : <Register />} />
       <Route path="/join/:token" element={user ? <Navigate to="/" replace /> : <Join />} />
       <Route path="/call/:token" element={<Call />} />
