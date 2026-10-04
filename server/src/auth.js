@@ -41,7 +41,7 @@ async function userFromCookie(req) {
   }
   return prisma.user.findUnique({
     where: { id: payload.sub },
-    select: { id: true, role: true, schoolId: true, free: true }
+    select: { id: true, role: true, schoolId: true, free: true, plan: true, planUntil: true }
   })
 }
 
@@ -87,6 +87,8 @@ export async function requireAuthOrToken(req, res, next) {
 // courses and textbooks are for students with a teacher. `locked` tells the
 // page to show the "request a trial lesson" offer instead of an error.
 export const LOCKED = { error: 'This is for students with a teacher. Request a trial lesson to unlock it.', locked: true }
+// Open with a plan: the page offers the plans (and a trial lesson).
+export const lockedFor = (feature) => ({ error: feature === 'calls' ? 'Hosting calls is in the Calls plan.' : 'This is in the Practice plan.', locked: true, feature })
 export function requirePaid(req, res, next) {
   if (req.user.free) return res.status(403).json(LOCKED)
   next()

@@ -75,6 +75,15 @@ model User {
   trialRequestedAt DateTime?
   trialRequestNote String?
 
+  // A self-service subscription (see plans.js): 'practice' | 'calls' | 'all',
+  // valid until planUntil. Paid through Stripe (planSource 'stripe') or
+  // confirmed by hand for a card/rouble payment ('manual').
+  plan                 String?
+  planUntil            DateTime?
+  planSource           String?
+  stripeCustomerId     String?
+  stripeSubscriptionId String?
+
   schoolId String
   school   School @relation(fields: [schoolId], references: [id], onDelete: Cascade)
 

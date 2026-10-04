@@ -2,7 +2,8 @@ import { Router } from 'express'
 import { randomBytes, createHmac } from 'crypto'
 import { z } from 'zod'
 import { prisma } from '../db.js'
-import { requireAuth, requireRole, LOCKED } from '../auth.js'
+import { requireAuth, requireRole, LOCKED, lockedFor } from '../auth.js'
+import { entitlements } from '../plans.js'
 import { notifyCallStarted } from '../push.js'
 import { linkCallToAdventLesson, adventCallEnded } from '../adventLessons.js'
 import { accessibleClassroom, ensurePersonalSpace } from './classrooms.js'
@@ -47,8 +48,8 @@ callsRouter.get('/ice', (req, res) => {
 // What a participant sees before joining. Only members of the school that
 // made the call can look it up — a link alone is not an invitation.
 callsRouter.get('/token/:token', async (req, res) => {
-  // Lessons are what the free tier leads up to, not part of it.
-  if (req.user.free) return res.status(403).json(LOCKED)
+  // Anyone signed in to the school may join by the link (guests are free;
+  // only hosting needs a plan).
   const call = await prisma.call.findFirst({
     where: { token: req.params.token, schoolId: req.user.schoolId },
     include: { host: { select: { name: true } }, school: { select: { name: true } } }
@@ -62,10 +63,20 @@ callsRouter.get('/token/:token', async (req, res) => {
       host: call.host.name,
       schoolName: call.school.name,
       // The student's board can be opened inside the call.
-      classroomId: call.classroomId
+      classroomId: call.classroomId,
+      // The person who started it (a subscriber hosting their own call gets
+      // the host's tools: the invite link, a board to write on).
+      isHost: call.hostId === req.user.id
     }
   })
 })
+
+// Staff host calls; so does anyone whose plan includes Calls.
+function requireHost(req, res, next) {
+  if (req.user.role !== 'STUDENT') return requireRole('OWNER', 'TEACHER')(req, res, next)
+  if (!entitlements(req.user).calls) return res.status(403).json(lockedFor('calls'))
+  next()
+}
 
 const createSchema = z.object({
   title: z.string().max(200).optional(),
@@ -85,9 +96,11 @@ function oneAtATime(hostId, fn) {
   return run
 }
 
-callsRouter.post('/', requireRole('OWNER', 'TEACHER'), async (req, res) => {
+callsRouter.post('/', requireHost, async (req, res) => {
   const parsed = createSchema.safeParse(req.body)
   if (!parsed.success) return res.status(400).json({ error: 'Invalid data' })
+  // A subscriber hosts their own calls only — not on a student's classroom.
+  if (req.user.role === 'STUDENT' && (parsed.data.classroomId || parsed.data.boardId)) return res.status(403).json({ error: 'Start your own call without a classroom' })
 
   let classroomId = null
   if (parsed.data.classroomId) {
@@ -144,7 +157,7 @@ callsRouter.post('/', requireRole('OWNER', 'TEACHER'), async (req, res) => {
 // A blank board for a call that has no student (a colleague or group call):
 // created on the teacher's own shelf, flagged scratch so it never shows in
 // My boards and is deleted once the call ends (see signaling.js).
-callsRouter.post('/:token/scratch-board', requireRole('OWNER', 'TEACHER'), async (req, res) => {
+callsRouter.post('/:token/scratch-board', requireHost, async (req, res) => {
   const call = await prisma.call.findUnique({ where: { token: req.params.token } })
   if (!call || call.endedAt || call.schoolId !== req.user.schoolId) return res.status(404).json({ error: 'Call not found' })
   if (call.classroomId) return res.status(400).json({ error: 'This call already has its own board' })

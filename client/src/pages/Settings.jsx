@@ -21,6 +21,20 @@ export default function Settings() {
   const [stripeNotice, setStripeNotice] = useState('')
   const [stripeError, setStripeError] = useState('')
   const [stripeBusy, setStripeBusy] = useState(false)
+  const [subs, setSubs] = useState(null)
+  const [subsBusy, setSubsBusy] = useState(false)
+  const [subsMessage, setSubsMessage] = useState(null)
+  useEffect(() => { api.subscriptionSetupStatus().then(setSubs).catch(() => {}) }, [])
+  const setupSubs = async () => {
+    setSubsBusy(true); setSubsMessage(null)
+    try {
+      await api.setupSubscriptions()
+      setSubs(await api.subscriptionSetupStatus())
+      setSubsMessage({ text: 'Done: the plans and the notification address are in your Stripe account. The Plans page now takes payments.' })
+    } catch (err) {
+      setSubsMessage({ error: true, text: err.message })
+    } finally { setSubsBusy(false) }
+  }
   const saveStripe = async (event) => {
     event.preventDefault()
     setStripeNotice(''); setStripeError(''); setStripeBusy(true)
@@ -202,6 +216,21 @@ export default function Settings() {
               <button type="submit" disabled={stripeBusy || !stripeKey.trim()}>{stripeBusy ? 'Saving…' : 'Save'}</button>
             </div>
           </form>
+        )}
+
+        {stripe.configured && (
+          <div className="subscriptions-setup">
+            <h3>Subscriptions (Plans page)</h3>
+            <p className="muted">
+              Creates in your Stripe account the Practice, Calls and Everything plans (monthly and yearly, in euros) and the notification address
+              Stripe uses to tell the platform about payments, renewals and cancellations. Safe to press again.
+            </p>
+            <div className="row-actions">
+              <strong>{subs?.ready ? 'Subscriptions are on' : 'Not set up yet'}</strong>
+              <button type="button" onClick={setupSubs} disabled={subsBusy}>{subsBusy ? 'Setting up…' : subs?.ready ? 'Set up again' : 'Set up subscriptions'}</button>
+            </div>
+            {subsMessage && <div className={subsMessage.error ? 'error' : 'notice'}>{subsMessage.text}</div>}
+          </div>
         )}
       </section>
 

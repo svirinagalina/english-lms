@@ -1,6 +1,7 @@
 import { Router } from 'express'
 import { z } from 'zod'
 import { prisma } from '../db.js'
+import { planView } from '../plans.js'
 import { createHash, randomBytes } from 'crypto'
 import { hashPassword, verifyPassword, issueToken, clearToken, requireAuth } from '../auth.js'
 import { mailEnabled, sendPasswordResetEmail } from '../mailer.js'
@@ -42,7 +43,9 @@ const publicUser = (user) => ({
   avatar: user.avatar ?? null,
   // The free tier (see freeTier.js); the page shows what is locked.
   free: user.free,
-  trialRequestedAt: user.trialRequestedAt ?? null
+  trialRequestedAt: user.trialRequestedAt ?? null,
+  // The self-service plan and what it opens (plans.js).
+  access: planView(user)
 })
 
 authRouter.get('/registration-status', async (req, res) => {

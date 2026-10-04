@@ -68,6 +68,9 @@ function InviteForm({ role, teachers, currentUserId, onInvited }) {
   )
 }
 
+const PLAN_NAMES = { practice: 'Practice', calls: 'Calls', all: 'Everything' }
+const monthAhead = () => { const d = new Date(); d.setMonth(d.getMonth() + 1); return d.toISOString().slice(0, 10) }
+
 export default function People() {
   const { user } = useAuth()
   const [people, setPeople] = useState([])
@@ -150,6 +153,15 @@ export default function People() {
 
   const [editing, setEditing] = useState(null) // { id, name, email }
   const [query, setQuery] = useState('')
+  // A free user's plan set by hand (paid by card in roubles).
+  const [planFor, setPlanFor] = useState(null)
+  const saveManualPlan = async (id, plan, until) => {
+    try {
+      await api.setManualPlan(id, { plan, until })
+      setPlanFor(null)
+      await refresh()
+    } catch (err) { setError(err.message) }
+  }
   const navigate = useNavigate()
   const saveEdit = async () => {
     setError('')
@@ -345,6 +357,11 @@ export default function People() {
                   <div>
                     <strong>{person.name}</strong>
                     <div className="muted">{person.email} · signed up {new Date(person.createdAt).toLocaleDateString()}</div>
+                    <div className="muted">
+                      {person.plan
+                        ? <span className="paid-badge active">{PLAN_NAMES[person.plan.id]} until {new Date(person.plan.until).toLocaleDateString()}{person.plan.source === 'manual' ? ' · by card' : ' · Stripe'}</span>
+                        : 'Free plan'}
+                    </div>
                     {person.trialRequestedAt && (
                       <div className="free-request">
                         <span className="paid-badge active">Trial lesson requested {new Date(person.trialRequestedAt).toLocaleDateString()}</span>
@@ -356,9 +373,27 @@ export default function People() {
                     <button onClick={() => setLinking(linking === person.id ? null : person.id)}>
                       {linking === person.id ? 'Close' : 'Make a student'}
                     </button>
+                    {user.role === 'OWNER' && person.plan?.source !== 'stripe' && (
+                      <button className="ghost" onClick={() => setPlanFor(planFor?.id === person.id ? null : { id: person.id, plan: person.plan?.id ?? 'all', until: person.plan ? person.plan.until.slice(0, 10) : monthAhead() })}>
+                        {planFor?.id === person.id ? 'Close' : person.plan ? 'Change plan' : 'Paid by card'}
+                      </button>
+                    )}
                     <button className="ghost" onClick={() => removePerson(person.id, person.name, person.role)}>Remove</button>
                   </div>
                 </div>
+                {planFor?.id === person.id && (
+                  <div className="link-editor">
+                    <div className="muted">Paid outside Stripe (a card in roubles): open the plan by hand.</div>
+                    <div className="row-actions">
+                      <select value={planFor.plan} onChange={(e) => setPlanFor({ ...planFor, plan: e.target.value })}>
+                        {Object.entries(PLAN_NAMES).map(([id, name]) => <option key={id} value={id}>{name}</option>)}
+                      </select>
+                      <label className="muted">until <input type="date" value={planFor.until} onChange={(e) => setPlanFor({ ...planFor, until: e.target.value })} /></label>
+                      <button onClick={() => saveManualPlan(person.id, planFor.plan, planFor.until)}>Save</button>
+                      {person.plan && <button className="ghost" onClick={() => saveManualPlan(person.id, null)}>End plan</button>}
+                    </div>
+                  </div>
+                )}
                 {linking === person.id && (
                   <div className="link-editor">
                     <div className="muted">Their teacher:</div>

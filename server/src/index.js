@@ -35,6 +35,8 @@ import { coursesRouter } from './routes/courses.js'
 import { pushRouter } from './routes/push.js'
 import { startPushJobs } from './push.js'
 import { loadAiSettings } from './settings.js'
+import { stripeWebhook, plansRouter, loadSubscriptionSettings } from './subscriptions.js'
+import { startPlanSweep } from './plans.js'
 import { setupSignaling } from './signaling.js'
 import { flushBoards } from './boardStore.js'
 import { adventWebhook } from './adventLessons.js'
@@ -49,6 +51,8 @@ const clientOrigin = process.env.CLIENT_ORIGIN ?? 'http://localhost:5173'
 app.use(cors({ origin: clientOrigin, credentials: true }))
 // Advent's lesson webhook reads its raw body (signed), so it comes first.
 app.use('/api/advent/webhook', adventWebhook)
+// Stripe signs the raw body too.
+app.use('/api/stripe/webhook', stripeWebhook)
 app.use(express.json({ limit: '8mb' }))
 app.use(cookieParser())
 
@@ -75,6 +79,7 @@ app.use('/api/textbooks', textbooksRouter)
 app.use('/api/personal', personalRouter)
 app.use('/api/courses', coursesRouter)
 app.use('/api/push', pushRouter)
+app.use('/api/plans', plansRouter)
 
 app.get('/api/health', (req, res) => res.json({ ok: true }))
 
@@ -144,6 +149,8 @@ startPushJobs()
 
 // The AI key saved from the Settings page, before the first request.
 loadAiSettings().catch((error) => console.error('Could not load AI settings:', error.message))
+loadSubscriptionSettings().catch((error) => console.error('Could not load subscription settings:', error.message))
+startPlanSweep()
 
 const port = process.env.PORT ?? 4000
 httpServer.listen(port, () => {

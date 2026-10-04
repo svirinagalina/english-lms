@@ -47,7 +47,7 @@ export function AuthProvider({ children }) {
   }
 
   return (
-    <AuthContext.Provider value={{ user, loading, login, signup, register, logout, acceptInvite, updateUser: (u) => setUser((prev) => ({ ...prev, ...u })) }}>
+    <AuthContext.Provider value={{ user, loading, login, signup, register, logout, acceptInvite, updateUser: (u) => setUser((prev) => ({ ...prev, ...u })), refreshUser: () => api.me().then(({ user }) => setUser(user)).catch(() => {}) }}>
       {children}
     </AuthContext.Provider>
   )

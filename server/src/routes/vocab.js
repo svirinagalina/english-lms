@@ -3,6 +3,7 @@ import { z } from 'zod'
 import { prisma } from '../db.js'
 import { requireAuth, requireRole, LOCKED } from '../auth.js'
 import { openSetIds } from '../freeTier.js'
+import { entitlements } from '../plans.js'
 import { normalise } from '../answerCheck.js'
 import { cleanWord, lookupEntry } from './dictionary.js'
 import { shareWord } from '../advent.js'
@@ -17,7 +18,7 @@ vocabRouter.use(requireAuth)
 // A free user opens only the oldest ~30% of the shared sets (freeTier.js);
 // the list still shows the others, locked.
 vocabRouter.use(async (req, res, next) => {
-  if (req.user.free) req.user.openSetIds = await openSetIds(req.user.schoolId)
+  if (!entitlements(req.user).practice) req.user.openSetIds = await openSetIds(req.user.schoolId)
   next()
 })
 

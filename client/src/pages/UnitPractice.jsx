@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { api } from '../api'
+import { openPlanOffer } from '../components/TrialOffer'
 
 // Theory text: paragraphs, "!" notes as callouts, English examples set apart.
 const ENGLISH_RUN = /((?:[A-Za-z][A-Za-z'’]*[,.!?;:]?\s?){2,}|\b[A-Za-z][A-Za-z'’]{2,}\b)/g
@@ -211,6 +212,12 @@ export default function UnitPractice() {
                   <strong>Not quite</strong>
                   <div className="expected">{result.expected}</div>
                   {result.feedback && <div className="verdict-feedback">{result.feedback}</div>}
+                  {result.aiLimited && (
+                    <div className="verdict-feedback muted">
+                      Checked against the book's key only — today's 20 free AI checks are used up.{' '}
+                      <button type="button" className="link-button" onClick={() => openPlanOffer('practice')}>Unlimited with Practice</button>
+                    </div>
+                  )}
                   {result.mistake?.labels?.length > 0 && (
                     <div className="mistake-tags">
                       {result.mistake.labels.map((label) => (

@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { api } from '../api'
 import { useAuth } from '../AuthContext'
 
@@ -6,6 +7,8 @@ import { useAuth } from '../AuthContext'
 // openTrialOffer() (a locked unit, "Start a lesson" on the try-out board) and
 // by any request the server refuses as `locked` (api.js). Mounted once, in App.
 export const openTrialOffer = () => window.dispatchEvent(new CustomEvent('trial-offer'))
+// The same dialog, leading with the plan that opens `feature` ('practice' | 'calls').
+export const openPlanOffer = (feature) => window.dispatchEvent(new CustomEvent('trial-offer', { detail: { feature } }))
 
 export default function TrialOffer() {
   const { user, updateUser } = useAuth()
@@ -15,9 +18,11 @@ export default function TrialOffer() {
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
   const [sent, setSent] = useState(false)
+  const [feature, setFeature] = useState(null)
+  const navigate = useNavigate()
 
   useEffect(() => {
-    const show = () => { setSent(false); setError(''); setOpen(true) }
+    const show = (event) => { setSent(false); setError(''); setFeature(event.detail?.feature ?? null); setOpen(true) }
     window.addEventListener('trial-offer', show)
     return () => window.removeEventListener('trial-offer', show)
   }, [])
@@ -51,8 +56,21 @@ export default function TrialOffer() {
     <div className="modal-backdrop trial-offer-backdrop" onPointerDown={(e) => { if (e.target === e.currentTarget) setOpen(false) }}>
       <div className="card trial-offer" role="dialog" aria-modal="true" aria-labelledby="trial-offer-title">
         <button type="button" className="word-card-close" onClick={() => setOpen(false)} aria-label="Close">×</button>
+        {feature && (
+          <div className="plan-offer">
+            <span className="tile-kicker">{feature === 'calls' ? 'Your own video calls' : 'All of the practice'}</span>
+            <h2 id="trial-offer-title">{feature === 'calls' ? 'Hosting calls is in the Calls plan' : 'This is in the Practice plan'}</h2>
+            <p className="muted">
+              {feature === 'calls'
+                ? 'Start calls with anyone, up to 6 people, with the board, Writing, background blur and noise removal — 5.90 € a month. People you invite join free.'
+                : 'Every grammar chapter with unlimited AI checking, every word set and the speaking chatbot in full — 4.90 € a month.'}
+            </p>
+            <button type="button" onClick={() => { setOpen(false); navigate('/plans') }}>See plans</button>
+            <hr />
+          </div>
+        )}
         <span className="tile-kicker">Lessons with a teacher</span>
-        <h2 id="trial-offer-title">Unlock everything with a trial lesson</h2>
+        {feature ? <h3>Or study with a teacher — every plan included</h3> : <h2 id="trial-offer-title">Unlock everything with a trial lesson</h2>}
         <p className="muted">
           The free plan gives you the first grammar units, part of the vocabulary, the dictionary and a taste of the speaking trainer.
           Students with a teacher get live video lessons on a shared board, homework, a notebook of their own mistakes,

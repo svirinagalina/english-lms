@@ -490,6 +490,8 @@ export default function Call() {
   chatOpenRef.current = chatOpen
   const [boardId, setBoardId] = useState(null)
   const isStaff = user && user.role !== 'STUDENT'
+  // A subscriber hosting their own call (Calls plan): link and board, not the teacher's tools.
+  const isHost = Boolean(call?.isHost)
   const isStaffRef = useRef(isStaff)
   // Questions on the board need the AI assistant to be configured.
   const [assistEnabled, setAssistEnabled] = useState(false)
@@ -1326,13 +1328,13 @@ export default function Call() {
     // A call with no student and no specific board requested: a fresh
     // scratch board, so there is always something to write on — it goes
     // away with the call instead of piling up in My boards.
-    if (isStaff) {
+    if (isStaff || isHost) {
       autoOpened.current = true
       api.createScratchBoard(token)
         .then(({ board }) => { setBoards((prev) => [...prev, board]); setBoardId((current) => current ?? board.id) })
         .catch(() => { autoOpened.current = false })
     }
-  }, [status, isStaff, call, boards, requestedBoard, token])
+  }, [status, isStaff, isHost, call, boards, requestedBoard, token])
 
   // Classrooms whose writing can be opened here: the students the open
   // board is assigned to, else the call's own, else the one behind the open
@@ -1619,7 +1621,7 @@ export default function Call() {
         cameraOn={cameraOn}
         micOn={micOn}
         onLeave={boardId || writingId || narrow ? () => navigate(leaveTo) : undefined}
-        onCopyLink={isStaff ? copyLink : undefined}
+        onCopyLink={isStaff || isHost ? copyLink : undefined}
         copied={copied}
         chatOpen={chatOpen}
         unread={unread}

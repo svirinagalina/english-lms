@@ -16,6 +16,9 @@ import Classroom from './pages/Classroom'
 import Practice from './pages/Practice'
 import Trainer from './pages/Trainer'
 import UnitPractice from './pages/UnitPractice'
+import Plans from './pages/Plans'
+import { isNativeApp } from './utils/native'
+import Landing from './pages/Landing'
 import MistakePractice from './pages/MistakePractice'
 import Vocabulary from './pages/Vocabulary'
 import VocabSet from './pages/VocabSet'
@@ -40,6 +43,16 @@ function RequireAuth({ children, roles }) {
   if (!user) return <Navigate to="/login" replace />
   if (roles && !roles.includes(user.role)) return <Navigate to="/" replace />
   return children
+}
+
+// The site's address: the platform for those signed in, the landing page
+// with "Create an account" / "Sign in" for everyone else (the app opens
+// straight on sign-in, as before).
+function HomeRoute() {
+  const { user, loading } = useAuth()
+  if (loading) return <div className="centered">Loading…</div>
+  if (!user) return isNativeApp() ? <Navigate to="/login" replace /> : <Landing />
+  return <Classrooms />
 }
 
 // After signing in, a call link (/login?next=/call/…) leads straight to the call.
@@ -108,7 +121,8 @@ export default function App() {
       <Route path="/register" element={user ? <Navigate to="/" replace /> : <Register />} />
       <Route path="/join/:token" element={user ? <Navigate to="/" replace /> : <Join />} />
       <Route path="/call/:token" element={<Call />} />
-      <Route path="/" element={<RequireAuth><Classrooms /></RequireAuth>} />
+      <Route path="/" element={<HomeRoute />} />
+      <Route path="/plans" element={<RequireAuth><Plans /></RequireAuth>} />
       <Route path="/classroom" element={<RequireAuth><Classrooms /></RequireAuth>} />
       <Route path="/classroom/:id" element={<RequireAuth><Classroom /></RequireAuth>} />
       <Route path="/courses" element={<RequireAuth><Courses /></RequireAuth>} />

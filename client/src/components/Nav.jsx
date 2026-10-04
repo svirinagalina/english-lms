@@ -67,7 +67,8 @@ export default function Nav({ title, back }) {
       { to: '/practice', label: 'Practice' },
       ...(trainer ? [{ to: '/trainer', label: 'Trainer' }] : []),
       { to: '/vocabulary', label: 'Vocabulary' },
-      { to: '/dictionary', label: 'Dictionary' }
+      { to: '/dictionary', label: 'Dictionary' },
+      { to: '/plans', label: 'Plans' }
     )
   } else {
     links.push(

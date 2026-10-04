@@ -222,9 +222,9 @@ export function setupSignaling(io) {
         return
       }
 
-      // A call is open to the teachers and students of the school that made
-      // it — not to the free tier (no teacher yet), even with the link.
-      if (call.schoolId !== user.schoolId || user.free) {
+      // A call is open to everyone signed in to the school that made it —
+      // free accounts too: guests join free, only hosting needs a plan.
+      if (call.schoolId !== user.schoolId) {
         if (typeof ack === 'function') ack({ error: 'This call is not available' })
         return
       }

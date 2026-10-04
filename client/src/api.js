@@ -15,7 +15,7 @@ async function request(path, options = {}) {
   }
   // Something the free tier doesn't include: the page shows the trial-lesson
   // offer (TrialOffer, mounted once in App) on top of whatever it does.
-  if (response.status === 403 && data.locked) window.dispatchEvent(new CustomEvent('trial-offer'))
+  if (response.status === 403 && data.locked) window.dispatchEvent(new CustomEvent('trial-offer', { detail: { feature: data.feature ?? null } }))
   if (!response.ok) {
     const error = new Error(data.error ?? 'Request failed')
     error.locked = Boolean(data.locked)
@@ -37,6 +37,13 @@ export const api = {
   signupStatus: () => request('/auth/signup-status'),
   signup: (body) => request('/auth/signup', { method: 'POST', body }),
   requestTrial: (body) => request('/profile/trial-request', { method: 'POST', body }),
+  listPlans: () => request('/plans'),
+  subscribe: (plan, period) => request('/plans/subscribe', { method: 'POST', body: { plan, period } }),
+  verifySubscription: (sessionId) => request(`/plans/verify?session_id=${encodeURIComponent(sessionId)}`),
+  subscriptionPortal: () => request('/plans/portal', { method: 'POST' }),
+  subscriptionSetupStatus: () => request('/plans/setup'),
+  setupSubscriptions: () => request('/plans/setup', { method: 'POST' }),
+  setManualPlan: (userId, body) => request(`/plans/manual/${userId}`, { method: 'PUT', body }),
   deleteMyAccount: (password) => request('/profile', { method: 'DELETE', body: { password } }),
   registerPushDevice: (token) => request('/push/devices', { method: 'POST', body: { token, platform: 'ios' } }),
   unregisterPushDevice: (token) => request('/push/devices', { method: 'DELETE', body: { token } }),

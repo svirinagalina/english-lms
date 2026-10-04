@@ -1,7 +1,8 @@
 import { Router } from 'express'
 import { z } from 'zod'
 import { prisma } from '../db.js'
-import { requireAuth, requireRole, LOCKED } from '../auth.js'
+import { requireAuth, requireRole, lockedFor as planLocked } from '../auth.js'
+import { entitlements, aiChecksLeft, useAiCheck } from '../plans.js'
 import { openUnitIds } from '../freeTier.js'
 import { checkAnswer, normalise } from '../answerCheck.js'
 import { assistantEnabled, judgeExerciseAnswer } from '../assistant.js'
@@ -12,7 +13,9 @@ export const unitsRouter = Router()
 unitsRouter.use(requireAuth)
 
 // A free user opens only the first units of the book (see freeTier.js).
-const lockedFor = async (user, unitId) => user.free && !(await openUnitIds(user.schoolId)).includes(unitId)
+// Practice (a plan, or a teacher) opens all of them.
+const lockedFor = async (user, unitId) => !entitlements(user).practice && !(await openUnitIds(user.schoolId)).includes(unitId)
+const LOCKED = planLocked('practice')
 
 const FOLLOW_UP_COUNT = 3
 
@@ -70,7 +73,7 @@ unitsRouter.get('/', async (req, res) => {
     select: { id: true, unitId: true }
   })
 
-  const open = req.user.free ? new Set(await openUnitIds(req.user.schoolId)) : null
+  const open = entitlements(req.user).practice ? null : new Set(await openUnitIds(req.user.schoolId))
   const solvedPerUnit = {}
   for (const exercise of exercises) {
     if (solved.has(exercise.id)) {
@@ -132,7 +135,11 @@ unitsRouter.post('/exercises/:id/attempt', async (req, res) => {
   // AI configured in Settings, which accepts any correct variant in context.
   let result = checkAnswer(parsed.data.answer, exercise.answers, { prompt: exercise.prompt })
   let feedback = ''
-  if (!result.correct && assistantEnabled() && AI_TYPES.has(exercise.type) && parsed.data.answer.trim()) {
+  // The free tier has a daily allowance of AI checks; the key check always runs.
+  let aiLimited = false
+  if (!result.correct && assistantEnabled() && AI_TYPES.has(exercise.type) && parsed.data.answer.trim() && aiChecksLeft(req.user) <= 0) aiLimited = true
+  else if (!result.correct && assistantEnabled() && AI_TYPES.has(exercise.type) && parsed.data.answer.trim()) {
+    useAiCheck(req.user)
     try {
       const verdict = await aiVerdict(exercise, parsed.data.answer)
       if (verdict) {
@@ -201,6 +208,7 @@ unitsRouter.post('/exercises/:id/attempt', async (req, res) => {
   res.json({
     correct: false,
     feedback,
+    aiLimited,
     expected: exercise.answers[0],
     alternatives: exercise.answers.slice(1),
     diff: { missing: analysis.missing, extra: analysis.extra },

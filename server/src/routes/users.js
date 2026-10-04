@@ -21,6 +21,7 @@ const personView = (user) => ({
   free: user.free,
   trialRequestedAt: user.trialRequestedAt,
   trialRequestNote: user.trialRequestNote,
+  plan: user.plan && user.planUntil && new Date(user.planUntil) > new Date() ? { id: user.plan, until: user.planUntil, source: user.planSource } : null,
   contact: [user.messenger, user.phone].filter(Boolean).join(' · ') || null,
   teachers: user.studentLinks?.map((link) => ({ id: link.teacher.id, name: link.teacher.name })),
   students: user.teacherLinks?.map((link) => ({ id: link.student.id, name: link.student.name })),
