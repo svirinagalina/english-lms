@@ -16,7 +16,8 @@ contentRouter.use(requireAuthOrToken, requireRole('OWNER', 'PARTNER'))
 
 const UPLOAD_ROOT = process.env.UPLOAD_DIR
   ?? path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../uploads')
-const MAX_FILE = 200 * 1024 * 1024
+// Cloudflare (in front of the site) refuses request bodies over 100 MB.
+const MAX_FILE = 100 * 1024 * 1024
 const ALLOWED_MIME = /^(image\/(png|jpeg|gif|webp|heic|heif)|video\/(mp4|quicktime|webm)|audio\/(mpeg|mp4|m4a|x-m4a|wav)|application\/pdf|text\/plain)$/
 
 const STAGES = ['SOURCE', 'EDITING', 'READY']

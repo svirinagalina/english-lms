@@ -1,6 +1,10 @@
 import { useEffect, useRef, useState } from 'react'
 import { useAuth } from '../AuthContext'
 import { api } from '../api'
+
+// Cloudflare refuses uploads over 100 MB; say so before trying.
+const MAX_UPLOAD = 100 * 1024 * 1024
+const tooBig = (file) => file.size > MAX_UPLOAD ? `${file.name}: файл больше 100 МБ — сожмите его или разделите на части` : ''
 import Nav from '../components/Nav'
 import { SiteFooter } from '../components/Brand'
 
@@ -56,6 +60,7 @@ function FileList({ item, onChanged }) {
   const upload = async (files) => {
     setError('')
     for (const file of files) {
+      if (tooBig(file)) { setError(tooBig(file)); continue }
       setUploading((n) => n + 1)
       try {
         await api.uploadContentFile(item.id, file)
@@ -232,6 +237,7 @@ function NewItemForm({ stage, onCreated }) {
     try {
       const { item } = await api.createContent({ ...draft, stage })
       for (const file of files) {
+        if (tooBig(file)) { setError(tooBig(file)); continue }
         try { await api.uploadContentFile(item.id, file) } catch (err) { setError(`${file.name}: ${err.message}`) }
       }
       setDraft({ title: '', body: '', networks: [], formats: [] })
@@ -359,7 +365,7 @@ curl -X POST -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/jso
 curl -X POST -H "Authorization: Bearer $TOKEN" -H "Content-Type: video/mp4" -H "X-File-Name: reel.mp4" \\
   --data-binary @reel.mp4 ${origin}/api/content/items/<id>/files
 
-Files are served from ${origin}<file.url>. Max file size 200 MB.`}</pre>
+Files are served from ${origin}<file.url>. Max file size 100 MB.`}</pre>
       )}
     </section>
   )
