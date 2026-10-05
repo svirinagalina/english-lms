@@ -19,14 +19,23 @@ SSH_CMD="ssh -i $SSH_KEY -o BatchMode=yes -o StrictHostKeyChecking=accept-new"
 # lesson on 2026-10-05). Refuse while anyone was in a call in the last 3
 # minutes — call pages report to the diag log every 30 s. FORCE=1 overrides.
 if [ "${FORCE:-0}" != "1" ]; then
-  LAST=$($SSH_CMD "$REMOTE" 'docker exec srv3-lms-app sh -c "grep -v diag-thumb /app/uploads/diag/diag-$(date +%Y-%m).log 2>/dev/null | grep \" call=\" | tail -1 | cut -c1-24"' 2>/dev/null || true)
-  if [ -n "$LAST" ]; then
-    AGE=$(( $(date -u +%s) - $(date -u -j -f "%Y-%m-%dT%H:%M:%S" "${LAST%%.*}" +%s 2>/dev/null || date -u -d "${LAST%%.*}" +%s) ))
-    if [ "$AGE" -lt 180 ]; then
-      echo "!! A call was active ${AGE}s ago (last call diagnostics at $LAST UTC). Deploying now would drop it."
-      echo "!! Wait until the lesson ends, or run with FORCE=1."
-      exit 1
-    fi
+  # Call pages report every 30 s with "peers":N — someone alone in a
+  # forgotten tab (peers 0) is not a lesson.
+  BUSY=$($SSH_CMD "$REMOTE" 'docker exec srv3-lms-app sh -c "grep -v diag-thumb /app/uploads/diag/diag-$(date +%Y-%m).log 2>/dev/null | grep \" call=\" | tail -200"' 2>/dev/null | python3 -c '
+import sys, re, datetime
+now = datetime.datetime.now(datetime.timezone.utc)
+for line in sys.stdin:
+    m = re.match(r"(\S+?)(?:\.\d+)?Z ", line)
+    p = re.search(r"\"peers\":(\d+)", line)
+    if not m or not p: continue
+    t = datetime.datetime.fromisoformat(m.group(1)).replace(tzinfo=datetime.timezone.utc)
+    if (now - t).total_seconds() < 180 and int(p.group(1)) > 0:
+        print(line[:24]); break
+' || true)
+  if [ -n "$BUSY" ]; then
+    echo "!! A lesson is in progress (someone was in a call with others at $BUSY UTC). Deploying now would drop it."
+    echo "!! Wait until the lesson ends, or run with FORCE=1."
+    exit 1
   fi
 fi
 
