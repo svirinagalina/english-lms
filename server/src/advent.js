@@ -18,7 +18,7 @@ export function advent(method, path, body, options) {
 }
 async function adventOnce(method, path, body, { timeoutMs = 30000, retries = 1 } = {}) {
   const key = adventKey()
-  if (!key) throw Object.assign(new Error('The trainer is not connected yet (Settings → Advent trainer)'), { status: 503 })
+  if (!key) throw Object.assign(new Error('The trainer is not connected yet (Settings → Advent trainer)'), { status: 503, countsAsFailure: false })
   let response
   try {
     response = await fetch(BASE + path, {

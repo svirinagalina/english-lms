@@ -19,7 +19,7 @@ const lookupKey = (plan, period) => `lms_${plan}_${period}`
 
 async function stripe(path, params, method) {
   const key = stripeKey()
-  if (!key) throw new Error('Stripe is not configured')
+  if (!key) throw Object.assign(new Error('Stripe is not configured'), { countsAsFailure: false })
   const flat = params && new URLSearchParams(flatten(params)).toString()
   const verb = method ?? (params ? 'POST' : 'GET')
   const url = `https://api.stripe.com/v1${path}${verb === 'GET' && flat ? `?${flat}` : ''}`

@@ -60,7 +60,7 @@ export function structured(options) {
 }
 async function structuredOnce({ system, user, schema, name = 'result', maxTokens = 3000, effort }) {
   const config = aiConfig()
-  if (!config) throw new Error('No AI key is configured')
+  if (!config) throw Object.assign(new Error('No AI key is configured'), { countsAsFailure: false })
   const client = await clientFor(config)
   const model = config.model || (config.provider === 'xai' ? await xaiModel(client) : DEFAULT_MODEL[config.provider])
 
