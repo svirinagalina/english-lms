@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '../AuthContext'
 import { api } from '../api'
 import { matchesSearch } from '../utils/search'
@@ -319,14 +319,16 @@ export default function People() {
             <div key={person.id} className="row column">
              <div className="row-main">
               <div>
-                <strong>{person.name}</strong>
+                <Link to={`/people/teachers/${person.id}`} title="Lessons: with whom, when, and the boards used"><strong>{person.name}</strong></Link>
                 <div className="muted">
                   {person.email} · {person.role === 'OWNER' ? 'administrator' : person.role.toLowerCase()}
                   {person.students?.length > 0 && ` · ${person.students.length} students`}
                 </div>
               </div>
+              <div className="row-actions">
+                <Link className="button-link" style={{ marginTop: 0 }} to={`/people/teachers/${person.id}`}>Lessons</Link>
               {person.id !== user.id && (user.role === 'OWNER' || person.role === 'TEACHER') && (
-                <div className="row-actions">
+                <>
                   {roleSelect(person)}
                   <button className="ghost" onClick={() => setEditing(editing?.id === person.id ? null : { id: person.id, name: person.name, email: person.email })}>
                     {editing?.id === person.id ? 'Close' : 'Edit'}
@@ -334,8 +336,9 @@ export default function People() {
                   <button className="ghost" onClick={() => removePerson(person.id, person.name, person.role)}>
                     Remove
                   </button>
-                </div>
+                </>
               )}
+              </div>
              </div>
              {editForm(person)}
             </div>

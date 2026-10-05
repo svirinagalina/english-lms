@@ -36,6 +36,7 @@ import AudioCheck from './pages/AudioCheck'
 import Profile from './pages/Profile'
 import Todo from './pages/Todo'
 import Timetable from './pages/Timetable'
+import TeacherLessons from './pages/TeacherLessons'
 import Courses from './pages/Courses'
 import Course from './pages/Course'
 
@@ -138,6 +139,7 @@ export default function App() {
       <Route path="/vocabulary" element={<RequireAuth><Vocabulary /></RequireAuth>} />
       <Route path="/vocabulary/:id" element={<RequireAuth><VocabSet /></RequireAuth>} />
       <Route path="/people" element={<RequireAuth><People /></RequireAuth>} />
+      <Route path="/people/teachers/:id" element={<RequireAuth roles={['OWNER', 'PARTNER']}><TeacherLessons /></RequireAuth>} />
       <Route path="/progress" element={<RequireAuth><Stats /></RequireAuth>} />
       <Route path="/progress/:id" element={<RequireAuth><Stats /></RequireAuth>} />
       <Route path="/billing" element={<RequireAuth><Billing /></RequireAuth>} />

@@ -2,6 +2,7 @@ import { Router } from 'express'
 import { prisma } from '../db.js'
 import { requireAuth, requireRole, isAdmin } from '../auth.js'
 import { enrollStudent, moveStudent, unenrollStudent } from '../advent.js'
+import { loadBoard } from '../boardStore.js'
 
 export const usersRouter = Router()
 
@@ -72,6 +73,87 @@ usersRouter.get('/teachers', requireRole('OWNER'), async (req, res) => {
     orderBy: { createdAt: 'asc' }
   })
   res.json({ teachers })
+})
+
+// A lesson whose end was never recorded is read as at most this long.
+const OPEN_LESSON_MS = 2 * 3600 * 1000
+// Elements added this close before a lesson started or after it ended still belong to it.
+const LESSON_MARGIN_MS = 60 * 1000
+
+// A teacher's lessons, for the administrator: with whom, when, how long, and
+// the board(s) written on during each. The board is found by when its
+// elements were added (and by whom), not by where it is attached today, so
+// it stays right after a board has been reassigned to someone else.
+usersRouter.get('/:id/lessons', requireRole('OWNER'), async (req, res) => {
+  const teacher = await prisma.user.findFirst({
+    where: { id: req.params.id, schoolId: req.user.schoolId, role: { in: ['OWNER', 'PARTNER', 'TEACHER'] } },
+    select: { id: true, name: true, email: true, role: true }
+  })
+  if (!teacher) return res.status(404).json({ error: 'Teacher not found' })
+
+  const sessions = await prisma.session.findMany({
+    where: { classroom: { teacherId: teacher.id, studentId: { not: null } } },
+    orderBy: { startedAt: 'desc' },
+    include: { classroom: { select: { id: true, student: { select: { id: true, name: true } } } } }
+  })
+
+  // Every board these lessons could have used: the teacher's own shelf and
+  // students' boards, and boards shared into their students' spaces.
+  const boards = await prisma.board.findMany({
+    where: { scratch: false, OR: [{ classroom: { teacherId: teacher.id } }, { sharedWith: { some: { teacherId: teacher.id } } }] },
+    select: { id: true, title: true, classroomId: true, sharedWith: { select: { id: true } } }
+  })
+  const boardById = new Map(boards.map((b) => [b.id, b]))
+  const added = [] // { at, boardId, elementId, authorId }, sorted by time
+  for (const board of boards) {
+    for (const element of await loadBoard(board.id)) {
+      if (typeof element.at === 'number') added.push({ at: element.at, boardId: board.id, elementId: element.id, authorId: element.authorId })
+    }
+  }
+  added.sort((a, b) => a.at - b.at)
+  const firstAtOrAfter = (time) => {
+    let lo = 0, hi = added.length
+    while (lo < hi) { const mid = (lo + hi) >> 1; if (added[mid].at < time) lo = mid + 1; else hi = mid }
+    return lo
+  }
+
+  const now = Date.now()
+  const lessons = sessions.map((session) => {
+    const start = session.startedAt.getTime()
+    const end = session.endedAt ? session.endedAt.getTime() : Math.min(now, start + OPEN_LESSON_MS)
+    const student = session.classroom.student
+    const people = new Set([teacher.id, student.id])
+    const used = new Map() // boardId → { count, focus }
+    for (let i = firstAtOrAfter(start - LESSON_MARGIN_MS); i < added.length && added[i].at <= end + LESSON_MARGIN_MS; i++) {
+      const item = added[i]
+      if (item.authorId && !people.has(item.authorId)) continue
+      const entry = used.get(item.boardId) ?? { count: 0, focus: item.elementId }
+      entry.count += 1
+      used.set(item.boardId, entry)
+    }
+    const lessonBoards = [...used.entries()]
+      .sort((a, b) => b[1].count - a[1].count)
+      .map(([boardId, { count, focus }]) => {
+        const board = boardById.get(boardId)
+        // Opened from the student's space when the board is still theirs,
+        // otherwise from wherever it lives now.
+        const here = board.classroomId === session.classroom.id || board.sharedWith.some((c) => c.id === session.classroom.id)
+        return { id: board.id, title: board.title, added: count, classroomId: here ? session.classroom.id : board.classroomId, focus }
+      })
+    return {
+      id: session.id,
+      startedAt: session.startedAt,
+      endedAt: session.endedAt,
+      minutes: Math.max(1, Math.round((end - start) / 60000)),
+      counted: session.counted,
+      note: session.note,
+      student,
+      classroomId: session.classroom.id,
+      boards: lessonBoards
+    }
+  })
+
+  res.json({ teacher, lessons })
 })
 
 usersRouter.post('/links', requireRole('OWNER'), async (req, res) => {

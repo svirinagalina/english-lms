@@ -57,6 +57,7 @@ export const api = {
 
   listPeople: () => request('/users'),
   listTeachers: () => request('/users/teachers'),
+  teacherLessons: (id) => request(`/users/${id}/lessons`),
   deleteUser: (id) => request(`/users/${id}`, { method: 'DELETE' }),
   setUserRole: (id, role) => request(`/users/${id}/role`, { method: 'PATCH', body: { role } }),
   updateUser: (id, body) => request(`/users/${id}`, { method: 'PATCH', body }),
