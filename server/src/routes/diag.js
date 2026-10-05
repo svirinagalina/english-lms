@@ -22,6 +22,17 @@ async function keep(line) {
     await appendFile(path.join(DIAG_DIR, `diag-${new Date().toISOString().slice(0, 7)}.log`), `${new Date().toISOString()} ${line}\n`)
   } catch { /* the log line is still in the console */ }
 }
+// Sign-up funnel: who opened the sign-up page and how each attempt ended,
+// with the visitor's country (Cloudflare's CF-IPCountry). No email or
+// password — only its domain, to tell a typo'd address from a real one.
+export function logSignup(req, outcome, email) {
+  const country = req.get('cf-ipcountry') || '??'
+  const domain = typeof email === 'string' && email.includes('@') ? email.split('@').pop().toLowerCase().slice(0, 60) : '-'
+  const line = `[signup] ${outcome} country=${country} domain=${domain}`
+  console.log(line)
+  keep(line)
+}
+
 export const diagRouter = Router()
 diagRouter.use(requireAuth)
 

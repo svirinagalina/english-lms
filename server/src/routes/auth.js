@@ -2,6 +2,7 @@ import { Router } from 'express'
 import { z } from 'zod'
 import { prisma } from '../db.js'
 import { planView } from '../plans.js'
+import { logSignup } from './diag.js'
 import { createHash, randomBytes } from 'crypto'
 import { hashPassword, verifyPassword, issueToken, clearToken, requireAuth } from '../auth.js'
 import { mailEnabled, sendPasswordResetEmail, sendVerifyEmail } from '../mailer.js'
@@ -92,26 +93,29 @@ async function publicSchool() {
 }
 
 authRouter.get('/signup-status', async (req, res) => {
+  if (req.query.from === 'signup') logSignup(req, 'page-opened')
   res.json({ open: Boolean(await publicSchool()) })
 })
 
 authRouter.post('/signup', async (req, res) => {
   const school = await publicSchool()
-  if (!school) return res.status(403).json({ error: 'Sign-up is closed. Ask your teacher for an invitation.' })
+  if (!school) { logSignup(req, 'closed'); return res.status(403).json({ error: 'Sign-up is closed. Ask your teacher for an invitation.' }) }
 
   const parsed = signupSchema.safeParse(req.body)
   if (!parsed.success) {
     const fields = parsed.error.flatten().fieldErrors
+    logSignup(req, `invalid:${Object.keys(fields).join('+')}`, req.body?.email)
     const error = fields.password ? 'Пароль — не меньше 8 символов' : fields.email ? 'Проверьте адрес почты' : 'Введите имя'
     return res.status(400).json({ error })
   }
 
   const now = Date.now()
   const recent = (signupsByIp.get(req.ip) ?? []).filter((at) => now - at < 60 * 60 * 1000)
-  if (recent.length >= SIGNUPS_PER_HOUR) return res.status(429).json({ error: 'Too many new accounts from here. Please try again later.' })
+  if (recent.length >= SIGNUPS_PER_HOUR) { logSignup(req, 'rate-limited', req.body?.email); return res.status(429).json({ error: 'Too many new accounts from here. Please try again later.' }) }
 
   const { name, email, password } = parsed.data
   if (await prisma.user.findUnique({ where: { email } })) {
+    logSignup(req, 'email-taken', email)
     return res.status(409).json({ error: 'С этой почтой уже есть аккаунт — войдите.' })
   }
 
@@ -122,6 +126,7 @@ authRouter.post('/signup', async (req, res) => {
     data: { email, name, passwordHash: await hashPassword(password), role: 'STUDENT', free: true, schoolId: school.id, emailVerified: !verify }
   })
   signupsByIp.set(req.ip, [...recent, now])
+  logSignup(req, verify ? 'created-awaiting-email' : 'created', email)
 
   if (verify) {
     try {
@@ -148,6 +153,7 @@ authRouter.post('/verify/:token', async (req, res) => {
   const record = await prisma.emailVerification.findUnique({ where: { tokenHash: hashToken(req.params.token) } })
   if (!record || record.expiresAt < new Date()) return res.status(410).json({ error: 'Срок ссылки истёк. Войдите, чтобы получить новое письмо.' })
   const user = await prisma.user.update({ where: { id: record.userId }, data: { emailVerified: true } })
+  logSignup(req, 'email-confirmed', user.email)
   await prisma.emailVerification.deleteMany({ where: { userId: user.id } })
   issueToken(res, user)
   res.json({ user: publicUser(user) })

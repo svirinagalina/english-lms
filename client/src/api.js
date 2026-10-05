@@ -35,7 +35,7 @@ export const api = {
   me: () => request('/auth/me'),
   version: () => request('/version'),
   registrationStatus: () => request('/auth/registration-status'),
-  signupStatus: () => request('/auth/signup-status'),
+  signupStatus: (from) => request(`/auth/signup-status${from ? `?from=${from}` : ''}`),
   signup: (body) => request('/auth/signup', { method: 'POST', body }),
   verifyEmail: (token) => request(`/auth/verify/${encodeURIComponent(token)}`, { method: 'POST' }),
   resendVerification: (email) => request('/auth/verify-resend', { method: 'POST', body: { email } }),

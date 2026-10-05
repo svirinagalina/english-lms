@@ -15,7 +15,7 @@ export default function Signup() {
   const [open, setOpen] = useState(null)
 
   useEffect(() => {
-    api.signupStatus().then(({ open }) => setOpen(open)).catch(() => setOpen(false))
+    api.signupStatus('signup').then(({ open }) => setOpen(open)).catch(() => setOpen(false))
   }, [])
 
   const update = (field) => (event) => setForm({ ...form, [field]: event.target.value })
