@@ -15,6 +15,21 @@ PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 REMOTE="$SSH_USER@$SSH_HOST"
 SSH_CMD="ssh -i $SSH_KEY -o BatchMode=yes -o StrictHostKeyChecking=accept-new"
 
+# A deploy restarts the server and drops every call in progress (it cut a
+# lesson on 2026-10-05). Refuse while anyone was in a call in the last 3
+# minutes — call pages report to the diag log every 30 s. FORCE=1 overrides.
+if [ "${FORCE:-0}" != "1" ]; then
+  LAST=$($SSH_CMD "$REMOTE" 'docker exec srv3-lms-app sh -c "grep -v diag-thumb /app/uploads/diag/diag-$(date +%Y-%m).log 2>/dev/null | grep \" call=\" | tail -1 | cut -c1-24"' 2>/dev/null || true)
+  if [ -n "$LAST" ]; then
+    AGE=$(( $(date -u +%s) - $(date -u -j -f "%Y-%m-%dT%H:%M:%S" "${LAST%%.*}" +%s 2>/dev/null || date -u -d "${LAST%%.*}" +%s) ))
+    if [ "$AGE" -lt 180 ]; then
+      echo "!! A call was active ${AGE}s ago (last call diagnostics at $LAST UTC). Deploying now would drop it."
+      echo "!! Wait until the lesson ends, or run with FORCE=1."
+      exit 1
+    fi
+  fi
+fi
+
 echo "==> Building the client"
 npm --prefix "$PROJECT_ROOT/client" run build
 
