@@ -6068,9 +6068,10 @@
       },
       {
         "type": "TRANSLATE",
-        "prompt": "Он умеет писать компьютерные программы. Грамматика продвинутого уровня",
+        "prompt": "Он умеет писать компьютерные программы.",
         "answers": [
-          "He can code"
+          "He can code",
+          "He can write computer programs"
         ],
         "tags": [
           "modalnye-glagoly"
