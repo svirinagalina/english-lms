@@ -5,6 +5,7 @@ import { ocrWords } from '../utils/ocr'
 import { isMobile, useNarrow } from '../utils/device'
 import WordCard, { PlayButton } from './WordCard'
 import DictionaryPanel from './DictionaryPanel'
+import { useAuth } from '../AuthContext'
 import { api } from '../api'
 
 const COLORS = ['#111827', '#ef4444', '#16a34a', '#2563eb', '#f59e0b', '#9333ea']
@@ -873,7 +874,7 @@ function mistakeNoteParts(text) {
   }
 }
 
-const Whiteboard = forwardRef(function Whiteboard({ socketRef, boardId, title, subtitle, onClose, backLabel = '← Back', onStartCall, onOpenWriting, canSpotlight = false, onUploadImage, onAssist, assistEnabled, wordPicker = false, focusElementId = null, onMistake, onMistakeRemoved, insertBlock = null, onInserted, onAddWords, students = null, writingStudents = null }, ref) {
+const Whiteboard = forwardRef(function Whiteboard({ socketRef, boardId, title, subtitle, onClose, backLabel = '← Back', onStartCall, onOpenWriting, canSpotlight = false, onUploadImage, onAssist, assistEnabled, wordPicker = false, saveAllMoves = false, focusElementId = null, onMistake, onMistakeRemoved, insertBlock = null, onInserted, onAddWords, students = null, writingStudents = null }, ref) {
   const [assisting, setAssisting] = useState(null)
   const [exporting, setExporting] = useState(false)
   const fileInputRef = useRef(null)
@@ -1383,6 +1384,10 @@ const Whiteboard = forwardRef(function Whiteboard({ socketRef, boardId, title, s
   }, [scheduleRender])
 
   const emit = (event, payload) => socketRef.current?.emit(event, payload)
+  // Elements this person made: added in this session, or stored with their id as author.
+  const { user: me } = useAuth()
+  const ownIdsRef = useRef(new Set())
+  const isOwn = (element) => Boolean(element?.id) && (ownIdsRef.current.has(element.id) || (me?.id && element.authorId === me.id))
 
   // --- History ----------------------------------------------------------------
   //
@@ -1401,6 +1406,7 @@ const Whiteboard = forwardRef(function Whiteboard({ socketRef, boardId, title, s
 
   // Raw mutations: change local state and tell the server, no history.
   const addRaw = (element) => {
+    ownIdsRef.current.add(element.id)
     if (!elementsRef.current.some((item) => item.id === element.id)) elementsRef.current.push(element)
     emit('board:add', element)
   }
@@ -2433,8 +2439,19 @@ const Whiteboard = forwardRef(function Whiteboard({ socketRef, boardId, title, s
       return
     }
 
-    if ((pointer.mode === 'move' && !wordPicker) || pointer.mode === 'resize') {
+    // A student's drag saves only what they made themselves (their own text,
+    // their drawing); the teacher's material stays where the teacher put it.
+    // The private try-out board saves everything.
+    const mayMove = (element) => !wordPicker || saveAllMoves || isOwn(element)
+    if ((pointer.mode === 'move' && pointer.ids.some((id) => mayMove(elementsRef.current.find((e) => e.id === id) ?? {}))) || pointer.mode === 'resize') {
       const ids = new Set(pointer.ids)
+      // Someone else's element a student dragged goes back to where it was.
+      if (pointer.mode === 'move' && wordPicker && !saveAllMoves) {
+        const originals = new Map(pointer.originals.map((o) => [o.id, o]))
+        elementsRef.current = elementsRef.current.map((e) => (ids.has(e.id) && !isOwn(e) && originals.has(e.id) ? originals.get(e.id) : e))
+        pointer.originals = pointer.originals.filter((o) => isOwn(o))
+        for (const id of [...ids]) if (!isOwn(elementsRef.current.find((e) => e.id === id) ?? {})) ids.delete(id)
+      }
       for (const element of elementsRef.current) if (ids.has(element.id)) emit('board:update', element)
       recordUpdates(pointer.originals)
       if (phone) selectedRef.current = [] // no handles cluttering a phone screen

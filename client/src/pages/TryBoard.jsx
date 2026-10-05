@@ -36,6 +36,7 @@ export default function TryBoard() {
           onStartCall={openTrialOffer}
           // As a student sees it: a double-click on a word opens its card.
           wordPicker
+          saveAllMoves
           onAddWords={(words) => api.addBoardWords(words)}
         />
       </div>
