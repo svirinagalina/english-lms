@@ -42,9 +42,11 @@ function flatten(value, prefix = '', out = {}) {
 
 // --- Webhook secret --------------------------------------------------------------
 let webhookSecret = null
+let portalConfig = null
 export async function loadSubscriptionSettings() {
   const row = await prisma.platformSetting.findUnique({ where: { key: 'stripe.webhook' } })
   try { webhookSecret = process.env.STRIPE_WEBHOOK_SECRET || (row ? decrypt(row.value) : null) } catch { webhookSecret = null }
+  portalConfig = (await prisma.platformSetting.findUnique({ where: { key: 'stripe.portal' } }))?.value ?? null
 }
 export const subscriptionsReady = () => Boolean(stripeKey() && webhookSecret)
 
@@ -63,14 +65,31 @@ export async function setupSubscriptions(origin) {
       })
     }
   }
-  // The customer portal (change card, cancel, invoices) needs a configuration.
-  const portals = await stripe('/billing_portal/configurations', { limit: 1 })
-  if (!portals.data.length) {
-    await stripe('/billing_portal/configurations', {
-      business_profile: { headline: 'Advent Academy' },
-      features: { customer_update: { enabled: true, allowed_updates: ['email', 'name'] }, invoice_history: { enabled: true }, payment_method_update: { enabled: true }, subscription_cancel: { enabled: true, mode: 'at_period_end' } }
-    })
+  // Our own customer-portal configuration (the account may already have one
+  // for other products): change plan or period between these prices, change
+  // the card, cancel at period end, invoices. Found again by its metadata.
+  const prices = await stripe('/prices', { active: true, limit: 100, lookup_keys: PLAN_IDS.flatMap((p) => PERIODS.map((t) => lookupKey(p, t))) })
+  const byProduct = new Map()
+  for (const price of prices.data) byProduct.set(price.product, [...(byProduct.get(price.product) ?? []), price.id])
+  const features = {
+    customer_update: { enabled: true, allowed_updates: ['email', 'name'] },
+    invoice_history: { enabled: true },
+    payment_method_update: { enabled: true },
+    subscription_cancel: { enabled: true, mode: 'at_period_end' },
+    subscription_update: {
+      enabled: true,
+      default_allowed_updates: ['price'],
+      proration_behavior: 'create_prorations',
+      products: [...byProduct].map(([product, ids]) => ({ product, prices: ids }))
+    }
   }
+  const portals = await stripe('/billing_portal/configurations', { limit: 100 })
+  const ours = portals.data.find((c) => c.metadata?.lms === 'plans')
+  const portal = ours
+    ? await stripe(`/billing_portal/configurations/${ours.id}`, { features, business_profile: { headline: 'Advent Academy' } })
+    : await stripe('/billing_portal/configurations', { features, business_profile: { headline: 'Advent Academy' }, metadata: { lms: 'plans' } })
+  await prisma.platformSetting.upsert({ where: { key: 'stripe.portal' }, create: { key: 'stripe.portal', value: portal.id }, update: { value: portal.id } })
+  portalConfig = portal.id
   const url = `${origin}/api/stripe/webhook`
   const hooks = await stripe('/webhook_endpoints', { limit: 100 })
   const events = ['checkout.session.completed', 'customer.subscription.created', 'customer.subscription.updated', 'customer.subscription.deleted', 'invoice.paid']
@@ -93,7 +112,10 @@ const periodEnd = (sub) => sub.current_period_end ?? Math.max(0, ...(sub.items?.
 
 async function applySubscription(sub) {
   const userId = sub.metadata?.userId
-  const plan = sub.metadata?.plan
+  // What is paid for now: the price's lookup key (lms_<plan>_<period>) — a
+  // switch in the customer portal changes the price, not our metadata.
+  const fromPrice = (sub.items?.data ?? []).map((item) => item.price?.lookup_key?.match(/^lms_(\w+?)_(month|year)$/)?.[1]).find((p) => PLANS[p])
+  const plan = fromPrice ?? sub.metadata?.plan
   if (!userId || !PLANS[plan]) return
   const user = await prisma.user.findUnique({ where: { id: userId }, select: { id: true, stripeSubscriptionId: true } })
   if (!user) return
@@ -211,7 +233,7 @@ plansRouter.post('/portal', async (req, res) => {
   if (!user?.stripeCustomerId) return res.status(400).json({ error: 'No subscription yet' })
   const origin = process.env.CLIENT_ORIGIN ?? `${req.protocol}://${req.get('host')}`
   try {
-    const session = await stripe('/billing_portal/sessions', { customer: user.stripeCustomerId, return_url: `${origin}/plans` })
+    const session = await stripe('/billing_portal/sessions', { customer: user.stripeCustomerId, return_url: `${origin}/plans`, ...(portalConfig ? { configuration: portalConfig } : {}) })
     res.json({ url: session.url })
   } catch (error) {
     res.status(502).json({ error: `Stripe: ${error.message}` })

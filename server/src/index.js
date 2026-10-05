@@ -170,11 +170,13 @@ loadAiSettings().catch((error) => console.error('Could not load AI settings:', e
 loadSubscriptionSettings().catch((error) => console.error('Could not load subscription settings:', error.message))
 startPlanSweep()
 
-// Slow or stuck clients can't hold connections open forever: headers must
-// arrive in 20 s, a whole request in 5 min (big content uploads included).
-httpServer.headersTimeout = 20_000
-httpServer.requestTimeout = 5 * 60_000
+// A whole request must arrive within 5 min (big content uploads included).
+// Slow clients are cut by Caddy in front (read_header 15 s); here the
+// header timeout stays above keep-alive, as Node requires, so Caddy's
+// reused connections are never dropped mid-request.
 httpServer.keepAliveTimeout = 65_000
+httpServer.headersTimeout = 70_000
+httpServer.requestTimeout = 5 * 60_000
 
 const port = process.env.PORT ?? 4000
 httpServer.listen(port, () => {

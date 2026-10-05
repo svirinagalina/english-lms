@@ -380,10 +380,13 @@ export default function Call() {
           micChosenRef.current = ''
           setMicId('')
         }
-        const current = rawMicRef.current?.getSettings?.().deviceId
         const list = await navigator.mediaDevices.enumerateDevices().catch(() => [])
+        // Chrome lists the system default as "default", whose groupId moves to
+        // the new device; a capture keeps its own device's groupId.
         const fallback = list.find((d) => d.kind === 'audioinput' && d.deviceId === 'default')
-        const sameDefault = fallback && rawMicRef.current && list.some((d) => d.kind === 'audioinput' && d.deviceId === current && d.groupId === fallback.groupId)
+        const currentGroup = rawMicRef.current?.getSettings?.().groupId
+        const stillThere = list.some((d) => d.kind === 'audioinput' && d.groupId === currentGroup)
+        const sameDefault = rawMicRef.current && stillThere && (!fallback || fallback.groupId === currentGroup)
         if (sameDefault) return
         report(token, 'mic.revive', 'devicechange')
         reacquireMic()
@@ -982,6 +985,7 @@ export default function Call() {
     const perf = { started: 0, total: 0, max: 0, reported: false }
     let tick = 0
     let lastPlayNudge = 0
+    let cpuRetried = false
     const loop = async () => {
       if (cancelled) return
       // About 15 frames a second is plenty for a mask; the browser's own
@@ -1045,6 +1049,18 @@ export default function Call() {
             }
           }
         } catch (err) {
+          // The GPU path can die mid-call (Safari loses the WebGL context:
+          // "GLctx.activeTexture"). Once, rebuild the model on the CPU and
+          // carry on, instead of switching the blur off.
+          if (!cpuRetried && videoProcessor.delegate !== 'CPU') {
+            cpuRetried = true
+            report(token, 'blur.cpu-fallback', String(err?.message ?? err).slice(0, 200), { delegate: videoProcessor.delegate ?? null })
+            try {
+              await videoProcessor.createSegmenter('CPU')
+              if (!cancelled) animationRef.current = requestAnimationFrame(loop)
+              return
+            } catch { /* fall through to giving up */ }
+          }
           fail('process a frame', err)
           return
         }
