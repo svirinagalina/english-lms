@@ -1247,7 +1247,26 @@ const Whiteboard = forwardRef(function Whiteboard({ socketRef, boardId, title, s
     scheduleRender()
 
     const open = (quiet) => socket.emit('board:open', boardId, { quiet }, (response) => {
-      elementsRef.current = dedupe(response?.elements ?? [])
+      const local = new Map(elementsRef.current.map((e) => [e.id, e]))
+      let elements = dedupe(response?.elements ?? [])
+      // Replay what was done offline on top of the server's copy, and send it.
+      const ops = offlineOpsRef.current
+      if (ops.size) {
+        for (const [id, op] of ops) {
+          if (op === 'delete') {
+            elements = elements.filter((e) => e.id !== id)
+            socket.emit('board:delete', id)
+          } else if (local.has(id)) {
+            const element = local.get(id)
+            const index = elements.findIndex((e) => e.id === id)
+            if (index === -1) elements.push(element)
+            else elements[index] = element
+            socket.emit('board:update', element)
+          }
+        }
+        ops.clear()
+      }
+      elementsRef.current = elements
       if (quiet) { scheduleRender(); bump(); return }
       // A board with content opens showing all of it; an empty one at 100%
       // — or on the element it was opened for (the homework heading).
@@ -1383,7 +1402,21 @@ const Whiteboard = forwardRef(function Whiteboard({ socketRef, boardId, title, s
     }
   }, [scheduleRender])
 
-  const emit = (event, payload) => socketRef.current?.emit(event, payload)
+  // Edits made while the connection is down: a reconnected socket must open
+  // the board before the server takes any edit, and the reopen used to
+  // replace the board with the server's copy — strokes and moves from those
+  // seconds vanished. Kept here (id → 'upsert' | 'delete') and replayed.
+  const offlineOpsRef = useRef(new Map())
+  const emit = (event, payload) => {
+    const socket = socketRef.current
+    if (socket && socket.connected === false) {
+      if (event === 'board:add' || event === 'board:update') offlineOpsRef.current.set(payload.id, 'upsert')
+      else if (event === 'board:delete') offlineOpsRef.current.set(payload, 'delete')
+      else if (event === 'board:clear') offlineOpsRef.current.clear()
+      return
+    }
+    socket?.emit(event, payload)
+  }
   // Elements this person made: added in this session, or stored with their id as author.
   const { user: me } = useAuth()
   const ownIdsRef = useRef(new Set())
