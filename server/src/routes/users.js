@@ -79,6 +79,8 @@ usersRouter.get('/teachers', requireRole('OWNER'), async (req, res) => {
 const OPEN_LESSON_MS = 2 * 3600 * 1000
 // Elements added this close before a lesson started or after it ended still belong to it.
 const LESSON_MARGIN_MS = 60 * 1000
+// A call made this long before its lesson started still belongs to it.
+const CALL_LEAD_MS = 30 * 60 * 1000
 
 // A teacher's lessons, for the administrator: with whom, when, how long, and
 // the board(s) written on during each. The board is found by when its
@@ -103,6 +105,20 @@ usersRouter.get('/:id/lessons', requireRole('OWNER'), async (req, res) => {
     where: { scratch: false, OR: [{ classroom: { teacherId: teacher.id } }, { sharedWith: { some: { teacherId: teacher.id } } }] },
     select: { id: true, title: true, classroomId: true, sharedWith: { select: { id: true } } }
   })
+  // The board each call was started on: the fallback for a lesson where
+  // the board was shown but nothing new was added to it.
+  const calls = await prisma.call.findMany({
+    where: { hostId: teacher.id, boardId: { not: null }, classroomId: { not: null } },
+    select: { classroomId: true, boardId: true, createdAt: true },
+    orderBy: { createdAt: 'asc' }
+  })
+  const missing = [...new Set(calls.map((c) => c.boardId))].filter((id) => !boards.some((b) => b.id === id))
+  if (missing.length) {
+    boards.push(...await prisma.board.findMany({
+      where: { id: { in: missing }, scratch: false },
+      select: { id: true, title: true, classroomId: true, sharedWith: { select: { id: true } } }
+    }))
+  }
   const boardById = new Map(boards.map((b) => [b.id, b]))
   const added = [] // { at, boardId, elementId, authorId }, sorted by time
   for (const board of boards) {
@@ -130,6 +146,11 @@ usersRouter.get('/:id/lessons', requireRole('OWNER'), async (req, res) => {
       const entry = used.get(item.boardId) ?? { count: 0, focus: item.elementId }
       entry.count += 1
       used.set(item.boardId, entry)
+    }
+    if (!used.size) {
+      // Nothing added: the board the lesson's call was started on, if any.
+      const call = calls.filter((c) => c.classroomId === session.classroom.id && c.createdAt.getTime() >= start - CALL_LEAD_MS && c.createdAt.getTime() <= end).pop()
+      if (call && boardById.has(call.boardId)) used.set(call.boardId, { count: 0, focus: null })
     }
     const lessonBoards = [...used.entries()]
       .sort((a, b) => b[1].count - a[1].count)

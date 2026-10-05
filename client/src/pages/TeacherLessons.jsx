@@ -122,16 +122,16 @@ export default function TeacherLessons() {
                     </div>
                   </div>
                   <div className="row-actions" style={{ flexWrap: 'wrap' }}>
-                    {lesson.boards.length === 0 && <span className="muted">Nothing was added to a board</span>}
+                    {lesson.boards.length === 0 && <span className="muted">No board in this lesson</span>}
                     {lesson.boards.map((board) => (
                       <Link
                         key={board.id}
                         className="button-link"
                         style={{ marginTop: 0 }}
                         to={`/classroom/${board.classroomId}?board=${board.id}${board.focus ? `&focus=${board.focus}` : ''}`}
-                        title={`${board.added} ${board.added === 1 ? 'item' : 'items'} added during this lesson`}
+                        title={board.added ? `${board.added} ${board.added === 1 ? 'item' : 'items'} added during this lesson` : 'Open in the lesson; nothing new was added to it'}
                       >
-                        Board: {board.title}
+                        Board: {board.title}{!board.added && ' (nothing added)'}
                       </Link>
                     ))}
                   </div>
