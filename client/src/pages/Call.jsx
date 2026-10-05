@@ -80,6 +80,9 @@ const OUT_WIDTH = 640
 const deviceLine = () => `${navigator.userAgent.slice(0, 160)} · ${screen.width}x${screen.height} · cores ${navigator.hardwareConcurrency ?? '?'}`
 const report = (call, kind, message, details, thumb) => api.diag({ kind, message, details, device: deviceLine(), call, thumb })
 const RECONNECTING = 'Connection lost — reconnecting…'
+// A browser where the background blur once froze the call.
+const slowDevice = () => { try { return localStorage.getItem('call.slowDevice') === '1' } catch { return false } }
+const markSlowDevice = () => { try { localStorage.setItem('call.slowDevice', '1') } catch { /* private window */ } }
 // Why the browser refused the camera and microphone, in words the person
 // can act on.
 const mediaErrorText = (err) => {
@@ -122,7 +125,9 @@ export default function Call() {
   const [screenStream, setScreenStream] = useState(null)
   // Blur is on from the start; it can be switched off in the call.
   // What stands behind the person: nothing, a blur, or one of the pictures.
-  const [background, setBackground] = useState(() => (isHandheld() ? 'none' : 'blur'))
+  // Off by default on phones, weak computers (2–4 cores) and any browser
+  // where the blur once froze a call (remembered in localStorage).
+  const [background, setBackground] = useState(() => (isHandheld() || isLowPower() || slowDevice() ? 'none' : 'blur'))
   const isBlurEnabled = background !== 'none'
   const setIsBlurEnabled = (on) => setBackground(on ? 'blur' : 'none')
   // The chosen picture, once loaded; frames read it directly.
@@ -436,7 +441,9 @@ export default function Call() {
     if (!isDenoiserSupported()) { setNoiseState('browser'); return }
     setNoiseState('starting')
     const t0 = performance.now()
-    denoiseTrack(rawTrack).then(async (cleaned) => {
+    // A weak computer gets the lighter RNNoise: GTCRN plus a picture
+    // background left a 2-core laptop freezing for seconds at a time.
+    denoiseTrack(rawTrack, isLowPower() || slowDevice() ? { engine: 'rnnoise' } : {}).then(async (cleaned) => {
       if (isDisposed() || rawMicRef.current !== rawTrack) { cleaned.stop(); return }
       denoiserRef.current = cleaned
       await swapOutgoingAudio(cleaned.track)
@@ -982,7 +989,7 @@ export default function Call() {
     let lastTick = 0
     // How fast the blur really runs on this device: reported once, after
     // ~15 s, so "choppy on my phone" can be told from "not blurring at all".
-    const perf = { started: 0, total: 0, max: 0, reported: false }
+    const perf = { started: 0, total: 0, max: 0, reported: false, judged: false, freezes: 0 }
     let tick = 0
     let lastPlayNudge = 0
     let cpuRetried = false
@@ -1024,6 +1031,23 @@ export default function Call() {
             if (frames === 1) perf.started = t0
             perf.total += spent
             perf.max = Math.max(perf.max, spent)
+            if (spent > 1500) perf.freezes += 1
+            // Too slow for this computer: the frames pile up and the whole
+            // browser stalls — sound and the connection with it. Judged after
+            // ~6 s (or two multi-second freezes): switch the background off
+            // and remember it for this browser.
+            if (!perf.judged && (t0 - perf.started > 6000 || perf.freezes >= 2)) {
+              perf.judged = true
+              const fpsNow = frames / Math.max(1, (t0 - perf.started) / 1000)
+              if (fpsNow < 6 || perf.freezes >= 2) {
+                report(token, 'blur.auto-off', background, { fps: Number(fpsNow.toFixed(1)), freezes: perf.freezes, maxMs: Math.round(perf.max), cores: navigator.hardwareConcurrency ?? null })
+                markSlowDevice()
+                cancelled = true
+                setBackground('none')
+                setMediaWarning('Background turned off: this computer is too slow for it, and it was freezing the call. Sound and video will run smoother now.')
+                return
+              }
+            }
             if (!perf.reported && t0 - perf.started > 15000) {
               perf.reported = true
               const seconds = (t0 - perf.started) / 1000
