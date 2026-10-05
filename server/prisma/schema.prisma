@@ -629,6 +629,9 @@ model UserCalendarEvent {
   endTime           DateTime
   recurrence        String?  // null | "WEEKLY"
   recurrenceEndDate DateTime?  // When to stop repeating
+  // The creator's IANA time zone: a weekly lesson repeats at the same local
+  // time across daylight-saving changes (null = Europe/Madrid, the school's).
+  timezone          String?
   studentIds        String[] @default([])  // JSON array of student IDs for group lessons
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt

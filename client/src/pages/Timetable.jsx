@@ -7,6 +7,12 @@ import Nav from '../components/Nav'
 import { SiteFooter } from '../components/Brand'
 import Panel from '../components/Panel'
 
+// A Date as the value of a datetime-local input, in the browser's own time.
+const toLocalInput = (d) => {
+  const pad = (n) => String(n).padStart(2, '0')
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`
+}
+
 export default function Timetable() {
   const { user } = useAuth()
   const [lessons, setLessons] = useState([])
@@ -129,7 +135,8 @@ export default function Timetable() {
         endTime: startTime.toISOString(),
         studentIds: formData.studentIds,
         recurrence: formData.recurrence || null,
-        recurrenceEndDate: formData.recurrenceEndDate ? new Date(formData.recurrenceEndDate).toISOString() : null
+        recurrenceEndDate: formData.recurrenceEndDate ? new Date(`${formData.recurrenceEndDate}T23:59:59`).toISOString() : null,
+        timezone: Intl.DateTimeFormat().resolvedOptions().timeZone
       }
       if (editingId) await api.updateCalendarEvent(editingId, body)
       else await api.createCalendarEvent(body)
@@ -175,8 +182,10 @@ export default function Timetable() {
   }
 
   const handleEditEvent = (lesson) => {
-    const startDateTime = new Date(lesson.startTime).toISOString().slice(0, 16)
-    const recurrenceEndDate = lesson.recurrenceEndDate ? new Date(lesson.recurrenceEndDate).toISOString().slice(0, 10) : ''
+    // The form's datetime-local field reads local time; toISOString() gave
+    // UTC, so opening a lesson to edit and saving it moved it by the offset.
+    const startDateTime = toLocalInput(new Date(lesson.startTime))
+    const recurrenceEndDate = lesson.recurrenceEndDate ? toLocalInput(new Date(lesson.recurrenceEndDate)).slice(0, 10) : ''
     setFormData({
       startTime: startDateTime,
       studentIds: lesson.studentIds || [],

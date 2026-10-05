@@ -25,7 +25,9 @@ const eventSchema = z.object({
   // The page sends null for "No repeat": that was refused before, so no
   // one-off lesson could be saved at all.
   recurrence: z.enum(['WEEKLY']).nullable().optional(),
-  recurrenceEndDate: z.string().datetime().optional().nullable()
+  recurrenceEndDate: z.string().datetime().optional().nullable(),
+  // The browser's IANA zone (Intl), so weekly lessons keep their local time.
+  timezone: z.string().max(64).optional().nullable()
 })
 
 // Todos
@@ -81,6 +83,30 @@ personalRouter.delete('/todos/:id', async (req, res) => {
 })
 
 // Helper to generate recurring event instances
+const validZone = (zone) => {
+  if (!zone) return null
+  try { new Intl.DateTimeFormat('en', { timeZone: zone }); return zone } catch { return null }
+}
+// The local calendar parts of an instant in a zone.
+function partsIn(date, zone) {
+  const parts = Object.fromEntries(new Intl.DateTimeFormat('en-US', { timeZone: zone, hourCycle: 'h23', year: 'numeric', month: 'numeric', day: 'numeric', hour: 'numeric', minute: 'numeric', second: 'numeric' })
+    .formatToParts(date).filter((p) => p.type !== 'literal').map((p) => [p.type, Number(p.value)]))
+  return parts
+}
+// The instant that reads as the same local time as `start`, `weeks` weeks later.
+export function addWeeksInZone(start, weeks, zone) {
+  const p = partsIn(start, zone)
+  const wall = Date.UTC(p.year, p.month - 1, p.day + weeks * 7, p.hour, p.minute, p.second)
+  // Find the UTC instant whose local reading is `wall` (two passes settle DST).
+  let guess = wall
+  for (let i = 0; i < 2; i++) {
+    const q = partsIn(new Date(guess), zone)
+    const reads = Date.UTC(q.year, q.month - 1, q.day, q.hour, q.minute, q.second)
+    guess += wall - reads
+  }
+  return new Date(guess)
+}
+
 export function generateRecurringInstances(event, rangeStart, rangeEnd) {
   if (!event.recurrence || event.recurrence !== 'WEEKLY') {
     return [event]
@@ -91,9 +117,13 @@ export function generateRecurringInstances(event, rangeStart, rangeEnd) {
   const eventEnd = new Date(event.endTime)
   const duration = eventEnd - eventStart
 
-  // Start from the first occurrence
-  let currentDate = new Date(eventStart)
+  // Each week at the same wall-clock time in the creator's zone, so a
+  // lesson at 15:00 stays at 15:00 after the clocks change (adding 7×24 h
+  // in UTC moved every weekly lesson by an hour in late October).
+  const zone = validZone(event.timezone) ?? 'Europe/Madrid'
   const endDate = event.recurrenceEndDate ? new Date(event.recurrenceEndDate) : new Date(rangeEnd.getTime() + 365 * 24 * 60 * 60 * 1000)
+  let week = 0
+  let currentDate = new Date(eventStart)
 
   while (currentDate <= endDate && currentDate < rangeEnd) {
     if (currentDate >= rangeStart) {
@@ -106,8 +136,8 @@ export function generateRecurringInstances(event, rangeStart, rangeEnd) {
         _parentId: event.id
       })
     }
-    // Move to next week
-    currentDate.setDate(currentDate.getDate() + 7)
+    week += 1
+    currentDate = addWeeksInZone(eventStart, week, zone)
   }
 
   return instances
@@ -194,6 +224,7 @@ personalRouter.post('/calendar', async (req, res) => {
       studentIds: parsed.data.studentIds || [],
       recurrence: parsed.data.recurrence || null,
       recurrenceEndDate: parsed.data.recurrenceEndDate ? new Date(parsed.data.recurrenceEndDate) : null,
+      timezone: validZone(parsed.data.timezone),
       userId: req.user.id
     }
   })
@@ -220,7 +251,8 @@ personalRouter.patch('/calendar/:id', async (req, res) => {
       endTime,
       studentIds: parsed.data.studentIds || [],
       recurrence: parsed.data.recurrence || null,
-      recurrenceEndDate: parsed.data.recurrenceEndDate ? new Date(parsed.data.recurrenceEndDate) : null
+      recurrenceEndDate: parsed.data.recurrenceEndDate ? new Date(parsed.data.recurrenceEndDate) : null,
+      ...(validZone(parsed.data.timezone) ? { timezone: validZone(parsed.data.timezone) } : {})
     }
   })
   res.json({ event: updated })
