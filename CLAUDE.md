@@ -118,6 +118,8 @@ In the app (`isNativeApp()`), no way to pay: the student "Payment" nav item is h
 
 - **IELTS landing + website leads.** Public page `/ielts` (`client/src/pages/Ielts.jsx`, `styles/ielts.css`, assets in `client/public/ielts/`), linked from Author → «Мои курсы». Tariff buttons prefill the request form (no payment flow). The form posts to public `POST /api/leads` (`server/src/routes/leads.js`: zod, honeypot `website`, 8/hour rate limit, saved to `Lead`, emailed to owners via `sendLeadEmail`, push via `notifyLead`). Owners see/mark requests in People → «Website requests». Platform pictures are real screenshots (`platform-*.jpg`); replace with video when available.
 
+- **Trial report after the call.** When a TRIAL call ends (`trialCallEnded` in `server/src/trialReport.js`, called from calls.js `/end` and both signaling end paths), a draft report is generated if the teacher marked the test or set a level, and the teacher gets a push to publish. Nothing reaches the student (email, plan and prices on their Payment page) until the report is published.
+
 ## Known open items
 - App Store submission: waiting on Galina's Apple Developer Program enrollment; then sign into Xcode (her), push key into Settings, a contact email in `privacy.html`, a demo account for Apple's reviewer, store screenshots (iPad too while `TARGETED_DEVICE_FAMILY = "1,2"`), then archive → TestFlight → review.
 - Content-audit fixes (theory typos + 2 glued-answer exercises) are committed locally but not pushed, and not yet applied to production's DB — need Galina's go-ahead.

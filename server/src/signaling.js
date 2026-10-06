@@ -14,6 +14,7 @@ import {
 import { loadDocument, replaceDocument, runsSchema } from './docStore.js'
 import { buildSummary } from './lessonSummary.js'
 import { adventCallPresence, adventCallEnded } from './adventLessons.js'
+import { trialCallEnded } from './trialReport.js'
 import { notifyHomeworkLater, notifyAfterLessonLater } from './push.js'
 
 // A call that resumes within this window continues the previous session rather
@@ -124,7 +125,7 @@ export function setupSignaling(io) {
       }
       if (idle.length) {
         await prisma.call.updateMany({ where: { id: { in: idle }, endedAt: null }, data: { endedAt: new Date() } })
-        for (const id of idle) { callLastSeen.delete(id); adventCallEnded(id).catch(() => {}) }
+        for (const id of idle) { callLastSeen.delete(id); adventCallEnded(id).catch(() => {}); trialCallEnded(id).catch(() => {}) }
         console.log(`Closed ${idle.length} idle call(s)`)
       }
       // Scratch boards belong to one call each; a restart can orphan them.
@@ -575,6 +576,7 @@ export function setupSignaling(io) {
           if (still) return
           await prisma.call.updateMany({ where: { id: callId, endedAt: null }, data: { endedAt: new Date() } }).catch(() => {})
           adventCallEnded(callId).catch(() => {})
+          trialCallEnded(callId).catch((error) => console.error('[trial] end', error.message))
           // A scratch board made for a boardless call (no student attached)
           // was only ever for this one call: gone with it, not left behind
           // cluttering the teacher's own boards.

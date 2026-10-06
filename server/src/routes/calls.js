@@ -6,6 +6,7 @@ import { requireAuth, requireRole, LOCKED, lockedFor } from '../auth.js'
 import { entitlements } from '../plans.js'
 import { notifyCallStarted } from '../push.js'
 import { linkCallToAdventLesson, adventCallEnded } from '../adventLessons.js'
+import { trialCallEnded } from '../trialReport.js'
 import { accessibleClassroom, ensurePersonalSpace } from './classrooms.js'
 
 export const callsRouter = Router()
@@ -213,5 +214,6 @@ callsRouter.post('/:id/end', requireRole('OWNER', 'TEACHER'), async (req, res) =
 
   await prisma.call.update({ where: { id: call.id }, data: { endedAt: new Date() } })
   adventCallEnded(call.id).catch(() => {})
+  if (call.kind === 'TRIAL') trialCallEnded(call.id).catch((error) => console.error('[trial] end', error.message))
   res.json({ ok: true })
 })

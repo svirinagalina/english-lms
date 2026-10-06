@@ -4,6 +4,7 @@ import { assistantEnabled } from './assistant.js'
 import { structured } from './llm.js'
 import { TEST_ITEMS, LEVELS, estimateLevel } from './placementTest.js'
 import { topicLabel } from './errorAnalysis.js'
+import { notify } from './push.js'
 
 // Builds the student's level report from the marked placement test, the
 // teacher's assessment and comments, the mistake notebook and practice
@@ -129,4 +130,26 @@ export async function buildTrialReport(reportId) {
     ...generated
   }
   return prisma.trialReport.update({ where: { id: reportId }, data: { generated: data } })
+}
+
+// A trial call is over: draft the report when the teacher has marked the test
+// (or given a level) and remind them to publish it, because nothing reaches
+// the student until then. With no marks there is nothing to draft, so the
+// reminder says to fill them in.
+export async function trialCallEnded(callId) {
+  const report = await prisma.trialReport.findUnique({
+    where: { callId },
+    include: { classroom: { select: { student: { select: { name: true } } } } }
+  })
+  if (!report || report.publishedAt) return
+  // Ending can be reported by more than one path: remind only once.
+  try { await prisma.pushSent.create({ data: { key: `trial-ended:${report.id}` } }) } catch { return }
+  const marked = Object.keys(report.answers ?? {}).length > 0 || Boolean(report.teacherLevel)
+  if (marked && !report.generated) await buildTrialReport(report.id)
+  const name = report.classroom?.student?.name ?? 'the student'
+  await notify([report.teacherId], {
+    title: marked ? 'Trial report is ready to publish' : 'Trial lesson report needs your marks',
+    body: marked ? `Check and publish ${name}'s report so they get the plan and prices.` : `Mark ${name}'s test and publish the report so they get the plan and prices.`,
+    url: `/classroom/${report.classroomId}`
+  })
 }
