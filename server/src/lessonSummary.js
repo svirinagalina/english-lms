@@ -18,7 +18,7 @@ const STOP = new Set(('a an the and or but so if then than that this these those
   'very too also just only even still yet again ever never always often sometimes usually now today tomorrow yesterday ' +
   'lesson homework note notes example examples exercise page unit chapter').split(/\s+/))
 
-const clean = (text) => String(text ?? '').replace(/\{\{#[0-9a-f]{6}:([^}]*)\}\}/gi, '$1').replace(/\*\*|__/g, '')
+const clean = (text) => String(text ?? '').replace(/\{\{#[0-9a-f]{6}:([^}]*)\}\}/gi, '$1').replace(/\*\*|__|~~/g, '')
 
 const isLessonHeading = (t) => /^—\s*(Lesson|Homework|Speaking|Placement)/i.test(t.trim())
 

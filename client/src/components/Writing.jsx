@@ -600,6 +600,27 @@ export default function Writing({ socketRef, classroomId, user, title, subtitle,
     setRuns(next); caretRef.current = null; broadcast(next)
   }
 
+  // ⌘Z right after a button (Accept all, Reject all, a correction's
+  // Accept/Reject) has to work too, though focus is then on the button, not
+  // the text. Caught on window in the capture phase so the board kept
+  // mounted under Writing in a call doesn't undo its own last step as well.
+  useEffect(() => {
+    const onKey = (event) => {
+      if (!(event.metaKey || event.ctrlKey) || event.altKey) return
+      const key = event.key.toLowerCase()
+      if (key !== 'z' && key !== 'y') return
+      const target = event.target
+      if (editorRef.current?.contains(target)) return // the editor's own handler does it
+      if (target?.closest?.('input, textarea, select, [contenteditable="true"]')) return
+      event.preventDefault()
+      event.stopPropagation()
+      if (key === 'y' || event.shiftKey) redo()
+      else undo()
+    }
+    window.addEventListener('keydown', onKey, true)
+    return () => window.removeEventListener('keydown', onKey, true)
+  })
+
   // Backspace and Delete are handled on keydown: it always fires, while some
   // browsers skip beforeinput for them in a contentEditable.
   const handleKeyDown = (event) => {
@@ -985,9 +1006,7 @@ export default function Writing({ socketRef, classroomId, user, title, subtitle,
           <button className="tool" onMouseDown={(e) => e.preventDefault()} onClick={() => addToVocabulary(selectedText)} disabled={addingTerm || !selectedText} title="Put the highlighted word or phrase into the vocabulary, as one card">
             {addingTerm ? 'Adding…' : '+ Vocabulary'}
           </button>
-          {actor.tracked && (
-            <button className={`tool ${dictionaryOpen ? 'active' : ''}`} onMouseDown={(e) => e.preventDefault()} onClick={() => setDictionaryOpen((v) => !v)} title="Dictionary: any word or phrase, Russian ⇄ English">Dictionary</button>
-          )}
+          <button className={`tool ${dictionaryOpen ? 'active' : ''}`} onMouseDown={(e) => e.preventDefault()} onClick={() => setDictionaryOpen((v) => !v)} title="Dictionary: any word or phrase, Russian ⇄ English">Dictionary</button>
           <button className="tool" onMouseDown={(e) => e.preventDefault()} onClick={toggleHeading} title="Make the line a heading — it appears in the list on the left">Heading</button>
           <span className="marker-tool">
             <button className="tool" onMouseDown={(e) => e.preventDefault()} onClick={() => highlight(marker)} title="Highlight the selected text">

@@ -100,22 +100,24 @@ function measureWidth(text, size, bold, italic) {
 }
 
 // "a **b** c" → [{text:'a ', bold:false}, {text:'b', bold:true}, {text:' c', bold:false}]
-// Markup: **bold**, __italic__ and {{#rrggbb:coloured}} spans, nestable.
+// Markup: **bold**, __italic__, ~~struck through~~ and {{#rrggbb:coloured}} spans, nestable.
 const COLOR_OPEN = /^\{\{(#[0-9a-fA-F]{6}):/
 function textRuns(line) {
   const runs = []
   let bold = false
   let italic = false
+  let strike = false
   const colors = []
   let buffer = ''
   const flush = () => {
-    if (buffer) runs.push({ text: buffer, bold, italic, color: colors[colors.length - 1] })
+    if (buffer) runs.push({ text: buffer, bold, italic, strike, color: colors[colors.length - 1] })
     buffer = ''
   }
   let i = 0
   while (i < line.length) {
     if (line.startsWith('**', i)) { flush(); bold = !bold; i += 2; continue }
     if (line.startsWith('__', i)) { flush(); italic = !italic; i += 2; continue }
+    if (line.startsWith('~~', i)) { flush(); strike = !strike; i += 2; continue }
     const open = line.slice(i).match(COLOR_OPEN)
     if (open) { flush(); colors.push(open[1]); i += open[0].length; continue }
     if (colors.length && line.startsWith('}}', i)) { flush(); colors.pop(); i += 2; continue }
@@ -126,7 +128,7 @@ function textRuns(line) {
   return runs
 }
 
-const sameStyle = (a, b) => a.bold === b.bold && a.italic === b.italic && a.color === b.color
+const sameStyle = (a, b) => a.bold === b.bold && a.italic === b.italic && Boolean(a.strike) === Boolean(b.strike) && a.color === b.color
 
 // The word under a world point inside a text or note, from the same layout
 // the canvas draws.
@@ -170,6 +172,7 @@ function markupToHtml(text) {
       const style = [
         run.bold ? 'font-weight:700' : '',
         run.italic ? 'font-style:italic' : '',
+        run.strike ? 'text-decoration:line-through' : '',
         run.color ? `color:${inkOf(run.color)}` : ''
       ].filter(Boolean).join(';')
       return style ? `<span style="${style}">${escapeHtml(run.text)}</span>` : escapeHtml(run.text)
@@ -195,11 +198,13 @@ function htmlToMarkup(root, baseColor) {
     }
     if (node.nodeType !== Node.ELEMENT_NODE) return
     const tag = node.tagName
-    if (tag === 'BR') { runs.push({ text: '\n', bold: false, italic: false, color: null }); return }
+    if (tag === 'BR') { runs.push({ text: '\n', bold: false, italic: false, strike: false, color: null }); return }
     const cs = getComputedStyle(node)
     const next = {
       bold: style.bold || tag === 'B' || tag === 'STRONG' || Number(cs.fontWeight) >= 600 || cs.fontWeight === 'bold',
       italic: style.italic || tag === 'I' || tag === 'EM' || cs.fontStyle === 'italic',
+      // text-decoration is not inherited: a struck parent marks its children here.
+      strike: style.strike || tag === 'S' || tag === 'STRIKE' || tag === 'DEL' || /line-through/.test(cs.textDecorationLine || cs.textDecoration || ''),
       color: style.color
     }
     const own = node.style?.color || node.getAttribute?.('color')
@@ -209,22 +214,23 @@ function htmlToMarkup(root, baseColor) {
     }
     const isBlock = cs.display === 'block' || tag === 'DIV' || tag === 'P'
     if (isBlock && node !== root && runs.length && !runs[runs.length - 1].text.endsWith('\n')) {
-      runs.push({ text: '\n', bold: false, italic: false, color: null })
+      runs.push({ text: '\n', bold: false, italic: false, strike: false, color: null })
     }
     for (const child of node.childNodes) walk(child, next, false)
   }
-  walk(root, { bold: false, italic: false, color: null }, true)
+  walk(root, { bold: false, italic: false, strike: false, color: null }, true)
   return runs.map((run) => {
     if (run.text === '\n') return '\n'
     let out = run.text
     if (run.bold) out = `**${out}**`
     if (run.italic) out = `__${out}__`
+    if (run.strike) out = `~~${out}~~`
     if (run.color) out = `{{${run.color}:${out}}}`
     return out
   }).join('').replace(/\n$/, '')
 }
 
-const styleOf = (run) => ({ bold: run.bold, italic: run.italic, color: run.color })
+const styleOf = (run) => ({ bold: run.bold, italic: run.italic, strike: run.strike, color: run.color })
 
 
 // Word-wraps one paragraph to maxWidth, keeping bold flags per word. Each
@@ -646,6 +652,20 @@ function drawSticker(ctx, element) {
   ctx.restore()
 }
 
+// The line through struck-out text, a little above the middle of the
+// letters (text is drawn with textBaseline 'top'), in the run's colour.
+function strikeThrough(ctx, x, y, width, size) {
+  ctx.save()
+  ctx.strokeStyle = ctx.fillStyle
+  ctx.lineWidth = Math.max(1, size / 14)
+  ctx.lineCap = 'butt'
+  ctx.beginPath()
+  ctx.moveTo(x, y + size * 0.6)
+  ctx.lineTo(x + width, y + size * 0.6)
+  ctx.stroke()
+  ctx.restore()
+}
+
 function drawElement(ctx, element) {
   ctx.strokeStyle = inkOf(element.color)
   ctx.fillStyle = inkOf(element.color)
@@ -697,7 +717,9 @@ function drawElement(ctx, element) {
         // on a Mac changes its spacing with size (optical sizes), so the
         // width scaled from REFERENCE_SIZE fell short and the space where
         // one coloured or bold run meets the next vanished ("Madridfor").
-        x += ctx.measureText(run.text).width
+        const runWidth = ctx.measureText(run.text).width
+        if (run.strike) strikeThrough(ctx, x, y, runWidth, size)
+        x += runWidth
       }
     })
     return
@@ -750,7 +772,9 @@ function drawElement(ctx, element) {
         // on a Mac changes its spacing with size (optical sizes), so the
         // width scaled from REFERENCE_SIZE fell short and the space where
         // one coloured or bold run meets the next vanished ("Madridfor").
-        x += ctx.measureText(run.text).width
+        const runWidth = ctx.measureText(run.text).width
+        if (run.strike) strikeThrough(ctx, x, y, runWidth, size)
+        x += runWidth
       }
     })
   }
@@ -1816,6 +1840,11 @@ const Whiteboard = forwardRef(function Whiteboard({ socketRef, boardId, title, s
         toggleItalic()
         return
       }
+      if (textInput && (event.metaKey || event.ctrlKey) && event.shiftKey && event.key.toLowerCase() === 'x') {
+        event.preventDefault()
+        toggleStrike()
+        return
+      }
       // Typing or pasting anywhere else (Writing open next to the board in a
       // call, a form…) is not for the board: its letter shortcuts, Delete and
       // image paste would fire.
@@ -2493,7 +2522,12 @@ const Whiteboard = forwardRef(function Whiteboard({ socketRef, boardId, title, s
     }
 
     if (pointer.mode === 'marquee') {
+      const box = marqueeRef.current
       marqueeRef.current = null
+      // With Select, a click (not a drag) on empty board is done selecting:
+      // back to Move, so the next drag moves the board instead of drawing a box.
+      const scale = viewRef.current.scale
+      if (boxSelect && !pointer.additive && (!box || (box.w * scale < 4 && box.h * scale < 4))) setBoxSelect(false)
       scheduleRender()
       bump()
       return
@@ -2770,6 +2804,7 @@ const Whiteboard = forwardRef(function Whiteboard({ socketRef, boardId, title, s
   }
   const toggleBold = () => runCommand('bold')
   const toggleItalic = () => runCommand('italic')
+  const toggleStrike = () => runCommand('strikeThrough')
 
   // Colours the selection; with nothing selected, recolours the whole text
   // (or the note itself).
@@ -3355,9 +3390,7 @@ const Whiteboard = forwardRef(function Whiteboard({ socketRef, boardId, title, s
                   Mistakes
                 </button>
               )}
-              {onUploadImage && (
-                <button className={`tool ${dictionaryOpen ? 'active' : ''}`} onClick={() => setDictionaryOpen((v) => !v)} title="Dictionary: any word or phrase, Russian ⇄ English">Dictionary</button>
-              )}
+              <button className={`tool ${dictionaryOpen ? 'active' : ''}`} onClick={() => setDictionaryOpen((v) => !v)} title="Dictionary: any word or phrase, Russian ⇄ English">Dictionary</button>
               {onUploadImage && (
                 <>
                   <button className="tool" onClick={() => fileInputRef.current?.click()} title="Add an image">Image</button>
@@ -3443,6 +3476,7 @@ const Whiteboard = forwardRef(function Whiteboard({ socketRef, boardId, title, s
                 <div className="text-toolbar-group">
                   <button className="tool" onClick={() => (textInput ? toggleBold() : wrapSelectedTexts('**', '**'))} title="Bold (⌘B)"><b>B</b></button>
                   <button className="tool" onClick={() => (textInput ? toggleItalic() : wrapSelectedTexts('__', '__'))} title="Italic (⌘I)"><i>I</i></button>
+                  <button className="tool" onClick={() => (textInput ? toggleStrike() : wrapSelectedTexts('~~', '~~'))} title="Strikethrough (⌘⇧X)"><s>S</s></button>
                 </div>
               </>
             )}

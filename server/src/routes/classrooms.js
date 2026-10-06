@@ -134,7 +134,7 @@ classroomsRouter.get('/home', async (req, res) => {
     select: { id: true, title: true, classroomId: true, elements: true, updatedAt: true, sharedWith: { where: { studentId: req.user.id }, select: { id: true } } }
   })
   const isText = (e) => (e.type === 'text' || e.type === 'note') && typeof e.text === 'string'
-  const clean = (text) => text.replace(/\{\{#[0-9a-f]{6}:([^}]*)\}\}/gi, '$1').replace(/\*\*|__/g, '').trim()
+  const clean = (text) => text.replace(/\{\{#[0-9a-f]{6}:([^}]*)\}\}/gi, '$1').replace(/\*\*|__|~~/g, '').trim()
   let homework = null
   for (const board of boards) {
     const elements = Array.isArray(board.elements) ? board.elements : []

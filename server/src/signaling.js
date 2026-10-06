@@ -48,7 +48,7 @@ async function openSession(classroomId, { counted = true } = {}) {
 
 // The same test as the student's Homework tile (/classrooms/home).
 const isHomeworkHeading = (element) => (element.type === 'text' || element.type === 'note') && typeof element.text === 'string' &&
-  /^[—\-\s]*homework\b/i.test(element.text.replace(/\{\{#[0-9a-f]{6}:([^}]*)\}\}/gi, '$1').replace(/\*\*|__/g, '').trim())
+  /^[—\-\s]*homework\b/i.test(element.text.replace(/\{\{#[0-9a-f]{6}:([^}]*)\}\}/gi, '$1').replace(/\*\*|__|~~/g, '').trim())
 
 // Lets a route push an element onto a board everyone watching sees at once.
 export function broadcastBoardAdd(boardId, element) {
