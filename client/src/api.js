@@ -105,8 +105,8 @@ export const api = {
   deleteCard: (setId, cardId) =>
     request(`/vocab/${setId}/cards/${cardId}`, { method: 'DELETE' }),
   studyVocab: (setId, all) => request(`/vocab/${setId}/study${all ? '?all=1' : ''}`),
-  reviewCard: (cardId, correct) =>
-    request(`/vocab/cards/${cardId}/review`, { method: 'POST', body: { correct } }),
+  reviewCard: (cardId, correct, mastered = false) =>
+    request(`/vocab/cards/${cardId}/review`, { method: 'POST', body: { correct, ...(mastered ? { mastered: true } : {}) } }),
   checkCard: (cardId, answer) =>
     request(`/vocab/cards/${cardId}/check`, { method: 'POST', body: { answer } }),
 
@@ -160,6 +160,8 @@ export const api = {
   deleteMistakeByElement: (elementId) => request(`/mistakes/element/${elementId}`, { method: 'DELETE' }),
   mistakePractice: () => request('/mistakes/practice'),
   submitMistakeAttempt: (id, answer) => request(`/mistakes/practice/${id}/attempt`, { method: 'POST', body: { answer } }),
+  mistakeSimilar: (id) => request(`/mistakes/practice/${id}/similar`),
+  submitSimilarAttempt: (id, index, answer) => request(`/mistakes/practice/${id}/similar/${index}/attempt`, { method: 'POST', body: { answer } }),
   activityMe: () => request('/stats/activity/me'),
   aiSettings: () => request('/settings/ai'),
   offerLinks: () => request('/settings/offer'),

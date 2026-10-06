@@ -382,6 +382,8 @@ model LessonMistake {
   // Drilled in Practice: how many times the student got it right since.
   practicedCorrect Int       @default(0)
   lastPracticedAt  DateTime?
+  // AI-made sentences on the same grammar point: [{ prompt, answer }], made once.
+  similar          Json?
 
   classroomId String
   classroom   Classroom @relation(fields: [classroomId], references: [id], onDelete: Cascade)

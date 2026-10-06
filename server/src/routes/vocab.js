@@ -380,7 +380,9 @@ vocabRouter.get('/:id/study', async (req, res) => {
 
 const reviewSchema = z.object({
   correct: z.boolean(),
-  answer: z.string().max(300).optional()
+  answer: z.string().max(300).optional(),
+  // "I've memorized it": straight to the longest interval.
+  mastered: z.boolean().optional()
 })
 
 vocabRouter.post('/cards/:cardId/review', async (req, res) => {
@@ -396,7 +398,9 @@ vocabRouter.post('/cards/:cardId/review', async (req, res) => {
     where: { cardId_studentId: { cardId: card.id, studentId: req.user.id } }
   })
 
-  const streak = parsed.data.correct ? (existing?.streak ?? 0) + 1 : 0
+  const streak = parsed.data.correct
+    ? (parsed.data.mastered ? Math.max(INTERVALS.length - 1, (existing?.streak ?? 0) + 1) : (existing?.streak ?? 0) + 1)
+    : 0
 
   await prisma.cardReview.upsert({
     where: { cardId_studentId: { cardId: card.id, studentId: req.user.id } },

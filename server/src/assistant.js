@@ -217,3 +217,25 @@ export async function draftMistakePrompt({ said, correct, topic }) {
   })
   return out?.prompt?.trim() || null
 }
+
+const SimilarSchema = z.object({
+  items: z.array(z.object({ prompt: z.string(), answer: z.string() })).min(3).max(5)
+})
+
+// New sentences that need the same grammar as a learner's mistake, so the
+// rule gets applied rather than one sentence memorised.
+export async function draftSimilarDrills({ said, correct, topic }) {
+  const out = await structured({
+    name: 'similar_drills',
+    schema: SimilarSchema,
+    maxTokens: 2500,
+    effort: 'low',
+    system:
+      'You make practice for a Russian-speaking learner of English who made a grammar mistake. Given their wrong sentence, the teacher\'s correct version and the grammar point, ' +
+      'write 4 NEW short sentences that require exactly the same grammar point, with different vocabulary and everyday situations (do not reuse the original sentence or its words). ' +
+      'For each: prompt = a natural Russian sentence to translate (add minimal context in brackets when the English form needs it, e.g. a duration for Present Perfect Continuous); ' +
+      'answer = its natural English translation using that grammar point. Level: the same as the original sentence. No explanations.',
+    user: `Learner said (wrong): ${said}\nCorrect: ${correct}\nGrammar point: ${topic || '—'}`
+  })
+  return out?.items?.map((i) => ({ prompt: i.prompt.trim(), answer: i.answer.trim() })).filter((i) => i.prompt && i.answer) ?? null
+}

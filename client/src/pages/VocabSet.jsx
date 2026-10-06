@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { api } from '../api'
-import { PlayButton } from '../components/WordCard'
+import { PlayButton, playWord } from '../components/WordCard'
 
 // `cram`: every card in the set, in deck order, any time — like Anki's cram
 // deck — instead of only what the spaced-repetition schedule has due today.
@@ -16,6 +16,10 @@ export function Study({ setId, loader, onExit, cram = false, onCram }) {
   const [verdict, setVerdict] = useState(null)
   const [stats, setStats] = useState({ right: 0, wrong: 0 })
   const inputRef = useRef(null)
+  // Plays the word as soon as the answer is shown, to compare with how one
+  // pronounced it in one's head. Remembered in this browser.
+  const [autoplay, setAutoplay] = useState(() => { try { return localStorage.getItem('vocab:autoplay') === '1' } catch { return false } })
+  const toggleAutoplay = (on) => { setAutoplay(on); try { localStorage.setItem('vocab:autoplay', on ? '1' : '0') } catch { /* private mode */ } }
 
   useEffect(() => {
     setCards(null); setIndex(0); setStats({ right: 0, wrong: 0 })
@@ -54,10 +58,10 @@ export function Study({ setId, loader, onExit, cram = false, onCram }) {
     )
   }
 
-  const record = async (correct) => {
+  const record = async (correct, mastered = false) => {
     // A cram run drills the whole deck on demand; it never touches the
     // spaced-repetition schedule, so it is safe to run as often as wanted.
-    if (!cram) await api.reviewCard(card.id, correct)
+    if (!cram) await api.reviewCard(card.id, correct, mastered)
     setStats((prev) => ({
       right: prev.right + (correct ? 1 : 0),
       wrong: prev.wrong + (correct ? 0 : 1)
@@ -68,12 +72,18 @@ export function Study({ setId, loader, onExit, cram = false, onCram }) {
     setIndex((value) => value + 1)
   }
 
+  const showVerdict = (result) => {
+    setVerdict(result)
+    if (autoplay) playWord(card.audio)
+  }
   const handleWrite = async (event) => {
     event.preventDefault()
     if (verdict) return
-    const result = await api.checkCard(card.id, answer)
-    setVerdict(result)
+    showVerdict(await api.checkCard(card.id, answer))
   }
+  // "Can't remember": the answer without typing a guess; counts as missed.
+  const giveUp = () => { if (!verdict) showVerdict({ correct: false, term: card.term, gaveUp: true }) }
+  const reveal = () => { setRevealed((v) => { if (!v && autoplay) playWord(card.audio); return !v }) }
 
   return (
     <div className="study">
@@ -98,10 +108,13 @@ export function Study({ setId, loader, onExit, cram = false, onCram }) {
           <button className="ghost" onClick={onExit}>Stop</button>
         </div>
       </div>
+      <label className="autoplay-toggle muted">
+        <input type="checkbox" checked={autoplay} onChange={(e) => toggleAutoplay(e.target.checked)} /> Autoplay pronunciation
+      </label>
 
       {mode === 'flip' ? (
         <>
-          <div className="flashcard" onClick={() => setRevealed((v) => !v)}>
+          <div className="flashcard" onClick={reveal}>
             <div className="flash-term">{card.translation}</div>
             {revealed ? (
               <>
@@ -139,14 +152,18 @@ export function Study({ setId, loader, onExit, cram = false, onCram }) {
               spellCheck="false"
             />
             {!verdict && <button type="submit" disabled={!answer.trim()}>Check</button>}
+            {!verdict && <button type="button" className="ghost" onClick={giveUp}>Can't remember</button>}
           </form>
 
           {verdict && (
             <div className={`verdict ${verdict.correct ? 'right' : 'wrong'}`}>
-              <strong>{verdict.correct ? 'Correct' : 'Not quite'}</strong>
+              <strong>{verdict.correct ? 'Correct' : verdict.gaveUp ? 'The word is' : 'Not quite'}</strong>
               {!verdict.correct && <div className="expected">{verdict.term}{card.audio && <> <PlayButton src={card.audio} small /></>}</div>}
               {verdict.correct && card.audio && <div><PlayButton src={card.audio} small /> <span className="muted">{card.transcription ?? ''}</span></div>}
-              <button onClick={() => record(verdict.correct)} autoFocus>Next</button>
+              <div className="row-actions" style={{ justifyContent: 'center' }}>
+                <button onClick={() => record(verdict.correct)} autoFocus>Next</button>
+                {verdict.correct && !cram && <button className="ghost" onClick={() => record(true, true)} title="It won't come back for a month">I've memorized it</button>}
+              </div>
             </div>
           )}
         </>

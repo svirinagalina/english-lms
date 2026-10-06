@@ -8,6 +8,14 @@ import { speakAmerican } from '../utils/speech'
 // server's clip (Google Translate's classic TTS) turned out to serve one
 // fixed voice no matter what, with no way to ask it for US over UK, so it's
 // only the fallback for a browser with no en-US voice installed.
+// Plays a word's pronunciation without a click on the button (autoplay).
+export async function playWord(src) {
+  if (!src) return
+  const word = (() => { try { return new URL(src, window.location.origin).searchParams.get('word') } catch { return null } })()
+  if (word && await speakAmerican(word, () => {})) return
+  new Audio(src).play().catch(() => {})
+}
+
 export function PlayButton({ src, small = false }) {
   const audioRef = useRef(null)
   const [playing, setPlaying] = useState(false)

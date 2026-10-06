@@ -4,7 +4,7 @@ import { prisma } from '../db.js'
 import { requireAuth } from '../auth.js'
 import { accessibleClassroom } from './classrooms.js'
 import { classifyMistake, topicLabel } from '../errorAnalysis.js'
-import { assistantEnabled, classifyMistakeWithAi, judgeAnswer, draftMistakePrompt } from '../assistant.js'
+import { assistantEnabled, classifyMistakeWithAi, judgeAnswer, draftMistakePrompt, draftSimilarDrills } from '../assistant.js'
 import { unitsForTopics, unitsForMistake } from '../topicUnits.js'
 import { checkAnswer } from '../answerCheck.js'
 
@@ -177,4 +177,41 @@ mistakesRouter.post('/practice/:id/attempt', async (req, res) => {
     data: { lastPracticedAt: new Date(), ...(result.correct ? { practicedCorrect: { increment: 1 } } : {}) }
   })
   res.json({ correct: result.correct, expected: mistake.correct, feedback })
+})
+
+// "Practice similar": a few new sentences on the same grammar point, made by
+// the AI once per mistake and kept, then checked like the mistake itself.
+mistakesRouter.get('/practice/:id/similar', async (req, res) => {
+  const mistake = await prisma.lessonMistake.findFirst({ where: { id: req.params.id, studentId: req.user.id } })
+  if (!mistake) return res.status(404).json({ error: 'Not found' })
+  let items = Array.isArray(mistake.similar) ? mistake.similar : null
+  if (!items?.length) {
+    if (!assistantEnabled()) return res.status(503).json({ error: 'Similar sentences need the AI assistant, which is not set up' })
+    try {
+      items = await draftSimilarDrills({ said: mistake.said, correct: mistake.correct, topic: mistake.topics.map(topicLabel).join(', ') })
+    } catch (error) {
+      console.error('Similar drills failed:', error.message)
+    }
+    if (!items?.length) return res.status(502).json({ error: 'Could not make sentences right now, try again in a minute' })
+    await prisma.lessonMistake.update({ where: { id: mistake.id }, data: { similar: items } })
+  }
+  res.json({ items: items.map((i, index) => ({ index, prompt: i.prompt })), labels: mistake.topics.map(topicLabel) })
+})
+
+mistakesRouter.post('/practice/:id/similar/:index/attempt', async (req, res) => {
+  const mistake = await prisma.lessonMistake.findFirst({ where: { id: req.params.id, studentId: req.user.id } })
+  const item = Array.isArray(mistake?.similar) ? mistake.similar[Number(req.params.index)] : null
+  if (!item) return res.status(404).json({ error: 'Not found' })
+  const answer = typeof req.body?.answer === 'string' ? req.body.answer.slice(0, 500) : ''
+  let result = checkAnswer(answer, [item.answer], { prompt: item.prompt })
+  let feedback = ''
+  if (!result.correct && assistantEnabled() && answer.trim()) {
+    try {
+      const verdict = await judgeAnswer({ said: `(a new sentence on the same grammar point as the learner's earlier mistake: ${mistake.said})`, correct: item.answer, answer, topic: mistake.topics.map(topicLabel).join(', '), prompt: item.prompt })
+      if (verdict) { result = { correct: verdict.correct }; feedback = verdict.feedback }
+    } catch (error) {
+      console.error('Similar judge failed:', error.message)
+    }
+  }
+  res.json({ correct: result.correct, expected: item.answer, feedback })
 })
