@@ -122,6 +122,8 @@ In the app (`isNativeApp()`), no way to pay: the student "Payment" nav item is h
 
 - **Owner's activity view.** The client reports the opened section on every route change (`utils/activity.js`, throttled 2 min per section; Classroom also reports `board`/`writing`) → `POST /api/activity` → `ActivityDay` (user, UTC day, section, visits) + `User.lastSeenAt`. OWNER-only: `GET /api/activity/people` (everyone, last seen, active days in 30), `/people/:id` (sections, day-by-day, practice by unit, mistakes, vocabulary, lessons, trial reports), `/reports` (all trial reports). UI: People → «Trial reports» (unsent first, «Fill in and send»; teachers get the same list at /trial-reports in their menu, own students only) and «Activity» panels, «Activity» button per student/free user → `/people/:id/activity` (`PersonActivity.jsx`). Recording started 2026-10-06.
 
+- **Open calls and restarts.** The idle-call sweep (signaling.js) persists `Call.lastActiveAt` while someone is in the room, so a deploy no longer makes a finished call look fresh (it used to wait another hour after every restart). `GET /calls/active` offers a student only a call someone is in right now (`callRoomSize`) or one started under 2 min ago — no more «teacher is waiting» banner after the lesson.
+
 ## Known open items
 - App Store submission: waiting on Galina's Apple Developer Program enrollment; then sign into Xcode (her), push key into Settings, a contact email in `privacy.html`, a demo account for Apple's reviewer, store screenshots (iPad too while `TARGETED_DEVICE_FAMILY = "1,2"`), then archive → TestFlight → review.
 - Content-audit fixes (theory typos + 2 glued-answer exercises) are committed locally but not pushed, and not yet applied to production's DB — need Galina's go-ahead.

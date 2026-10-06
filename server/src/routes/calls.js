@@ -7,6 +7,7 @@ import { entitlements } from '../plans.js'
 import { notifyCallStarted } from '../push.js'
 import { linkCallToAdventLesson, adventCallEnded } from '../adventLessons.js'
 import { trialCallEnded } from '../trialReport.js'
+import { callRoomSize } from '../signaling.js'
 import { accessibleClassroom, ensurePersonalSpace } from './classrooms.js'
 
 export const callsRouter = Router()
@@ -189,11 +190,18 @@ callsRouter.get('/active', async (req, res) => {
         ]
       }
     : { endedAt: null, createdAt: { gt: since }, hostId: req.user.id }
-  const call = await prisma.call.findFirst({
+  const calls = await prisma.call.findMany({
     where: { ...where, schoolId: req.user.schoolId },
     include: { host: { select: { id: true, name: true } } },
-    orderBy: { createdAt: 'desc' }
+    orderBy: { createdAt: 'desc' },
+    take: 5
   })
+  // A student is offered a call only while someone is actually in it (or it
+  // has just been started): a finished lesson whose call has not been closed
+  // yet must not keep saying the teacher is waiting.
+  const call = req.user.role === 'STUDENT'
+    ? calls.find((c) => callRoomSize(c.token) > 0 || Date.now() - c.createdAt.getTime() < 2 * 60 * 1000)
+    : calls[0]
   res.json({ call: call ? { ...callView(call, originOf(req)), kind: call.kind } : null })
 })
 

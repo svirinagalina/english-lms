@@ -507,6 +507,8 @@ model Call {
   // LESSON, or TRIAL — a trial lesson's session does not use up paid lessons.
   kind      String    @default("LESSON")
   createdAt DateTime  @default(now())
+  // When someone was last seen in the room (kept across server restarts).
+  lastActiveAt DateTime?
   endedAt   DateTime?
 
   hostId String

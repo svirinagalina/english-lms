@@ -107,16 +107,31 @@ const STALE_MS = 3 * 60 * 60 * 1000
 const SCRATCH_MAX_AGE_MS = 24 * 60 * 60 * 1000
 const serverStartedAt = Date.now()
 const callLastSeen = new Map() // call id → when someone was last in its room
+let signalingIo = null
+
+// How many people are in a call's room right now (0 before signaling starts).
+export function callRoomSize(token) {
+  return signalingIo?.sockets.adapter.rooms.get(`call:${token}`)?.size ?? 0
+}
 
 export function setupSignaling(io) {
+  signalingIo = io
   const sweepCalls = async () => {
     try {
-      const open = await prisma.call.findMany({ where: { endedAt: null }, select: { id: true, token: true, createdAt: true } })
+      const open = await prisma.call.findMany({ where: { endedAt: null }, select: { id: true, token: true, createdAt: true, lastActiveAt: true } })
       const now = Date.now()
       const idle = []
       for (const call of open) {
-        if (io.sockets.adapter.rooms.get(`call:${call.token}`)?.size) { callLastSeen.set(call.id, now); continue }
-        const seen = callLastSeen.get(call.id)
+        if (io.sockets.adapter.rooms.get(`call:${call.token}`)?.size) {
+          callLastSeen.set(call.id, now)
+          // Remembered in the database too, so a restart (a deploy) does not
+          // make a finished call look fresh and keep it open for another hour.
+          if (!call.lastActiveAt || now - call.lastActiveAt.getTime() > 60 * 1000) {
+            await prisma.call.update({ where: { id: call.id }, data: { lastActiveAt: new Date(now) } }).catch(() => {})
+          }
+          continue
+        }
+        const seen = callLastSeen.get(call.id) ?? call.lastActiveAt?.getTime()
         const since = seen ?? Math.max(call.createdAt.getTime(), serverStartedAt)
         // Unseen and over three hours old: no one is coming back to it (a
         // student's "Join call" stops offering it after three hours anyway).
