@@ -557,6 +557,7 @@ export default function Call() {
   const [previewState, setPreviewState] = useState('idle') // idle | asking | ready | denied
   const [previewTry, setPreviewTry] = useState(0)
   const [previewError, setPreviewError] = useState('')
+  const [cameraProblem, setCameraProblem] = useState('') // sound works, the camera does not
   useEffect(() => {
     if (!user || !call || joined) return
     let disposed = false
@@ -571,10 +572,17 @@ export default function Call() {
     videoProcessor.initialize().catch(() => {})
     previewPendingRef.current = (async () => {
       let raw = null
+      setCameraProblem('')
       try {
         raw = await navigator.mediaDevices.getUserMedia({ audio: AUDIO_CONSTRAINTS, video: true })
       } catch (first) {
-        try { raw = await navigator.mediaDevices.getUserMedia({ audio: AUDIO_CONSTRAINTS }) } catch (err) {
+        try {
+          raw = await navigator.mediaDevices.getUserMedia({ audio: AUDIO_CONSTRAINTS })
+          // The microphone works, the camera does not: say why instead of
+          // showing an empty picture.
+          setCameraProblem(mediaErrorText(first).replace('them', 'the camera').replace('no microphone was found', 'no camera was found'))
+          report(token, 'media.camera', 'preview', { name: first?.name ?? null, message: String(first?.message ?? '').slice(0, 120) })
+        } catch (err) {
           setPreviewError(mediaErrorText(err))
           report(token, 'media.denied', 'preview', { name: err?.name ?? null, message: String(err?.message ?? '').slice(0, 120), first: first?.name ?? null })
         }
@@ -679,7 +687,8 @@ export default function Call() {
           } catch (err) {
             // A busy or missing camera must not take the microphone down with it.
             raw = await navigator.mediaDevices.getUserMedia({ audio: audioConstraints })
-            setMediaWarning(`Camera is not available (${err?.name === 'NotAllowedError' ? 'not allowed' : err?.message ?? err}) — joining with sound only.`)
+            report(token, 'media.camera', 'join', { name: err?.name ?? null, message: String(err?.message ?? '').slice(0, 120) })
+            setMediaWarning(`The camera is not working: ${mediaErrorText(err).replace('them', 'the camera')} — you joined with sound only, the others cannot see you.`)
             setCameraOn(false)
           }
         } else if (!raw.getVideoTracks().length) {
@@ -1506,6 +1515,12 @@ export default function Call() {
                 <button type="button" className={`round ${cameraOn ? 'on' : 'off'}`} onClick={() => togglePreview('video')} title={cameraOn ? 'Turn camera off' : 'Turn camera on'}>Cam</button>
                 <button type="button" className={`round ${micOn ? 'on' : 'off'}`} onClick={() => togglePreview('audio')} title={micOn ? 'Mute microphone' : 'Unmute microphone'}>Mic</button>
               </div>
+            )}
+            {previewState === 'ready' && cameraProblem && (
+              <span className="preview-note">
+                The camera is not working: {cameraProblem}. The others will not see you.{' '}
+                <button type="button" className="link-button" onClick={() => setPreviewTry((n) => n + 1)}>Try again</button>
+              </span>
             )}
             {previewState === 'asking' && <span className="preview-note">Allow the camera and microphone in the browser prompt…</span>}
             {previewState === 'denied' && (
