@@ -6,60 +6,36 @@ import { requireAuth, requireRole } from '../auth.js'
 import { accessibleClassroom } from './classrooms.js'
 import { TEST_ITEMS, LEVELS, estimateLevel } from '../placementTest.js'
 import { buildTrialReport } from '../trialReport.js'
-import { addElement } from '../boardStore.js'
-import { broadcastBoardAdd } from '../signaling.js'
 import { assistantEnabled } from '../assistant.js'
 import { sendTrialReportEmail } from '../mailer.js'
 import { linkCallToAdventLesson, adventTrialReport } from '../adventLessons.js'
 import { notifyCallStarted } from '../push.js'
 
-// Trial lessons: a call that opens on the student's board with the
-// placement test laid out, then the teacher's marks and the level report.
+// Trial lessons: a call that opens on the board the teacher prepared for the
+// student; the placement test goes on it from the board's own Test button.
+// Then the teacher's marks and the level report.
 export const trialsRouter = Router()
 trialsRouter.use(requireAuth)
 
 const newId = () => randomBytes(16).toString('hex')
 
-// The test on the board: a heading and two columns of sentences, under
-// everything the board already has.
-async function layTestOnBoard(boardId, elements) {
-  let bottom = 0
-  let left = 40
-  for (const e of elements) {
-    const y = (e.y ?? 0) + Math.abs(e.h ?? 0)
-    if (y > bottom) bottom = y
-    if (e.x != null && e.x < left) left = e.x
-  }
-  const y0 = elements.length ? bottom + 120 : 40
-  const date = new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })
-  const at = Date.now()
-  const heading = { id: newId(), type: 'text', color: '#2563eb', width: 6, x: left, y: y0, text: `— Placement test · ${date} —`, fontSize: 28, at }
-  const column = (items, x) => ({
-    id: newId(), type: 'text', color: '#111827', width: 6, x, y: y0 + 56, w: 640, fontSize: 20, at,
-    text: items.map((i) => `${i.n}. ${i.ru}`).join('\n')
-  })
-  const first = TEST_ITEMS.slice(0, 18)
-  const second = TEST_ITEMS.slice(18)
-  const made = [heading, column(first, left), column(second, left + 700)]
-  for (const element of made) {
-    await addElement(boardId, element)
-    broadcastBoardAdd(boardId, element)
-  }
-  return heading.id
-}
-
 const originOf = (req) => process.env.CLIENT_ORIGIN ?? `${req.protocol}://${req.get('host')}`
 
-// Start a trial lesson: the call, the test on the board, an empty report.
+// Start a trial lesson: the call on the student's board, an empty report.
 trialsRouter.post('/', requireRole('OWNER', 'TEACHER'), async (req, res) => {
   const classroomId = typeof req.body?.classroomId === 'string' ? req.body.classroomId : ''
   const classroom = await accessibleClassroom(req.user, classroomId)
   if (!classroom || !classroom.studentId) return res.status(404).json({ error: 'Classroom not found' })
 
-  let board = await prisma.board.findFirst({ where: { classroomId: classroom.id }, orderBy: { createdAt: 'asc' } })
+  // The board assigned to the student (the one the teacher prepared), else
+  // one of their own, else a new one.
+  const boards = await prisma.board.findMany({
+    where: { scratch: false, OR: [{ classroomId: classroom.id }, { sharedWith: { some: { id: classroom.id } } }] },
+    select: { id: true, classroomId: true },
+    orderBy: { updatedAt: 'desc' }
+  })
+  let board = boards.find((b) => b.classroomId !== classroom.id) ?? boards[0]
   if (!board) board = await prisma.board.create({ data: { classroomId: classroom.id, title: `${classroom.student.name} — lessons`, elements: [] } })
-  const elements = Array.isArray(board.elements) ? board.elements : []
-  const focusId = await layTestOnBoard(board.id, elements)
 
   const call = await prisma.call.create({
     data: {
@@ -68,7 +44,8 @@ trialsRouter.post('/', requireRole('OWNER', 'TEACHER'), async (req, res) => {
       kind: 'TRIAL',
       hostId: req.user.id,
       schoolId: req.user.schoolId,
-      classroomId: classroom.id
+      classroomId: classroom.id,
+      boardId: board.id
     }
   })
   const report = await prisma.trialReport.create({
@@ -76,7 +53,12 @@ trialsRouter.post('/', requireRole('OWNER', 'TEACHER'), async (req, res) => {
   })
   notifyCallStarted(call.id)
   await linkCallToAdventLesson(call).catch((error) => console.error('[advent] link', error.message))
-  res.status(201).json({ call: { id: call.id, token: call.token, link: `${originOf(req)}/call/${call.token}` }, reportId: report.id, boardId: board.id, focusId })
+  res.status(201).json({ call: { id: call.id, token: call.token, link: `${originOf(req)}/call/${call.token}` }, reportId: report.id, boardId: board.id })
+})
+
+// The placement test's sentences, for the board's Test button.
+trialsRouter.get('/test-items', requireRole('OWNER', 'TEACHER'), (req, res) => {
+  res.json({ items: TEST_ITEMS.map((i) => ({ n: i.n, ru: i.ru })) })
 })
 
 const view = (r, { forStudent = false } = {}) => ({

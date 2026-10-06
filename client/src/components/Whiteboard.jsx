@@ -3030,6 +3030,36 @@ const Whiteboard = forwardRef(function Whiteboard({ socketRef, boardId, title, s
   }
   // A homework heading in the accent colour so it stands out.
   const startHomework = () => addHeading('— Homework —', COLORS[5])
+  // The trial lesson's placement test — a heading and two columns of
+  // sentences — where the teacher last clicked; one undo step.
+  const [addingTest, setAddingTest] = useState(false)
+  const addPlacementTest = async () => {
+    if (addingTest) return
+    setAddingTest(true)
+    try {
+      const { items } = await api.trialTestItems()
+      const { point, view } = workSpot()
+      const x = Math.min(point.x, view.x + view.w - 480 / viewRef.current.scale)
+      const y = point.y
+      const date = new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })
+      const column = (list, cx) => ({ id: newId(), type: 'text', color: COLORS[0], width: 6, x: cx, y: y + 56, w: 640, fontSize: 20, text: list.map((i) => `${i.n}. ${i.ru}`).join('\n') })
+      const made = [
+        { id: newId(), type: 'text', color: COLORS[3], width: 6, x, y, text: `— Placement test · ${date} —`, fontSize: 28 },
+        column(items.slice(0, 18), x),
+        column(items.slice(18), x + 700)
+      ]
+      for (const element of made) addRaw(element)
+      record({ type: 'batch', actions: made.map((element) => ({ type: 'add', element: structuredClone(element) })) })
+      selectedRef.current = made.map((element) => element.id)
+      setTool('select')
+      scheduleRender()
+      bump()
+    } catch (err) {
+      showToast(err.message)
+    } finally {
+      setAddingTest(false)
+    }
+  }
 
   const view = viewRef.current
   const cropping = Boolean(cropRef.current)
@@ -3421,6 +3451,7 @@ const Whiteboard = forwardRef(function Whiteboard({ socketRef, boardId, title, s
             <div className="dock-group">
               {onUploadImage && <button className="tool" onClick={startLesson} title="Add a dated heading where you last clicked on the board">New lesson</button>}
               {onUploadImage && <button className="tool" onClick={startHomework} title="Add a Homework heading where you last clicked on the board">Homework</button>}
+              {onUploadImage && <button className="tool" onClick={addPlacementTest} disabled={addingTest} title="Put the trial lesson's placement test where you last clicked on the board">{addingTest ? 'Adding…' : 'Test'}</button>}
               <button
                 className="tool"
                 disabled={exporting}

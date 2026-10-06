@@ -65,8 +65,8 @@ export default function Classrooms() {
   const startTrial = async (classroom) => {
     setStartingFor(classroom.id)
     try {
-      const { call, boardId, focusId } = await api.startTrial(classroom.id)
-      navigate(`/call/${call.token}?board=${boardId}&focus=${focusId}`)
+      const { call, boardId } = await api.startTrial(classroom.id)
+      navigate(`/call/${call.token}?board=${boardId}`)
     } catch (err) {
       setError(err.message)
       setStartingFor(null)

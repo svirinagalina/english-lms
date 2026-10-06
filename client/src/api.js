@@ -168,6 +168,7 @@ export const api = {
   clearAiSettings: () => request('/settings/ai', { method: 'DELETE' }),
   testAiSettings: () => request('/settings/ai/test', { method: 'POST' }),
   startTrial: (classroomId) => request('/trials', { method: 'POST', body: { classroomId } }),
+  trialTestItems: () => request('/trials/test-items'),
   trialReports: (classroomId) => request(`/trials/classroom/${classroomId}`),
   trialReport: (id) => request(`/trials/${id}`),
   updateTrial: (id, body) => request(`/trials/${id}`, { method: 'PATCH', body }),
