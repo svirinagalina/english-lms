@@ -117,6 +117,7 @@ export default function Call() {
     return () => window.removeEventListener('beforeunload', onBeforeUnload)
   }, [status])
   const [mediaWarning, setMediaWarning] = useState('')
+  const [slowWarning, setSlowWarning] = useState(false)
   const [peers, setPeers] = useState({})
   const peersRef = useRef(peers)
   // Upload the browser estimates on the worst link, in bit/s (null = unknown).
@@ -1225,6 +1226,35 @@ export default function Call() {
   limitVideoRef.current = limitVideo
   const peerCount = Object.keys(peers).length
   useEffect(() => { limitVideo() }, [peerCount, screenStream]) // eslint-disable-line react-hooks/exhaustive-deps
+  // The computer can't keep up (a student's browser at 1 frame a second, the
+  // board not loading, the sound lagging — 2026-10-06): a once-a-second
+  // timer that keeps firing late means the page is starved. Only while the
+  // tab is visible — browsers slow down timers in background tabs on purpose.
+  useEffect(() => {
+    if (status !== 'live') return
+    let last = performance.now()
+    let warned = false
+    const lags = []
+    const reset = () => { last = performance.now(); lags.length = 0 }
+    document.addEventListener('visibilitychange', reset)
+    const timer = setInterval(() => {
+      const now = performance.now()
+      const lag = now - last - 1000
+      last = now
+      if (warned || document.visibilityState !== 'visible') return
+      lags.push({ at: now, lag })
+      while (lags.length && now - lags[0].at > 30000) lags.shift()
+      const slow = lags.filter((l) => l.lag > 400).length
+      const worst = Math.max(...lags.map((l) => l.lag))
+      if (slow >= 6 || (worst > 3000 && slow >= 2)) {
+        warned = true
+        setSlowWarning(true)
+        report(token, 'perf.slow', 'warned', { slowSeconds: slow, worstLagMs: Math.round(worst), cores: navigator.hardwareConcurrency ?? null, memoryGb: navigator.deviceMemory ?? null })
+      }
+    }, 1000)
+    return () => { clearInterval(timer); document.removeEventListener('visibilitychange', reset) }
+  }, [status]) // eslint-disable-line react-hooks/exhaustive-deps
+
   // Connection quality per peer, every 30 s: path (direct or relay), round
   // trip, loss and what we actually send — the log could not tell a weak
   // home connection from a bug without it.
@@ -1626,6 +1656,12 @@ export default function Call() {
         <div className="banner warning">
           {mediaWarning}
           <button className="banner-close" onClick={() => setWarningHidden(true)} title="Hide">×</button>
+        </div>
+      )}
+      {slowWarning && (
+        <div className="banner warning">
+          Your computer can't keep up with the call — the sound may lag and the board may not load. Close other tabs and windows (including other windows of this platform, in any browser) and heavy programs, then reload this page.
+          <button className="banner-close" onClick={() => setSlowWarning(false)} title="Hide">×</button>
         </div>
       )}
       {blurStatus && <div className="banner">{blurStatus}</div>}
