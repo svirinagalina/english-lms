@@ -153,6 +153,7 @@ export default function StudentPayment({ lessonsOnly = false }) {
               <p className="muted small-hint">
                 Сумма — цена выбранного тарифа в рублях{deadline.active ? ' (со скидкой, пока она действует)' : ''}: {OFFER.plans.map((p) => `${p.name} — ${formatRub(deadline.active ? p.discounted : p.price)}`).join(', ')}. После перевода нажмите «I have paid» ниже — преподаватель подтвердит оплату и добавит уроки.
               </p>
+              {details.note && <p className="muted small-hint">{details.note}</p>}
             </div>
           )}
           {payError && <div className="error">{payError}</div>}
