@@ -223,6 +223,7 @@ export default function Report() {
           <p className="muted">{OFFER.expertNote}</p>
           <p><strong>{OFFER.guarantee}</strong></p>
           <Link className="offer-cta" to={OFFER.ctaLink}>{OFFER.ctaText}</Link>
+          <div className="muted small-hint">Оплатить можно картой онлайн или переводом в рублях — реквизиты на странице оплаты.</div>
           <div className="muted small-hint">{OFFER.expiry}</div>
         </section>}
 

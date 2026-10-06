@@ -140,6 +140,21 @@ export default function StudentPayment({ lessonsOnly = false }) {
               )
             })}
           </div>
+          {details.card && (
+            <div className="pay-details rub-transfer">
+              <strong>Оплата в рублях — переводом на карту</strong>
+              <div className="pay-row">
+                <div>
+                  <span className="pay-card">{formatCard(details.card)}</span>
+                  {details.cardNote && <span className="muted"> · {details.cardNote}</span>}
+                </div>
+                <button className="ghost" onClick={() => copy(details.card)}>{copied ? 'Скопировано' : 'Скопировать'}</button>
+              </div>
+              <p className="muted small-hint">
+                Сумма — цена выбранного тарифа в рублях{deadline.active ? ' (со скидкой, пока она действует)' : ''}: {OFFER.plans.map((p) => `${p.name} — ${formatRub(deadline.active ? p.discounted : p.price)}`).join(', ')}. После перевода нажмите «I have paid» ниже — преподаватель подтвердит оплату и добавит уроки.
+              </p>
+            </div>
+          )}
           {payError && <div className="error">{payError}</div>}
           {paidResult && (
             paidResult.paid
@@ -177,7 +192,8 @@ export default function StudentPayment({ lessonsOnly = false }) {
         </div>
       )}
 
-      {paymentDetails && (
+      {/* After a trial the card is shown in the offer above, in Russian. */}
+      {paymentDetails && !(trial && details.card) && (
         <div className="notice payment-details">
           <div className="pay-details">
             <strong>How to pay</strong>

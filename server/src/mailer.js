@@ -189,8 +189,8 @@ export function sendTrialReportEmail({ to, name, level, summary, reportLink, pay
   <p style="margin:0 0 24px">
     <a href="${escapeHtml(paymentLink)}" style="display:inline-block;background:#f4b9d9;color:#14453f;text-decoration:none;padding:12px 22px;border-radius:8px;font-weight:600;font-size:15px">Перейти к оплате</a>
   </p>
-  <p style="font-size:13px;color:#5f7a74;line-height:1.5;margin:0">В отчёте — что уже получается, темы для внимания, рекомендации и план на первый месяц. Скидка 5% на первую покупку действует 3 дня.</p>
+  <p style="font-size:13px;color:#5f7a74;line-height:1.5;margin:0">В отчёте — что уже получается, темы для внимания, рекомендации и план на первый месяц. Скидка 5% на первую покупку действует 3 дня. Оплатить можно картой онлайн или переводом в рублях — реквизиты на странице оплаты.</p>
 </div>`
-  const text = `${name}, ваш отчёт по пробному уроку готов.${level ? ` Ваш уровень сейчас: ${level}.` : ''}\n${summary}\n\nОткрыть отчёт: ${reportLink}\nПерейти к оплате: ${paymentLink}\n\nСкидка 5% на первую покупку действует 3 дня.`
+  const text = `${name}, ваш отчёт по пробному уроку готов.${level ? ` Ваш уровень сейчас: ${level}.` : ''}\n${summary}\n\nОткрыть отчёт: ${reportLink}\nПерейти к оплате: ${paymentLink}\n\nСкидка 5% на первую покупку действует 3 дня. Оплатить можно картой онлайн или переводом в рублях — реквизиты на странице оплаты.`
   return send({ to, subject: 'Ваш отчёт по пробному уроку — Advent Academy', html, text })
 }
