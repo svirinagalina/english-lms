@@ -83,7 +83,7 @@ export default function Nav({ title, back }) {
     )
   }
 
-  if (user.role === 'TEACHER') links.push({ to: '/billing', label: 'Payments' })
+  if (user.role === 'TEACHER') links.push({ to: '/trial-reports', label: 'Trial reports' }, { to: '/billing', label: 'Payments' })
 
   if (admin) {
     links.push({ to: '/people', label: 'People' }, { to: '/billing', label: 'Payments' }, { to: '/content', label: 'Content' })

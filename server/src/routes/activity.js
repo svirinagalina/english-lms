@@ -128,10 +128,11 @@ activityRouter.get('/people/:id', requireRole('OWNER'), async (req, res) => {
   })
 })
 
-// Every trial report in the school: the owner's overview.
-activityRouter.get('/reports', requireRole('OWNER'), async (req, res) => {
+// Trial reports: every one in the school for the owner, a teacher's own
+// students' for a teacher.
+activityRouter.get('/reports', requireRole('OWNER', 'TEACHER'), async (req, res) => {
   const reports = await prisma.trialReport.findMany({
-    where: { classroom: { schoolId: req.user.schoolId } },
+    where: req.user.role === 'OWNER' ? { classroom: { schoolId: req.user.schoolId } } : { classroom: { teacherId: req.user.id } },
     orderBy: { createdAt: 'desc' },
     take: 200,
     select: { id: true, createdAt: true, publishedAt: true, teacherLevel: true, generated: true, classroomId: true, studentId: true, teacherId: true, classroom: { select: { student: { select: { name: true } }, teacher: { select: { name: true } } } } }

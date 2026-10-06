@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
+import { TrialReportList } from './TrialReportsPage'
 import { useAuth } from '../AuthContext'
 import { api } from '../api'
 import { matchesSearch } from '../utils/search'
@@ -271,6 +272,12 @@ export default function People() {
         </div>
       )}
 
+      {trialReports.length > 0 && (
+        <Panel id="people:trial-reports" title="Trial reports" count={trialReports.length} hint={`${trialReports.filter((r) => !r.publishedAt).length} not sent`} defaultOpen={trialReports.some((r) => !r.publishedAt)}>
+          <TrialReportList reports={trialReports} />
+        </Panel>
+      )}
+
       <Panel id="people:invite-teacher" title="Invite a teacher">
         <InviteForm role="TEACHER" teachers={teachers} currentUserId={user.id} onInvited={handleInvited} />
       </Panel>
@@ -444,25 +451,6 @@ export default function People() {
                     </div>
                   </div>
                 )}
-              </div>
-            ))}
-          </div>
-        </Panel>
-      )}
-
-      {user.role === 'OWNER' && trialReports.length > 0 && (
-        <Panel id="people:trial-reports" title="Trial reports" count={trialReports.length} hint={`${trialReports.filter((r) => !r.publishedAt).length} not sent`}>
-          <div className="list">
-            {trialReports.map((r) => (
-              <div key={r.id} className="row">
-                <div>
-                  <strong>{r.student}</strong>{r.level && <span className="muted"> · {r.level}</span>}
-                  <div className="muted">{new Date(r.createdAt).toLocaleDateString()} · teacher {r.teacher} · {r.publishedAt ? `sent ${new Date(r.publishedAt).toLocaleDateString()}` : r.generated ? 'drafted, not sent' : 'not filled in'}</div>
-                </div>
-                <div className="row-actions">
-                  {r.generated && <button onClick={() => navigate(`/report/${r.id}`)}>Open the report</button>}
-                  {!r.publishedAt && <button className="ghost" onClick={() => navigate(`/classroom/${r.classroomId}?trial=1`)}>Fill in and send</button>}
-                </div>
               </div>
             ))}
           </div>

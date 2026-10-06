@@ -40,6 +40,7 @@ import Timetable from './pages/Timetable'
 import TeacherLessons from './pages/TeacherLessons'
 import Ielts from './pages/Ielts'
 import PersonActivity from './pages/PersonActivity'
+import TrialReportsPage from './pages/TrialReportsPage'
 import Courses from './pages/Courses'
 import Course from './pages/Course'
 
@@ -150,6 +151,7 @@ export default function App() {
       <Route path="/vocabulary/:id" element={<RequireAuth><VocabSet /></RequireAuth>} />
       <Route path="/people" element={<RequireAuth><People /></RequireAuth>} />
       <Route path="/people/teachers/:id" element={<RequireAuth roles={['OWNER', 'PARTNER']}><TeacherLessons /></RequireAuth>} />
+      <Route path="/trial-reports" element={<RequireAuth><TrialReportsPage /></RequireAuth>} />
       <Route path="/people/:id/activity" element={<RequireAuth><PersonActivity /></RequireAuth>} />
       <Route path="/progress" element={<RequireAuth><Stats /></RequireAuth>} />
       <Route path="/progress/:id" element={<RequireAuth><Stats /></RequireAuth>} />
