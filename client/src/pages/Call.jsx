@@ -204,10 +204,23 @@ export default function Call() {
     let lastEnergy = null
     let ticks = 0
     let deadMic = 0
+    let cut = 0
     const timer = setInterval(async () => {
       if (denoiserRef.current !== cleaned) { clearInterval(timer); return }
       const { raw, clean, out, state } = cleaned.levels()
       ticks += 1
+      // The engine runs but swallows the voice: the microphone clearly hears
+      // speech and next to nothing goes out (a teacher nobody could hear,
+      // 2026-10-06). Seconds of speech that pass reset it, pauses don't count.
+      // Four such seconds and the plain microphone (with the browser's own
+      // suppression) is sent instead.
+      if (micOnRef.current && raw > 0.02) cut = (out ?? clean) < raw * 0.02 ? cut + 1 : 0
+      if (cut >= 4) {
+        clearInterval(timer)
+        report(token, 'noise.cut', cleaned.engine, { raw: Number(raw.toFixed(4)), clean: Number(clean.toFixed(6)), out: Number((out ?? 0).toFixed(6)) })
+        fallbackToRawMic('cut the voice')
+        return
+      }
       // A microphone that delivers exact digital silence: on a Mac that is
       // almost always Chrome missing the system microphone permission (Zoom
       // has its own, so it still works there), or a dead/virtual input.
@@ -1218,7 +1231,25 @@ export default function Call() {
   useEffect(() => {
     if (status !== 'live') return
     const prev = {}
+    const heard = {} // peer → inbound audio energy/duration at the last report
+    const lossy = {} // peer → 10-s windows in a row with heavy loss on a direct path
     let tick = 0
+    // A direct path that loses a lot (a teacher's voice reached one student
+    // with a third of it missing, 2026-10-06): the connection to that person
+    // starts again through the TURN relay, which held up for everyone else.
+    const toRelay = async (peerId, pc) => {
+      const config = pc.getConfiguration()
+      const hasTurn = (config.iceServers ?? []).some((s) => [].concat(s.urls ?? s.url ?? []).some((u) => /^turns?:/.test(u)))
+      if (!hasTurn || config.iceTransportPolicy === 'relay' || pc.signalingState !== 'stable') return
+      try {
+        pc.setConfiguration({ ...config, iceTransportPolicy: 'relay' })
+        pc.restartIce?.()
+        const offer = await pc.createOffer({ iceRestart: true })
+        await pc.setLocalDescription(offer)
+        socketRef.current?.emit('offer', { to: peerId, offer })
+        report(token, 'net.relay', 'switched', { peer: peersRef.current[peerId]?.name ?? null })
+      } catch (err) { console.error('Relay switch failed:', err) }
+    }
     const timer = setInterval(async () => {
       let worst = null
       tick += 1
@@ -1227,18 +1258,35 @@ export default function Call() {
           const stats = await pc.getStats()
           const byId = {}
           stats.forEach((item) => { byId[item.id] = item })
-          let pair = null, outBytes = 0, inLost = 0, inPackets = 0, outVideo = null, inAudio = null
+          let pair = null, outBytes = 0, inLost = 0, inPackets = 0, outVideo = null, inAudio = null, inEnergy = null, inDuration = null
           stats.forEach((item) => {
             if (item.type === 'candidate-pair' && item.nominated && item.state === 'succeeded') pair = item
             if (item.type === 'outbound-rtp') { outBytes += item.bytesSent ?? 0; if (item.kind === 'video') outVideo = item }
-            if (item.type === 'inbound-rtp') { inLost += item.packetsLost ?? 0; inPackets += item.packetsReceived ?? 0; if (item.kind === 'audio') inAudio = item.audioLevel ?? null }
+            if (item.type === 'inbound-rtp') {
+              inLost += item.packetsLost ?? 0; inPackets += item.packetsReceived ?? 0
+              if (item.kind === 'audio') { inAudio = item.audioLevel ?? null; inEnergy = item.totalAudioEnergy ?? null; inDuration = item.totalSamplesDuration ?? null }
+            }
           })
+          const direct = pair && byId[pair.localCandidateId]?.candidateType !== 'relay' && byId[pair.remoteCandidateId]?.candidateType !== 'relay'
           if (pair?.availableOutgoingBitrate) worst = worst === null ? pair.availableOutgoingBitrate * Object.keys(connectionsRef.current).length : Math.min(worst, pair.availableOutgoingBitrate * Object.keys(connectionsRef.current).length)
           const p = prev[peerId]
           const now = Date.now()
           prev[peerId] = { outBytes, inLost, inPackets, now }
+          if (p) {
+            const lost10 = inLost - p.inLost, got10 = inPackets - p.inPackets
+            const heavy = direct && got10 + lost10 > 100 && lost10 / (got10 + lost10) > 0.15
+            lossy[peerId] = heavy ? (lossy[peerId] ?? 0) + 1 : 0
+            if (lossy[peerId] >= 3) { lossy[peerId] = 0; toRelay(peerId, pc) }
+          }
           if (!p || tick % 3) continue
           const lost = inLost - p.inLost, got = inPackets - p.inPackets
+          // What we actually heard from this person over the last 30 s: the
+          // average level of their decoded audio (0 = nothing reached us).
+          const h = heard[peerId]
+          heard[peerId] = { inEnergy, inDuration }
+          const heardLevel = h && inEnergy != null && h.inEnergy != null && inDuration > h.inDuration
+            ? Number(Math.sqrt(Math.max(0, inEnergy - h.inEnergy) / (inDuration - h.inDuration)).toFixed(4))
+            : null
           report(token, 'net.health', pc.connectionState, {
             peer: peersRef.current[peerId]?.name ?? null, peers: Object.keys(connectionsRef.current).length,
             path: pair ? `${byId[pair.localCandidateId]?.candidateType}/${byId[pair.remoteCandidateId]?.candidateType}` : null,
@@ -1247,6 +1295,7 @@ export default function Call() {
             availOutKbps: pair?.availableOutgoingBitrate ? Math.round(pair.availableOutgoingBitrate / 1000) : null,
             inLossPct: got + lost > 0 ? Number(((100 * lost) / (got + lost)).toFixed(1)) : null,
             inAudioLevel: inAudio != null ? Number(inAudio.toFixed(3)) : null,
+            heardLevel,
             limited: outVideo?.qualityLimitationReason ?? null, sendHeight: outVideo?.frameHeight ?? null
           })
         } catch { /* stats unavailable */ }
