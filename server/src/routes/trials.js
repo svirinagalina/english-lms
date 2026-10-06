@@ -4,7 +4,7 @@ import { randomBytes } from 'crypto'
 import { prisma } from '../db.js'
 import { requireAuth, requireRole } from '../auth.js'
 import { accessibleClassroom } from './classrooms.js'
-import { TEST_ITEMS, LEVELS, estimateLevel } from '../placementTest.js'
+import { TEST_ITEMS, LEVELS, GRAMMAR_TOPICS, estimateLevel } from '../placementTest.js'
 import { buildTrialReport } from '../trialReport.js'
 import { assistantEnabled } from '../assistant.js'
 import { sendTrialReportEmail } from '../mailer.js'
@@ -81,6 +81,7 @@ const view = (r, { forStudent = false } = {}) => ({
   answers: forStudent ? undefined : r.answers,
   teacherLevel: forStudent ? undefined : r.teacherLevel,
   comments: forStudent ? undefined : r.comments,
+  focusTopics: forStudent ? undefined : r.focusTopics,
   generated: r.generated,
   estimate: forStudent ? undefined : estimateLevel(r.answers ?? {})
 })
@@ -94,13 +95,14 @@ trialsRouter.get('/classroom/:id', async (req, res) => {
     where: { classroomId: classroom.id, ...(student ? { publishedAt: { not: null } } : {}) },
     orderBy: { createdAt: 'desc' }
   })
-  res.json({ reports: reports.map((r) => view(r, { forStudent: student })), items: student ? undefined : TEST_ITEMS, levels: LEVELS, aiEnabled: assistantEnabled() })
+  res.json({ reports: reports.map((r) => view(r, { forStudent: student })), items: student ? undefined : TEST_ITEMS, topics: student ? undefined : GRAMMAR_TOPICS, levels: LEVELS, aiEnabled: assistantEnabled() })
 })
 
 const patchSchema = z.object({
   answers: z.record(z.string().regex(/^\d{1,2}$/), z.enum(['ok', 'partly', 'no']).nullable()).optional(),
   teacherLevel: z.enum(['A1', 'A1+', 'A2', 'A2+', 'B1', 'B1+', 'B2', 'B2+', 'C1']).nullable().optional(),
-  comments: z.string().max(4000).nullable().optional()
+  comments: z.string().max(4000).nullable().optional(),
+  focusTopics: z.array(z.string().max(120)).max(20).optional()
 })
 
 async function teacherReport(req, res) {
@@ -122,6 +124,7 @@ trialsRouter.patch('/:id', requireRole('OWNER', 'TEACHER'), async (req, res) => 
   }
   if (parsed.data.teacherLevel !== undefined) data.teacherLevel = parsed.data.teacherLevel
   if (parsed.data.comments !== undefined) data.comments = parsed.data.comments
+  if (parsed.data.focusTopics) data.focusTopics = parsed.data.focusTopics
   const updated = await prisma.trialReport.update({ where: { id: report.id }, data })
   res.json({ report: view(updated) })
 })

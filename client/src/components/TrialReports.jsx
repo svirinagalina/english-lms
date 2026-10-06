@@ -18,7 +18,7 @@ export default function TrialReports({ classroomId, canEdit = false, focus = fal
   // Straight from the trial call: open and show the report form.
   useEffect(() => { if (focus && data) setTimeout(() => boxRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 100) }, [focus, Boolean(data)])
   if (!data) return null
-  const { reports, items, levels } = data
+  const { reports, items, levels, topics = {} } = data
   if (!reports.length && !canEdit) return null
 
   const date = (iso) => new Date(iso).toLocaleDateString()
@@ -47,6 +47,12 @@ export default function TrialReports({ classroomId, canEdit = false, focus = fal
   }
   const persistField = async (field, value) => {
     try { await api.updateTrial(current.id, { [field]: value === '' ? null : value }); await refresh() } catch (err) { setError(err.message) }
+  }
+  const toggleTopic = (topic) => {
+    const chosen = current.focusTopics ?? []
+    const next = chosen.includes(topic) ? chosen.filter((t) => t !== topic) : [...chosen, topic]
+    saveField('focusTopics', next)
+    api.updateTrial(current.id, { focusTopics: next }).catch((err) => setError(err.message))
   }
   const generate = async () => {
     setBusy('generate'); setError('')
@@ -113,6 +119,18 @@ export default function TrialReports({ classroomId, canEdit = false, focus = fal
             </label>
           </div>
 
+          <div className="trial-topics">
+            <div className="trial-topics-head">What to work on first — click the topics{current.focusTopics?.length ? ` · ${current.focusTopics.length} chosen` : ''}</div>
+            {Object.entries(topics).map(([level, list]) => (
+              <div key={level} className="trial-topics-row">
+                <span className="trial-topics-level">{level}</span>
+                {list.map((topic) => (
+                  <button key={topic} type="button" className={`topic-chip ${current.focusTopics?.includes(topic) ? 'on' : ''}`} onClick={() => toggleTopic(topic)}>{topic}</button>
+                ))}
+              </div>
+            ))}
+          </div>
+
           <div className="row-actions" style={{ marginTop: 10 }}>
             {current.publishedAt
               ? <span className="paid-badge active">Sent to the student {date(current.publishedAt)}</span>
@@ -126,7 +144,7 @@ export default function TrialReports({ classroomId, canEdit = false, focus = fal
             {current.publishedAt && <button className="ghost" onClick={() => publish(true)} disabled={busy === 'publish'}>Hide from the student</button>}
             <button className="ghost" onClick={remove}>Delete</button>
           </div>
-          {!answered && !current.teacherLevel && <p className="muted small-hint" style={{ marginTop: 6 }}>Choose the level (or mark the test below), then Send — the report is written and emailed to the student in one step.</p>}
+          {!answered && !current.teacherLevel && <p className="muted small-hint" style={{ marginTop: 6 }}>Choose the level and the topics (or mark the test below), then Send — the report is written and emailed to the student in one step.</p>}
 
           <details className="trial-test" style={{ marginTop: 14 }} open={answered > 0}>
             <summary>

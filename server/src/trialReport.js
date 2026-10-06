@@ -66,6 +66,7 @@ export async function buildTrialReport(reportId) {
       const material = [
         `Student: ${report.classroom.student?.name ?? 'student'}. Teacher's level assessment: ${report.teacherLevel ?? 'not given'}; test estimate: ${estimate.estimated}${estimate.plus ? '+' : ''} (A1 ${estimate.rates.A1 ?? '-'}%, A2 ${estimate.rates.A2 ?? '-'}%, B1 ${estimate.rates.B1 ?? '-'}%, B2 ${estimate.rates.B2 ?? '-'}%).`,
         `Teacher's comments: ${report.comments || '—'}`,
+        `Grammar topics the teacher chose to work on first (put them first in focus, in this order): ${report.focusTopics?.length ? report.focusTopics.join('; ') : '—'}`,
         '', 'CORRECT:', ...right.map((i) => `${i.n}. ${i.ru} → ${i.en} [${i.topic}, ${i.level}]`),
         '', 'PARTLY CORRECT:', ...partly.map((i) => `${i.n}. ${i.ru} → ${i.en} [${i.topic}, ${i.level}]`),
         '', 'WRONG:', ...wrong.map((i) => `${i.n}. ${i.ru} → ${i.en} [${i.topic}, ${i.level}]`),
@@ -80,7 +81,7 @@ export async function buildTrialReport(reportId) {
           'You write a level report for an adult Russian-speaking learner of English after a trial lesson at Advent Academy (a private English school, warm and professional tone, no bureaucratic language). ' +
           'Write in Russian; keep grammar terms in English (Present Perfect, Second Conditional…). Address the student as «вы». Be specific: name the exact points, quote the test sentences as examples. ' +
           'Return: summary (3–4 sentences: the level, what it means in practice, the overall impression); strengths (2–4 things the student already does well, from the correct answers and the teacher\'s comments); ' +
-          'focus (up to 5 grammar points that need attention, each with why it matters and one example sentence from the test in English with the correct form); ' +
+          'focus (up to 6 grammar points that need attention — the topics the teacher chose come first, then those from the test — each with why it matters and one example sentence in English with the correct form, from the test when there is one); ' +
           'recommendations (3–5 practical pieces of advice: what to practise and how, which textbook chapters, habits — concrete, no platitudes); plan (3–5 steps for the first month of lessons). ' +
           'Never mention that the report was generated automatically.',
         user: material
@@ -100,11 +101,15 @@ export async function buildTrialReport(reportId) {
         (right.length ? `В тесте вы верно перевели ${right.length} из ${estimate.answered} предложений` : 'Тест ещё не размечен') +
         (report.comments ? `. Комментарий преподавателя: ${report.comments}` : '.'),
       strengths: right.slice(0, 4).map((i) => `${i.topic} — «${i.en}»`),
-      focus: focus.slice(0, 5).map((f) => ({
+      focus: [...(report.focusTopics ?? []).map((topic) => ({
+        topic,
+        why: 'Преподаватель выделил эту тему как приоритетную по итогам урока.',
+        example: ''
+      })), ...focus.map((f) => ({
         topic: f.topic,
         why: `В тесте это предложение вызвало трудность (уровень ${f.item.level}).`,
         example: `${f.item.ru} → ${f.item.en}`
-      })),
+      }))].slice(0, 6),
       recommendations: [
         ...(units.length ? [`Пройти главы учебника: ${units.slice(0, 4).join('; ')}.`] : []),
         ...(mistakeTopics.length ? [`Повторить темы из тетради ошибок: ${mistakeTopics.join(', ')}.`] : []),
@@ -123,7 +128,7 @@ export async function buildTrialReport(reportId) {
   const data = {
     level,
     estimate,
-    focusTopics: focus.slice(0, 6).map((f) => f.topic),
+    focusTopics: [...new Set([...(report.focusTopics ?? []), ...focus.map((f) => f.topic)])].slice(0, 6),
     mistakeTopics,
     units,
     counts: { right: right.length, partly: partly.length, wrong: wrong.length, answered: estimate.answered, total: estimate.total },
@@ -144,7 +149,7 @@ export async function trialCallEnded(callId) {
   if (!report || report.publishedAt) return
   // Ending can be reported by more than one path: remind only once.
   try { await prisma.pushSent.create({ data: { key: `trial-ended:${report.id}` } }) } catch { return }
-  const marked = Object.keys(report.answers ?? {}).length > 0 || Boolean(report.teacherLevel)
+  const marked = Object.keys(report.answers ?? {}).length > 0 || Boolean(report.teacherLevel) || report.focusTopics?.length > 0
   if (marked && !report.generated) await buildTrialReport(report.id)
   const name = report.classroom?.student?.name ?? 'the student'
   await notify([report.teacherId], {

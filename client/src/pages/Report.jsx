@@ -158,6 +158,40 @@ export default function Report() {
           </section>
         )}
 
+        <section className="report-block report-platform">
+          <h2>Как вы будете заниматься между уроками</h2>
+          <p className="muted">Урок с преподавателем — только часть обучения. Всё остальное — на платформе Advent Academy, в любое удобное время.</p>
+          <div className="platform-cards">
+            <div className="platform-card wide">
+              <img src="/ielts/platform-practice.jpg" alt="" loading="lazy" />
+              <div>
+                <strong>Грамматика — не только на уроке</strong>
+                <p>Специальный тренажёр по авторской методике Галины Свириной: короткие упражнения на каждую тему, чтобы конструкции доводились до автоматизма, а не просто были понятны.</p>
+              </div>
+            </div>
+            <div className="platform-card">
+              <span className="platform-icon">🎙️</span>
+              <strong>Голосовой ИИ-собеседник</strong>
+              <p>Разговорная практика с голосовым ИИ-чатботом: говорите на английском вслух, без стеснения и в своём темпе.</p>
+            </div>
+            <div className="platform-card">
+              <span className="platform-icon">🔁</span>
+              <strong>Новые слова с интервальным повторением</strong>
+              <p>Слова с уроков попадают в ваш словарь, а платформа напоминает повторить каждое именно тогда, когда оно начинает забываться.</p>
+            </div>
+            <div className="platform-card">
+              <span className="platform-icon">📒</span>
+              <strong>Тетрадь ошибок — понятная аналитика прогресса</strong>
+              <p>Все ошибки с уроков сохраняются в разделе Mistakes notebook. Повторяйте их перед следующим занятием, чтобы не допускать те же ошибки снова, и следите, как их становится меньше.</p>
+            </div>
+            <div className="platform-card">
+              <span className="platform-icon">✨</span>
+              <strong>Подсказки ИИ по вашим ошибкам</strong>
+              <p>На основе ваших ошибок ИИ подсказывает, какие грамматические темы в разделе Practice стоит повторить в первую очередь.</p>
+            </div>
+          </div>
+        </section>
+
         {/* Prices and the way to pay are for the website: the App Store
             allows no way to an outside payment from inside the app. */}
         {!isNativeApp() && <section className="report-offer">

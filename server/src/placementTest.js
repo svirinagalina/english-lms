@@ -4,6 +4,14 @@
 
 export const LEVELS = ['A1', 'A2', 'B1', 'B2']
 
+// Grammar topics the teacher can tick in the trial report form, by level.
+export const GRAMMAR_TOPICS = {
+  A1: ['to be', 'Present Simple', 'Вопросы и отрицания в Present Simple', 'there is / there are', 'Артикли a / an / the', 'Притяжательные местоимения', 'can / can\'t', 'Present Continuous', 'Множественное число'],
+  A2: ['Past Simple', 'Неправильные глаголы', 'going to', 'will', 'Present Perfect', 'Сравнение прилагательных', 'some / any / much / many', 'have to / must / should', 'Present Continuous для будущего', 'Предлоги времени и места'],
+  B1: ['Past Continuous', 'Present Perfect vs Past Simple', 'Present Perfect Continuous', 'Past Perfect', 'First Conditional', 'Second Conditional', 'used to / be used to', 'Пассивный залог', 'Герундий и инфинитив', 'Relative clauses', 'Фразовые глаголы', 'Косвенная речь'],
+  B2: ['Third и смешанные Conditionals', 'Future Continuous / Future Perfect', 'Модальные глаголы в прошедшем (must / could / should have)', 'wish / if only', 'Инверсия', 'have something done', 'Сложные формы пассива']
+}
+
 export const TEST_ITEMS = [
   { n: 1, ru: 'Во сколько открывается банк?', en: 'What time does the bank open?', topic: 'Present Simple: вопросы', level: 'A1', units: [3, 11] },
   { n: 2, ru: 'Она работает с пяти до шести.', en: 'She works from five to six.', topic: 'Present Simple: 3-е лицо', level: 'A1', units: [3] },

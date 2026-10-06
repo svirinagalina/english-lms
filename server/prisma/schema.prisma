@@ -428,6 +428,8 @@ model TrialReport {
   answers      Json     @default("{}")
   teacherLevel String?
   comments     String?
+  // Grammar topics the teacher picked as the first to work on.
+  focusTopics  String[] @default([])
   // The report: { level, plus, summary, strengths[], focus[], recommendations[], plan[], withAi }
   generated    Json?
   publishedAt  DateTime?

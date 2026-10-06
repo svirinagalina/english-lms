@@ -1778,3 +1778,9 @@ a:hover .gs-arrow { transform: translateX(5px); }
 .tile-nopicture small { opacity: 0.7; font-size: 12px; }
 .trial-test summary { cursor: pointer; font-weight: 600; font-size: 14px; }
 .trial-assess:first-child { margin-top: 0; }
+.trial-topics { margin-top: 14px; display: flex; flex-direction: column; gap: 6px; }
+.trial-topics-head { font-size: 13px; font-weight: 600; }
+.trial-topics-row { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.trial-topics-level { font-size: 12px; font-weight: 700; width: 28px; opacity: 0.7; }
+.topic-chip { padding: 4px 10px; border-radius: 999px; font-size: 13px; background: transparent; border: 1px solid var(--border); color: var(--text); }
+.topic-chip.on { background: var(--accent, #ffd5ed); color: #14453f; border-color: transparent; }
