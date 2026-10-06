@@ -37,6 +37,17 @@ trialsRouter.post('/', requireRole('OWNER', 'TEACHER'), async (req, res) => {
   let board = boards.find((b) => b.classroomId !== classroom.id) ?? boards[0]
   if (!board) board = await prisma.board.create({ data: { classroomId: classroom.id, title: `${classroom.student.name} — lessons`, elements: [] } })
 
+  // Pressing "Start trial lesson" again must not make another lesson and
+  // another empty report: an open trial for this student is carried on.
+  const open = await prisma.call.findFirst({
+    where: { kind: 'TRIAL', hostId: req.user.id, classroomId: classroom.id, endedAt: null, createdAt: { gt: new Date(Date.now() - 3 * 60 * 60 * 1000) } },
+    orderBy: { createdAt: 'desc' }
+  })
+  const openReport = open && await prisma.trialReport.findUnique({ where: { callId: open.id } })
+  if (open && openReport && !openReport.publishedAt) {
+    return res.status(200).json({ call: { id: open.id, token: open.token, link: `${originOf(req)}/call/${open.token}` }, reportId: openReport.id, boardId: open.boardId })
+  }
+
   const call = await prisma.call.create({
     data: {
       token: randomBytes(9).toString('base64url'),
