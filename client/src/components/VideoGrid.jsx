@@ -112,9 +112,35 @@ function PeerVideo({ stream, name, muted, denoised, onBlocked, unlockTick, getPe
     }
   }, [stream, cleanHere])
 
+  // No picture arriving (their camera is off or broken): a plain tile with
+  // their initial instead of an empty or green frame.
+  const [hasPicture, setHasPicture] = useState(true)
+  useEffect(() => {
+    if (!stream) return undefined
+    const tracks = new Set()
+    const check = () => setHasPicture(stream.getVideoTracks().some((t) => t.readyState === 'live' && !t.muted && t.enabled))
+    const watch = () => stream.getVideoTracks().forEach((t) => {
+      if (tracks.has(t)) return
+      tracks.add(t)
+      for (const type of ['mute', 'unmute', 'ended']) t.addEventListener(type, check)
+    })
+    const onAdd = () => { watch(); check() }
+    stream.addEventListener('addtrack', onAdd)
+    stream.addEventListener('removetrack', onAdd)
+    watch(); check()
+    const timer = setInterval(check, 2000)
+    return () => {
+      clearInterval(timer)
+      stream.removeEventListener('addtrack', onAdd)
+      stream.removeEventListener('removetrack', onAdd)
+      tracks.forEach((t) => { for (const type of ['mute', 'unmute', 'ended']) t.removeEventListener(type, check) })
+    }
+  }, [stream])
+
   return (
     <div className="video-tile remote-tile">
-      <video ref={ref} autoPlay playsInline />
+      <video ref={ref} autoPlay playsInline style={hasPicture ? undefined : { visibility: 'hidden' }} />
+      {!hasPicture && <div className="tile-nopicture"><span>{(name ?? '?').trim().charAt(0).toUpperCase()}</span><small>Camera is off</small></div>}
       <audio ref={audioRef} autoPlay />
       <span className="tile-label">{name ?? 'Participant'}</span>
       {muted && <MutedIcon />}
