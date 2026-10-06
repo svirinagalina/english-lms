@@ -1,0 +1,146 @@
+import { Router } from 'express'
+import { prisma } from '../db.js'
+import { requireAuth, requireRole } from '../auth.js'
+
+// Who opened which part of the platform, and what they did there — for the
+// school's owner. The browser reports a section when a page opens; the work
+// itself (practice, words, mistakes, lessons, reports) is read from its own
+// tables.
+export const activityRouter = Router()
+activityRouter.use(requireAuth)
+
+const SECTIONS = new Set(['home', 'classroom', 'board', 'call', 'practice', 'mistakes', 'trainer', 'vocabulary', 'dictionary', 'courses', 'writing', 'progress', 'report', 'billing', 'plans', 'calendar', 'todo', 'profile', 'settings', 'people', 'content', 'timetable', 'other'])
+const DAY_MS = 24 * 60 * 60 * 1000
+const dayKey = (date) => date.toISOString().slice(0, 10)
+
+activityRouter.post('/', async (req, res) => {
+  const section = SECTIONS.has(req.body?.section) ? req.body.section : 'other'
+  const now = new Date()
+  const day = dayKey(now)
+  await prisma.$transaction([
+    prisma.activityDay.upsert({
+      where: { userId_day_section: { userId: req.user.id, day, section } },
+      create: { userId: req.user.id, day, section, lastAt: now },
+      update: { visits: { increment: 1 }, lastAt: now }
+    }),
+    prisma.user.update({ where: { id: req.user.id }, data: { lastSeenAt: now } })
+  ]).catch(() => {})
+  res.json({ ok: true })
+})
+
+// Everyone in the school, most recently active first, with a 30-day summary.
+activityRouter.get('/people', requireRole('OWNER'), async (req, res) => {
+  const since = dayKey(new Date(Date.now() - 30 * DAY_MS))
+  const users = await prisma.user.findMany({
+    where: { schoolId: req.user.schoolId },
+    select: { id: true, name: true, email: true, role: true, free: true, createdAt: true, lastSeenAt: true }
+  })
+  const rows = await prisma.activityDay.groupBy({
+    by: ['userId', 'day'],
+    where: { userId: { in: users.map((u) => u.id) }, day: { gte: since } },
+    _sum: { visits: true }
+  })
+  const days = new Map()
+  for (const r of rows) days.set(r.userId, (days.get(r.userId) ?? 0) + 1)
+  const people = users
+    .map((u) => ({ ...u, activeDays30: days.get(u.id) ?? 0 }))
+    .sort((a, b) => (b.lastSeenAt?.getTime() ?? 0) - (a.lastSeenAt?.getTime() ?? 0) || a.name.localeCompare(b.name))
+  res.json({ people })
+})
+
+// One person: the sections they opened, day by day, and what they worked on.
+activityRouter.get('/people/:id', requireRole('OWNER'), async (req, res) => {
+  const user = await prisma.user.findFirst({
+    where: { id: req.params.id, schoolId: req.user.schoolId },
+    select: { id: true, name: true, email: true, role: true, free: true, createdAt: true, lastSeenAt: true }
+  })
+  if (!user) return res.status(404).json({ error: 'Person not found' })
+  const since = new Date(Date.now() - 30 * DAY_MS)
+
+  const [activity, attempts, attempts30, mistakes, ownCards, reviews, classrooms, reports] = await Promise.all([
+    prisma.activityDay.findMany({ where: { userId: user.id, day: { gte: dayKey(new Date(Date.now() - 60 * DAY_MS)) } }, orderBy: [{ day: 'desc' }, { lastAt: 'desc' }] }),
+    prisma.attempt.findMany({ where: { studentId: user.id }, orderBy: { createdAt: 'desc' }, take: 300, select: { correct: true, createdAt: true, exercise: { select: { unit: { select: { id: true, title: true } } } } } }),
+    prisma.attempt.count({ where: { studentId: user.id, createdAt: { gte: since } } }),
+    prisma.lessonMistake.findMany({ where: { studentId: user.id }, select: { practicedCorrect: true, lastPracticedAt: true, createdAt: true } }),
+    prisma.vocabCard.count({ where: { set: { ownerId: user.id } } }),
+    prisma.cardReview.findMany({ where: { studentId: user.id }, select: { streak: true, dueAt: true, lastResult: true } }),
+    prisma.classroom.findMany({ where: { studentId: user.id }, select: { id: true, teacher: { select: { name: true } }, sessions: { where: { counted: true }, select: { startedAt: true }, orderBy: { startedAt: 'desc' } }, document: { select: { updatedAt: true } } } }),
+    prisma.trialReport.findMany({ where: { studentId: user.id }, orderBy: { createdAt: 'desc' }, select: { id: true, createdAt: true, publishedAt: true, teacherLevel: true, generated: true, classroomId: true } })
+  ])
+
+  // Sections: totals over the period, most recent first.
+  const sectionMap = new Map()
+  for (const a of activity) {
+    const s = sectionMap.get(a.section) ?? { section: a.section, visits: 0, days: 0, lastAt: a.lastAt }
+    s.visits += a.visits; s.days += 1
+    if (a.lastAt > s.lastAt) s.lastAt = a.lastAt
+    sectionMap.set(a.section, s)
+  }
+  const timeline = []
+  for (const a of activity) {
+    let day = timeline[timeline.length - 1]
+    if (day?.day !== a.day) { day = { day: a.day, sections: [] }; timeline.push(day) }
+    day.sections.push({ section: a.section, visits: a.visits })
+  }
+
+  // Practice by unit.
+  const units = new Map()
+  for (const a of attempts) {
+    const unit = a.exercise?.unit
+    if (!unit) continue
+    const u = units.get(unit.id) ?? { title: unit.title, attempts: 0, correct: 0, lastAt: a.createdAt }
+    u.attempts += 1; if (a.correct) u.correct += 1
+    units.set(unit.id, u)
+  }
+
+  const sessions = classrooms.flatMap((c) => c.sessions)
+  res.json({
+    user,
+    sections: [...sectionMap.values()].sort((a, b) => b.lastAt - a.lastAt),
+    timeline: timeline.slice(0, 30),
+    work: {
+      practice: {
+        attempts: attempts.length >= 300 ? '300+' : attempts.length,
+        last30: attempts30,
+        accuracy: attempts.length ? Math.round((attempts.filter((a) => a.correct).length / attempts.length) * 100) : null,
+        lastAt: attempts[0]?.createdAt ?? null,
+        units: [...units.values()].slice(0, 12).map((u) => ({ ...u, accuracy: Math.round((u.correct / u.attempts) * 100) }))
+      },
+      mistakes: {
+        total: mistakes.length,
+        practiced: mistakes.filter((m) => m.practicedCorrect > 0).length,
+        lastPracticedAt: mistakes.reduce((max, m) => (m.lastPracticedAt && (!max || m.lastPracticedAt > max) ? m.lastPracticedAt : max), null)
+      },
+      vocabulary: {
+        ownCards: ownCards,
+        inReview: reviews.length,
+        learned: reviews.filter((r) => r.streak >= 3).length,
+        due: reviews.filter((r) => r.dueAt <= new Date()).length
+      },
+      lessons: {
+        held: sessions.length,
+        last30: sessions.filter((s) => s.startedAt >= since).length,
+        lastAt: sessions.sort((a, b) => b.startedAt - a.startedAt)[0]?.startedAt ?? null,
+        classrooms: classrooms.map((c) => ({ id: c.id, teacher: c.teacher?.name ?? null, writingUpdatedAt: c.document?.updatedAt ?? null }))
+      }
+    },
+    reports: reports.map((r) => ({ id: r.id, classroomId: r.classroomId, createdAt: r.createdAt, publishedAt: r.publishedAt, level: r.generated?.level ?? r.teacherLevel ?? null, generated: Boolean(r.generated) }))
+  })
+})
+
+// Every trial report in the school: the owner's overview.
+activityRouter.get('/reports', requireRole('OWNER'), async (req, res) => {
+  const reports = await prisma.trialReport.findMany({
+    where: { classroom: { schoolId: req.user.schoolId } },
+    orderBy: { createdAt: 'desc' },
+    take: 200,
+    select: { id: true, createdAt: true, publishedAt: true, teacherLevel: true, generated: true, classroomId: true, studentId: true, teacherId: true, classroom: { select: { student: { select: { name: true } }, teacher: { select: { name: true } } } } }
+  })
+  res.json({
+    reports: reports.map((r) => ({
+      id: r.id, classroomId: r.classroomId, studentId: r.studentId, createdAt: r.createdAt, publishedAt: r.publishedAt,
+      level: r.generated?.level ?? r.teacherLevel ?? null, generated: Boolean(r.generated),
+      student: r.classroom?.student?.name ?? '—', teacher: r.classroom?.teacher?.name ?? '—'
+    }))
+  })
+})

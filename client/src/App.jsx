@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { Routes, Route, Navigate, useSearchParams, useLocation, useNavigate } from 'react-router-dom'
 import { api } from './api'
 import { useAuth } from './AuthContext'
+import { trackSection, sectionOf } from './utils/activity'
 import Login from './pages/Login'
 import ForgotPassword from './pages/ForgotPassword'
 import ResetPassword from './pages/ResetPassword'
@@ -38,6 +39,7 @@ import Todo from './pages/Todo'
 import Timetable from './pages/Timetable'
 import TeacherLessons from './pages/TeacherLessons'
 import Ielts from './pages/Ielts'
+import PersonActivity from './pages/PersonActivity'
 import Courses from './pages/Courses'
 import Course from './pages/Course'
 
@@ -104,6 +106,12 @@ export default function App() {
   const { user, loading } = useAuth()
   const stale = useFreshBuild()
   usePush(user)
+  const location = useLocation()
+  // Which section the signed-in person opened (the owner's activity view).
+  useEffect(() => {
+    const section = user && sectionOf(location.pathname)
+    if (section) trackSection(section)
+  }, [user?.id, location.pathname])
 
   if (loading) return <div className="centered">Loading…</div>
 
@@ -142,6 +150,7 @@ export default function App() {
       <Route path="/vocabulary/:id" element={<RequireAuth><VocabSet /></RequireAuth>} />
       <Route path="/people" element={<RequireAuth><People /></RequireAuth>} />
       <Route path="/people/teachers/:id" element={<RequireAuth roles={['OWNER', 'PARTNER']}><TeacherLessons /></RequireAuth>} />
+      <Route path="/people/:id/activity" element={<RequireAuth><PersonActivity /></RequireAuth>} />
       <Route path="/progress" element={<RequireAuth><Stats /></RequireAuth>} />
       <Route path="/progress/:id" element={<RequireAuth><Stats /></RequireAuth>} />
       <Route path="/billing" element={<RequireAuth><Billing /></RequireAuth>} />

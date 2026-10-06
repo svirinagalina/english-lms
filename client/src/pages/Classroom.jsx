@@ -12,6 +12,7 @@ import { SiteFooter } from '../components/Brand'
 import BoardRow from '../components/BoardRow'
 import MistakeNotebook from '../components/MistakeNotebook'
 import LessonSummaries from '../components/LessonSummaries'
+import { trackSection } from '../utils/activity'
 import TrialReports from '../components/TrialReports'
 import ActivityHeatmap from '../components/ActivityHeatmap'
 import TrainerProgress from '../components/TrainerProgress'
@@ -87,6 +88,8 @@ export default function Classroom() {
     }).catch(() => {})
   }, [id, searchParams])
   const [writingOpen, setWritingOpen] = useState(searchParams.get('writing') === '1')
+  useEffect(() => { if (openBoardId) trackSection('board') }, [openBoardId])
+  useEffect(() => { if (writingOpen) trackSection('writing') }, [writingOpen])
   // A student's writing opened from a board on my own shelf that's assigned
   // to them — straight from the board, no call needed.
   const [writingFor, setWritingFor] = useState(null) // { id: classroomId, name }

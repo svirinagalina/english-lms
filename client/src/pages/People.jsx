@@ -76,6 +76,8 @@ export default function People() {
   const [people, setPeople] = useState([])
   const [teachers, setTeachers] = useState([])
   const [leads, setLeads] = useState([])
+  const [activity, setActivity] = useState([])
+  const [trialReports, setTrialReports] = useState([])
   const markLead = async (lead) => {
     const { lead: updated } = await api.handleLead(lead.id, !lead.handled)
     setLeads((list) => list.map((l) => (l.id === updated.id ? updated : l)))
@@ -101,6 +103,8 @@ export default function People() {
     setTeachers(teachersResult.teachers)
     setMail(mailResult)
     api.listLeads().then(({ leads }) => setLeads(leads)).catch(() => {})
+    api.activityPeople().then(({ people }) => setActivity(people)).catch(() => {})
+    api.allTrialReports().then(({ reports }) => setTrialReports(reports)).catch(() => {})
   }
 
   useEffect(() => {
@@ -335,6 +339,7 @@ export default function People() {
                 <Link className="button-link" style={{ marginTop: 0 }} to={`/people/teachers/${person.id}`}>Lessons</Link>
               {person.id !== user.id && (user.role === 'OWNER' || person.role === 'TEACHER') && (
                 <>
+                  {user.role === 'OWNER' && <button className="ghost" onClick={() => navigate(`/people/${person.id}/activity`)} title="Sections opened, practice, words, lessons, reports">Activity</button>}
                   {roleSelect(person)}
                   <button className="ghost" onClick={() => setEditing(editing?.id === person.id ? null : { id: person.id, name: person.name, email: person.email })}>
                     {editing?.id === person.id ? 'Close' : 'Edit'}
@@ -410,6 +415,7 @@ export default function People() {
                         {planFor?.id === person.id ? 'Close' : person.plan ? 'Change plan' : 'Paid by card'}
                       </button>
                     )}
+                    {user.role === 'OWNER' && <button className="ghost" onClick={() => navigate(`/people/${person.id}/activity`)}>Activity</button>}
                     <button className="ghost" onClick={() => removePerson(person.id, person.name, person.role)}>Remove</button>
                   </div>
                 </div>
@@ -438,6 +444,41 @@ export default function People() {
                     </div>
                   </div>
                 )}
+              </div>
+            ))}
+          </div>
+        </Panel>
+      )}
+
+      {user.role === 'OWNER' && trialReports.length > 0 && (
+        <Panel id="people:trial-reports" title="Trial reports" count={trialReports.length} hint={`${trialReports.filter((r) => !r.publishedAt).length} not sent`}>
+          <div className="list">
+            {trialReports.map((r) => (
+              <div key={r.id} className="row">
+                <div>
+                  <strong>{r.student}</strong>{r.level && <span className="muted"> · {r.level}</span>}
+                  <div className="muted">{new Date(r.createdAt).toLocaleDateString()} · teacher {r.teacher} · {r.publishedAt ? `sent ${new Date(r.publishedAt).toLocaleDateString()}` : r.generated ? 'drafted, not sent' : 'not filled in'}</div>
+                </div>
+                <div className="row-actions">
+                  {r.generated && <button onClick={() => navigate(`/report/${r.id}`)}>Open the report</button>}
+                  {!r.publishedAt && <button className="ghost" onClick={() => navigate(`/classroom/${r.classroomId}?trial=1`)}>Fill in and send</button>}
+                </div>
+              </div>
+            ))}
+          </div>
+        </Panel>
+      )}
+
+      {user.role === 'OWNER' && activity.length > 0 && (
+        <Panel id="people:activity" title="Activity" count={activity.filter((p) => p.activeDays30 > 0).length} hint="active in the last 30 days · everyone who registered">
+          <div className="list">
+            {activity.map((p) => (
+              <div key={p.id} className="row">
+                <div>
+                  <strong>{p.name}</strong> <span className="muted">· {p.role === 'STUDENT' && p.free ? 'free app user' : p.role.toLowerCase()}</span>
+                  <div className="muted">last seen {p.lastSeenAt ? new Date(p.lastSeenAt).toLocaleString(undefined, { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : 'not recorded yet'} · {p.activeDays30} active {p.activeDays30 === 1 ? 'day' : 'days'} in 30</div>
+                </div>
+                <button className="ghost" onClick={() => navigate(`/people/${p.id}/activity`)}>Activity</button>
               </div>
             ))}
           </div>

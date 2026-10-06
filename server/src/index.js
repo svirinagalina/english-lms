@@ -11,6 +11,7 @@ import path from 'path'
 import { fileURLToPath } from 'url'
 
 import { authRouter } from './routes/auth.js'
+import { activityRouter } from './routes/activity.js'
 import { leadsRouter } from './routes/leads.js'
 import { usersRouter } from './routes/users.js'
 import { invitesRouter } from './routes/invites.js'
@@ -92,6 +93,7 @@ app.use('/api/courses', coursesRouter)
 app.use('/api/push', pushRouter)
 app.use('/api/plans', plansRouter)
 app.use('/api/leads', leadsRouter)
+app.use('/api/activity', activityRouter)
 
 // For the deploy script and Docker: the database must answer within 3 s.
 app.get('/api/health', async (req, res) => {

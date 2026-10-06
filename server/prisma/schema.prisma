@@ -106,6 +106,8 @@ model User {
   contentItems      ContentItem[]
   apiTokens         ApiToken[]
   todos             UserTodo[]
+  activity          ActivityDay[]
+  lastSeenAt        DateTime?
   calendarEvents    UserCalendarEvent[]
   pushDevices       PushDevice[]
 
@@ -802,4 +804,18 @@ model EmailVerification {
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   expiresAt DateTime
   createdAt DateTime @default(now())
+}
+
+// Which parts of the platform a person opened, per day (for the owner's
+// activity view). One row per user, day and section; visits counts openings.
+model ActivityDay {
+  userId  String
+  user    User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  day     String   // YYYY-MM-DD, UTC
+  section String
+  visits  Int      @default(1)
+  lastAt  DateTime @default(now())
+
+  @@id([userId, day, section])
+  @@index([userId, lastAt])
 }
