@@ -124,6 +124,8 @@ In the app (`isNativeApp()`), no way to pay: the student "Payment" nav item is h
 
 - **Open calls and restarts.** The idle-call sweep (signaling.js) persists `Call.lastActiveAt` while someone is in the room, so a deploy no longer makes a finished call look fresh (it used to wait another hour after every restart). `GET /calls/active` offers a student only a call someone is in right now (`callRoomSize`) or one started under 2 min ago — no more «teacher is waiting» banner after the lesson.
 
+- **Students' board moves are saved (2026-10-06, Galina).** A student's drag of any element (the teacher's material included) is emitted and stored like a teacher's; the 10-05 rule "only their own elements" left teacher elements moved on the student's screen only, so they jumped back on reopen (Anton). `saveAllMoves` is now redundant. Phones unchanged: a student's drag there still pans.
+
 ## Known open items
 - App Store submission: waiting on Galina's Apple Developer Program enrollment; then sign into Xcode (her), push key into Settings, a contact email in `privacy.html`, a demo account for Apple's reviewer, store screenshots (iPad too while `TARGETED_DEVICE_FAMILY = "1,2"`), then archive → TestFlight → review.
 - Content-audit fixes (theory typos + 2 glued-answer exercises) are committed locally but not pushed, and not yet applied to production's DB — need Galina's go-ahead.

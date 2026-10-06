@@ -2501,19 +2501,11 @@ const Whiteboard = forwardRef(function Whiteboard({ socketRef, boardId, title, s
       return
     }
 
-    // A student's drag saves only what they made themselves (their own text,
-    // their drawing); the teacher's material stays where the teacher put it.
-    // The private try-out board saves everything.
-    const mayMove = (element) => !wordPicker || saveAllMoves || isOwn(element)
-    if ((pointer.mode === 'move' && pointer.ids.some((id) => mayMove(elementsRef.current.find((e) => e.id === id) ?? {}))) || pointer.mode === 'resize') {
+    // Every drag is saved, a student's included: what they moved stays where
+    // they put it for everyone (Galina, 2026-10-06 — keeping the teacher's
+    // material in place made a student's moves silently undo on reload).
+    if (pointer.mode === 'move' || pointer.mode === 'resize') {
       const ids = new Set(pointer.ids)
-      // Someone else's element a student dragged goes back to where it was.
-      if (pointer.mode === 'move' && wordPicker && !saveAllMoves) {
-        const originals = new Map(pointer.originals.map((o) => [o.id, o]))
-        elementsRef.current = elementsRef.current.map((e) => (ids.has(e.id) && !isOwn(e) && originals.has(e.id) ? originals.get(e.id) : e))
-        pointer.originals = pointer.originals.filter((o) => isOwn(o))
-        for (const id of [...ids]) if (!isOwn(elementsRef.current.find((e) => e.id === id) ?? {})) ids.delete(id)
-      }
       for (const element of elementsRef.current) if (ids.has(element.id)) emit('board:update', element)
       recordUpdates(pointer.originals)
       if (phone) selectedRef.current = [] // no handles cluttering a phone screen
