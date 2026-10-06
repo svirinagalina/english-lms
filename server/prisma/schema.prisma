@@ -33,6 +33,7 @@ model School {
   calls      Call[]
   contentItems ContentItem[]
   apiTokens    ApiToken[]
+  leads        Lead[]
 }
 
 model User {
@@ -127,6 +128,25 @@ model PushDevice {
   user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
+}
+
+// A request from a form on the public website (the IELTS page): kept here
+// so it is never lost, and sent to the owners by email and push as well.
+model Lead {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+  source    String
+  name      String
+  messenger String?
+  email     String?
+  comment   String?
+  // Read from People → Website requests.
+  handled   Boolean  @default(false)
+
+  schoolId String
+  school   School @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+
+  @@index([schoolId, createdAt])
 }
 
 // A notification that must go out only once (a lesson reminder, an

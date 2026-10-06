@@ -37,6 +37,7 @@ import Profile from './pages/Profile'
 import Todo from './pages/Todo'
 import Timetable from './pages/Timetable'
 import TeacherLessons from './pages/TeacherLessons'
+import Ielts from './pages/Ielts'
 import Courses from './pages/Courses'
 import Course from './pages/Course'
 
@@ -123,6 +124,7 @@ export default function App() {
       <Route path="/reset/:token" element={<ResetPassword />} />
       <Route path="/verify/:token" element={<VerifyEmail />} />
       <Route path="/author" element={<Author />} />
+      <Route path="/ielts" element={<Ielts />} />
       <Route path="/register" element={user ? <Navigate to="/" replace /> : <Register />} />
       <Route path="/join/:token" element={user ? <Navigate to="/" replace /> : <Join />} />
       <Route path="/call/:token" element={<Call />} />

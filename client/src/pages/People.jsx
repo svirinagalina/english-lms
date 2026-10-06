@@ -75,6 +75,11 @@ export default function People() {
   const { user } = useAuth()
   const [people, setPeople] = useState([])
   const [teachers, setTeachers] = useState([])
+  const [leads, setLeads] = useState([])
+  const markLead = async (lead) => {
+    const { lead: updated } = await api.handleLead(lead.id, !lead.handled)
+    setLeads((list) => list.map((l) => (l.id === updated.id ? updated : l)))
+  }
   const [invites, setInvites] = useState([])
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(true)
@@ -95,6 +100,7 @@ export default function People() {
     setInvites(invitesResult.invites)
     setTeachers(teachersResult.teachers)
     setMail(mailResult)
+    api.listLeads().then(({ leads }) => setLeads(leads)).catch(() => {})
   }
 
   useEffect(() => {
@@ -345,6 +351,29 @@ export default function People() {
           ))}
         </div>
       </Panel>
+
+      {leads.length > 0 && (
+        <Panel id="people:leads" title="Website requests" count={leads.filter((l) => !l.handled).length} defaultOpen={leads.some((l) => !l.handled)} hint="From the form on the IELTS page.">
+          <div className="list">
+            {leads.map((lead) => (
+              <div key={lead.id} className="row column" style={lead.handled ? { opacity: 0.6 } : undefined}>
+                <div className="row-main">
+                  <div>
+                    <strong>{lead.name}</strong>
+                    <div className="muted">
+                      {[lead.messenger, lead.email].filter(Boolean).join(' · ')} · {new Date(lead.createdAt).toLocaleString()}
+                    </div>
+                    {lead.comment && <div style={{ marginTop: 6 }}>{lead.comment}</div>}
+                  </div>
+                  <div className="row-actions">
+                    <button className="ghost" onClick={() => markLead(lead)}>{lead.handled ? 'Reopen' : 'Done'}</button>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </Panel>
+      )}
 
       {freeUsers.length > 0 && (
         <Panel id="people:free" title="Free app users" count={freeUsers.length} defaultOpen={requests > 0} forceOpen={Boolean(q)}

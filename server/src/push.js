@@ -201,6 +201,15 @@ export function notifyAfterLessonLater(sessionId) {
   })()), AFTER_LESSON_DELAY_MS)
 }
 
+// Someone left a request on the website: the school's owners.
+export function notifyLead(lead) {
+  quietly((async () => {
+    if (!pushEnabled()) return
+    const owners = await prisma.user.findMany({ where: { schoolId: lead.schoolId, role: 'OWNER' }, select: { id: true } })
+    await notify(owners.map((o) => o.id), { title: 'New request from the IELTS page', body: [lead.name, lead.messenger || lead.email].filter(Boolean).join(' · '), url: '/people' })
+  })())
+}
+
 // A free user asked for a trial lesson: the school's owner.
 export function notifyTrialRequest(user) {
   quietly((async () => {

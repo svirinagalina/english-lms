@@ -118,6 +118,19 @@ export function sendPaymentReportedEmail({ to, studentName, note }) {
   return send({ to, subject: `${studentName} reports a payment`, html, text })
 }
 
+// A request from a form on the website: the owner gets the contacts at once.
+export function sendLeadEmail({ to, lead, link }) {
+  const rows = [['Name', lead.name], ['Messenger', lead.messenger], ['Email', lead.email], ['Comment', lead.comment]].filter(([, v]) => v)
+  const html = `
+<div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;max-width:520px;margin:0 auto;padding:32px 24px;color:#14453f">
+  <h1 style="font-size:20px;margin:0 0 16px">New request from the IELTS page</h1>
+  ${rows.map(([k, v]) => `<p style="font-size:15px;line-height:1.55;margin:0 0 8px"><strong>${k}:</strong> ${escapeHtml(v)}</p>`).join('')}
+  <p style="margin:24px 0 0"><a href="${escapeHtml(link)}" style="display:inline-block;background:#14453f;color:#fff;text-decoration:none;padding:12px 22px;border-radius:8px;font-weight:600;font-size:15px">Open People</a></p>
+</div>`
+  const text = `New request from the IELTS page.\n${rows.map(([k, v]) => `${k}: ${v}`).join('\n')}\n\n${link}`
+  return send({ to, subject: `IELTS request — ${lead.name}`, html, text })
+}
+
 // A free app user asks for a trial lesson: the owner gets their contacts.
 export function sendTrialRequestEmail({ to, name, email, contact, note, link }) {
   const rows = [['Email', email], ['Contact', contact], ['Note', note]].filter(([, v]) => v)
