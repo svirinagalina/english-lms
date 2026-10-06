@@ -22,7 +22,8 @@ const callView = (call, origin) => ({
   link: `${origin}/call/${call.token}`,
   host: call.host ? { id: call.host.id, name: call.host.name } : undefined,
   classroomId: call.classroomId,
-  boardId: call.boardId ?? null
+  boardId: call.boardId ?? null,
+  kind: call.kind
 })
 
 callsRouter.use(requireAuth)

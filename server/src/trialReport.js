@@ -148,8 +148,8 @@ export async function trialCallEnded(callId) {
   if (marked && !report.generated) await buildTrialReport(report.id)
   const name = report.classroom?.student?.name ?? 'the student'
   await notify([report.teacherId], {
-    title: marked ? 'Trial report is ready to publish' : 'Trial lesson report needs your marks',
-    body: marked ? `Check and publish ${name}'s report so they get the plan and prices.` : `Mark ${name}'s test and publish the report so they get the plan and prices.`,
-    url: `/classroom/${report.classroomId}`
+    title: 'Send the trial lesson report',
+    body: marked ? `${name}'s report is drafted — check it and press Send.` : `Choose ${name}'s level and press Send: they get the report, plan and prices.`,
+    url: `/classroom/${report.classroomId}?trial=1`
   })
 }

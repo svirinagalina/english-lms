@@ -455,7 +455,7 @@ export default function Classroom() {
         />
       )}
 
-      {!isPersonal && <TrialReports classroomId={id} canEdit={isStaff} />}
+      {!isPersonal && <TrialReports classroomId={id} canEdit={isStaff} focus={searchParams.get('trial') === '1'} />}
 
       {!isPersonal && <LessonSummaries classroomId={id} canEdit={isStaff} student={!isStaff} />}
 

@@ -1552,7 +1552,7 @@ export default function Call() {
   }
 
   // Leaving returns to the student this call belongs to.
-  const leaveTo = call.classroomId ? `/classroom/${call.classroomId}` : '/classroom'
+  const leaveTo = call.classroomId ? `/classroom/${call.classroomId}${call.kind === 'TRIAL' && isStaff ? '?trial=1' : ''}` : '/classroom'
 
   return (
     <div className={`lesson-page ${boardId || writingId ? 'board-mode' : ''} ${writingId ? 'writing-mode' : ''}`}>
