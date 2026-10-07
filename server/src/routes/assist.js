@@ -13,7 +13,8 @@ assistRouter.get('/status', (req, res) => {
 
 const requestSchema = z.object({
   mode: z.enum(['translate', 'questions']),
-  words: z.array(z.string().max(120)).min(1).max(40)
+  // Trimmed rather than refused: a big selection on the board is normal.
+  words: z.array(z.string()).min(1).transform((list) => list.slice(0, 40).map((w) => w.slice(0, 120)))
 })
 
 assistRouter.post('/', requireRole('OWNER', 'TEACHER'), async (req, res) => {

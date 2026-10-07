@@ -1756,7 +1756,10 @@ const Whiteboard = forwardRef(function Whiteboard({ socketRef, boardId, title, s
 
     setAssisting(mode)
     try {
-      const items = await onAssist(mode, words)
+      let items
+      // A failed request is a note on the board, never the end of the lesson
+      // (an error used to replace the whole call page — 2026-10-07).
+      try { items = await onAssist(mode, words.slice(0, 40)) } catch (err) { showToast(`AI assistant: ${err?.message || 'request failed'}`); return }
       if (!items?.length) return
 
       const lines = mode === 'translate'

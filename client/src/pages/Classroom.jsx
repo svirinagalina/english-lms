@@ -333,13 +333,8 @@ export default function Classroom() {
             assistEnabled={assistEnabled}
             onAssist={isStaff
               ? async (mode, words) => {
-                  try {
-                    const { items } = await api.assist(mode, words)
-                    return items
-                  } catch (err) {
-                    setError(err.message)
-                    return null
-                  }
+                  const { items } = await api.assist(mode, words)
+                  return items
                 }
               : undefined}
           />

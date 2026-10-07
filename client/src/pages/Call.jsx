@@ -784,7 +784,14 @@ export default function Call() {
         }
       }
 
-      socket.on('connect_error', (err) => setError(err.message))
+      // Only a first connection that fails ends here (signed out, call
+      // closed). Once in the call, a lost connection — a server restart, a
+      // Wi-Fi blip — shows "reconnecting" and socket.io keeps trying; it
+      // used to replace the whole lesson with "Cannot join".
+      socket.on('connect_error', (err) => {
+        if (connectedBefore) setMediaWarning(RECONNECTING)
+        else setError(err.message)
+      })
 
       socket.on('offer', async ({ from, offer }) => {
         // Through the media server nobody connects person to person.
@@ -1797,13 +1804,8 @@ export default function Call() {
               assistEnabled={assistEnabled}
               onAssist={isStaff
                 ? async (mode, words) => {
-                    try {
-                      const { items } = await api.assist(mode, words)
-                      return items
-                    } catch (err) {
-                      setError(err.message)
-                      return null
-                    }
+                    const { items } = await api.assist(mode, words)
+                    return items
                   }
                 : undefined}
               onUploadImage={isStaff && currentBoard
@@ -1812,7 +1814,8 @@ export default function Call() {
                       const { src } = await api.uploadBoardImage(currentBoard.classroomId, boardId, dataUrl)
                       return src
                     } catch (err) {
-                      setError(err.message)
+                      // A banner, not the error page: the lesson goes on.
+                      setMediaWarning(`The picture was not added: ${err.message}`)
                       return null
                     }
                   }
