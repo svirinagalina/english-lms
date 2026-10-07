@@ -12,6 +12,7 @@ import { videoProcessor } from '../utils/videoProcessor'
 import { denoiseTrack, primeDenoiser, preloadDenoiser, isDenoiserSupported } from '../utils/noiseSuppressor'
 import { isMobile, isHandheld, isLowPower, useNarrow } from '../utils/device'
 import { BACKGROUNDS } from '../backgrounds'
+import { createEchoMeter } from '../utils/echoMeter'
 
 // Older Safari cannot blur inside a canvas; there the layer is blurred by CSS.
 const SAFARI = typeof navigator !== 'undefined' && /Safari/i.test(navigator.userAgent) && !/Chrome|Chromium|CriOS|Edg/i.test(navigator.userAgent)
@@ -119,6 +120,10 @@ export default function Call() {
   }, [status])
   const [mediaWarning, setMediaWarning] = useState('')
   const [slowWarning, setSlowWarning] = useState(false)
+  // Echo: 'source' — our microphone sends the other person's voice back to
+  // them; 'heard' — someone sends ours back to us (see utils/echoMeter.js).
+  const [echoWarning, setEchoWarning] = useState(null)
+  const echoRef = useRef(null)
   const [peers, setPeers] = useState({})
   const peersRef = useRef(peers)
   // Upload the browser estimates on the worst link, in bit/s (null = unknown).
@@ -171,6 +176,7 @@ export default function Call() {
   const swapOutgoingAudio = async (track) => {
     track.enabled = micOnRef.current
     if (sfuRef.current) await sfuRef.current.setAudio(track).catch((err) => console.error('Media server: audio not sent', err))
+    echoRef.current?.setSelf(track)
     for (const [peerId, pc] of Object.entries(connectionsRef.current)) {
       const sender = pc.getSenders().find((s) => s.track?.kind === 'audio')
       if (sender) { await sender.replaceTrack(track).catch(() => {}); continue }
@@ -1289,6 +1295,37 @@ export default function Call() {
   limitVideoRef.current = limitVideo
   const peerCount = Object.keys(peers).length
   useEffect(() => { limitVideo() }, [peerCount, screenStream]) // eslint-disable-line react-hooks/exhaustive-deps
+  // Echo, measured every 30 s per person once the call is live: what we send
+  // against what each person sends us (loudness only, utils/echoMeter.js).
+  useEffect(() => {
+    if (status !== 'live') return
+    let meter
+    try { meter = createEchoMeter() } catch { return }
+    echoRef.current = meter
+    meter.setSelf(localStreamRef.current?.getAudioTracks()[0] ?? null)
+    const strikes = {}
+    const timer = setInterval(() => {
+      for (const [id, peer] of Object.entries(peersRef.current)) {
+        const r = meter.check(id)
+        if (!r || (r.selfPeak < 0.02 && r.peerPeak < 0.02)) continue
+        report(token, 'echo.check', 'measured', { peer: peer?.name ?? null, ...r })
+        const s = strikes[id] ?? { source: 0, heard: 0 }
+        s.source = r.source.corr >= 0.6 && r.peerPeak >= 0.02 ? s.source + 1 : 0
+        s.heard = r.heard.corr >= 0.6 && r.selfPeak >= 0.02 ? s.heard + 1 : 0
+        strikes[id] = s
+        if (s.source === 2) { report(token, 'echo.detected', 'source', { peer: peer?.name ?? null, ...r }); setEchoWarning((w) => w ?? { kind: 'source' }) }
+        if (s.heard === 2) { report(token, 'echo.detected', 'heard', { peer: peer?.name ?? null, ...r }); setEchoWarning((w) => w ?? { kind: 'heard', name: peer?.name ?? 'Someone' }) }
+      }
+    }, 30000)
+    return () => { clearInterval(timer); meter.stop(); echoRef.current = null }
+  }, [status]) // eslint-disable-line react-hooks/exhaustive-deps
+  // Which audio each person sends us, for the meter.
+  useEffect(() => {
+    const meter = echoRef.current
+    if (!meter) return
+    for (const [id, peer] of Object.entries(peers)) meter.setPeer(id, peer?.stream?.getAudioTracks()[0] ?? null)
+  }, [peers, status])
+
   // The computer can't keep up (a student's browser at 1 frame a second, the
   // board not loading, the sound lagging — 2026-10-06): a once-a-second
   // timer that keeps firing late means the page is starved. Only while the
@@ -1752,6 +1789,14 @@ export default function Call() {
         <div className="banner warning">
           {mediaWarning}
           <button className="banner-close" onClick={() => setWarningHidden(true)} title="Hide">×</button>
+        </div>
+      )}
+      {echoWarning && (
+        <div className="banner warning">
+          {echoWarning.kind === 'source'
+            ? 'Echo: your microphone picks up the others from your speakers and sends their voices back — they hear themselves. Please put on headphones, or turn your speakers down.'
+            : `Echo: ${echoWarning.name}'s microphone sends your voice back to you. Ask them to put on headphones or turn their speakers down.`}
+          <button className="banner-close" onClick={() => setEchoWarning(null)} title="Hide">×</button>
         </div>
       )}
       {slowWarning && (
