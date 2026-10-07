@@ -15,6 +15,7 @@ import { loadDocument, replaceDocument, runsSchema } from './docStore.js'
 import { buildSummary } from './lessonSummary.js'
 import { adventCallPresence, adventCallEnded } from './adventLessons.js'
 import { trialCallEnded } from './trialReport.js'
+import { sfuEnabled, sfuJoin } from './sfu.js'
 import { notifyHomeworkLater, notifyAfterLessonLater } from './push.js'
 
 // A call that resumes within this window continues the previous session rather
@@ -108,6 +109,10 @@ const SCRATCH_MAX_AGE_MS = 24 * 60 * 60 * 1000
 const serverStartedAt = Date.now()
 const callLastSeen = new Map() // call id → when someone was last in its room
 let signalingIo = null
+// How each call room carries media: 'sfu' (through the media server) or
+// 'p2p'. Decided by whoever joins an empty room, so everyone in one call
+// uses the same; switching it in Settings affects calls started afterwards.
+const callModes = new Map()
 
 // How many people are in a call's room right now (0 before signaling starts).
 export function callRoomSize(token) {
@@ -296,11 +301,14 @@ export function setupSignaling(io) {
         if (peer) peers.push({ id, name: peer.data.name, userId: peer.data.user?.id, muted: Boolean(peer.data.micMuted), denoised: peer.data.denoised, sharing: Boolean(peer.data.sharing) })
       }
 
+      if (!peers.length || !callModes.has(roomId)) callModes.set(roomId, sfuEnabled() ? 'sfu' : 'p2p')
+      const sfu = callModes.get(roomId) === 'sfu' ? sfuJoin({ room: call.id, identity: socket.id, name: socket.data.name }) : null
+
       socket.to(roomId).emit('user-joined', { id: socket.id, name: socket.data.name, userId: user.id })
       // The teacher's current board/document is offered to staff joining
       // later; a student starts on their own (the client opens it).
       const lead = user.role !== 'STUDENT'
-      if (typeof ack === 'function') ack({ peers, name: socket.data.name, boardId: lead ? roomBoards.get(roomId) ?? null : null, docId: lead ? roomDocs.get(roomId) ?? null : null })
+      if (typeof ack === 'function') ack({ peers, sfu, name: socket.data.name, boardId: lead ? roomBoards.get(roomId) ?? null : null, docId: lead ? roomDocs.get(roomId) ?? null : null })
     })
 
     socket.on('call:start', async (ack) => {

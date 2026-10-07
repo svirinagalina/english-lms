@@ -80,6 +80,7 @@ const OUT_WIDTH = 640
 const deviceLine = () => `${navigator.userAgent.slice(0, 160)} · ${screen.width}x${screen.height} · cores ${navigator.hardwareConcurrency ?? '?'}`
 const report = (call, kind, message, details, thumb) => api.diag({ kind, message, details, device: deviceLine(), call, thumb })
 const RECONNECTING = 'Connection lost — reconnecting…'
+const SFU_TROUBLE = 'Cannot reach the call server — trying again… If it lasts, reload this page.'
 // A browser where the background blur once froze the call.
 const slowDevice = () => { try { return localStorage.getItem('call.slowDevice') === '1' } catch { return false } }
 const markSlowDevice = () => { try { localStorage.setItem('call.slowDevice', '1') } catch { /* private window */ } }
@@ -169,6 +170,7 @@ export default function Call() {
   // and in the local stream (the tile stays muted, so nothing is heard twice).
   const swapOutgoingAudio = async (track) => {
     track.enabled = micOnRef.current
+    if (sfuRef.current) await sfuRef.current.setAudio(track).catch((err) => console.error('Media server: audio not sent', err))
     for (const [peerId, pc] of Object.entries(connectionsRef.current)) {
       const sender = pc.getSenders().find((s) => s.track?.kind === 'audio')
       if (sender) { await sender.replaceTrack(track).catch(() => {}); continue }
@@ -243,14 +245,16 @@ export default function Call() {
           : 'Your microphone sends no sound. Try another one in More → Microphone, or check that the right microphone is selected and not muted in system settings, then reload this page.')
       }
       if (ticks === 20 || ticks % 30 === 0) {
-        const senders = Object.values(connectionsRef.current).map((pc) => pc.getSenders().find((sd) => sd.track?.kind === 'audio')?.track)
+        const senders = sfuRef.current
+          ? sfuRef.current.remoteIds().map(() => sfuRef.current.audioTrack())
+          : Object.values(connectionsRef.current).map((pc) => pc.getSenders().find((sd) => sd.track?.kind === 'audio')?.track)
         // Independent of our meters: the level the browser itself reports for
         // the audio it encodes and sends.
         let sent = null
         try {
           const pc = Object.values(connectionsRef.current)[0]
-          if (pc) {
-            const stats = await pc.getStats()
+          const stats = sfuRef.current ? await sfuRef.current.outboundAudioReport() : pc ? await pc.getStats() : null
+          if (stats) {
             stats.forEach((item) => {
               if (item.type === 'media-source' && item.kind === 'audio') sent = { level: item.audioLevel ?? null, energy: item.totalAudioEnergy ?? null, id: item.trackIdentifier?.slice(0, 8) ?? null }
             })
@@ -275,9 +279,10 @@ export default function Call() {
       // can leave a Web Audio track silent on the wire).
       if (!broken && clean > 0.005) {
         const pc = Object.values(connectionsRef.current)[0]
-        if (pc) {
+        if (pc || sfuRef.current) {
           try {
-            const stats = await pc.getStats()
+            const stats = sfuRef.current ? await sfuRef.current.outboundAudioReport() : await pc.getStats()
+            if (!stats) throw new Error('no stats')
             let energy = null
             stats.forEach((item) => { if (item.type === 'media-source' && item.kind === 'audio' && typeof item.totalAudioEnergy === 'number') energy = item.totalAudioEnergy })
             if (energy !== null) {
@@ -530,6 +535,10 @@ export default function Call() {
   const localStreamRef = useRef(null)
   const screenStreamRef = useRef(null)
   const connectionsRef = useRef({})
+  // Calls through the media server (utils/sfu.js): the joined room, and
+  // whether this call uses it at all (set from the server's join answer).
+  const sfuRef = useRef(null)
+  const sfuModeRef = useRef(false)
   const localVideoRef = useRef(null)
   const screenVideoRef = useRef(null)
   const drawingCanvasRef = useRef(null)
@@ -743,9 +752,43 @@ export default function Call() {
       const socket = io({ withCredentials: true })
       socketRef.current = socket
 
+      // Joins the media server room the server named in its join answer and
+      // sends what we already send (the cleaned microphone, the camera or
+      // its blurred copy, a shared screen). Retries a few times; a room
+      // joined for an id we no longer have (a reconnect in between) is left.
+      const connectSfu = async (access, forSocket, peerCount, attempt = 1) => {
+        const t0 = performance.now()
+        try {
+          // Loaded only for calls that use it (it is a big library).
+          const { joinSfu } = await import('../utils/sfu')
+          const sfu = await joinSfu({
+            url: access.url,
+            token: access.token,
+            onStream: (identity, name, stream) => setPeers((prev) => (!prev[identity] && !stream ? prev : { ...prev, [identity]: { ...(prev[identity] ?? { name, muted: false }), stream } })),
+            onState: (state) => { if (state !== 'connected') report(token, 'sfu.state', state, {}) }
+          })
+          if (disposed || socketRef.current !== forSocket || !forSocket.connected) { sfu.leave(); return }
+          sfuRef.current?.leave()
+          sfuRef.current = sfu
+          const audio = localStreamRef.current?.getAudioTracks()[0]
+          if (audio) await sfu.setAudio(audio)
+          const video = screenStreamRef.current?.getVideoTracks()[0] ?? (cameraOnRef.current ? outgoingCameraTrack() : null)
+          if (video) await sfu.setVideo(video)
+          setMediaWarning((w) => (w === SFU_TROUBLE ? '' : w))
+          report(token, 'sfu.on', 'connected', { ms: Math.round(performance.now() - t0), peers: peerCount, attempt })
+        } catch (err) {
+          report(token, 'sfu.failed', String(err?.message ?? err).slice(0, 120), { attempt })
+          if (disposed || socketRef.current !== forSocket) return
+          setMediaWarning(SFU_TROUBLE)
+          if (attempt < 5) setTimeout(() => connectSfu(access, forSocket, peerCount, attempt + 1), 3000 * attempt)
+        }
+      }
+
       socket.on('connect_error', (err) => setError(err.message))
 
       socket.on('offer', async ({ from, offer }) => {
+        // Through the media server nobody connects person to person.
+        if (sfuModeRef.current) return
         const pc = connectionsRef.current[from] ?? createConnection(from, peers[from]?.name ?? 'Participant')
         // Both sides offered at once: the one with the smaller id keeps its
         // offer and ignores the other's; the other drops its own and answers.
@@ -793,6 +836,7 @@ export default function Call() {
       // This person joined again from another tab or device: that one is
       // the call now; this copy lets go of its camera and microphone.
       socket.on('call:replaced', () => {
+        sfuRef.current?.leave(); sfuRef.current = null
         Object.values(connectionsRef.current).forEach((pc) => pc.close())
         connectionsRef.current = {}
         localStreamRef.current?.getTracks().forEach((t) => t.stop())
@@ -829,6 +873,8 @@ export default function Call() {
       let connectedBefore = false
       socket.on('connect', () => {
         if (connectedBefore) {
+          // Our id changed: the media server room is joined again under it.
+          sfuRef.current?.leave(); sfuRef.current = null
           Object.values(connectionsRef.current).forEach((pc) => pc.close())
           connectionsRef.current = {}
           setPeers({})
@@ -847,13 +893,16 @@ export default function Call() {
           // Phones start with the video; the board and writing are under More.
           if (response.boardId && !isMobile()) setBoardId(response.boardId)
           if (response.docId && !isMobile()) setWritingId(response.docId)
+          sfuModeRef.current = Boolean(response.sfu)
           for (const peer of response.peers) {
             setPeers((prev) => ({ ...prev, [peer.id]: { name: peer.name, stream: prev[peer.id]?.stream ?? null, muted: Boolean(peer.muted), denoised: peer.denoised, sharing: Boolean(peer.sharing), userId: peer.userId } }))
+            if (response.sfu) continue
             const pc = createConnection(peer.id, peer.name)
             const offer = await pc.createOffer()
             await pc.setLocalDescription(offer)
             socket.emit('offer', { to: peer.id, offer })
           }
+          if (response.sfu) connectSfu(response.sfu, socket, response.peers.length)
           socket.emit('mic:state', { muted: !micOnRef.current, denoised: denoisedRef.current })
           setStatus('live')
         })
@@ -865,6 +914,7 @@ export default function Call() {
 
     return () => {
       disposed = true
+      sfuRef.current?.leave(); sfuRef.current = null
       socketRef.current?.disconnect()
       Object.values(connectionsRef.current).forEach((pc) => pc.close())
       connectionsRef.current = {}
@@ -1150,10 +1200,15 @@ export default function Call() {
     if (!stream) return
     if (!next) {
       stream.getVideoTracks().forEach((t) => { t.stop(); stream.removeTrack(t) })
+      sfuRef.current?.muteVideo()
       return
     }
     const live = stream.getVideoTracks().find((t) => t.readyState === 'live')
-    if (live) { live.enabled = true; return }
+    if (live) {
+      live.enabled = true
+      if (sfuRef.current && !screenStreamRef.current) sfuRef.current.setVideo(outgoingCameraTrack()).catch(() => {})
+      return
+    }
     cameraBusyRef.current = true
     try {
       const fresh = await navigator.mediaDevices.getUserMedia({ video: true })
@@ -1162,6 +1217,7 @@ export default function Call() {
       stream.addTrack(track)
       if (localVideoRef.current) { localVideoRef.current.srcObject = stream; localVideoRef.current.play().catch(() => {}) }
       if (!blurOutRef.current && !screenStreamRef.current) await swapOutgoingVideo(track)
+      else if (sfuRef.current && !screenStreamRef.current) await sfuRef.current.setVideo(outgoingCameraTrack()).catch(() => {})
     } catch (err) {
       cameraOnRef.current = false
       setCameraOn(false)
@@ -1280,9 +1336,41 @@ export default function Call() {
         report(token, 'net.relay', 'switched', { peer: peersRef.current[peerId]?.name ?? null })
       } catch (err) { console.error('Relay switch failed:', err) }
     }
+    const sfuPrev = {}
     const timer = setInterval(async () => {
       let worst = null
       tick += 1
+      // Through the media server: one record per person we receive, every 30 s.
+      if (sfuRef.current) {
+        if (tick % 3) return
+        const sfu = sfuRef.current
+        const ids = sfu.remoteIds()
+        for (const identity of ids) {
+          try {
+            const stats = await sfu.remoteReport(identity)
+            if (!stats) continue
+            const byId = {}
+            let pair = null, lost = 0, got = 0, energy = null, duration = null, level = null
+            stats.forEach((item) => {
+              byId[item.id] = item
+              if (item.type === 'candidate-pair' && item.nominated && item.state === 'succeeded') pair = item
+              if (item.type === 'inbound-rtp' && item.kind === 'audio') { lost = item.packetsLost ?? 0; got = item.packetsReceived ?? 0; energy = item.totalAudioEnergy ?? null; duration = item.totalSamplesDuration ?? null; level = item.audioLevel ?? null }
+            })
+            const p = sfuPrev[identity]
+            sfuPrev[identity] = { lost, got, energy, duration }
+            const dl = p ? lost - p.lost : 0, dg = p ? got - p.got : 0
+            report(token, 'net.health', 'sfu', {
+              peer: peersRef.current[identity]?.name ?? null, peers: ids.length, mode: 'sfu',
+              path: pair ? `${byId[pair.localCandidateId]?.candidateType}/${byId[pair.localCandidateId]?.protocol ?? ''}` : null,
+              rttMs: pair?.currentRoundTripTime != null ? Math.round(pair.currentRoundTripTime * 1000) : null,
+              inLossPct: dg + dl > 0 ? Number(((100 * dl) / (dg + dl)).toFixed(1)) : null,
+              inAudioLevel: level != null ? Number(level.toFixed(3)) : null,
+              heardLevel: p && energy != null && p.energy != null && duration > p.duration ? Number(Math.sqrt(Math.max(0, energy - p.energy) / (duration - p.duration)).toFixed(4)) : null
+            })
+          } catch { /* stats unavailable */ }
+        }
+        return
+      }
       for (const [peerId, pc] of Object.entries(connectionsRef.current)) {
         try {
           const stats = await pc.getStats()
@@ -1369,6 +1457,7 @@ export default function Call() {
   // The screen goes out in place of the camera on every connection (no
   // renegotiation needed); the camera comes back when sharing stops.
   const swapOutgoingVideo = async (track) => {
+    if (sfuRef.current && track) await sfuRef.current.setVideo(track).catch((err) => console.error('Media server: video not sent', err))
     for (const pc of Object.values(connectionsRef.current)) {
       const sender = pc.getSenders().find((s) => s.track?.kind === 'video')
       if (sender && track) await sender.replaceTrack(track).catch(() => {})
@@ -1737,6 +1826,7 @@ export default function Call() {
           onPlaybackBlocked={() => setNeedsTap(true)}
           unlockTick={unlockTick}
           connectionsRef={connectionsRef}
+          sfuRef={sfuRef}
           localVideoRef={localVideoRef}
           screenVideoRef={screenVideoRef}
           drawingCanvasRef={drawingCanvasRef}

@@ -179,7 +179,8 @@ export default function VideoGrid({
   socketRef,
   onPlaybackBlocked,
   unlockTick = 0,
-  connectionsRef
+  connectionsRef,
+  sfuRef
 }) {
   const sharingPeer = Object.values(peers).find((p) => p.sharing && p.stream) ?? null
   const drawing = useRef(false)
@@ -315,7 +316,7 @@ export default function VideoGrid({
         </div>
 
         {Object.entries(peers).map(([peerId, peer]) => (
-          <PeerVideo key={peerId} stream={peer.stream} name={peer.name} muted={peer.muted} denoised={peer.denoised} onBlocked={onPlaybackBlocked} unlockTick={unlockTick} getPeerConnection={() => connectionsRef?.current?.[peerId]} />
+          <PeerVideo key={peerId} stream={peer.stream} name={peer.name} muted={peer.muted} denoised={peer.denoised} onBlocked={onPlaybackBlocked} unlockTick={unlockTick} getPeerConnection={() => connectionsRef?.current?.[peerId] ?? (sfuRef?.current ? { getStats: async () => (await sfuRef.current.remoteReport(peerId)) ?? new Map() } : undefined)} />
         ))}
       </div>
     </div>

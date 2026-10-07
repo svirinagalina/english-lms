@@ -1,7 +1,8 @@
 import { Router } from 'express'
 import { z } from 'zod'
 import { requireAuth, requireRole } from '../auth.js'
-import { aiConfig, saveAiSettings, clearAiKey, offerLinks, saveOfferLinks, stripeKey, saveStripeKey, adventKey, saveAdventKey } from '../settings.js'
+import { aiConfig, saveAiSettings, clearAiKey, offerLinks, saveOfferLinks, stripeKey, saveStripeKey, adventKey, saveAdventKey, sfuSwitchedOn, saveSfuSwitch } from '../settings.js'
+import { sfuConfigured } from '../sfu.js'
 import { advent } from '../advent.js'
 import { testConnection, detectProvider } from '../llm.js'
 
@@ -107,4 +108,12 @@ settingsRouter.post('/ai/test', async (req, res) => {
   } catch (error) {
     res.status(502).json({ ok: false, error: error?.message ?? String(error) })
   }
+})
+
+// Calls through the media server: on/off, and whether the server has one.
+settingsRouter.get('/calls', (req, res) => res.json({ sfu: sfuSwitchedOn(), configured: sfuConfigured() }))
+settingsRouter.put('/calls', async (req, res) => {
+  if (typeof req.body?.sfu !== 'boolean') return res.status(400).json({ error: 'Invalid data' })
+  await saveSfuSwitch(req.body.sfu)
+  res.json({ sfu: sfuSwitchedOn(), configured: sfuConfigured() })
 })

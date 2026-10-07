@@ -59,6 +59,14 @@ export default function Settings() {
   const [trainerError, setTrainerError] = useState('')
   const [trainerBusy, setTrainerBusy] = useState(false)
   useEffect(() => { api.adventSettings().then(setTrainer).catch(() => {}) }, [])
+  // Calls through the media server (LiveKit) — on/off.
+  const [calls, setCalls] = useState(null)
+  const [callsError, setCallsError] = useState('')
+  useEffect(() => { api.callSettings().then(setCalls).catch(() => {}) }, [])
+  const switchSfu = async (on) => {
+    setCallsError('')
+    try { setCalls(await api.saveCallSettings({ sfu: on })) } catch (err) { setCallsError(err.message) }
+  }
   const saveTrainer = async (event) => {
     event.preventDefault()
     setTrainerNotice(''); setTrainerError(''); setTrainerBusy(true)
@@ -131,6 +139,22 @@ export default function Settings() {
   return (
     <div className="page">
       <Nav title="Settings" />
+
+      {calls && (
+        <section>
+          <h2>Calls</h2>
+          <label className="row-actions" style={{ alignItems: 'center', gap: 8 }}>
+            <input type="checkbox" style={{ width: 'auto' }} checked={calls.sfu} disabled={!calls.configured} onChange={(e) => switchSfu(e.target.checked)} />
+            <span>Calls through the media server</span>
+          </label>
+          <p className="muted small-hint">
+            {calls.configured
+              ? 'On: everyone sends sound and picture once, to the server, which passes them on and recovers what gets lost — steadier group lessons and weak connections. Off: people connect to each other directly (as before). Affects calls started after the switch.'
+              : 'The media server is not set up on this server yet, so calls connect people directly.'}
+          </p>
+          {callsError && <div className="error">{callsError}</div>}
+        </section>
+      )}
 
       <section>
         <h2>AI assistant</h2>

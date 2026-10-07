@@ -58,6 +58,14 @@ export async function saveStripeKey(key) {
   else await prisma.platformSetting.deleteMany({ where: { key: 'stripe.key' } })
   return loadAiSettings()
 }
+// Calls through the media server (LiveKit) instead of person-to-person:
+// switched in Settings, used only when the server is configured (sfu.js).
+const calls = { sfu: false }
+export const sfuSwitchedOn = () => calls.sfu
+export async function saveSfuSwitch(on) {
+  await prisma.platformSetting.upsert({ where: { key: 'calls.sfu' }, create: { key: 'calls.sfu', value: on ? 'on' : 'off' }, update: { value: on ? 'on' : 'off' } })
+  return loadAiSettings()
+}
 export const offerLinks = () => ({ ...offer })
 export async function saveOfferLinks({ solo, mentor }) {
   const writes = []
@@ -69,13 +77,14 @@ export async function saveOfferLinks({ solo, mentor }) {
 }
 
 export async function loadAiSettings() {
-  const rows = await prisma.platformSetting.findMany({ where: { key: { in: ['ai.provider', 'ai.key', 'ai.model', 'offer.solo', 'offer.mentor', 'stripe.key', 'advent.key', 'apns.config'] } } })
+  const rows = await prisma.platformSetting.findMany({ where: { key: { in: ['ai.provider', 'ai.key', 'ai.model', 'offer.solo', 'offer.mentor', 'stripe.key', 'advent.key', 'apns.config', 'calls.sfu'] } } })
   const map = Object.fromEntries(rows.map((r) => [r.key, r.value]))
   offer.solo = map['offer.solo'] || null
   offer.mentor = map['offer.mentor'] || null
   try { stripe.key = map['stripe.key'] ? decrypt(map['stripe.key']) : null } catch { stripe.key = null }
   try { advent.key = map['advent.key'] ? decrypt(map['advent.key']) : null } catch { advent.key = null }
   try { apns.config = map['apns.config'] ? JSON.parse(decrypt(map['apns.config'])) : null } catch { apns.config = null }
+  calls.sfu = map['calls.sfu'] === 'on'
   ai.provider = map['ai.provider'] ?? null
   ai.model = map['ai.model'] || null
   try { ai.key = map['ai.key'] ? decrypt(map['ai.key']) : null } catch { ai.key = null }
