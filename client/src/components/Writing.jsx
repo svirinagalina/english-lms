@@ -433,6 +433,8 @@ export default function Writing({ socketRef, classroomId, user, title, subtitle,
   // page behaves as usual until Esc.
   const [vimOn, setVimOn] = useState(() => { try { return localStorage.getItem('writing.vim') === '1' } catch { return false } })
   const vimRef = useRef(initialVim())
+  // 'j' just typed in insert mode (where, when): a quick 'k' after it is Esc.
+  const jkRef = useRef(null)
   const [vimMode, setVimMode] = useState('insert')
   const toggleVim = () => {
     setVimOn((on) => {
@@ -452,15 +454,35 @@ export default function Writing({ socketRef, classroomId, user, title, subtitle,
   // Returns true when the key was Vim's.
   const handleVimKey = (event) => {
     const state = vimRef.current
-    if (event.key === 'Escape' && state.mode === 'insert') {
-      event.preventDefault()
+    const plain = !event.metaKey && !event.ctrlKey && !event.altKey
+    // Out of insert mode: Esc — or, since browser extensions such as Vimium
+    // take Esc away from text fields (they blur the field), 'jk' typed
+    // quickly and, on a Mac, Ctrl+C (as in Vim itself).
+    const mac = /Mac/.test(navigator.platform)
+    const jk = state.mode === 'insert' && plain && event.key === 'k' && jkRef.current && Date.now() - jkRef.current.time < 500
+    if (state.mode === 'insert' && (event.key === 'Escape' || jk || (mac && event.ctrlKey && !event.metaKey && event.key.toLowerCase() === 'c'))) {
       const sel = selectionOffsets(editorRef.current)
-      const text = fullText(runsRef.current)
+      let text = fullText(runsRef.current)
+      let at = sel?.start
+      if (jk) {
+        // Only when the caret sits right after that 'j': take it back out.
+        if (!sel || sel.start !== sel.end || sel.start !== jkRef.current.at + 1 || text[sel.start - 1] !== 'j') { jkRef.current = null; return false }
+        const runs = applyEdit(runsRef.current, sel.start - 1, sel.start, '', actor).runs
+        text = fullText(runs)
+        at = sel.start - 1
+        commit(runs, clampNormal(text, Math.max(lineStart(text, at), at - 1)))
+      }
+      event.preventDefault()
+      jkRef.current = null
       vimRef.current = { ...state, mode: 'normal' }; setVimMode('normal')
-      if (sel) setCaret(editorRef.current, clampNormal(text, Math.max(lineStart(text, sel.start), sel.start - 1)))
+      if (!jk && at != null) setCaret(editorRef.current, clampNormal(text, Math.max(lineStart(text, at), at - 1)))
       return true
     }
-    if (state.mode === 'insert') return false
+    if (state.mode === 'insert') {
+      const sel = plain && event.key === 'j' ? selectionOffsets(editorRef.current) : null
+      jkRef.current = sel && sel.start === sel.end ? { at: sel.start, time: Date.now() } : null
+      return false
+    }
     if (event.ctrlKey && event.key.toLowerCase() === 'r') { event.preventDefault(); redo(); return true }
     if (event.metaKey || event.ctrlKey || event.altKey) return false // ⌘C, ⌘A… stay the browser's
     if (event.key.startsWith('Arrow') || event.key === 'Tab') return false
@@ -1025,7 +1047,7 @@ export default function Writing({ socketRef, classroomId, user, title, subtitle,
           <button className={`tool ${autocorrect ? 'active' : ''}`} onMouseDown={(e) => e.preventDefault()} onClick={toggleAutocorrect} title="Fix common typos as you type (teh → the, i → I, capital letters) and underline misspellings">
             Autocorrect {autocorrect ? 'on' : 'off'}
           </button>
-          <button className={`tool ${vimOn ? 'active' : ''}`} onMouseDown={(e) => e.preventDefault()} onClick={toggleVim} title="Vim keys: Esc for normal mode (hjkl, w b e, dd, yy, p, u, v…), i to type again">
+          <button className={`tool ${vimOn ? 'active' : ''}`} onMouseDown={(e) => e.preventDefault()} onClick={toggleVim} title="Vim keys: Esc (or jk quickly; Ctrl+C on a Mac) for normal mode — hjkl, w b e, dd, yy, p, u, v for visual, V for lines; i to type again">
             {vimOn ? `Vim: ${{ insert: 'INSERT', normal: 'NORMAL', visual: 'VISUAL', vline: 'V-LINE' }[vimMode]}` : 'Vim off'}
           </button>
           <button className="tool" onMouseDown={(e) => e.preventDefault()} onClick={addSlot} title="Make a place for a screenshot where the caret is — drag a screenshot onto it later, or click it and paste">Screenshot</button>
