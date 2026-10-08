@@ -1,3 +1,5 @@
+import { Link } from 'react-router-dom'
+
 // Advent Academy wordmark: the double-chevron mark and the name, drawn as
 // SVG so it stays crisp at any size on the green ground.
 export function Logo({ height = 28 }) {
@@ -9,15 +11,17 @@ export function Logo({ height = 28 }) {
   )
 }
 
+// The logo leads home inside the platform: Classroom when signed in, the
+// landing page otherwise (both are "/").
 export function Brand({ compact = false }) {
   return (
-    <a className="brand" href="https://advent-academy.ru" target="_blank" rel="noreferrer" title="Advent Academy">
+    <Link className="brand" to="/" title="Advent Academy — Classroom">
       <Logo height={compact ? 34 : 44} />
       <span className="brand-name">
         Advent<br />Academy
         <small>by Galina Svirina</small>
       </span>
-    </a>
+    </Link>
   )
 }
 
