@@ -250,7 +250,7 @@ export function setupSignaling(io) {
     socket.on('join-call', async (callToken, ack) => {
       const call = await prisma.call.findUnique({
         where: { token: callToken },
-        include: { classroom: { select: { id: true, roomId: true } } }
+        include: { classroom: { select: { id: true, roomId: true, studentId: true } } }
       })
       if (!call || call.endedAt) {
         if (typeof ack === 'function') ack({ error: 'This call is not available' })
@@ -267,8 +267,14 @@ export function setupSignaling(io) {
       const profile = await prisma.user.findUnique({ where: { id: user.id }, select: { name: true } })
       socket.data.name = profile?.name ?? 'Participant'
 
-      // Calls tied to a student's classroom count as lessons (trials do not).
-      if (call.classroom) await openSession(call.classroom.id, { counted: call.kind !== 'TRIAL' })
+      // Calls tied to a student's classroom count as lessons (trials do not)
+      // — once the student is actually there. A teacher who opened the call
+      // and waited alone used to use up one of the student's paid lessons.
+      if (call.classroom) {
+        const studentHere = user.id === call.classroom.studentId ||
+          [...(io.sockets.adapter.rooms.get(`call:${call.token}`) ?? [])].some((id) => io.sockets.sockets.get(id)?.data.user?.id === call.classroom.studentId)
+        if (studentHere) await openSession(call.classroom.id, { counted: call.kind !== 'TRIAL' })
+      }
 
       // Join and list the others without an await in between (see above).
       const roomId = `call:${call.token}`
