@@ -18,6 +18,8 @@ export default function Billing() {
   const [students, setStudents] = useState([])
   const [editing, setEditing] = useState(null)
   const [details, setDetails] = useState(emptyDetails())
+  // The rouble card shown instead to students after a trial lesson.
+  const [trialCard, setTrialCard] = useState({ card: '', cardNote: '' })
   const [saved, setSaved] = useState(false)
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(true)
@@ -30,8 +32,9 @@ export default function Billing() {
     setStudents(students)
 
     if (user.role === 'OWNER' || user.role === 'PARTNER') {
-      const { paymentDetails } = await api.schoolPaymentDetails()
+      const { paymentDetails, trialPaymentDetails } = await api.schoolPaymentDetails()
       setDetails(parseDetails(paymentDetails))
+      try { const t = JSON.parse(trialPaymentDetails ?? 'null'); setTrialCard({ card: t?.card ?? '', cardNote: t?.cardNote ?? '' }) } catch { /* none */ }
     }
   }
 
@@ -44,7 +47,8 @@ export default function Billing() {
     setError('')
     try {
       await api.updateSchoolPaymentDetails({
-        paymentDetails: serializeDetails(details)
+        paymentDetails: serializeDetails(details),
+        trialPaymentDetails: trialCard.card.replace(/\D/g, '') ? JSON.stringify({ card: trialCard.card.replace(/\D/g, ''), cardNote: trialCard.cardNote.trim() }) : null
       })
       setSaved(true)
       setTimeout(() => setSaved(false), 2500)
@@ -143,6 +147,16 @@ export default function Billing() {
             <label className="field">
               <span>Note for students</span>
               <textarea rows={2} placeholder="Please add your name to the transfer comment" value={details.note} onChange={(e) => setDetails({ ...details, note: e.target.value })} />
+            </label>
+            <h3 style={{ margin: '18px 0 4px' }}>After a trial lesson</h3>
+            <p className="muted" style={{ margin: '0 0 8px' }}>Students who have had a trial lesson (their report is published) see this card for payments in rubles instead. Leave empty to show the card above to everyone.</p>
+            <label className="field">
+              <span>Card number (rubles, after a trial)</span>
+              <input inputMode="numeric" placeholder="2200 0000 0000 0000" value={formatCard(trialCard.card)} onChange={(e) => setTrialCard({ ...trialCard, card: e.target.value.replace(/\D/g, '').slice(0, 19) })} />
+            </label>
+            <label className="field">
+              <span>Card holder / bank</span>
+              <input placeholder="Name, bank" value={trialCard.cardNote} onChange={(e) => setTrialCard({ ...trialCard, cardNote: e.target.value })} maxLength={120} />
             </label>
             <div className="editor-actions">
               <button type="submit">Save details</button>

@@ -24,6 +24,10 @@ model School {
 
   // Free-form transfer details shown only to signed-in students of this school.
   paymentDetails String?
+  // Students who came through a trial lesson (a published trial report)
+  // pay in roubles to this card instead; the euro link and note stay the
+  // school's. JSON { card, cardNote }, null = same as paymentDetails.
+  trialPaymentDetails String?
 
   users     User[]
   units      Unit[]

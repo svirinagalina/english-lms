@@ -30,7 +30,8 @@ const billingSchema = z.object({
 })
 
 const detailsSchema = z.object({
-  paymentDetails: z.string().max(2000).nullable()
+  paymentDetails: z.string().max(2000).nullable(),
+  trialPaymentDetails: z.string().max(1000).nullable().optional()
 })
 
 const STUDENT_SELECT = {
@@ -179,13 +180,24 @@ billingRouter.get('/rates', async (req, res) => {
   }
 })
 
+// After a trial lesson the rouble card (and its holder) come from the trial
+// details; everything else — the euro link, the note — stays the school's.
+function withTrialCard(main, trial) {
+  let t = null
+  try { t = trial ? JSON.parse(trial) : null } catch { t = null }
+  if (!t?.card) return main
+  let m = {}
+  try { m = main ? JSON.parse(main) : {} } catch { m = { note: main } }
+  return JSON.stringify({ ...m, card: t.card, cardNote: t.cardNote ?? '' })
+}
+
 // What the signed-in student needs in order to pay. A student who came
 // through a trial lesson (a published report) also gets the offer: the
 // plans with the discount deadline and the payment links from Settings.
 billingRouter.get('/me', async (req, res) => {
   const user = await prisma.user.findUnique({
     where: { id: req.user.id },
-    select: { ...STUDENT_SELECT, school: { select: { paymentDetails: true, name: true } } }
+    select: { ...STUDENT_SELECT, school: { select: { paymentDetails: true, trialPaymentDetails: true, name: true } } }
   })
   if (!user) return res.status(401).json({ error: 'Not authenticated' })
 
@@ -199,7 +211,7 @@ billingRouter.get('/me', async (req, res) => {
       paymentLink: view.paymentLink,
       package: view.package,
       paymentReportedAt: view.paymentReportedAt,
-      paymentDetails: school.paymentDetails,
+      paymentDetails: trial ? withTrialCard(school.paymentDetails, school.trialPaymentDetails) : school.paymentDetails,
       schoolName: school.name,
       trial: trial ? { reportId: trial.id, publishedAt: trial.publishedAt, level: trial.generated?.level ?? null, links: offerLinks() } : null
     }
@@ -274,7 +286,7 @@ billingRouter.patch('/school', requireRole('OWNER'), async (req, res) => {
 
   await prisma.school.update({
     where: { id: req.user.schoolId },
-    data: { paymentDetails: parsed.data.paymentDetails }
+    data: { paymentDetails: parsed.data.paymentDetails, ...(parsed.data.trialPaymentDetails !== undefined ? { trialPaymentDetails: parsed.data.trialPaymentDetails } : {}) }
   })
 
   res.json({ ok: true })
@@ -283,7 +295,7 @@ billingRouter.patch('/school', requireRole('OWNER'), async (req, res) => {
 billingRouter.get('/school', requireRole('OWNER', 'TEACHER'), async (req, res) => {
   const school = await prisma.school.findUnique({
     where: { id: req.user.schoolId },
-    select: { paymentDetails: true }
+    select: { paymentDetails: true, trialPaymentDetails: true }
   })
-  res.json({ paymentDetails: school?.paymentDetails ?? null })
+  res.json({ paymentDetails: school?.paymentDetails ?? null, trialPaymentDetails: school?.trialPaymentDetails ?? null })
 })
