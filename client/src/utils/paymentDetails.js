@@ -25,7 +25,7 @@ export const serializeDetails = (d) => {
   return Object.values(clean).some(Boolean) ? JSON.stringify(clean) : null
 }
 
-// 2200 7013 1091 0002
+// "2200000000000000" → "2200 0000 0000 0000"
 export const formatCard = (digits) => String(digits ?? '').replace(/\D/g, '').replace(/(\d{4})(?=\d)/g, '$1 ').trim()
 
 // Everything as one text, for "Copy all details".
