@@ -19,3 +19,26 @@ export function sfuJoin({ room, identity, name }) {
   )
   return { url: process.env.LIVEKIT_URL, token }
 }
+
+// Takes one connection out of the media server room. The browser's media
+// link to LiveKit lives apart from its socket: a laptop whose socket dropped
+// (or that was replaced by the same student on another device) could stay in
+// the room as a second, frozen copy of that person. Best effort — LiveKit
+// answers "not found" for someone already gone.
+export async function sfuKick(room, identity) {
+  if (!sfuConfigured() || !room || !identity) return
+  const token = jwt.sign(
+    { video: { room, roomAdmin: true } },
+    process.env.LIVEKIT_API_SECRET,
+    { issuer: process.env.LIVEKIT_API_KEY, expiresIn: '1m' }
+  )
+  const base = (process.env.LIVEKIT_API_URL || process.env.LIVEKIT_URL).replace(/^ws/, 'http').replace(/\/$/, '')
+  try {
+    await fetch(`${base}/twirp/livekit.RoomService/RemoveParticipant`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ room, identity }),
+      signal: AbortSignal.timeout(5000)
+    })
+  } catch {}
+}

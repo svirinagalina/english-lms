@@ -15,7 +15,7 @@ import { loadDocument, replaceDocument, runsSchema } from './docStore.js'
 import { buildSummary } from './lessonSummary.js'
 import { adventCallPresence, adventCallEnded } from './adventLessons.js'
 import { trialCallEnded } from './trialReport.js'
-import { sfuEnabled, sfuJoin } from './sfu.js'
+import { sfuEnabled, sfuJoin, sfuKick } from './sfu.js'
 import { notifyHomeworkLater, notifyAfterLessonLater } from './push.js'
 
 // A call that resumes within this window continues the previous session rather
@@ -290,6 +290,7 @@ export function setupSignaling(io) {
           old.data.inCall = false
           io.to(roomId).emit('user-left', old.id)
           old.emit('call:replaced')
+          sfuKick(call.id, old.id)
         }
       }
       socket.data.roomId = roomId
@@ -581,6 +582,9 @@ export function setupSignaling(io) {
       if (!roomId) return
 
       socket.to(roomId).emit('user-left', socket.id)
+      // Its media link may outlive the socket (see sfuKick); a reconnecting
+      // browser joins the media room again under its new id anyway.
+      if (socket.data.inCall) sfuKick(socket.data.callId, socket.id)
       if (socket.data.inCall) adventCallPresence(socket.data.callId, user.role, false).catch(() => {})
 
       // Close the session once nobody is left on the call.
