@@ -340,12 +340,19 @@ export default function Writing({ socketRef, classroomId, user, title, subtitle,
   // Also after a render that only moved the caret: the spelling underline
   // is re-wrapped around the words then, which replaces the text node the
   // caret sat in — left alone, the next letter landed at the word's start.
+  // Only when the text (or its spelling underline) was actually redrawn: a
+  // render for something else — the hover translation appearing — used to
+  // put the caret back where it was, undoing a click that the browser had
+  // not yet reported (selectionchange comes a moment later).
+  const drawnRef = useRef({ runs: null, caretAt: null })
   useLayoutEffect(() => {
     const root = editorRef.current
+    const redrawn = drawnRef.current.runs !== runs || drawnRef.current.caretAt !== caretAt
+    drawnRef.current = { runs, caretAt }
     if (root && document.activeElement === root) {
       const last = lastSelRef.current
       if (caretRef.current !== null) setCaret(root, caretRef.current)
-      else if (last && last.start === last.end) {
+      else if (redrawn && last && last.start === last.end) {
         const now = selectionOffsets(root)
         if (!now || now.start !== last.start || now.end !== last.end) setCaret(root, last.end)
       }
