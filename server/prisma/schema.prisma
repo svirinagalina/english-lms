@@ -70,6 +70,10 @@ model User {
   packageStartedAt DateTime?
   // When the student last pressed "I have paid" — the teacher confirms by hand.
   paymentReportedAt DateTime?
+  // Which rouble card this student pays to: true = the after-trial card
+  // (School.trialPaymentDetails), false = the school's own, null = decided
+  // automatically (true once they have a published trial report).
+  payToTrialCard Boolean?
 
   // Signed up by themselves (the app, /signup), no teacher yet: the free tier
   // — about 30% of grammar and vocabulary, the trainer's trial, a board to

@@ -92,6 +92,21 @@ export default function Billing() {
                       ` · ${formatPrice(student.priceAmount, student.priceCurrency)} per lesson`}
                   </div>
                   <PackageBadge pkg={student.package} />
+                  <label className="muted pay-card-choice">
+                    Rubles to:{' '}
+                    <select
+                      value={student.paysTrialCardAuto ? 'auto' : student.paysTrialCard ? 'trial' : 'school'}
+                      onChange={async (e) => {
+                        const v = e.target.value
+                        await api.updateStudentBilling(student.id, { payToTrialCard: v === 'auto' ? null : v === 'trial' })
+                        await refresh()
+                      }}
+                    >
+                      <option value="auto">Auto — {student.paysTrialCardAuto && student.paysTrialCard ? 'after-trial card' : 'school card'}</option>
+                      <option value="school">School card</option>
+                      <option value="trial">After-trial card</option>
+                    </select>
+                  </label>
                   {student.paymentReportedAt && (
                     <div className="paid-badge mid" style={{ marginLeft: 8 }}>
                       Says they paid on {new Date(student.paymentReportedAt).toLocaleDateString()}

@@ -26,7 +26,8 @@ const billingSchema = z.object({
   paymentLink: httpsUrl.nullable(),
   lessonsPaid: z.number().int().min(0).max(500).nullable(),
   // Count lessons from now on (a new package), instead of continuing the old count.
-  resetCounter: z.boolean()
+  resetCounter: z.boolean(),
+  payToTrialCard: z.boolean().nullable()
 })
 
 const detailsSchema = z.object({
@@ -37,12 +38,18 @@ const detailsSchema = z.object({
 const STUDENT_SELECT = {
   id: true, name: true, email: true,
   priceAmount: true, priceCurrency: true, paymentLink: true,
-  lessonsPaid: true, packageStartedAt: true, paymentReportedAt: true
+  lessonsPaid: true, packageStartedAt: true, paymentReportedAt: true, payToTrialCard: true
 }
 
 // Lessons held since the package started, across every classroom of the
 // student (a call that reaches the student counts, wherever it was started).
 async function withPackage(student) {
+  // The rouble card this student sees: set by hand, else after-trial once
+  // a trial report has been published for them.
+  const hadTrial = student.payToTrialCard == null
+    ? Boolean(await prisma.trialReport.findFirst({ where: { studentId: student.id, publishedAt: { not: null } }, select: { id: true } }))
+    : null
+  student = { ...student, paysTrialCard: student.payToTrialCard ?? hadTrial, paysTrialCardAuto: student.payToTrialCard == null }
   const held = await prisma.session.count({
     where: {
       classroom: { studentId: student.id },
@@ -211,7 +218,7 @@ billingRouter.get('/me', async (req, res) => {
       paymentLink: view.paymentLink,
       package: view.package,
       paymentReportedAt: view.paymentReportedAt,
-      paymentDetails: trial ? withTrialCard(school.paymentDetails, school.trialPaymentDetails) : school.paymentDetails,
+      paymentDetails: (user.payToTrialCard ?? Boolean(trial)) ? withTrialCard(school.paymentDetails, school.trialPaymentDetails) : school.paymentDetails,
       schoolName: school.name,
       trial: trial ? { reportId: trial.id, publishedAt: trial.publishedAt, level: trial.generated?.level ?? null, links: offerLinks() } : null
     }
