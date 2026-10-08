@@ -700,6 +700,12 @@ export default function Call() {
     }
 
     const start = async () => {
+      // An extension (a WebRTC blocker, some VPN and crypto-wallet add-ons)
+      // can remove the browser's call engine: nothing connects, silently.
+      if (typeof window.RTCPeerConnection !== 'function') {
+        report(token, 'webrtc.missing', navigator.userAgent.slice(0, 120))
+        setMediaWarning('Video calls are switched off in this browser — usually by an extension (a WebRTC blocker, a VPN or privacy add-on). Turn it off for this site, or open the lesson in another browser or an incognito window. / Видеозвонки отключены в этом браузере — обычно расширением (блокировщик WebRTC, VPN, защита приватности). Отключите его для этого сайта или откройте урок в другом браузере или в режиме инкогнито.')
+      }
       // TURN relay credentials, when the server has a relay configured.
       try { iceServers = (await api.iceServers()).iceServers } catch { /* STUN only */ }
       setStatus('requesting-media')
