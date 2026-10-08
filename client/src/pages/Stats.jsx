@@ -4,6 +4,7 @@ import { api } from '../api'
 import Nav from '../components/Nav'
 import Panel from '../components/Panel'
 import { SiteFooter } from '../components/Brand'
+import PersonLink from '../components/PersonLink'
 
 const formatDate = (value) => (value ? new Date(value).toLocaleDateString() : '—')
 
@@ -38,7 +39,7 @@ function StudentList() {
           {students.map((student) => (
             <Link key={student.id} className="row unit-row" to={`/progress/${student.id}`}>
               <div className="unit-main">
-                <strong>{student.name}</strong>
+                <PersonLink id={student.id} name={student.name} />
                 <div className="muted">
                   {student.total} attempts · {student.recentTotal} in the last 30 days
                   {student.lastActive && ` · last ${formatDate(student.lastActive)}`}

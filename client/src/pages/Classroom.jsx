@@ -346,6 +346,11 @@ export default function Classroom() {
   return (
     <div className="page">
       <Nav title={partner} back="/classroom" />
+      {isStaff && !isPersonal && classroom.student && (
+        <div style={{ margin: '-6px 0 12px' }}>
+          <Link className="button-link ghost" style={{ marginTop: 0 }} to={`/people/${classroom.student.id}/activity`}>Analytics: lessons, payments, practice</Link>
+        </div>
+      )}
 
       <div className="row-main subheader">
         <div className="row-actions">

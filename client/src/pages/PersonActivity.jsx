@@ -3,6 +3,7 @@ import { Link, useParams } from 'react-router-dom'
 import { api } from '../api'
 import Nav from '../components/Nav'
 import Panel from '../components/Panel'
+import { useAuth } from '../AuthContext'
 
 export const SECTION_LABELS = {
   home: 'Home', classroom: 'Cabinet', board: 'Board', call: 'Calls', practice: 'Practice', mistakes: 'Mistake notebook practice',
@@ -19,18 +20,21 @@ const dayLabel = (d) => new Date(`${d}T12:00:00Z`).toLocaleDateString(undefined,
 // opened, and what they did — practice, mistakes, words, lessons, reports.
 export default function PersonActivity() {
   const { id } = useParams()
+  const { user: me } = useAuth()
+  const back = me?.role === 'OWNER' || me?.role === 'PARTNER' ? '/people' : '/classroom'
   const [data, setData] = useState(null)
   const [error, setError] = useState('')
   useEffect(() => { api.activityPerson(id).then(setData).catch((err) => setError(err.message)) }, [id])
 
-  if (error) return <div className="page"><Nav title="Activity" back="/people" /><div className="error">{error}</div></div>
+  if (error) return <div className="page"><Nav title="Activity" back={back} /><div className="error">{error}</div></div>
   if (!data) return <div className="centered">Loading…</div>
-  const { user, sections, timeline, work, reports } = data
+  const { user, sections, timeline, work, reports, billing, teachers, contacts, plan, teaching } = data
+  const money = (cents, cur) => cents == null ? '—' : `${(cents / 100).toLocaleString('ru-RU')} ${cur === 'EUR' ? '€' : cur === 'USD' ? '$' : '₽'}`
   const { practice, mistakes, vocabulary, lessons } = work
 
   return (
     <div className="page">
-      <Nav title={user.name} back="/people" />
+      <Nav title={user.name} back={back} />
       <div className="row" style={{ marginBottom: 16 }}>
         <div>
           <strong>{user.email}</strong>
@@ -43,8 +47,81 @@ export default function PersonActivity() {
             <Link key={c.id} className="button-link" style={{ marginTop: 0 }} to={`/classroom/${c.id}`}>Cabinet{c.teacher ? ` · ${c.teacher}` : ''}</Link>
           ))}
           {user.role === 'STUDENT' && <Link className="button-link ghost" style={{ marginTop: 0 }} to={`/progress/${user.id}`}>Progress</Link>}
+          {user.role !== 'STUDENT' && (me?.role === 'OWNER' || me?.role === 'PARTNER') && <Link className="button-link ghost" style={{ marginTop: 0 }} to={`/people/teachers/${user.id}`}>Lessons by month</Link>}
         </div>
       </div>
+
+      {billing && (
+        <div className="activity-cards">
+          <div className="activity-card">
+            <div className="muted">Package</div>
+            <strong>{billing.lessonsPaid == null ? 'not set' : `${billing.remaining} of ${billing.lessonsPaid} left`}</strong>
+            <div className="muted">{billing.held} held{billing.packageStartedAt ? ` since ${date(billing.packageStartedAt)}` : ''}</div>
+          </div>
+          <div className="activity-card">
+            <div className="muted">Price</div>
+            <strong>{billing.priceAmount == null ? '—' : `${money(billing.priceAmount, billing.priceCurrency)} / lesson`}</strong>
+            <div className="muted">Rubles to: {billing.card === 'after-trial' ? 'after-trial card' : 'school card'}</div>
+          </div>
+          <div className="activity-card">
+            <div className="muted">Payment</div>
+            <strong>{billing.paymentReportedAt ? `Says paid ${date(billing.paymentReportedAt)}` : 'Nothing reported'}</strong>
+            <div className="muted"><Link to="/billing">Open Payments</Link></div>
+          </div>
+          <div className="activity-card">
+            <div className="muted">Teachers{plan ? ' · plan' : ''}</div>
+            <strong>{teachers?.length ? teachers.map((t) => t.name).join(', ') : plan ? 'Free account' : '—'}</strong>
+            <div className="muted">
+              {plan?.plan ? `${plan.plan} until ${date(plan.until)} · ` : ''}
+              {[contacts?.messenger, contacts?.phone, contacts?.city, contacts?.timezone].filter(Boolean).join(' · ') || 'no contacts given'}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {teaching && (
+        <>
+          <div className="activity-cards">
+            <div className="activity-card"><div className="muted">Students</div><strong>{teaching.students.length}</strong><div className="muted">{teaching.students.filter((s) => s.last30 > 0).length} had a lesson in 30 days</div></div>
+            <div className="activity-card"><div className="muted">Lessons taught</div><strong>{teaching.lessons}</strong><div className="muted">{teaching.lessons30} in 30 days</div></div>
+            <div className="activity-card"><div className="muted">Hours</div><strong>{teaching.hours30} h in 30 days</strong><div className="muted">{teaching.hours8w} h in 8 weeks</div></div>
+            <div className="activity-card"><div className="muted">Trial lessons</div><strong>{teaching.trialReports}</strong><div className="muted">reports made</div></div>
+          </div>
+          <Panel id={`activity:weeks:${id}`} title="Lessons by week" hint="last 8 weeks" defaultOpen>
+            <div className="week-bars">
+              {teaching.weeks.map((w) => {
+                const max = Math.max(1, ...teaching.weeks.map((x) => x.lessons))
+                return (
+                  <div key={w.from} className="week-bar" title={`${w.lessons} lessons · ${w.hours} h`}>
+                    <span className="week-bar-n">{w.lessons}</span>
+                    <i style={{ height: `${(w.lessons / max) * 100}%` }} />
+                    <span className="muted">{new Date(w.from).toLocaleDateString(undefined, { day: 'numeric', month: 'short' })}</span>
+                  </div>
+                )
+              })}
+            </div>
+          </Panel>
+          <Panel id={`activity:students:${id}`} title="Students" count={teaching.students.length} defaultOpen>
+            <div className="list">
+              {teaching.students.map((s) => (
+                <div key={s.id} className="row">
+                  <Link className="person-link" to={`/people/${s.id}/activity`}><strong>{s.name}</strong></Link>
+                  <span className="muted">{s.total} lessons · {s.last30} in 30 days · last {date(s.lastAt)}</span>
+                </div>
+              ))}
+            </div>
+          </Panel>
+          {teaching.upcoming.length > 0 && (
+            <Panel id={`activity:upcoming:${id}`} title="Next 7 days" count={teaching.upcoming.length}>
+              <div className="list">
+                {teaching.upcoming.map((e, i) => (
+                  <div key={i} className="row"><strong>{e.title}</strong><span className="muted">{when(e.startTime)}{e.students ? ` · ${e.students} student${e.students > 1 ? 's' : ''}` : ''}</span></div>
+                ))}
+              </div>
+            </Panel>
+          )}
+        </>
+      )}
 
       <div className="activity-cards">
         <div className="activity-card">

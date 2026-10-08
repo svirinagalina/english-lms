@@ -11,6 +11,7 @@ import StudentHome from '../components/StudentHome'
 import FreeHome from '../components/FreeHome'
 import Panel from '../components/Panel'
 import Textbooks from '../components/Textbooks'
+import PersonLink from '../components/PersonLink'
 
 export default function Classrooms() {
   const { user } = useAuth()
@@ -104,7 +105,7 @@ export default function Classrooms() {
       {items.map((classroom) => (
         <div key={classroom.id} className="row student-row">
           <Link className="unit-main student-link" to={`/classroom/${classroom.id}`}>
-            <strong>{user.role === 'STUDENT' ? classroom.teacher.name : classroom.student.name}</strong>
+            {user.role === 'STUDENT' ? <strong>{classroom.teacher.name}</strong> : <PersonLink id={classroom.student.id} name={classroom.student.name} />}
             <div className="muted">
               {classroom.lastSession
                 ? `last lesson ${new Date(classroom.lastSession).toLocaleDateString()}`
@@ -173,7 +174,7 @@ export default function Classrooms() {
           </p>
           {otherTeachers.map((teacher) => (
             <div key={teacher.id} style={{ marginBottom: 14 }}>
-              <h3 className="group-title">{teacher.name}</h3>
+              <h3 className="group-title"><PersonLink id={teacher.id} name={teacher.name}>{teacher.name}</PersonLink></h3>
               {studentList(others.filter((c) => c.teacher.id === teacher.id))}
             </div>
           ))}

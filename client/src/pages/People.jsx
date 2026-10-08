@@ -7,6 +7,7 @@ import { matchesSearch } from '../utils/search'
 import Nav from '../components/Nav'
 import Panel from '../components/Panel'
 import { SiteFooter } from '../components/Brand'
+import PersonLink from '../components/PersonLink'
 
 function InviteForm({ role, teachers, currentUserId, onInvited }) {
   const [form, setForm] = useState({ name: '', email: '', teacherId: currentUserId })
@@ -336,7 +337,7 @@ export default function People() {
             <div key={person.id} className="row column">
              <div className="row-main">
               <div>
-                <Link to={`/people/teachers/${person.id}`} title="Lessons: with whom, when, and the boards used"><strong>{person.name}</strong></Link>
+                <PersonLink id={person.id} name={person.name} />
                 <div className="muted">
                   {person.email} · {person.role === 'OWNER' ? 'administrator' : person.role.toLowerCase()}
                   {person.students?.length > 0 && ` · ${person.students.length} students`}
@@ -399,7 +400,7 @@ export default function People() {
               <div key={person.id} className="row column">
                 <div className="row-main">
                   <div>
-                    <strong>{person.name}</strong>
+                    <PersonLink id={person.id} name={person.name} />
                     <div className="muted">{person.email} · signed up {new Date(person.createdAt).toLocaleDateString()}</div>
                     <div className="muted">
                       {person.plan
@@ -463,7 +464,7 @@ export default function People() {
             {activity.map((p) => (
               <div key={p.id} className="row">
                 <div>
-                  <strong>{p.name}</strong> <span className="muted">· {p.role === 'STUDENT' && p.free ? 'free app user' : p.role.toLowerCase()}</span>
+                  <PersonLink id={p.id} name={p.name} /> <span className="muted">· {p.role === 'STUDENT' && p.free ? 'free app user' : p.role.toLowerCase()}</span>
                   <div className="muted">last seen {p.lastSeenAt ? new Date(p.lastSeenAt).toLocaleString(undefined, { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : 'not recorded yet'} · {p.activeDays30} active {p.activeDays30 === 1 ? 'day' : 'days'} in 30</div>
                 </div>
                 <button className="ghost" onClick={() => navigate(`/people/${p.id}/activity`)}>Activity</button>
@@ -481,7 +482,7 @@ export default function People() {
             <div key={person.id} className="row column">
               <div className="row-main">
                 <div>
-                  <strong>{person.name}</strong>
+                  <PersonLink id={person.id} name={person.name} />
                   <div className="muted">{person.email}</div>
                   <div className="muted">
                     {person.teachers?.length

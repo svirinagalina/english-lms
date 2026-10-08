@@ -9,6 +9,7 @@ import BillingEditor from '../components/BillingEditor'
 import StudentPayment from '../components/StudentPayment'
 import { isNativeApp } from '../utils/native'
 import { PackageBadge } from '../components/PackageBadge'
+import PersonLink from '../components/PersonLink'
 
 const formatPrice = (amount, currency) =>
   new Intl.NumberFormat(undefined, { style: 'currency', currency }).format(amount / 100)
@@ -85,7 +86,7 @@ export default function Billing() {
             <div key={student.id} className="row column">
               <div className="row-main">
                 <div>
-                  <strong>{student.name}</strong>
+                  <PersonLink id={student.id} name={student.name} />
                   <div className="muted">
                     {student.email}
                     {student.priceAmount != null &&
