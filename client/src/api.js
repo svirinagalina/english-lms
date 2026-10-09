@@ -96,6 +96,7 @@ export const api = {
   listVocabSets: () => request('/vocab'),
   dueWords: () => request('/vocab/review/due'),
   createVocabSet: (body) => request('/vocab', { method: 'POST', body }),
+  myVocabSet: () => request('/vocab/my', { method: 'POST' }),
   getVocabSet: (id) => request(`/vocab/${id}`),
   deleteVocabSet: (id) => request(`/vocab/${id}`, { method: 'DELETE' }),
   renameVocabSet: (id, title) => request(`/vocab/${id}`, { method: 'PATCH', body: { title } }),

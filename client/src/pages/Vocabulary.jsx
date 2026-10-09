@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Link, useSearchParams } from 'react-router-dom'
+import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { useAuth } from '../AuthContext'
 import { api } from '../api'
 import Nav from '../components/Nav'
@@ -12,6 +12,9 @@ export default function Vocabulary() {
   const { user } = useAuth()
   const [sets, setSets] = useState([])
   const [title, setTitle] = useState('')
+  const [shared, setShared] = useState(false)
+  const navigate = useNavigate()
+  const openMine = () => api.myVocabSet().then(({ set }) => navigate(`/vocabulary/${set.id}`)).catch((err) => setError(err.message))
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(true)
 
@@ -54,8 +57,9 @@ export default function Vocabulary() {
     event.preventDefault()
     setError('')
     try {
-      await api.createVocabSet({ title })
+      await api.createVocabSet({ title, shared })
       setTitle('')
+      setShared(false)
       await refresh()
     } catch (err) {
       setError(err.message)
@@ -110,8 +114,14 @@ export default function Vocabulary() {
               onChange={(e) => setTitle(e.target.value)}
               required
             />
+            <label className="muted" style={{ display: 'flex', alignItems: 'center', gap: 6, whiteSpace: 'nowrap' }}>
+              <input type="checkbox" style={{ width: 16, minWidth: 0, flex: "none", margin: 0 }} checked={shared} onChange={(e) => setShared(e.target.checked)} /> For all students
+            </label>
             <button type="submit">Create set</button>
           </form>
+        )}
+        {!isStaff && (
+          <button type="button" className="ghost" style={{ marginBottom: 10 }} onClick={openMine}>+ Add my own words</button>
         )}
 
         {!isStaff && !sets.some((set) => set.personal) && (
@@ -152,14 +162,14 @@ export default function Vocabulary() {
                 <>
                   <Link className="unit-main student-link" to={`/vocabulary/${set.id}`}>
                     <strong>{set.title}</strong>
-                    <div className="muted">{set.total} {set.total === 1 ? 'word' : 'words'}{set.personal ? ' · your own words, with pronunciation' : ''}</div>
+                    <div className="muted">{set.total} {set.total === 1 ? 'word' : 'words'}{set.personal ? (isStaff ? ' · only you see it' : ' · your own words, with pronunciation') : isStaff ? ' · all students see it' : ''}</div>
                   </Link>
                   <div className="row-actions">
                     {set.due > 0 && <span className="due-badge">{set.due} to review</span>}
                     {(isStaff || set.personal) && (
                       <button className="ghost" onClick={() => { setTitleDraft(set.title); setRenaming(set.id) }} title="Rename">Rename</button>
                     )}
-                    {isStaff && !set.personal && (
+                    {isStaff && (
                       <button className="ghost" onClick={() => removeSet(set)} title="Delete this set and all its words">Delete</button>
                     )}
                     <Link className="button" to={`/vocabulary/${set.id}`}>Open</Link>

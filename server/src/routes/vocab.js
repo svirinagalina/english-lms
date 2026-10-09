@@ -36,7 +36,7 @@ const mayEditSet = (user, set) => (set.ownerId ? set.ownerId === user.id : user.
 
 const MY_WORDS = 'From my board'
 async function personalSet(user) {
-  const existing = await prisma.vocabSet.findFirst({ where: { ownerId: user.id } })
+  const existing = await prisma.vocabSet.findFirst({ where: { ownerId: user.id }, orderBy: { createdAt: 'asc' } })
   if (existing) return existing
   return prisma.vocabSet.create({ data: { title: MY_WORDS, schoolId: user.schoolId, ownerId: user.id } })
 }
@@ -53,6 +53,10 @@ const dueDateFor = (streak) => {
 }
 
 const setSchema = z.object({ title: z.string().min(1).max(200) })
+// A staff member's new set is their own unless they share it with every
+// student of the school: two sets Galina made "for herself" (2026-10-09)
+// were shared by default and showed up, empty and read-only, for everyone.
+const newSetSchema = setSchema.extend({ shared: z.boolean().optional() })
 
 const cardSchema = z.object({
   term: z.string().min(1).max(300),
@@ -122,6 +126,7 @@ vocabRouter.get('/', async (req, res) => {
       id: set.id,
       title: set.title,
       personal: Boolean(set.ownerId),
+      shared: !set.ownerId,
       total: set._count.cards,
       due: duePerSet[set.id] ?? 0,
       ...(req.user.openSetIds && !set.ownerId && !req.user.openSetIds.includes(set.id) ? { locked: true } : {})
@@ -130,14 +135,21 @@ vocabRouter.get('/', async (req, res) => {
 })
 
 vocabRouter.post('/', requireRole('OWNER', 'TEACHER'), async (req, res) => {
-  const parsed = setSchema.safeParse(req.body)
+  const parsed = newSetSchema.safeParse(req.body)
   if (!parsed.success) return res.status(400).json({ error: 'Invalid data' })
 
   const set = await prisma.vocabSet.create({
-    data: { title: parsed.data.title, schoolId: req.user.schoolId },
+    data: { title: parsed.data.title, schoolId: req.user.schoolId, ownerId: parsed.data.shared ? null : req.user.id },
     select: { id: true, title: true }
   })
   res.status(201).json({ set })
+})
+
+// One's own set, made on first use — a student with nothing saved from the
+// board yet had nowhere to type their own words.
+vocabRouter.post('/my', async (req, res) => {
+  const set = await personalSet(req.user)
+  res.json({ set: { id: set.id, title: set.title } })
 })
 
 vocabRouter.get('/:id', async (req, res) => {
