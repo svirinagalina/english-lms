@@ -71,7 +71,7 @@ activityRouter.get('/people/:id', requireRole('OWNER', 'TEACHER'), async (req, r
     prisma.lessonMistake.findMany({ where: { studentId: user.id }, select: { practicedCorrect: true, lastPracticedAt: true, createdAt: true } }),
     prisma.vocabCard.count({ where: { set: { ownerId: user.id } } }),
     prisma.cardReview.findMany({ where: { studentId: user.id }, select: { streak: true, dueAt: true, lastResult: true } }),
-    prisma.classroom.findMany({ where: { studentId: user.id }, select: { id: true, teacher: { select: { name: true } }, sessions: { where: { counted: true }, select: { startedAt: true }, orderBy: { startedAt: 'desc' } }, document: { select: { updatedAt: true } } } }),
+    prisma.classroom.findMany({ where: { studentId: user.id }, select: { id: true, teacher: { select: { name: true } }, sessions: { where: { counted: true }, select: { startedAt: true }, orderBy: { startedAt: 'desc' } }, document: { select: { updatedAt: true } }, boards: { select: { id: true, title: true }, orderBy: { updatedAt: 'desc' }, take: 1 } } }),
     prisma.trialReport.findMany({ where: { studentId: user.id }, orderBy: { createdAt: 'desc' }, select: { id: true, createdAt: true, publishedAt: true, teacherLevel: true, generated: true, classroomId: true } })
   ])
 
@@ -129,7 +129,7 @@ activityRouter.get('/people/:id', requireRole('OWNER', 'TEACHER'), async (req, r
         held: sessions.length,
         last30: sessions.filter((s) => s.startedAt >= since).length,
         lastAt: sessions.sort((a, b) => b.startedAt - a.startedAt)[0]?.startedAt ?? null,
-        classrooms: classrooms.map((c) => ({ id: c.id, teacher: c.teacher?.name ?? null, writingUpdatedAt: c.document?.updatedAt ?? null }))
+        classrooms: classrooms.map((c) => ({ id: c.id, teacher: c.teacher?.name ?? null, writingUpdatedAt: c.document?.updatedAt ?? null, board: c.boards?.[0] ?? null }))
       }
     },
     ...extra,

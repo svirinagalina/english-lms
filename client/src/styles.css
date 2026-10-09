@@ -1804,9 +1804,10 @@ a:hover .gs-arrow { transform: translateX(5px); }
 .person-link { color: inherit; text-decoration: none; border-bottom: 1px dashed var(--muted); }
 .person-link:hover { color: var(--accent); border-bottom-color: var(--accent); }
 
-/* The person page's editor for a student's package, price and teachers. */
-.person-editor { border: 1px solid var(--border, rgba(255,255,255,.15)); border-radius: 14px; padding: 16px; margin-bottom: 16px; display: grid; gap: 14px; }
-.person-editor-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; align-items: end; }
-.person-editor-grid label { display: grid; gap: 4px; }
-.person-editor-check { display: flex !important; align-items: center; gap: 8px; }
-.person-editor-teachers { display: grid; gap: 8px; }
+/* Person page: a card that turns into a small form when clicked. */
+.activity-card.editable { cursor: pointer; transition: border-color .15s; }
+.activity-card.editable:hover { border-color: var(--accent, #f4b9d9); }
+.card-edit-form { display: grid; gap: 8px; }
+.card-edit-form label { display: grid; gap: 4px; font-size: 13px; }
+.card-edit-check { display: flex !important; align-items: center; gap: 8px; }
+.card-edit-check input { width: 16px; flex: none; margin: 0; }
