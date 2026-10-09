@@ -200,8 +200,10 @@ export default function Call() {
     const rawTrack = rawMicRef.current
     if (!rawTrack) return
     denoiserRef.current = null
-    cleaned?.stop()
+    // The new track goes out first, the old one is stopped after: a track
+    // ending while still sent makes the media server mute us (sfu.js).
     await swapOutgoingAudio(rawTrack)
+    cleaned?.stop()
     setNoiseState('browser')
     // The browser's own suppression is still on the plain microphone, so
     // nothing changes for the person: no message, only a note in the console.
@@ -1507,7 +1509,10 @@ export default function Call() {
   // The screen goes out in place of the camera on every connection (no
   // renegotiation needed); the camera comes back when sharing stops.
   const swapOutgoingVideo = async (track) => {
-    if (sfuRef.current && track) await sfuRef.current.setVideo(track).catch((err) => console.error('Media server: video not sent', err))
+    if (sfuRef.current && track) {
+      const isScreen = track === screenStreamRef.current?.getVideoTracks()[0]
+      await (isScreen ? sfuRef.current.setScreen(track) : sfuRef.current.setVideo(track)).catch((err) => console.error('Media server: video not sent', err))
+    }
     for (const pc of Object.values(connectionsRef.current)) {
       const sender = pc.getSenders().find((s) => s.track?.kind === 'video')
       if (sender && track) await sender.replaceTrack(track).catch(() => {})
@@ -1517,6 +1522,7 @@ export default function Call() {
   const stopSharing = async () => {
     const stream = screenStreamRef.current
     screenStreamRef.current = null
+    await sfuRef.current?.setScreen(null).catch(() => {})
     stream?.getTracks().forEach((t) => t.stop())
     setScreenStream(null)
     await swapOutgoingVideo(outgoingCameraTrack())
