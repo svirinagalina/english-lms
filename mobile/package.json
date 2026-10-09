@@ -3,8 +3,14 @@
   "private": true,
   "version": "1.0.0",
   "description": "Advent Academy LMS as a native iOS app (Capacitor shell around lms.advent-academy.online)",
+  "engines": {
+    "node": ">=22.0.0"
+  },
   "scripts": {
-    "sync": "cap sync ios",
+    "sync": "cap sync",
+    "sync:android": "cap sync android",
+    "sync:ios": "cap sync ios",
+    "build:android": "npm run sync:android && cd android && ./gradlew assembleDebug",
     "open": "cap open ios"
   },
   "dependencies": {
