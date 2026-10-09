@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="GradleSettings">
+    <option name="linkedExternalProjectsSettings">
+      <GradleProjectSettings>
+        <option name="externalProjectPath" value="$PROJECT_DIR$/mobile/android" />
+        <option name="gradleJvm" value="23" />
+        <option name="modules">
+          <set>
+            <option value="$PROJECT_DIR$/mobile/android" />
+            <option value="$PROJECT_DIR$/mobile/android/app" />
+            <option value="$PROJECT_DIR$/mobile/android/capacitor-cordova-android-plugins" />
+            <option value="$PROJECT_DIR$/mobile/node_modules/@capacitor/android/capacitor" />
+            <option value="$PROJECT_DIR$/mobile/node_modules/@capacitor/app/android" />
+            <option value="$PROJECT_DIR$/mobile/node_modules/@capacitor/push-notifications/android" />
+            <option value="$PROJECT_DIR$/mobile/node_modules/@capacitor/splash-screen/android" />
+            <option value="$PROJECT_DIR$/mobile/node_modules/@capacitor/status-bar/android" />
+          </set>
+        </option>
+      </GradleProjectSettings>
+    </option>
+  </component>
+</project>
