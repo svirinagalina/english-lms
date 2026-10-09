@@ -129,6 +129,19 @@ export default function PersonActivity() {
   const { user, sections, timeline, work, reports, billing, teachers, contacts, plan, teaching } = data
   const money = (cents, cur) => cents == null ? '—' : `${(cents / 100).toLocaleString('ru-RU')} ${cur === 'EUR' ? '€' : cur === 'USD' ? '$' : '₽'}`
   const { practice, mistakes, vocabulary, lessons } = work
+  // A section row opens that place for this student, where staff can see it.
+  const room = lessons.classrooms[0]
+  const boardRoom = lessons.classrooms.find((c) => c.board)
+  const sectionLink = (section) => ({
+    board: boardRoom ? `/classroom/${boardRoom.id}?board=${boardRoom.board.id}` : null,
+    call: room ? `/classroom/${room.id}` : null,
+    classroom: room ? `/classroom/${room.id}` : null,
+    writing: room ? `/classroom/${room.id}?writing=1` : null,
+    practice: user.role === 'STUDENT' ? `/progress/${user.id}` : null,
+    mistakes: user.role === 'STUDENT' ? `/progress/${user.id}` : null,
+    progress: user.role === 'STUDENT' ? `/progress/${user.id}` : null,
+    report: reports[0]?.generated ? `/report/${reports[0].id}` : null
+  })[section] ?? null
   const edit = { user, billing, teachers: teachers ?? [], isOwner, onSaved: load, onClose: () => setEditing(null) }
 
   return (
@@ -251,12 +264,18 @@ export default function PersonActivity() {
       <Panel id={`activity:sections:${id}`} title="Sections opened" hint="last 60 days" count={sections.length} defaultOpen>
         {sections.length === 0 && <p className="muted">Nothing recorded yet. Visits are recorded from 6 October 2026.</p>}
         <div className="list">
-          {sections.map((s) => (
-            <div key={s.section} className="row">
-              <div><strong>{label(s.section)}</strong><div className="muted">{s.visits} {s.visits === 1 ? 'visit' : 'visits'} on {s.days} {s.days === 1 ? 'day' : 'days'}</div></div>
-              <span className="muted">last {when(s.lastAt)}</span>
-            </div>
-          ))}
+          {sections.map((s) => {
+            const body = (
+              <>
+                <div><strong>{label(s.section)}</strong><div className="muted">{s.visits} {s.visits === 1 ? 'visit' : 'visits'} on {s.days} {s.days === 1 ? 'day' : 'days'}</div></div>
+                <span className="muted">last {when(s.lastAt)}{sectionLink(s.section) ? ' →' : ''}</span>
+              </>
+            )
+            const to = sectionLink(s.section)
+            return to
+              ? <Link key={s.section} className="row student-link" to={to} style={{ color: 'inherit', textDecoration: 'none' }}>{body}</Link>
+              : <div key={s.section} className="row">{body}</div>
+          })}
         </div>
       </Panel>
 
