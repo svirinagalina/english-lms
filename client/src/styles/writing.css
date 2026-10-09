@@ -182,3 +182,24 @@
 
 /* Vim normal/visual mode: a red caret says keys are commands, not text. */
 .writing-page.vim-normal { caret-color: #d0342c; }
+
+/* Someone else's highlight in the document (teacher ↔ student). */
+.writing-remote-sel {
+  position: absolute;
+  pointer-events: none;
+  background: rgba(255, 196, 0, 0.35);
+  border-radius: 2px;
+  z-index: 2;
+}
+.writing-remote-sel-name {
+  position: absolute;
+  bottom: 100%;
+  left: 0;
+  font-size: 11px;
+  line-height: 1;
+  padding: 2px 5px;
+  border-radius: 4px 4px 4px 0;
+  background: #e0a800;
+  color: #1c1c1c;
+  white-space: nowrap;
+}

@@ -511,6 +511,7 @@ export function setupSignaling(io) {
         if (typeof ack === 'function') ack({ error: 'Document not found' })
         return
       }
+      if (socket.data.docId) emitToWatchers(docWatchers, socket.data.docId, socket, 'doc:selection', { from: socket.id, gone: true })
       unwatch(docWatchers, socket.data.docId, socket)
       socket.data.docId = classroomId
       watch(docWatchers, classroomId, socket)
@@ -535,10 +536,23 @@ export function setupSignaling(io) {
       emitToWatchers(docWatchers, docId, socket, 'doc:update', { classroomId: docId, runs: parsed.data, from: socket.id })
     })
 
+    // What someone has highlighted in the document, so the other side sees
+    // the same words marked (a teacher pointing at a sentence). Offsets are
+    // into the document's text; nothing is stored.
+    socket.on('doc:selection', (raw) => {
+      const { docId } = socket.data
+      if (!docId) return
+      const start = Number(raw?.start)
+      const end = Number(raw?.end)
+      const valid = Number.isInteger(start) && Number.isInteger(end) && start >= 0 && end > start && end - start < 200_000
+      emitToWatchers(docWatchers, docId, socket, 'doc:selection', valid ? { from: socket.id, name: socket.data.name ?? user.name, start, end } : { from: socket.id, gone: true })
+    })
+
     // Opening and closing the document are private as well; a teacher's
     // open only tells later joiners which document to start on.
     socket.on('doc:close', () => {
       const { roomId } = socket.data
+      if (socket.data.docId) emitToWatchers(docWatchers, socket.data.docId, socket, 'doc:selection', { from: socket.id, gone: true })
       unwatch(docWatchers, socket.data.docId, socket)
       socket.data.docId = null
       if (!roomId || user.role === 'STUDENT') return
@@ -577,6 +591,7 @@ export function setupSignaling(io) {
     socket.on('disconnect', async () => {
       if (socket.data.boardId) emitToWatchers(boardWatchers, socket.data.boardId, socket, 'board:cursor', { from: socket.id, gone: true })
       unwatch(boardWatchers, socket.data.boardId, socket)
+      if (socket.data.docId) emitToWatchers(docWatchers, socket.data.docId, socket, 'doc:selection', { from: socket.id, gone: true })
       unwatch(docWatchers, socket.data.docId, socket)
       const { roomId, classroomId } = socket.data
       if (!roomId) return

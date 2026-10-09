@@ -18,13 +18,102 @@ const dayLabel = (d) => new Date(`${d}T12:00:00Z`).toLocaleDateString(undefined,
 
 // One person for the owner: when they were here, which sections they
 // opened, and what they did — practice, mistakes, words, lessons, reports.
+// The owner (or the student's teacher) fixes a student's package, price and
+// teachers right here instead of hunting through Payments and People.
+function StudentEditor({ user, billing, teachers, isOwner, onSaved, onClose }) {
+  const [form, setForm] = useState({
+    lessonsPaid: billing.lessonsPaid ?? '',
+    held: billing.held,
+    price: billing.priceAmount == null ? '' : String(billing.priceAmount / 100),
+    currency: billing.priceCurrency || 'RUB',
+    resetCounter: false
+  })
+  const [allTeachers, setAllTeachers] = useState([])
+  const [addTeacher, setAddTeacher] = useState('')
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState('')
+  useEffect(() => { if (isOwner) api.listTeachers().then(({ teachers }) => setAllTeachers(teachers)).catch(() => {}) }, [isOwner])
+  const set = (k) => (e) => setForm((f) => ({ ...f, [k]: e.target.type === 'checkbox' ? e.target.checked : e.target.value }))
+
+  const run = async (fn) => {
+    setBusy(true); setError('')
+    try { await fn(); await onSaved() } catch (err) { setError(err.message) } finally { setBusy(false) }
+  }
+  const save = (e) => {
+    e.preventDefault()
+    run(async () => {
+      const price = form.price.trim() === '' ? null : Math.round(Number(form.price.replace(',', '.')) * 100)
+      if (price != null && !Number.isFinite(price)) throw new Error('The price should be a number')
+      await api.updateStudentBilling(user.id, {
+        lessonsPaid: form.lessonsPaid === '' ? null : Number(form.lessonsPaid),
+        held: form.resetCounter ? 0 : Number(form.held),
+        priceAmount: price,
+        priceCurrency: form.currency,
+        resetCounter: form.resetCounter
+      })
+      onClose()
+    })
+  }
+  const others = allTeachers.filter((t) => !teachers.some((x) => x.id === t.id))
+
+  return (
+    <section className="person-editor">
+      <form className="person-editor-grid" onSubmit={save}>
+        <label>Lessons paid<input type="number" min="0" max="500" value={form.lessonsPaid} onChange={set('lessonsPaid')} placeholder="not set" /></label>
+        <label>Lessons held<input type="number" min="0" max="1000" value={form.resetCounter ? 0 : form.held} disabled={form.resetCounter} onChange={set('held')} /></label>
+        <label>Price per lesson
+          <span className="row-actions" style={{ gap: 6 }}>
+            <input inputMode="decimal" value={form.price} onChange={set('price')} placeholder="—" style={{ flex: 1, minWidth: 0 }} />
+            <select value={form.currency} onChange={set('currency')} style={{ width: 'auto' }}>
+              <option value="RUB">₽</option><option value="EUR">€</option><option value="USD">$</option>
+            </select>
+          </span>
+        </label>
+        <label className="person-editor-check"><input type="checkbox" checked={form.resetCounter} onChange={set('resetCounter')} style={{ width: 16, flex: 'none', margin: 0 }} /> New package from today (held starts at 0)</label>
+        <div className="row-actions">
+          <button type="submit" disabled={busy}>Save</button>
+          <button type="button" className="ghost" onClick={onClose}>Cancel</button>
+        </div>
+      </form>
+      {isOwner && (
+        <div className="person-editor-teachers">
+          <strong>Teachers</strong>
+          <div className="row-actions" style={{ flexWrap: 'wrap' }}>
+            {teachers.length === 0 && <span className="muted">none</span>}
+            {teachers.map((t) => (
+              <span key={t.id} className="activity-tag">{t.name}
+                <button type="button" className="ghost" style={{ padding: '0 6px', marginLeft: 4 }} disabled={busy} title="Remove this teacher"
+                  onClick={() => window.confirm(`Remove ${t.name} as ${user.name}'s teacher? Their lessons and boards stay.`) && run(() => api.unlinkStudent(t.id, user.id))}>✕</button>
+              </span>
+            ))}
+          </div>
+          {others.length > 0 && (
+            <div className="row-actions">
+              <select value={addTeacher} onChange={(e) => setAddTeacher(e.target.value)} style={{ width: 'auto' }}>
+                <option value="">Add a teacher…</option>
+                {others.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
+              </select>
+              <button type="button" disabled={!addTeacher || busy} onClick={() => run(async () => { await api.linkStudent(addTeacher, user.id); setAddTeacher('') })}>Add</button>
+            </div>
+          )}
+          <div className="muted">To change the teacher: add the new one, then remove the old one.</div>
+        </div>
+      )}
+      {error && <div className="error">{error}</div>}
+    </section>
+  )
+}
+
 export default function PersonActivity() {
   const { id } = useParams()
   const { user: me } = useAuth()
   const back = me?.role === 'OWNER' || me?.role === 'PARTNER' ? '/people' : '/classroom'
   const [data, setData] = useState(null)
   const [error, setError] = useState('')
-  useEffect(() => { api.activityPerson(id).then(setData).catch((err) => setError(err.message)) }, [id])
+  const load = () => api.activityPerson(id).then(setData).catch((err) => setError(err.message))
+  useEffect(() => { load() }, [id])
+  const [editing, setEditing] = useState(false)
+  const isOwner = me?.role === 'OWNER'
 
   if (error) return <div className="page"><Nav title="Activity" back={back} /><div className="error">{error}</div></div>
   if (!data) return <div className="centered">Loading…</div>
@@ -51,6 +140,14 @@ export default function PersonActivity() {
         </div>
       </div>
 
+      {billing && !editing && (
+        <div className="row-actions" style={{ justifyContent: 'flex-end', marginBottom: 8 }}>
+          <button type="button" onClick={() => setEditing(true)}>Edit package, price{isOwner ? ', teachers' : ''}</button>
+        </div>
+      )}
+      {billing && editing && (
+        <StudentEditor user={user} billing={billing} teachers={teachers ?? []} isOwner={isOwner} onSaved={load} onClose={() => setEditing(false)} />
+      )}
       {billing && (
         <div className="activity-cards">
           <div className="activity-card">

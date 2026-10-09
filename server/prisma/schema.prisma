@@ -68,6 +68,9 @@ model User {
   // Sessions held after packageStartedAt count against lessonsPaid.
   lessonsPaid      Int?
   packageStartedAt DateTime?
+  // Set by hand from the person page: added to the counted calls, so the
+  // "held" number can be corrected (a lesson held elsewhere, a test call).
+  heldAdjust       Int      @default(0)
   // When the student last pressed "I have paid" — the teacher confirms by hand.
   paymentReportedAt DateTime?
   // Which rouble card this student pays to: true = the after-trial card

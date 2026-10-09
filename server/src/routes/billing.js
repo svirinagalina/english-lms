@@ -27,6 +27,8 @@ const billingSchema = z.object({
   lessonsPaid: z.number().int().min(0).max(500).nullable(),
   // Count lessons from now on (a new package), instead of continuing the old count.
   resetCounter: z.boolean(),
+  // Lessons held in this package, as the owner corrects it by hand.
+  held: z.number().int().min(0).max(1000),
   payToTrialCard: z.boolean().nullable()
 })
 
@@ -38,8 +40,16 @@ const detailsSchema = z.object({
 const STUDENT_SELECT = {
   id: true, name: true, email: true,
   priceAmount: true, priceCurrency: true, paymentLink: true,
-  lessonsPaid: true, packageStartedAt: true, paymentReportedAt: true, payToTrialCard: true
+  lessonsPaid: true, packageStartedAt: true, heldAdjust: true, paymentReportedAt: true, payToTrialCard: true
 }
+
+export const countedCalls = (student) => prisma.session.count({
+  where: {
+    classroom: { studentId: student.id },
+    counted: true,
+    ...(student.packageStartedAt ? { startedAt: { gte: student.packageStartedAt } } : {})
+  }
+})
 
 // Lessons held since the package started, across every classroom of the
 // student (a call that reaches the student counts, wherever it was started).
@@ -50,14 +60,8 @@ async function withPackage(student) {
     ? Boolean(await prisma.trialReport.findFirst({ where: { studentId: student.id, publishedAt: { not: null } }, select: { id: true } }))
     : null
   student = { ...student, paysTrialCard: student.payToTrialCard ?? hadTrial, paysTrialCardAuto: student.payToTrialCard == null }
-  const held = await prisma.session.count({
-    where: {
-      classroom: { studentId: student.id },
-      counted: true,
-      ...(student.packageStartedAt ? { startedAt: { gte: student.packageStartedAt } } : {})
-    }
-  })
-  const { packageStartedAt, ...rest } = student
+  const held = await countedCalls(student) + (student.heldAdjust ?? 0)
+  const { packageStartedAt, heldAdjust, ...rest } = student
   return {
     ...rest,
     package: {
@@ -278,8 +282,12 @@ billingRouter.patch('/students/:id', requireRole('OWNER', 'TEACHER'), async (req
   const student = await reachableStudent(req.user, req.params.id)
   if (!student) return res.status(404).json({ error: 'Student not found' })
 
-  const { resetCounter, ...data } = parsed.data
-  if (resetCounter) data.packageStartedAt = new Date()
+  const { resetCounter, held, ...data } = parsed.data
+  if (resetCounter) { data.packageStartedAt = new Date(); data.heldAdjust = 0 }
+  if (held !== undefined) {
+    const calls = resetCounter ? 0 : await countedCalls(student)
+    data.heldAdjust = held - calls
+  }
   // A new package answers the student's "I have paid".
   if (resetCounter || data.lessonsPaid !== undefined) data.paymentReportedAt = null
 

@@ -164,13 +164,13 @@ async function studentExtras(user) {
   const student = await prisma.user.findUnique({
     where: { id: user.id },
     select: {
-      priceAmount: true, priceCurrency: true, lessonsPaid: true, packageStartedAt: true, paymentReportedAt: true, payToTrialCard: true,
+      priceAmount: true, priceCurrency: true, lessonsPaid: true, packageStartedAt: true, heldAdjust: true, paymentReportedAt: true, payToTrialCard: true,
       studentLinks: { select: { teacher: { select: { id: true, name: true } } } }
     }
   })
   const held = await prisma.session.count({
     where: { classroom: { studentId: user.id }, counted: true, ...(student.packageStartedAt ? { startedAt: { gte: student.packageStartedAt } } : {}) }
-  })
+  }) + student.heldAdjust
   const hadTrial = await prisma.trialReport.findFirst({ where: { studentId: user.id, publishedAt: { not: null } }, select: { id: true } })
   return {
     billing: {

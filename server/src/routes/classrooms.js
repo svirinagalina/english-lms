@@ -39,7 +39,7 @@ function packageProgress(student, sessions) {
   const since = student.packageStartedAt
   const held = sessions.filter(
     (session) => session.counted && (!since || session.startedAt >= since)
-  ).length
+  ).length + (student.heldAdjust ?? 0)
 
   return {
     lessonsPaid: student.lessonsPaid ?? null,
@@ -55,7 +55,7 @@ export async function accessibleClassroom(user, classroomId) {
     include: {
       teacher: { select: { id: true, name: true } },
       student: {
-        select: { id: true, name: true, lessonsPaid: true, packageStartedAt: true }
+        select: { id: true, name: true, lessonsPaid: true, packageStartedAt: true, heldAdjust: true }
       }
     }
   })
@@ -97,7 +97,7 @@ classroomsRouter.get('/', async (req, res) => {
     where,
     include: {
       teacher: { select: { id: true, name: true } },
-      student: { select: { id: true, name: true, lessonsPaid: true, packageStartedAt: true } },
+      student: { select: { id: true, name: true, lessonsPaid: true, packageStartedAt: true, heldAdjust: true } },
       sessions: { select: { id: true, startedAt: true, counted: true } },
       _count: { select: { boards: true } }
     },
@@ -501,7 +501,7 @@ classroomsRouter.patch('/:id/package', requireRole('OWNER', 'TEACHER'), async (r
     where: { id: classroom.studentId },
     data: {
       lessonsPaid: parsed.data.lessonsPaid,
-      ...(parsed.data.resetCounter ? { packageStartedAt: new Date() } : {})
+      ...(parsed.data.resetCounter ? { packageStartedAt: new Date(), heldAdjust: 0 } : {})
     }
   })
 

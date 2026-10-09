@@ -360,6 +360,59 @@ export default function Writing({ socketRef, classroomId, user, title, subtitle,
     caretRef.current = null
   })
 
+  // Our highlight goes to the others in the document (at most ~8 times a
+  // second while dragging); theirs is drawn over the page as a tinted band.
+  const sharedSelRef = useRef('')
+  const shareTimer = useRef(null)
+  const shareSelection = (sel) => {
+    clearTimeout(shareTimer.current)
+    shareTimer.current = setTimeout(() => {
+      const key = sel ? `${sel.start}:${sel.end}` : ''
+      if (key === sharedSelRef.current) return
+      sharedSelRef.current = key
+      socketRef.current?.emit('doc:selection', sel ?? {})
+    }, 120)
+  }
+  const [remoteSels, setRemoteSels] = useState({})
+  useEffect(() => {
+    const socket = socketRef.current
+    if (!socket) return
+    const onSel = ({ from, gone, name, start, end }) => {
+      if (from === socket.id) return
+      setRemoteSels((prev) => {
+        const next = { ...prev }
+        if (gone) delete next[from]
+        else next[from] = { name, start, end }
+        return next
+      })
+    }
+    socket.on('doc:selection', onSel)
+    return () => socket.off('doc:selection', onSel)
+  }, [socketRef, classroomId])
+  const [remoteRects, setRemoteRects] = useState([])
+  useLayoutEffect(() => {
+    const root = editorRef.current
+    const wrap = root?.parentElement
+    if (!root || !wrap) return
+    const draw = () => {
+      const base = wrap.getBoundingClientRect()
+      const total = root.textContent.length
+      const rects = []
+      for (const [id, sel] of Object.entries(remoteSels)) {
+        const range = sel.start < total ? rangeOf(root, sel.start, Math.min(sel.end, total)) : null
+        if (!range) continue
+        ;[...range.getClientRects()].filter((r) => r.width > 1).forEach((r, i) => rects.push({
+          key: `${id}:${i}`, label: i === 0 ? sel.name : null,
+          left: r.left - base.left + wrap.scrollLeft, top: r.top - base.top + wrap.scrollTop, width: r.width, height: r.height
+        }))
+      }
+      setRemoteRects(rects)
+    }
+    draw()
+    window.addEventListener('resize', draw)
+    return () => window.removeEventListener('resize', draw)
+  }, [remoteSels, runs])
+
   // The last place the caret was in the text, for tools that take focus
   // away (a file dialog, the screen picker) before they insert anything.
   const [selection, setSelection] = useState(null) // { start, end } while something is highlighted
@@ -371,9 +424,10 @@ export default function Writing({ socketRef, classroomId, user, title, subtitle,
       if (sel) lastSelRef.current = sel
       setSelection(sel && sel.end > sel.start ? sel : null)
       setCaretAt(sel && sel.end === sel.start ? sel.end : null)
+      shareSelection(sel && sel.end > sel.start ? sel : null)
     }
     document.addEventListener('selectionchange', onChange)
-    return () => document.removeEventListener('selectionchange', onChange)
+    return () => { document.removeEventListener('selectionchange', onChange); clearTimeout(shareTimer.current) }
   }, [])
   const currentSelection = () => {
     const root = editorRef.current
@@ -1073,6 +1127,11 @@ export default function Writing({ socketRef, classroomId, user, title, subtitle,
         </nav>
       )}
       <div className="writing-page-wrap" onClick={(e) => { if (e.target === e.currentTarget) setPopover(null) }}>
+        {remoteRects.map((r) => (
+          <div key={r.key} className="writing-remote-sel" style={{ left: r.left, top: r.top, width: r.width, height: r.height }}>
+            {r.label && <span className="writing-remote-sel-name">{r.label}</span>}
+          </div>
+        ))}
         <div
           ref={editorRef}
           className={`writing-page notranslate${vimOn && vimMode !== 'insert' ? ' vim-normal' : ''}`}
