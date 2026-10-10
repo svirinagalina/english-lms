@@ -1811,3 +1811,18 @@ a:hover .gs-arrow { transform: translateX(5px); }
 .card-edit-form label { display: grid; gap: 4px; font-size: 13px; }
 .card-edit-check { display: flex !important; align-items: center; gap: 8px; }
 .card-edit-check input { width: 16px; flex: none; margin: 0; }
+
+/* Student settings: lessons, payment and teachers, every field open. */
+.student-settings { border: 1px solid var(--border, rgba(255,255,255,.15)); border-radius: 14px; padding: 16px; margin-bottom: 16px; }
+.ss-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px; align-items: end; }
+.ss-grid label { display: grid; gap: 4px; font-size: 13px; min-width: 0; }
+.ss-left { font-size: 22px; font-weight: 700; padding: 6px 0; }
+.ss-left.out { color: #ff9b9b; }
+.ss-price { display: flex; gap: 6px; min-width: 0; width: 100%; }
+.ss-price input { flex: 1; min-width: 0; }
+.ss-price select { width: 64px; flex: none; }
+.ss-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 12px; }
+.ss-hint { font-size: 12px; margin: 10px 0; }
+.ss-teachers { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 14px; }
+.ss-teachers select { width: auto; }
+.ss-x { padding: 0 6px; margin-left: 4px; }

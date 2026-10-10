@@ -77,6 +77,7 @@ export const api = {
 
   myBilling: () => request('/billing/me'),
   billingStudents: () => request('/billing/students'),
+  billingStudent: (id) => request(`/billing/students/${id}`),
   eurRate: () => request('/billing/rates'),
   checkout: (plan) => request('/billing/checkout', { method: 'POST', body: { plan } }),
   verifyCheckout: (sessionId) => request(`/billing/checkout/verify?session_id=${encodeURIComponent(sessionId)}`),

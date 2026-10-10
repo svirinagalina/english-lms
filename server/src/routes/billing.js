@@ -29,6 +29,9 @@ const billingSchema = z.object({
   resetCounter: z.boolean(),
   // Lessons held in this package, as the owner corrects it by hand.
   held: z.number().int().min(0).max(1000),
+  // The day the package counts from (a lesson given on credit before the
+  // payment belongs to the new package: pick that lesson's day).
+  packageStartedAt: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).nullable(),
   payToTrialCard: z.boolean().nullable()
 })
 
@@ -260,6 +263,15 @@ billingRouter.post('/students/:id/seen', requireRole('OWNER', 'TEACHER'), async 
   res.json({ ok: true })
 })
 
+// One student's money and teachers, for the settings block shown in their
+// cabinet and on their person page.
+billingRouter.get('/students/:id', requireRole('OWNER', 'TEACHER'), async (req, res) => {
+  const student = await reachableStudent(req.user, req.params.id)
+  if (!student) return res.status(404).json({ error: 'Student not found' })
+  const links = await prisma.teacherStudent.findMany({ where: { studentId: student.id }, select: { teacher: { select: { id: true, name: true } } } })
+  res.json({ student: { ...(await withPackage(student)), teachers: links.map((l) => l.teacher) } })
+})
+
 billingRouter.get('/students', requireRole('OWNER', 'TEACHER'), async (req, res) => {
   const students = await prisma.user.findMany({
     where: {
@@ -282,10 +294,14 @@ billingRouter.patch('/students/:id', requireRole('OWNER', 'TEACHER'), async (req
   const student = await reachableStudent(req.user, req.params.id)
   if (!student) return res.status(404).json({ error: 'Student not found' })
 
-  const { resetCounter, held, ...data } = parsed.data
+  const { resetCounter, held, packageStartedAt, ...data } = parsed.data
+  // A date is the start of that day in Moscow time, where the school counts.
+  if (packageStartedAt !== undefined) data.packageStartedAt = packageStartedAt ? new Date(`${packageStartedAt}T00:00:00+03:00`) : null
   if (resetCounter) { data.packageStartedAt = new Date(); data.heldAdjust = 0 }
+  // A new start date with no held number: count the calls from that day as they are.
+  if (packageStartedAt !== undefined && held === undefined) data.heldAdjust = 0
   if (held !== undefined) {
-    const calls = resetCounter ? 0 : await countedCalls(student)
+    const calls = resetCounter ? 0 : await countedCalls({ ...student, packageStartedAt: data.packageStartedAt !== undefined ? data.packageStartedAt : student.packageStartedAt })
     data.heldAdjust = held - calls
   }
   // A new package answers the student's "I have paid".

@@ -3,6 +3,7 @@ import { Link, useParams } from 'react-router-dom'
 import { api } from '../api'
 import Nav from '../components/Nav'
 import Panel from '../components/Panel'
+import StudentSettings from '../components/StudentSettings'
 import { useAuth } from '../AuthContext'
 
 export const SECTION_LABELS = {
@@ -18,101 +19,6 @@ const dayLabel = (d) => new Date(`${d}T12:00:00Z`).toLocaleDateString(undefined,
 
 // One person for the owner: when they were here, which sections they
 // opened, and what they did — practice, mistakes, words, lessons, reports.
-// Clicking a card (package, lessons, price, teachers) turns it into a small
-// form in place: the owner, or the student's teacher, fixes it right here.
-function CardEditor({ kind, user, billing, teachers, isOwner, onSaved, onClose }) {
-  const [form, setForm] = useState({
-    lessonsPaid: billing.lessonsPaid ?? '',
-    held: billing.held,
-    price: billing.priceAmount == null ? '' : String(billing.priceAmount / 100),
-    currency: billing.priceCurrency || 'RUB',
-    resetCounter: false
-  })
-  const [allTeachers, setAllTeachers] = useState([])
-  const [addTeacher, setAddTeacher] = useState('')
-  const [busy, setBusy] = useState(false)
-  const [error, setError] = useState('')
-  useEffect(() => { if (kind === 'teachers' && isOwner) api.listTeachers().then(({ teachers }) => setAllTeachers(teachers)).catch(() => {}) }, [kind, isOwner])
-  const set = (k) => (e) => setForm((f) => ({ ...f, [k]: e.target.type === 'checkbox' ? e.target.checked : e.target.value }))
-  const run = async (fn, close = true) => {
-    setBusy(true); setError('')
-    try { await fn(); await onSaved(); if (close) onClose() } catch (err) { setError(err.message) } finally { setBusy(false) }
-  }
-  const save = (e) => {
-    e.preventDefault()
-    run(async () => {
-      if (kind === 'price') {
-        const price = form.price.trim() === '' ? null : Math.round(Number(form.price.replace(',', '.')) * 100)
-        if (price != null && !Number.isFinite(price)) throw new Error('The price should be a number')
-        await api.updateStudentBilling(user.id, { priceAmount: price, priceCurrency: form.currency })
-      } else {
-        await api.updateStudentBilling(user.id, {
-          lessonsPaid: form.lessonsPaid === '' ? null : Number(form.lessonsPaid),
-          held: form.resetCounter ? 0 : Number(form.held),
-          resetCounter: form.resetCounter
-        })
-      }
-    })
-  }
-  const actions = (
-    <div className="row-actions">
-      <button type="submit" disabled={busy}>Save</button>
-      <button type="button" className="ghost" onClick={onClose}>Cancel</button>
-    </div>
-  )
-  const others = allTeachers.filter((t) => !teachers.some((x) => x.id === t.id))
-
-  return (
-    <div className="activity-card card-edit" onClick={(e) => e.stopPropagation()}>
-      {kind === 'package' && (
-        <form onSubmit={save} className="card-edit-form">
-          <label>Lessons paid<input type="number" min="0" max="500" autoFocus value={form.lessonsPaid} onChange={set('lessonsPaid')} placeholder="not set" /></label>
-          <label>Lessons held<input type="number" min="0" max="1000" value={form.resetCounter ? 0 : form.held} disabled={form.resetCounter} onChange={set('held')} /></label>
-          <label className="card-edit-check"><input type="checkbox" checked={form.resetCounter} onChange={set('resetCounter')} /> New package from today</label>
-          {actions}
-        </form>
-      )}
-      {kind === 'price' && (
-        <form onSubmit={save} className="card-edit-form">
-          <label>Price per lesson
-            <span className="row-actions" style={{ gap: 6 }}>
-              <input inputMode="decimal" autoFocus value={form.price} onChange={set('price')} placeholder="—" style={{ flex: 1, minWidth: 0 }} />
-              <select value={form.currency} onChange={set('currency')} style={{ width: 'auto' }}>
-                <option value="RUB">₽</option><option value="EUR">€</option><option value="USD">$</option>
-              </select>
-            </span>
-          </label>
-          {actions}
-        </form>
-      )}
-      {kind === 'teachers' && (
-        <div className="card-edit-form">
-          <div className="muted">Teachers</div>
-          {teachers.length === 0 && <span className="muted">none</span>}
-          {teachers.map((t) => (
-            <div key={t.id} className="row" style={{ padding: 0 }}>
-              <strong>{t.name}</strong>
-              <button type="button" className="ghost" disabled={busy} title="Remove this teacher"
-                onClick={() => window.confirm(`Remove ${t.name} as ${user.name}'s teacher? Their lessons and boards stay.`) && run(() => api.unlinkStudent(t.id, user.id), false)}>✕</button>
-            </div>
-          ))}
-          {others.length > 0 && (
-            <div className="row-actions">
-              <select value={addTeacher} onChange={(e) => setAddTeacher(e.target.value)} style={{ flex: 1, minWidth: 0 }}>
-                <option value="">Add a teacher…</option>
-                {others.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
-              </select>
-              <button type="button" disabled={!addTeacher || busy} onClick={() => run(async () => { await api.linkStudent(addTeacher, user.id); setAddTeacher('') }, false)}>Add</button>
-            </div>
-          )}
-          <button type="button" className="ghost" onClick={onClose}>Done</button>
-        </div>
-      )}
-      {error && <div className="error">{error}</div>}
-    </div>
-  )
-}
-
 export default function PersonActivity() {
   const { id } = useParams()
   const { user: me } = useAuth()
@@ -121,13 +27,11 @@ export default function PersonActivity() {
   const [error, setError] = useState('')
   const load = () => api.activityPerson(id).then(setData).catch((err) => setError(err.message))
   useEffect(() => { load() }, [id])
-  const [editing, setEditing] = useState(null) // 'package' | 'price' | 'teachers'
   const isOwner = me?.role === 'OWNER'
 
   if (error) return <div className="page"><Nav title="Activity" back={back} /><div className="error">{error}</div></div>
   if (!data) return <div className="centered">Loading…</div>
   const { user, sections, timeline, work, reports, billing, teachers, contacts, plan, teaching } = data
-  const money = (cents, cur) => cents == null ? '—' : `${(cents / 100).toLocaleString('ru-RU')} ${cur === 'EUR' ? '€' : cur === 'USD' ? '$' : '₽'}`
   const { practice, mistakes, vocabulary, lessons } = work
   // A section row opens that place for this student, where staff can see it.
   const room = lessons.classrooms[0]
@@ -142,7 +46,6 @@ export default function PersonActivity() {
     progress: user.role === 'STUDENT' ? `/progress/${user.id}` : null,
     report: reports[0]?.generated ? `/report/${reports[0].id}` : null
   })[section] ?? null
-  const edit = { user, billing, teachers: teachers ?? [], isOwner, onSaved: load, onClose: () => setEditing(null) }
 
   return (
     <div className="page">
@@ -153,6 +56,12 @@ export default function PersonActivity() {
           <div className="muted">
             {user.role === 'STUDENT' && user.free ? 'Free app user' : user.role.toLowerCase()} · registered {date(user.createdAt)} · last seen {when(user.lastSeenAt)}
           </div>
+          {(contacts || plan?.plan) && (
+            <div className="muted">
+              {plan?.plan ? `${plan.plan} until ${date(plan.until)} · ` : ''}
+              {[contacts?.messenger, contacts?.phone, contacts?.city, contacts?.timezone].filter(Boolean).join(' · ') || 'no contacts given'}
+            </div>
+          )}
         </div>
         <div className="row-actions">
           {lessons.classrooms.map((c) => (
@@ -166,33 +75,7 @@ export default function PersonActivity() {
         </div>
       </div>
 
-      {billing && (
-        <div className="activity-cards">
-          {editing === 'package' ? <CardEditor kind="package" {...edit} /> : <div className="activity-card editable" role="button" tabIndex={0} title="Click to change" onClick={() => setEditing('package')}>
-            <div className="muted">Package</div>
-            <strong>{billing.lessonsPaid == null ? 'not set' : `${billing.remaining} of ${billing.lessonsPaid} left`}</strong>
-            <div className="muted">{billing.held} held{billing.packageStartedAt ? ` since ${date(billing.packageStartedAt)}` : ''}</div>
-          </div>}
-          {editing === 'price' ? <CardEditor kind="price" {...edit} /> : <div className="activity-card editable" role="button" tabIndex={0} title="Click to change" onClick={() => setEditing('price')}>
-            <div className="muted">Price</div>
-            <strong>{billing.priceAmount == null ? '—' : `${money(billing.priceAmount, billing.priceCurrency)} / lesson`}</strong>
-            <div className="muted">Rubles to: {billing.card === 'after-trial' ? 'after-trial card' : 'school card'}</div>
-          </div>}
-          <div className="activity-card">
-            <div className="muted">Payment</div>
-            <strong>{billing.paymentReportedAt ? `Says paid ${date(billing.paymentReportedAt)}` : 'Nothing reported'}</strong>
-            <div className="muted"><Link to="/billing">Open Payments</Link></div>
-          </div>
-          {editing === 'teachers' ? <CardEditor kind="teachers" {...edit} /> : <div className={`activity-card${isOwner ? ' editable' : ''}`} role={isOwner ? 'button' : undefined} tabIndex={isOwner ? 0 : undefined} title={isOwner ? 'Click to change' : undefined} onClick={() => isOwner && setEditing('teachers')}>
-            <div className="muted">Teachers{plan ? ' · plan' : ''}</div>
-            <strong>{teachers?.length ? teachers.map((t) => t.name).join(', ') : plan ? 'Free account' : '—'}</strong>
-            <div className="muted">
-              {plan?.plan ? `${plan.plan} until ${date(plan.until)} · ` : ''}
-              {[contacts?.messenger, contacts?.phone, contacts?.city, contacts?.timezone].filter(Boolean).join(' · ') || 'no contacts given'}
-            </div>
-          </div>}
-        </div>
-      )}
+      {billing && <StudentSettings studentId={user.id} onChanged={load} />}
 
       {teaching && (
         <>
@@ -239,7 +122,7 @@ export default function PersonActivity() {
       )}
 
       <div className="activity-cards">
-        <div className={`activity-card${billing ? ' editable' : ''}`} role={billing ? 'button' : undefined} tabIndex={billing ? 0 : undefined} title={billing ? 'Click to change paid / held lessons' : undefined} onClick={() => billing && setEditing('package')}>
+        <div className="activity-card">
           <div className="muted">Lessons</div>
           <strong>{lessons.held}</strong>
           <div className="muted">{lessons.last30} in 30 days · last {date(lessons.lastAt)}</div>
