@@ -19,14 +19,25 @@ import TrainerProgress from '../components/TrainerProgress'
 
 function PackagePanel({ classroom, onChanged }) {
   const [paid, setPaid] = useState(classroom.progress?.lessonsPaid ?? '')
+  const [held, setHeld] = useState(classroom.progress?.held ?? 0)
   const [error, setError] = useState('')
+  const [saved, setSaved] = useState('')
   const { progress } = classroom
+  useEffect(() => { setHeld(progress?.held ?? 0) }, [progress?.held])
 
+  // Paid and held both: "held" was only counted from calls, so a package
+  // restarted by mistake (or lessons held elsewhere) could not be put right.
   const save = async (resetCounter) => {
-    setError('')
+    setError(''); setSaved('')
     try {
-      await api.updatePackage(classroom.id, { lessonsPaid: paid === '' ? null : Number(paid), resetCounter })
+      await api.updateStudentBilling(classroom.studentId ?? classroom.student?.id, {
+        lessonsPaid: paid === '' ? null : Number(paid),
+        held: resetCounter ? 0 : Number(held) || 0,
+        resetCounter
+      })
       await onChanged()
+      setSaved(resetCounter ? 'New package started ✓' : 'Saved ✓')
+      setTimeout(() => setSaved(''), 3000)
     } catch (err) {
       setError(err.message)
     }
@@ -50,14 +61,18 @@ function PackagePanel({ classroom, onChanged }) {
         <div className="package-controls">
           <input
             type="number" min="0" placeholder="Lessons paid"
-            value={paid} onChange={(e) => setPaid(e.target.value)} style={{ width: 130 }}
+            value={paid} onChange={(e) => setPaid(e.target.value)} style={{ width: 110 }} title="Lessons paid"
           />
+          <label className="muted" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>held
+            <input type="number" min="0" value={held} onChange={(e) => setHeld(e.target.value)} style={{ width: 80 }} title="Lessons held in this package" />
+          </label>
           <button onClick={() => save(false)}>Save</button>
+          {saved && <span className="paid-badge active">{saved}</span>}
           <button className="ghost" onClick={() => save(true)}>Save and start new package</button>
         </div>
       </div>
       {progress.packageStartedAt && (
-        <p className="muted">Counting from {new Date(progress.packageStartedAt).toLocaleDateString()}</p>
+        <p className="muted">Counting from {new Date(progress.packageStartedAt).toLocaleDateString()} — lessons before that are not in this package; set “held” by hand if they should be.</p>
       )}
     </Panel>
   )
