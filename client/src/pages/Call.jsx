@@ -248,7 +248,9 @@ export default function Call() {
           reacquireMic()
           return
         }
-        setMediaWarning(/Mac/.test(navigator.platform)
+        setMediaWarning(isHandheld()
+          ? 'Your microphone sends no sound — another app is probably using it (a WhatsApp or phone call, a voice message). End that call or close the app: the sound comes back here by itself.'
+          : /Mac/.test(navigator.platform)
           ? 'Your microphone sends no sound. Try another one in More → Microphone. On a Mac also System Settings → Privacy & Security → Microphone → your browser is on, then reload this page.'
           : 'Your microphone sends no sound. Try another one in More → Microphone, or check that the right microphone is selected and not muted in system settings, then reload this page.')
       }
@@ -388,15 +390,23 @@ export default function Call() {
     // And all the time, not only on coming back: no microphone yet (it was
     // busy or refused at join), a capture that ended or stays muted.
     let mutedTicks = 0
+    let silentTicks = 0
     const watchdog = setInterval(() => {
       // A phone can't capture from a hidden page; a computer can.
       if ((isHandheld() && document.visibilityState !== 'visible') || micBusyRef.current) return
       const mic = rawMicRef.current
       if (!mic) { if (micLostRef.current) reacquireMic(); return }
       mutedTicks = mic.muted ? mutedTicks + 1 : 0
-      if (mic.readyState === 'ended' || mutedTicks >= 2) {
-        mutedTicks = 0
-        report(token, 'mic.revive', mic.readyState === 'ended' ? 'ended' : 'muted')
+      // Exact digital silence from a live capture: another app holds the
+      // microphone (a WhatsApp or phone call on Android — Marina,
+      // 2026-10-10). The page can't take it away; it asks again every ~12 s,
+      // so the sound comes back by itself as soon as that call ends.
+      const levels = denoiserRef.current?.levels()
+      silentTicks = micOnRef.current && levels?.state === 'running' && levels.raw === 0 ? silentTicks + 1 : 0
+      if (mic.readyState === 'ended' || mutedTicks >= 2 || silentTicks >= 4) {
+        const why = mic.readyState === 'ended' ? 'ended' : mutedTicks >= 2 ? 'muted' : 'silent'
+        mutedTicks = 0; silentTicks = 0
+        report(token, 'mic.revive', why)
         reacquireMic()
       }
     }, 3000)

@@ -29,7 +29,8 @@ export default function StudentSettings({ studentId, onChanged }) {
       from: dayOf(student.package.startedAt),
       price: student.priceAmount == null ? '' : String(student.priceAmount / 100),
       currency: student.priceCurrency || 'RUB',
-      card: student.paysTrialCardAuto ? 'auto' : student.payToTrialCard ? 'trial' : 'school'
+      card: student.paysTrialCardAuto ? 'auto' : student.payToTrialCard ? 'trial' : 'school',
+      link: student.paymentLink ?? ''
     })
   }).catch((err) => setError(err.message))
   useEffect(() => { load() }, [studentId])
@@ -57,7 +58,8 @@ export default function StudentSettings({ studentId, onChanged }) {
         ...(form.heldTouched || !fromChanged ? { held: Number(form.held) || 0 } : {}),
         priceAmount: price,
         priceCurrency: form.currency,
-        payToTrialCard: form.card === 'auto' ? null : form.card === 'trial'
+        payToTrialCard: form.card === 'auto' ? null : form.card === 'trial',
+        paymentLink: form.link.trim() === '' ? null : form.link.trim()
       })
       if (student.paymentReportedAt) await api.paymentSeen(studentId).catch(() => {})
     }, 'Saved ✓')
@@ -92,6 +94,7 @@ export default function StudentSettings({ studentId, onChanged }) {
               <option value="trial">After-trial card</option>
             </select>
           </label>
+          <label>Payment link (card abroad)<input type="url" value={form.link} onChange={set('link')} placeholder="https://buy.stripe.com/…" /></label>
         </div>
         <p className="muted ss-hint">
           Paid after a lesson given on credit? Set “Package counts from” to that lesson’s day — it is then counted in the new package.

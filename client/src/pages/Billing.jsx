@@ -5,7 +5,7 @@ import Nav from '../components/Nav'
 import Panel from '../components/Panel'
 import { parseDetails, serializeDetails, emptyDetails, formatCard } from '../utils/paymentDetails'
 import { SiteFooter } from '../components/Brand'
-import BillingEditor from '../components/BillingEditor'
+import StudentSettings from '../components/StudentSettings'
 import StudentPayment from '../components/StudentPayment'
 import { isNativeApp } from '../utils/native'
 import { PackageBadge } from '../components/PackageBadge'
@@ -93,21 +93,6 @@ export default function Billing() {
                       ` · ${formatPrice(student.priceAmount, student.priceCurrency)} per lesson`}
                   </div>
                   <PackageBadge pkg={student.package} />
-                  <label className="muted pay-card-choice">
-                    Rubles to:{' '}
-                    <select
-                      value={student.paysTrialCardAuto ? 'auto' : student.paysTrialCard ? 'trial' : 'school'}
-                      onChange={async (e) => {
-                        const v = e.target.value
-                        await api.updateStudentBilling(student.id, { payToTrialCard: v === 'auto' ? null : v === 'trial' })
-                        await refresh()
-                      }}
-                    >
-                      <option value="auto">Auto — {student.paysTrialCardAuto && student.paysTrialCard ? 'after-trial card' : 'school card'}</option>
-                      <option value="school">School card</option>
-                      <option value="trial">After-trial card</option>
-                    </select>
-                  </label>
                   {student.paymentReportedAt && (
                     <div className="paid-badge mid" style={{ marginLeft: 8 }}>
                       Says they paid on {new Date(student.paymentReportedAt).toLocaleDateString()}
@@ -124,14 +109,7 @@ export default function Billing() {
               </div>
 
               {editing === student.id && (
-                <BillingEditor
-                  student={student}
-                  onCancel={() => setEditing(null)}
-                  onSaved={async () => {
-                    setEditing(null)
-                    await refresh()
-                  }}
-                />
+                <StudentSettings studentId={student.id} onChanged={refresh} />
               )}
             </div>
           ))}
