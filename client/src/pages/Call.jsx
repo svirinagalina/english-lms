@@ -789,6 +789,7 @@ export default function Call() {
             url: access.url,
             token: access.token,
             onStream: (identity, name, stream) => setPeers((prev) => (!prev[identity] && !stream ? prev : { ...prev, [identity]: { ...(prev[identity] ?? { name, muted: false }), stream } })),
+            onLeft: (identity) => setPeers((prev) => { if (!prev[identity]) return prev; const next = { ...prev }; delete next[identity]; return next }),
             onState: (state) => { if (state !== 'connected') report(token, 'sfu.state', state, {}) }
           })
           if (disposed || socketRef.current !== forSocket || !forSocket.connected) { sfu.leave(); return }

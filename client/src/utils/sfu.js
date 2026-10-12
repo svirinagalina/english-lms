@@ -10,7 +10,7 @@ import { ParticipantEvent, Room, RoomEvent, Track, VideoPresets } from 'livekit-
 //
 // The tracks are ours (the denoiser's output, the blurred camera): LiveKit
 // never stops or restarts them, and leaving the room leaves them running.
-export async function joinSfu({ url, token, onStream, onState }) {
+export async function joinSfu({ url, token, onStream, onLeft, onState }) {
   // adaptiveStream would pause video for elements LiveKit doesn't attach
   // itself (our <video>s use srcObject), so it stays off; dynacast stops
   // sending simulcast layers nobody watches.
@@ -25,6 +25,10 @@ export async function joinSfu({ url, token, onStream, onState }) {
   }
   room.on(RoomEvent.TrackSubscribed, (_track, _pub, participant) => update(participant))
   room.on(RoomEvent.TrackUnsubscribed, (_track, _pub, participant) => update(participant))
+  // Someone gone from the media room (left, or an old copy of a person who
+  // reconnected, removed by the server): their tile goes too. Clearing only
+  // the picture left an empty "second Oleg" on the teacher's screen.
+  room.on(RoomEvent.ParticipantDisconnected, (participant) => onLeft?.(participant.identity))
   room.on(RoomEvent.ConnectionStateChanged, (state) => onState?.(state))
 
   await room.connect(url, token, { autoSubscribe: true })
