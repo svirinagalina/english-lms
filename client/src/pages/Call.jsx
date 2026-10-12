@@ -819,6 +819,12 @@ export default function Call() {
           report(token, 'sfu.on', 'connected', { ms: Math.round(performance.now() - t0), peers: peerCount, attempt })
         } catch (err) {
           report(token, 'sfu.failed', String(err?.message ?? err).slice(0, 120), { attempt })
+          // This page's code is older than the server's (a deploy since it was
+          // opened): its media-server part is gone — load the new version.
+          if (/dynamically imported module|Importing a module script failed|Failed to fetch dynamically/i.test(String(err?.message ?? err))) {
+            const { reloadForNewVersion } = await import('../utils/reload')
+            if (reloadForNewVersion()) return
+          }
           if (disposed || socketRef.current !== forSocket) return
           setMediaWarning(SFU_TROUBLE)
           if (attempt < 5) setTimeout(() => connectSfu(access, forSocket, peerCount, attempt + 1), 3000 * attempt)

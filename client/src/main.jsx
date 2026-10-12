@@ -10,6 +10,10 @@ import '@fontsource/inter/400-italic.css'
 import '@fontsource/inter/700-italic.css'
 import './styles.css'
 
+import { reloadForNewVersion } from './utils/reload'
+
+window.addEventListener('vite:preloadError', (event) => { if (reloadForNewVersion()) event.preventDefault() })
+
 ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>
     <BrowserRouter>
