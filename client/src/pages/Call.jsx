@@ -82,6 +82,7 @@ const deviceLine = () => `${navigator.userAgent.slice(0, 160)} · ${screen.width
 const report = (call, kind, message, details, thumb) => api.diag({ kind, message, details, device: deviceLine(), call, thumb })
 const RECONNECTING = 'Connection lost — reconnecting…'
 const SFU_TROUBLE = 'Cannot reach the call server — trying again… If it lasts, reload this page.'
+const WEAK_NET = 'Weak internet connection: the others’ video is lowered to keep the sound clear. Moving closer to the Wi‑Fi router or using a cable helps.'
 // A browser where the background blur once froze the call.
 const slowDevice = () => { try { return localStorage.getItem('call.slowDevice') === '1' } catch { return false } }
 const markSlowDevice = () => { try { localStorage.setItem('call.slowDevice', '1') } catch { /* private window */ } }
@@ -785,13 +786,28 @@ export default function Call() {
         try {
           // Loaded only for calls that use it (it is a big library).
           const { joinSfu } = await import('../utils/sfu')
+          let self = null
           const sfu = await joinSfu({
             url: access.url,
             token: access.token,
             onStream: (identity, name, stream) => setPeers((prev) => (!prev[identity] && !stream ? prev : { ...prev, [identity]: { ...(prev[identity] ?? { name, muted: false }), stream } })),
             onLeft: (identity) => setPeers((prev) => { if (!prev[identity]) return prev; const next = { ...prev }; delete next[identity]; return next }),
-            onState: (state) => { if (state !== 'connected') report(token, 'sfu.state', state, {}) }
+            onState: (state, info) => {
+              if (state !== 'connected') report(token, 'sfu.state', state, {})
+              // The media connection alone was lost (the socket is still up, so
+              // nothing else would rejoin): sound and picture stopped until a
+              // reload — Lubov twice on 2026-10-08. Joined again in a moment.
+              if (state === 'disconnected' && !info?.leaving) {
+                setTimeout(() => {
+                  if (disposed || socketRef.current !== forSocket || !forSocket.connected) return
+                  if (sfuRef.current && sfuRef.current !== self) return
+                  report(token, 'sfu.rejoin', 'lost', {})
+                  connectSfu(access, forSocket, peerCount, 1)
+                }, 1500)
+              }
+            }
           })
+          self = sfu
           if (disposed || socketRef.current !== forSocket || !forSocket.connected) { sfu.leave(); return }
           sfuRef.current?.leave()
           sfuRef.current = sfu
@@ -1400,11 +1416,43 @@ export default function Call() {
       } catch (err) { console.error('Relay switch failed:', err) }
     }
     const sfuPrev = {}
+    // Weak-connection mode: incoming sound loss measured every 10 s across
+    // everyone. Lubov (2026-10-08) lost 20–45% of what came in, and the
+    // voice broke up; the video is what gives way first now: lowered at
+    // 8% loss, paused at 20%, back one step after 30 s under 2%.
+    const weakPrev = {}
+    let weakLevel = 'high', badTicks = 0, goodTicks = 0
+    const checkWeak = async (sfu) => {
+      let lost = 0, got = 0
+      for (const identity of sfu.remoteIds()) {
+        const stats = await sfu.remoteReport(identity).catch(() => null)
+        stats?.forEach?.((item) => {
+          if (item.type !== 'inbound-rtp' || item.kind !== 'audio') return
+          const p = weakPrev[identity]
+          if (p) { lost += Math.max(0, (item.packetsLost ?? 0) - p.lost); got += Math.max(0, (item.packetsReceived ?? 0) - p.got) }
+          weakPrev[identity] = { lost: item.packetsLost ?? 0, got: item.packetsReceived ?? 0 }
+        })
+      }
+      if (got + lost < 50) return
+      const pct = (100 * lost) / (got + lost)
+      const target = pct >= 20 ? 'off' : pct >= 8 ? 'low' : null
+      const order = ['high', 'low', 'off']
+      if (target && order.indexOf(target) > order.indexOf(weakLevel)) { badTicks += 1; goodTicks = 0 } else if (pct < 2) { goodTicks += 1; badTicks = 0 } else { badTicks = 0; goodTicks = 0 }
+      let next = weakLevel
+      if (badTicks >= 2) { next = target; badTicks = 0 }
+      else if (goodTicks >= 3 && weakLevel !== 'high') { next = order[order.indexOf(weakLevel) - 1]; goodTicks = 0 }
+      if (next === weakLevel) return
+      weakLevel = next
+      sfu.setIncoming?.(next)
+      report(token, 'net.weak', next, { lossPct: Number(pct.toFixed(1)) })
+      setMediaWarning((w) => (next === 'high' ? (w === WEAK_NET ? '' : w) : (w ? w : WEAK_NET)))
+    }
     const timer = setInterval(async () => {
       let worst = null
       tick += 1
       // Through the media server: one record per person we receive, every 30 s.
       if (sfuRef.current) {
+        await checkWeak(sfuRef.current).catch(() => {})
         if (tick % 3) return
         const sfu = sfuRef.current
         const ids = sfu.remoteIds()

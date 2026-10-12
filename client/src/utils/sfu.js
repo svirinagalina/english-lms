@@ -1,4 +1,4 @@
-import { ParticipantEvent, Room, RoomEvent, Track, VideoPresets } from 'livekit-client'
+import { ParticipantEvent, Room, RoomEvent, Track, VideoPresets, VideoQuality } from 'livekit-client'
 
 // Calls through the media server (LiveKit on srv3, see server/src/sfu.js):
 // each person sends their sound and picture once, to the server, which
@@ -28,8 +28,23 @@ export async function joinSfu({ url, token, onStream, onLeft, onState }) {
   // Someone gone from the media room (left, or an old copy of a person who
   // reconnected, removed by the server): their tile goes too. Clearing only
   // the picture left an empty "second Oleg" on the teacher's screen.
+  // On a weak connection the others' cameras come in small ('low') or not
+  // at all ('off'), so what bandwidth there is goes to the sound. A shared
+  // screen is always kept. Applied to cameras that appear later as well.
+  let incoming = 'high'
+  const applyIncoming = (pub) => {
+    if (pub.kind !== Track.Kind.Video || pub.source === Track.Source.ScreenShare) return
+    try {
+      pub.setEnabled(incoming !== 'off')
+      if (incoming !== 'off') pub.setVideoQuality(incoming === 'low' ? VideoQuality.LOW : VideoQuality.HIGH)
+    } catch { /* not subscribed yet */ }
+  }
+  room.on(RoomEvent.TrackSubscribed, (_track, pub) => applyIncoming(pub))
   room.on(RoomEvent.ParticipantDisconnected, (participant) => onLeft?.(participant.identity))
-  room.on(RoomEvent.ConnectionStateChanged, (state) => onState?.(state))
+  // `leaving`: we closed it ourselves (left the call, a new socket id) —
+  // otherwise a 'disconnected' is a lost connection the page joins again.
+  let leaving = false
+  room.on(RoomEvent.ConnectionStateChanged, (state) => onState?.(state, { leaving }))
 
   await room.connect(url, token, { autoSubscribe: true })
 
@@ -104,7 +119,12 @@ export async function joinSfu({ url, token, onStream, onLeft, onState }) {
     outboundAudioReport: () => pubs.audio?.track?.getRTCStatsReport() ?? Promise.resolve(undefined),
     remoteReport,
     remoteIds: () => [...room.remoteParticipants.keys()],
+    setIncoming: (level) => {
+      if (level === incoming) return
+      incoming = level
+      room.remoteParticipants.forEach((p) => p.trackPublications.forEach(applyIncoming))
+    },
     // stopTracks=false: our tracks belong to the call page, not to LiveKit.
-    leave: () => room.disconnect(false)
+    leave: () => { leaving = true; return room.disconnect(false) }
   }
 }
