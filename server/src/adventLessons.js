@@ -331,6 +331,19 @@ export async function adventTrialReport(report) {
   } catch (error) { console.error('[advent] report', error.message) }
 }
 
+// A student who came through the Advent site (an ad, Maxim's bot): Advent
+// sells to them and sends them the report itself (Galina, 2026-10-13), so the
+// platform shows them no prices, no discount and no "Pay" — and mails no
+// report of its own.
+export async function bookedOnAdvent(studentId, callId = null) {
+  if (!studentId && !callId) return false
+  const row = await prisma.adventLesson.findFirst({
+    where: { OR: [...(studentId ? [{ studentUserId: studentId }] : []), ...(callId ? [{ callId }] : [])] },
+    select: { id: true }
+  })
+  return Boolean(row)
+}
+
 // --- The lesson links ----------------------------------------------------------
 
 // A token is a student's or a teacher's; an old `/?advent=<id>` link is the

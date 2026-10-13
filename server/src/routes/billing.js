@@ -6,6 +6,7 @@ import { sendPaymentReportedEmail } from '../mailer.js'
 import { offerLinks, stripeKey } from '../settings.js'
 import { OFFER_PLANS, discountActive } from '../offer.js'
 import { guardedFetch } from '../resilience.js'
+import { bookedOnAdvent } from '../adventLessons.js'
 
 export const billingRouter = Router()
 
@@ -227,7 +228,7 @@ billingRouter.get('/me', async (req, res) => {
       paymentReportedAt: view.paymentReportedAt,
       paymentDetails: (user.payToTrialCard ?? Boolean(trial)) ? withTrialCard(school.paymentDetails, school.trialPaymentDetails) : school.paymentDetails,
       schoolName: school.name,
-      trial: trial ? { reportId: trial.id, publishedAt: trial.publishedAt, level: trial.generated?.level ?? null, links: offerLinks() } : null
+      trial: trial && !(await bookedOnAdvent(user.id)) ? { reportId: trial.id, publishedAt: trial.publishedAt, level: trial.generated?.level ?? null, links: offerLinks() } : null
     }
   })
 })
