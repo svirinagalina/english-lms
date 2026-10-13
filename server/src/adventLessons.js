@@ -192,14 +192,15 @@ async function handle(event) {
     const moved = row.teacherId !== teacher.id || new Date(row.startsAt).getTime() !== fields.startsAt.getTime()
     let updated = await prisma.adventLesson.update({ where: { id: row.id }, data: { ...fields, status: 'scheduled', calendarEventId } })
     updated = await ensureStudent(await withTokens(updated), teacher.id)
-    if (moved) await tellTeacher(updated, true).catch((error) => console.error('[advent] tell teacher', error.message))
+    // Teachers are told and reminded by Advent's bot (teacher_notified,
+    // confirmation, 15/5-minute reminders) — no second notice from here.
     return [200, links(updated)]
   }
   const created = await prisma.adventLesson.create({ data: { ...fields, adventId, status: 'scheduled', studentToken: newToken(), teacherToken: newToken() } })
   const calendarEventId = await saveCalendar(null, lesson, teacher.id)
   let saved = await prisma.adventLesson.update({ where: { id: created.id }, data: { calendarEventId } })
   saved = await ensureStudent(saved, teacher.id).catch((error) => { console.error('[advent] student', error.message); return saved })
-  await tellTeacher(saved).catch((error) => console.error('[advent] tell teacher', error.message))
+
   return [200, links(saved)]
 }
 
@@ -414,7 +415,7 @@ lessonLinkRouter.get('/:token', async (req, res) => {
     // A student who already has an account of their own signs in with it.
     ownAccount: role === 'student' && student ? !student.viaLink : false,
     // The three days are over: the link no longer signs in, the page asks for an email and a password.
-    needsSignup: role === 'student' && Boolean(student?.viaLink && student.trialAccessUntil && student.trialAccessUntil < new Date()),
+    needsSignup: false,
     classroomId: row.classroomId,
     callToken: row.status === 'scheduled' ? await liveCallToken(row) : null,
     support: supportContact()
@@ -441,7 +442,6 @@ lessonLinkRouter.post('/:token/enter', express.json(), async (req, res) => {
   const student = row.studentUserId ? await prisma.user.findUnique({ where: { id: row.studentUserId } }) : null
   if (!student) return res.status(404).json({ error: 'Ученик не найден' })
   if (!student.viaLink) return res.status(409).json({ error: 'У вас уже есть аккаунт — войдите в него, урок будет в кабинете', ownAccount: true })
-  if (student.trialAccessUntil && student.trialAccessUntil < new Date()) return res.status(403).json({ error: 'Чтобы продолжить, придумайте почту и пароль', needsSignup: true })
   if (!student.trialAccessUntil) await applyTrialAccess(row, student)
   const name = String(req.body?.name ?? '').trim().slice(0, 80)
   if (name && name !== student.name) await prisma.user.update({ where: { id: student.id }, data: { name } })
@@ -544,7 +544,10 @@ async function sweepTrialAccess() {
 }
 
 export function startAdventJobs() {
-  const run = () => { sweepNoShows().catch((e) => console.error('[advent] sweep', e.message)); sweepTrialAccess() }
+  // Both off until agreed with Maxim: Advent has its own "didn't come" job
+  // (one place must decide — it sets teachers' pay), and what happens after
+  // the three trial days is not decided yet.
+  const run = () => {}
   setTimeout(run, 60_000)
   setInterval(run, 5 * 60_000)
 }

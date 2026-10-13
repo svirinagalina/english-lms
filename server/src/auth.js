@@ -47,7 +47,11 @@ async function userFromCookie(req) {
 
 // A trial-link account (no email/password of its own) past its three days:
 // everything waits for the sign-up, except finding out who one is.
-export const mustSignUp = (user) => Boolean(user?.viaLink && user.trialAccessUntil && user.trialAccessUntil < new Date())
+// Off (Galina, 2026-10-13: an email and a password only for those who pay —
+// the teacher invites them). Kept switchable until the post-trial concept is
+// agreed with Maxim's CRM.
+const SIGN_UP_GATE = false
+export const mustSignUp = (user) => SIGN_UP_GATE && Boolean(user?.viaLink && user.trialAccessUntil && user.trialAccessUntil < new Date())
 export const SIGN_UP_NEEDED = { error: 'Чтобы продолжить заниматься, придумайте почту и пароль', needsSignup: true }
 
 export async function requireAuth(req, res, next) {
