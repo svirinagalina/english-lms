@@ -414,6 +414,7 @@ lessonLinkRouter.get('/:token', async (req, res) => {
     callToken: row.status === 'scheduled' ? await liveCallToken(row) : null,
     // For Advent's bot: stop the discount reminders once the student has paid.
     paid: Boolean(student?.lessonsPaid > 0),
+    lessonsPaid: student?.lessonsPaid > 0 ? student.lessonsPaid : 0,
     support: supportContact()
   })
 })
