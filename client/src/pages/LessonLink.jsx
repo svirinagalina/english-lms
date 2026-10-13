@@ -60,7 +60,8 @@ export default function LessonLink() {
   // ?to=/report/<id>: the trial report, sent by Advent through this link.
   const [params] = useSearchParams()
   const to = params.get('to')
-  const safeTo = to && /^\/report\/[A-Za-z0-9_-]+$/.test(to) ? to : null
+  // ?to=/billing: the bot's «Оплатить» button, straight to Payment.
+  const safeTo = to && (/^\/report\/[A-Za-z0-9_-]+$/.test(to) || to === '/billing') ? to : null
   const [info, setInfo] = useState(null)
   const [error, setError] = useState('')
   const [name, setName] = useState('')
