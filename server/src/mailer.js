@@ -213,3 +213,20 @@ export function sendAdventLessonEmail({ to, teacherName, what, who, when, link, 
   const text = `${title}\n${moved ? 'Урок перенесли' : 'К вам записались'}: ${who}, ${when}.${telegram ? `\nTelegram ученика: ${telegram}` : ''}\nВ назначенное время откройте ссылку и нажмите Trial lesson: ${link}`
   return send({ to, subject: title, html, text })
 }
+
+// A trial lesson booked on the Advent site, for the student (when they gave
+// an email): the time and their personal link — next to the Telegram bot's
+// message, so the link arrives even if Telegram doesn't.
+export function sendLessonLinkEmail({ to, name, what, teacher, when, link }) {
+  const html = `
+<div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;max-width:520px;margin:0 auto;padding:32px 24px;color:#14453f">
+  <div style="font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:#b5539a;font-weight:700">Advent Academy</div>
+  <h1 style="font-size:22px;margin:8px 0 16px">${escapeHtml(name || 'Здравствуйте')}, вы записаны: ${escapeHtml(what.toLowerCase())}</h1>
+  <p style="font-size:15px;line-height:1.55;margin:0 0 8px"><strong>${escapeHtml(when)}</strong>${teacher ? `, преподаватель — ${escapeHtml(teacher)}` : ''}.</p>
+  <p style="font-size:15px;line-height:1.55;margin:0 0 20px">Регистрироваться не нужно: в назначенное время откройте ссылку, введите имя — и вы в классе. Урок идёт в браузере, с компьютера или телефона, лучше в наушниках.</p>
+  <p style="margin:0 0 20px"><a href="${escapeHtml(link)}" style="display:inline-block;background:#14453f;color:#fff;text-decoration:none;padding:12px 22px;border-radius:8px;font-weight:600;font-size:15px">Войти на урок</a></p>
+  <p style="font-size:13px;color:#5f7a74;line-height:1.5;margin:0">Сохраните это письмо — ссылка не изменится.</p>
+</div>`
+  const text = `Вы записаны: ${what}, ${when}${teacher ? `, преподаватель — ${teacher}` : ''}.\nРегистрироваться не нужно: откройте ссылку в назначенное время, введите имя — и вы в классе.\n${link}`
+  return send({ to, subject: `${what} — ${when}`, html, text })
+}

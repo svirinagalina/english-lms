@@ -4,7 +4,7 @@ import { prisma } from './db.js'
 import { guardedFetch } from './resilience.js'
 import { hashPassword, issueToken, completeSignup } from './auth.js'
 import { ensureClassroom } from './routes/classrooms.js'
-import { sendAdventLessonEmail } from './mailer.js'
+import { sendAdventLessonEmail, sendLessonLinkEmail } from './mailer.js'
 import { notify } from './push.js'
 import { supportContact } from './settings.js'
 
@@ -200,6 +200,12 @@ async function handle(event) {
   const calendarEventId = await saveCalendar(null, lesson, teacher.id)
   let saved = await prisma.adventLesson.update({ where: { id: created.id }, data: { calendarEventId } })
   saved = await ensureStudent(saved, teacher.id).catch((error) => { console.error('[advent] student', error.message); return saved })
+  // The link by email too, when the student gave one (optional at booking).
+  if (saved.studentEmail && !saved.isTest) {
+    const teacherName = (await prisma.user.findUnique({ where: { id: teacher.id }, select: { name: true } }))?.name
+    sendLessonLinkEmail({ to: saved.studentEmail, name: saved.studentName, what: saved.kind === 'trial' ? 'Пробный урок' : 'Урок', teacher: teacherName, when: `${MSK(saved.startsAt)} (МСК)`, link: links(saved).student_join_url })
+      .catch((error) => console.error('[advent] student email', error.message))
+  }
 
   return [200, links(saved)]
 }
