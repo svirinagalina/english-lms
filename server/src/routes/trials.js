@@ -143,6 +143,12 @@ trialsRouter.post('/:id/publish', requireRole('OWNER', 'TEACHER'), async (req, r
   const publishing = !req.body?.unpublish
   const updated = await prisma.trialReport.update({ where: { id: report.id }, data: { publishedAt: publishing ? new Date() : null } })
   if (publishing) adventTrialReport(updated).catch(() => {})
+  // The report's discount runs three days from now; a trial student's access
+  // to the platform lasts at least as long (one date for them, not two).
+  if (publishing) {
+    const until = new Date(Date.now() + 3 * 86400000)
+    await prisma.user.updateMany({ where: { id: report.studentId, trialAccessUntil: { not: null, lt: until } }, data: { trialAccessUntil: until } }).catch(() => {})
+  }
   // The student gets the report by email the moment it is published.
   let mailed = false
   if (publishing) {
