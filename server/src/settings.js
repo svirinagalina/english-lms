@@ -66,6 +66,14 @@ export async function saveSfuSwitch(on) {
   await prisma.platformSetting.upsert({ where: { key: 'calls.sfu' }, create: { key: 'calls.sfu', value: on ? 'on' : 'off' }, update: { value: on ? 'on' : 'off' } })
   return loadAiSettings()
 }
+// Who a student waiting for a late teacher should write to (Settings).
+const support = { contact: null }
+export const supportContact = () => support.contact
+export async function saveSupportContact(contact) {
+  const value = String(contact ?? '').trim().slice(0, 200)
+  await prisma.platformSetting.upsert({ where: { key: 'support.contact' }, create: { key: 'support.contact', value }, update: { value } })
+  return loadAiSettings()
+}
 export const offerLinks = () => ({ ...offer })
 export async function saveOfferLinks({ solo, mentor }) {
   const writes = []
@@ -77,7 +85,7 @@ export async function saveOfferLinks({ solo, mentor }) {
 }
 
 export async function loadAiSettings() {
-  const rows = await prisma.platformSetting.findMany({ where: { key: { in: ['ai.provider', 'ai.key', 'ai.model', 'offer.solo', 'offer.mentor', 'stripe.key', 'advent.key', 'apns.config', 'calls.sfu'] } } })
+  const rows = await prisma.platformSetting.findMany({ where: { key: { in: ['ai.provider', 'ai.key', 'ai.model', 'offer.solo', 'offer.mentor', 'stripe.key', 'advent.key', 'apns.config', 'calls.sfu', 'support.contact'] } } })
   const map = Object.fromEntries(rows.map((r) => [r.key, r.value]))
   offer.solo = map['offer.solo'] || null
   offer.mentor = map['offer.mentor'] || null
@@ -85,6 +93,7 @@ export async function loadAiSettings() {
   try { advent.key = map['advent.key'] ? decrypt(map['advent.key']) : null } catch { advent.key = null }
   try { apns.config = map['apns.config'] ? JSON.parse(decrypt(map['apns.config'])) : null } catch { apns.config = null }
   calls.sfu = map['calls.sfu'] === 'on'
+  support.contact = map['support.contact'] || null
   ai.provider = map['ai.provider'] ?? null
   ai.model = map['ai.model'] || null
   try { ai.key = map['ai.key'] ? decrypt(map['ai.key']) : null } catch { ai.key = null }

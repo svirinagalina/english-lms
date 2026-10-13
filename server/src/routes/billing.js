@@ -307,6 +307,8 @@ billingRouter.patch('/students/:id', requireRole('OWNER', 'PARTNER', 'TEACHER'),
   }
   // A new package answers the student's "I have paid".
   if (resetCounter || data.lessonsPaid !== undefined) data.paymentReportedAt = null
+  // Paid lessons lift a trial student's three-day limit.
+  if (data.lessonsPaid > 0) { data.free = false; data.trialAccessUntil = null }
 
   const updated = await prisma.user.update({ where: { id: student.id }, data, select: STUDENT_SELECT })
   res.json({ student: await withPackage(updated) })

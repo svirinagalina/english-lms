@@ -67,6 +67,15 @@ export default function Settings() {
     setCallsError('')
     try { setCalls(await api.saveCallSettings({ sfu: on })) } catch (err) { setCallsError(err.message) }
   }
+  // Shown to a student whose teacher is more than 5 minutes late.
+  const [support, setSupport] = useState('')
+  const [supportSaved, setSupportSaved] = useState(false)
+  useEffect(() => { api.supportSettings().then(({ contact }) => setSupport(contact ?? '')).catch(() => {}) }, [])
+  const saveSupport = async (event) => {
+    event.preventDefault()
+    await api.saveSupportSettings(support)
+    setSupportSaved(true); setTimeout(() => setSupportSaved(false), 2500)
+  }
   const saveTrainer = async (event) => {
     event.preventDefault()
     setTrainerNotice(''); setTrainerError(''); setTrainerBusy(true)
@@ -155,6 +164,16 @@ export default function Settings() {
           {callsError && <div className="error">{callsError}</div>}
         </section>
       )}
+
+      <section>
+        <h2>Help for students</h2>
+        <form className="inline-form" onSubmit={saveSupport}>
+          <input value={support} onChange={(e) => setSupport(e.target.value)} placeholder="e.g. Максим: +7 900 000-00-00, Telegram @…" maxLength={200} />
+          <button type="submit">Save</button>
+          {supportSaved && <span className="paid-badge active">Saved ✓</span>}
+        </form>
+        <p className="muted small-hint">A student waiting for a trial lesson sees this if the teacher is more than 5 minutes late: «Преподаватель задерживается или технические неполадки — напишите: …».</p>
+      </section>
 
       <section>
         <h2>AI assistant</h2>

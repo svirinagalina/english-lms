@@ -44,11 +44,13 @@ import TrialReportsPage from './pages/TrialReportsPage'
 import Courses from './pages/Courses'
 import Course from './pages/Course'
 import LessonLink from './pages/LessonLink'
+import FinishSignup from './pages/FinishSignup'
 
 function RequireAuth({ children, roles }) {
   const { user, loading } = useAuth()
   if (loading) return <div className="centered">Loading…</div>
   if (!user) return <Navigate to="/login" replace />
+  if (user.needsSignup) return <Navigate to="/finish-signup" replace />
   if (roles && !roles.includes(user.role)) return <Navigate to="/" replace />
   return children
 }
@@ -63,6 +65,7 @@ function HomeRoute() {
   if (params.get('advent')) return <Navigate to={`/lesson/${encodeURIComponent(params.get('advent'))}`} replace />
   if (loading) return <div className="centered">Loading…</div>
   if (!user) return isNativeApp() ? <Navigate to="/login" replace /> : <Landing />
+  if (user.needsSignup) return <Navigate to="/finish-signup" replace />
   return <Classrooms />
 }
 
@@ -142,6 +145,7 @@ export default function App() {
       <Route path="/join/:token" element={user ? <Navigate to="/" replace /> : <Join />} />
       <Route path="/call/:token" element={<Call />} />
       <Route path="/lesson/:token" element={<LessonLink />} />
+      <Route path="/finish-signup" element={<FinishSignup />} />
       <Route path="/" element={<HomeRoute />} />
       <Route path="/plans" element={<RequireAuth><Plans /></RequireAuth>} />
       <Route path="/classroom" element={<RequireAuth><Classrooms /></RequireAuth>} />

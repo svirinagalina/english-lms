@@ -15,6 +15,11 @@ async function request(path, options = {}) {
   }
   // Something the free tier doesn't include: the page shows the trial-lesson
   // offer (TrialOffer, mounted once in App) on top of whatever it does.
+  // A trial-link account past its three days: the sign-up page first.
+  if (response.status === 403 && data.needsSignup && !window.location.pathname.startsWith('/finish-signup') && !window.location.pathname.startsWith('/lesson/')) {
+    window.location.assign('/finish-signup')
+    return new Promise(() => {})
+  }
   if (response.status === 403 && data.locked) window.dispatchEvent(new CustomEvent('trial-offer', { detail: { feature: data.feature ?? null } }))
   if (!response.ok) {
     const error = new Error(data.error ?? 'Request failed')
@@ -78,7 +83,9 @@ export const api = {
   myBilling: () => request('/billing/me'),
   billingStudents: () => request('/billing/students'),
   billingStudent: (id) => request(`/billing/students/${id}`),
-  lessonLink: (token) => request(`/lesson-link/${encodeURIComponent(token)}`),
+  lessonLink: (token, waiting = false) => request(`/lesson-link/${encodeURIComponent(token)}${waiting ? '?waiting=1' : ''}`),
+  registerLessonLink: (token, body) => request(`/lesson-link/${encodeURIComponent(token)}/register`, { method: 'POST', body }),
+  finishSignup: (body) => request('/auth/finish-signup', { method: 'POST', body }),
   enterLessonLink: (token, name) => request(`/lesson-link/${encodeURIComponent(token)}/enter`, { method: 'POST', body: { name } }),
   eurRate: () => request('/billing/rates'),
   checkout: (plan) => request('/billing/checkout', { method: 'POST', body: { plan } }),
@@ -169,6 +176,8 @@ export const api = {
   activityMe: () => request('/stats/activity/me'),
   aiSettings: () => request('/settings/ai'),
   callSettings: () => request('/settings/calls'),
+  supportSettings: () => request('/settings/support'),
+  saveSupportSettings: (contact) => request('/settings/support', { method: 'PUT', body: { contact } }),
   saveCallSettings: (body) => request('/settings/calls', { method: 'PUT', body }),
   offerLinks: () => request('/settings/offer'),
   saveOfferLinks: (body) => request('/settings/offer', { method: 'PUT', body }),

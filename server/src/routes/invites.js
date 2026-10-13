@@ -15,7 +15,10 @@ const inviteSchema = z.object({
   email: z.string().trim().toLowerCase().email(),
   role: z.enum(['TEACHER', 'STUDENT']),
   // Which teacher the invited student will be linked to. Defaults to the inviter.
-  teacherId: z.string().optional()
+  teacherId: z.string().optional(),
+  // A student already here from a trial lesson link: the invitation gives
+  // that same account an email and a password (the board stays theirs).
+  userId: z.string().optional()
 })
 
 const acceptSchema = z.object({
@@ -74,9 +77,22 @@ invitesRouter.post('/token/:token/accept', async (req, res) => {
   if (invite.expiresAt < new Date()) return res.status(410).json({ error: 'This invitation has expired' })
 
   const existing = await prisma.user.findUnique({ where: { email: invite.email } })
-  if (existing) return res.status(409).json({ error: 'An account with this email already exists' })
+  if (existing && existing.id !== invite.userId) return res.status(409).json({ error: 'An account with this email already exists' })
 
   const passwordHash = await hashPassword(parsed.data.password)
+
+  // The trial-link account takes the email and the password.
+  if (invite.userId) {
+    const user = await prisma.$transaction(async (tx) => {
+      const updated = await tx.user.update({ where: { id: invite.userId }, data: { email: invite.email, passwordHash, viaLink: false } })
+      await tx.teacherStudent.upsert({ where: { teacherId_studentId: { teacherId: invite.invitedById, studentId: updated.id } }, create: { teacherId: invite.invitedById, studentId: updated.id }, update: {} })
+      await tx.invite.update({ where: { id: invite.id }, data: { acceptedAt: new Date() } })
+      return updated
+    })
+    enrollStudent(user.email, user.name)
+    issueToken(res, user)
+    return res.status(201).json({ user: { id: user.id, name: user.name, email: user.email, role: user.role, schoolId: user.schoolId } })
+  }
 
   const user = await prisma.$transaction(async (tx) => {
     const created = await tx.user.create({
@@ -143,10 +159,17 @@ invitesRouter.post('/', requireRole('OWNER', 'TEACHER'), async (req, res) => {
     return res.status(400).json({ error: 'Invalid data', details: parsed.error.flatten().fieldErrors })
   }
 
-  const { name, email, role, teacherId } = parsed.data
+  const { name, email, role, teacherId, userId } = parsed.data
 
   if (role === 'TEACHER' && !isAdmin(req.user)) {
     return res.status(403).json({ error: 'Only the school owner can invite teachers' })
+  }
+
+  let trialAccount = null
+  if (userId) {
+    trialAccount = await prisma.user.findFirst({ where: { id: userId, schoolId: req.user.schoolId, role: 'STUDENT', viaLink: true } })
+    if (!trialAccount) return res.status(404).json({ error: 'Student not found' })
+    if (!isAdmin(req.user) && !(await prisma.teacherStudent.findFirst({ where: { teacherId: req.user.id, studentId: userId } }))) return res.status(404).json({ error: 'Student not found' })
   }
 
   const existing = await prisma.user.findUnique({ where: { email } })
@@ -178,7 +201,8 @@ invitesRouter.post('/', requireRole('OWNER', 'TEACHER'), async (req, res) => {
       role,
       expiresAt,
       schoolId: req.user.schoolId,
-      invitedById: inviterId
+      invitedById: inviterId,
+      userId: trialAccount?.id ?? null
     },
     include: { invitedBy: { select: { id: true, name: true } } }
   })

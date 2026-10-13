@@ -90,6 +90,10 @@ model User {
   // Made for a lesson booked on the Advent site: signs in by its lesson link
   // (no password of its own until they set one with "Forgot password").
   viaLink          Boolean   @default(false)
+  // After a trial booked on the Advent site: everything is open until then;
+  // afterwards a lesson-link account must sign up (email + password) and,
+  // without paid lessons, is on the free tier.
+  trialAccessUntil DateTime?
   emailVerifications EmailVerification[]
   trialRequestedAt DateTime?
   trialRequestNote String?
@@ -339,6 +343,9 @@ model Invite {
   createdAt DateTime  @default(now())
   expiresAt DateTime
   acceptedAt DateTime?
+  // Inviting a student who already has an account from a trial lesson link:
+  // accepting gives that account the email and password (board and history stay).
+  userId     String?
 
   schoolId String
   school   School @relation(fields: [schoolId], references: [id], onDelete: Cascade)
@@ -796,6 +803,8 @@ model AdventLesson {
   teacherToken    String?   @unique
   studentUserId   String?
   teacherNotifiedAt DateTime?
+  // The student opened the waiting room (for "who didn't come").
+  studentWaitingAt DateTime?
   calendarEventId String?
   callId          String?   @unique
   classroomId     String?

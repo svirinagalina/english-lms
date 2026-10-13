@@ -41,15 +41,35 @@ async function userFromCookie(req) {
   }
   return prisma.user.findUnique({
     where: { id: payload.sub },
-    select: { id: true, role: true, schoolId: true, free: true, plan: true, planUntil: true }
+    select: { id: true, role: true, schoolId: true, free: true, plan: true, planUntil: true, viaLink: true, trialAccessUntil: true }
   })
 }
+
+// A trial-link account (no email/password of its own) past its three days:
+// everything waits for the sign-up, except finding out who one is.
+export const mustSignUp = (user) => Boolean(user?.viaLink && user.trialAccessUntil && user.trialAccessUntil < new Date())
+export const SIGN_UP_NEEDED = { error: 'Чтобы продолжить заниматься, придумайте почту и пароль', needsSignup: true }
 
 export async function requireAuth(req, res, next) {
   const user = await userFromCookie(req)
   if (!user) return res.status(401).json({ error: 'Not authenticated' })
+  if (mustSignUp(user) && !(req.baseUrl === '/api/auth')) return res.status(403).json(SIGN_UP_NEEDED)
   req.user = user
   next()
+}
+
+// Gives a trial-link account its own email and password: it becomes an
+// ordinary account (the board, words and mistakes are the same).
+export async function completeSignup(userId, { email, password, name }) {
+  email = String(email ?? '').trim().toLowerCase()
+  if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email) || email.endsWith('.invalid')) throw Object.assign(new Error('Проверьте почту'), { status: 400 })
+  if (String(password ?? '').length < 8) throw Object.assign(new Error('Пароль — не короче 8 символов'), { status: 400 })
+  const taken = await prisma.user.findUnique({ where: { email } })
+  if (taken && taken.id !== userId) throw Object.assign(new Error('С этой почтой уже есть аккаунт — войдите в него'), { status: 409 })
+  return prisma.user.update({
+    where: { id: userId },
+    data: { email, passwordHash: await hashPassword(password), viaLink: false, ...(name ? { name: String(name).trim().slice(0, 80) } : {}) }
+  })
 }
 
 // --- Personal API tokens (content API only) -----------------------------------

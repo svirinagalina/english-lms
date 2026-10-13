@@ -1,7 +1,7 @@
 import { Router } from 'express'
 import { z } from 'zod'
 import { requireAuth, requireRole } from '../auth.js'
-import { aiConfig, saveAiSettings, clearAiKey, offerLinks, saveOfferLinks, stripeKey, saveStripeKey, adventKey, saveAdventKey, sfuSwitchedOn, saveSfuSwitch } from '../settings.js'
+import { aiConfig, saveAiSettings, clearAiKey, offerLinks, saveOfferLinks, stripeKey, saveStripeKey, adventKey, saveAdventKey, sfuSwitchedOn, saveSfuSwitch, supportContact, saveSupportContact } from '../settings.js'
 import { sfuConfigured } from '../sfu.js'
 import { advent } from '../advent.js'
 import { testConnection, detectProvider } from '../llm.js'
@@ -108,6 +108,14 @@ settingsRouter.post('/ai/test', async (req, res) => {
   } catch (error) {
     res.status(502).json({ ok: false, error: error?.message ?? String(error) })
   }
+})
+
+// The contact a student is shown when the teacher is late.
+settingsRouter.get('/support', (req, res) => res.json({ contact: supportContact() }))
+settingsRouter.put('/support', async (req, res) => {
+  if (typeof req.body?.contact !== 'string') return res.status(400).json({ error: 'Invalid data' })
+  await saveSupportContact(req.body.contact)
+  res.json({ contact: supportContact() })
 })
 
 // Calls through the media server: on/off, and whether the server has one.

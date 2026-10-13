@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { api } from '../api'
 import { useAuth } from '../AuthContext'
+import SignupFields from '../components/SignupFields'
 
 // The page behind a lesson link from the Advent site (sent to the student in
 // Telegram): no sign-up, no password. The student checks their name, presses
@@ -65,7 +66,9 @@ export default function LessonLink() {
   const [name, setName] = useState('')
   const [busy, setBusy] = useState(false)
 
-  const load = () => api.lessonLink(token).then((data) => { setInfo(data); setName((n) => n || data.studentName || '') }).catch((err) => setError(err.message))
+  const [now, setNow] = useState(Date.now())
+  useEffect(() => { const t = setInterval(() => setNow(Date.now()), 15000); return () => clearInterval(t) }, [])
+  const load = (waiting = false) => api.lessonLink(token, waiting).then((data) => { setInfo(data); setName((n) => n || data.studentName || '') }).catch((err) => setError(err.message))
   useEffect(() => { load() }, [token])
 
   // Signed in as this lesson's student: wait here, open the call when it starts.
@@ -74,7 +77,8 @@ export default function LessonLink() {
     if (!inside) return
     if (safeTo) { navigate(safeTo, { replace: true }); return }
     if (info.callToken) { navigate(`/call/${info.callToken}`, { replace: true }); return }
-    const timer = setInterval(load, 4000)
+    load(true)
+    const timer = setInterval(() => load(true), 4000)
     return () => clearInterval(timer)
   }, [inside, info?.callToken])
 
@@ -125,7 +129,23 @@ export default function LessonLink() {
       <div className="centered"><div className="card ll-card">
         {header}
         <div className="ll-wait"><span className="ll-dot" />Вы на месте! {info.teacherName ?? 'Преподаватель'} начнёт урок — страница откроет его сама. Ничего нажимать не нужно.</div>
+        {now > new Date(info.startsAt).getTime() + 5 * 60000 && (
+          <div className="ll-late">
+            Преподаватель задерживается или технические неполадки. Пожалуйста, не закрывайте эту страницу{info.support ? <> и напишите: <strong>{info.support}</strong></> : ''}.
+          </div>
+        )}
         <DeviceCheck />
+      </div></div>
+    )
+  }
+
+  // Three days after the trial: the link no longer signs in — an email and a password.
+  if (info.needsSignup) {
+    return (
+      <div className="centered"><div className="card ll-card">
+        {header}
+        <p>Три дня пробного доступа закончились. Чтобы продолжить{safeTo ? ' и открыть отчёт' : ''}, придумайте почту и пароль.</p>
+        <SignupFields onSubmit={async (body) => { await api.registerLessonLink(token, body); window.location.assign(safeTo ?? '/') }} />
       </div></div>
     )
   }

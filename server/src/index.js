@@ -43,7 +43,7 @@ import { stripeWebhook, plansRouter, loadSubscriptionSettings } from './subscrip
 import { startPlanSweep } from './plans.js'
 import { setupSignaling } from './signaling.js'
 import { flushBoards } from './boardStore.js'
-import { adventWebhook, lessonLinkRouter } from './adventLessons.js'
+import { adventWebhook, lessonLinkRouter, startAdventJobs } from './adventLessons.js'
 import { flushDocuments } from './docStore.js'
 
 const app = express()
@@ -169,6 +169,7 @@ const io = new Server(httpServer, {
 })
 setupSignaling(io)
 startPushJobs()
+startAdventJobs()
 
 // The AI key saved from the Settings page, before the first request.
 loadAiSettings().catch((error) => console.error('Could not load AI settings:', error.message))

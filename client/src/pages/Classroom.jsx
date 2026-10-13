@@ -18,6 +18,43 @@ import ActivityHeatmap from '../components/ActivityHeatmap'
 import TrainerProgress from '../components/TrainerProgress'
 import StudentSettings from '../components/StudentSettings'
 
+// A student from a trial lesson link has no email or password yet. The
+// teacher invites them as before — the invitation goes to the same account,
+// so the trial board, words and mistakes stay theirs.
+function InviteTrialStudent({ student }) {
+  const [email, setEmail] = useState('')
+  const [busy, setBusy] = useState(false)
+  const [done, setDone] = useState(null)
+  const [error, setError] = useState('')
+  const send = async (event) => {
+    event.preventDefault()
+    setBusy(true); setError('')
+    try {
+      const { invite, delivery } = await api.createInvite({ name: student.name.length >= 2 ? student.name : `${student.name} (ученик)`, email: email.trim(), role: 'STUDENT', userId: student.id })
+      setDone({ sent: delivery?.sent, link: invite.link })
+    } catch (err) { setError(err.message) } finally { setBusy(false) }
+  }
+  const until = student.trialAccessUntil ? new Date(student.trialAccessUntil) : null
+  return (
+    <section className="trial-invite">
+      <strong>Ученик с пробного урока — без почты и пароля</strong>
+      <p className="muted">
+        {until && until > new Date() ? `Полный доступ по ссылке до ${until.toLocaleDateString()}. ` : until ? 'Три дня пробного доступа прошли. ' : ''}
+        Если ученик остаётся, пригласите его на платформу: придёт письмо, он придумает пароль. Доска с пробного и всё остальное останутся у него.
+      </p>
+      {done ? (
+        <p>{done.sent ? `Приглашение отправлено на ${email}.` : 'Письмо не ушло — отправьте ученику эту ссылку:'} {!done.sent && <code>{done.link}</code>}</p>
+      ) : (
+        <form className="inline-form" onSubmit={send}>
+          <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="Почта ученика" required />
+          <button type="submit" disabled={busy}>{busy ? 'Отправляю…' : 'Пригласить'}</button>
+        </form>
+      )}
+      {error && <div className="error">{error}</div>}
+    </section>
+  )
+}
+
 
 export default function Classroom() {
   const { id } = useParams()
@@ -369,6 +406,7 @@ export default function Classroom() {
         </div>
       </Panel>
 
+      {isStaff && !isPersonal && classroom.student?.viaLink && <InviteTrialStudent student={classroom.student} />}
       {isStaff && !isPersonal && classroom.student && <StudentSettings studentId={classroom.student.id} onChanged={refresh} />}
 
       {!isPersonal && isStaff && classroom.contacts && (() => {

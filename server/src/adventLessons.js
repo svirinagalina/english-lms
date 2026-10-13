@@ -2,10 +2,11 @@ import crypto from 'crypto'
 import express from 'express'
 import { prisma } from './db.js'
 import { guardedFetch } from './resilience.js'
-import { hashPassword, issueToken } from './auth.js'
+import { hashPassword, issueToken, completeSignup } from './auth.js'
 import { ensureClassroom } from './routes/classrooms.js'
 import { sendAdventLessonEmail } from './mailer.js'
 import { notify } from './push.js'
+import { supportContact } from './settings.js'
 
 // Lessons booked on the Advent site (Maxim's partner API, see
 // ~/Downloads/Интеграция_платформы_уроков_Галины_с_Advent.md). Advent sends
@@ -85,6 +86,7 @@ async function ensureStudent(row, teacherId) {
     })
   }
   if (student.role !== 'STUDENT' || student.schoolId !== teacher.schoolId) return row
+  await applyTrialAccess(row, student)
   await prisma.teacherStudent.upsert({
     where: { teacherId_studentId: { teacherId, studentId: student.id } },
     create: { teacherId, studentId: student.id },
@@ -92,6 +94,15 @@ async function ensureStudent(row, teacherId) {
   })
   const classroom = await ensureClassroom(teacherId, student.id, teacher.schoolId)
   return prisma.adventLesson.update({ where: { id: row.id }, data: { studentUserId: student.id, classroomId: row.callId ? row.classroomId : classroom.id } })
+}
+
+// Everything open for three days after the trial (Galina, 2026-10-13); a
+// student with paid lessons, or an ordinary account of their own, is not
+// limited.
+async function applyTrialAccess(row, student) {
+  if (row.kind !== 'trial' || student.lessonsPaid > 0 || !(student.viaLink || student.trialAccessUntil)) return
+  const until = new Date(new Date(row.startsAt).getTime() + (row.durationMin ?? 40) * 60000 + 3 * 86400000)
+  if (!student.trialAccessUntil || student.trialAccessUntil < until) await prisma.user.update({ where: { id: student.id }, data: { trialAccessUntil: until, free: false } })
 }
 
 const MSK = (d) => new Date(d).toLocaleString('ru-RU', { timeZone: 'Europe/Moscow', day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit' })
@@ -212,6 +223,18 @@ adventWebhook.post('/', express.raw({ type: '*/*', limit: '1mb' }), async (req, 
   try { event = JSON.parse(req.body.toString('utf8')) } catch { return res.status(400).json({ error: 'bad_json', message: 'Тело запроса — не JSON' }) }
   const eventId = String(event.event_id ?? '')
   if (!eventId) return res.status(422).json({ error: 'no_event_id', message: 'Нет event_id' })
+  if (String(event.event ?? '').startsWith('payment.')) {
+    if (await prisma.adventEvent.findUnique({ where: { id: eventId } })) return res.json({ ok: true, repeated: true })
+    try {
+      const [status, body] = event.event === 'payment.succeeded' ? await handlePayment(event) : [422, { error: 'unknown_event', message: `Событие ${event.event} не поддерживается` }]
+      if (status === 200) await prisma.adventEvent.create({ data: { id: eventId, lessonId: null } }).catch(() => {})
+      else console.warn('[advent] payment refused', body.error)
+      return res.status(status).json(body)
+    } catch (error) {
+      console.error('[advent] payment failed', error)
+      return res.status(500).json({ error: 'server_error', message: 'Ошибка на платформе уроков, повторите позже' })
+    }
+  }
 
   // A retry of an event already handled: the same answer, nothing new.
   const seen = await prisma.adventEvent.findUnique({ where: { id: eventId } })
@@ -377,8 +400,9 @@ lessonLinkRouter.get('/:token', async (req, res) => {
   if (!found) return res.status(404).json({ error: 'Ссылка не найдена — проверьте, что она скопирована целиком' })
   let { row, role } = found
   if (role === 'student' && !row.studentUserId && row.status === 'scheduled') row = await ensureStudent(row, row.teacherId).catch(() => row)
+  if (role === 'student' && req.query.waiting && !row.studentWaitingAt) await prisma.adventLesson.update({ where: { id: row.id }, data: { studentWaitingAt: new Date() } }).catch(() => {})
   const teacher = await prisma.user.findUnique({ where: { id: row.teacherId }, select: { name: true } })
-  const student = row.studentUserId ? await prisma.user.findUnique({ where: { id: row.studentUserId }, select: { name: true, viaLink: true } }) : null
+  const student = row.studentUserId ? await prisma.user.findUnique({ where: { id: row.studentUserId }, select: { name: true, viaLink: true, trialAccessUntil: true } }) : null
   res.json({
     role,
     kind: row.kind,
@@ -389,8 +413,11 @@ lessonLinkRouter.get('/:token', async (req, res) => {
     studentName: student?.name ?? row.studentName ?? null,
     // A student who already has an account of their own signs in with it.
     ownAccount: role === 'student' && student ? !student.viaLink : false,
+    // The three days are over: the link no longer signs in, the page asks for an email and a password.
+    needsSignup: role === 'student' && Boolean(student?.viaLink && student.trialAccessUntil && student.trialAccessUntil < new Date()),
     classroomId: row.classroomId,
-    callToken: row.status === 'scheduled' ? await liveCallToken(row) : null
+    callToken: row.status === 'scheduled' ? await liveCallToken(row) : null,
+    support: supportContact()
   })
 })
 
@@ -414,8 +441,110 @@ lessonLinkRouter.post('/:token/enter', express.json(), async (req, res) => {
   const student = row.studentUserId ? await prisma.user.findUnique({ where: { id: row.studentUserId } }) : null
   if (!student) return res.status(404).json({ error: 'Ученик не найден' })
   if (!student.viaLink) return res.status(409).json({ error: 'У вас уже есть аккаунт — войдите в него, урок будет в кабинете', ownAccount: true })
+  if (student.trialAccessUntil && student.trialAccessUntil < new Date()) return res.status(403).json({ error: 'Чтобы продолжить, придумайте почту и пароль', needsSignup: true })
+  if (!student.trialAccessUntil) await applyTrialAccess(row, student)
   const name = String(req.body?.name ?? '').trim().slice(0, 80)
   if (name && name !== student.name) await prisma.user.update({ where: { id: student.id }, data: { name } })
   issueToken(res, student)
   res.json({ ok: true })
 })
+
+// The student of a lesson link picks an email and a password right on the
+// lesson page (needed once the three days after the trial are over).
+lessonLinkRouter.post('/:token/register', express.json(), async (req, res) => {
+  const found = await byToken(req.params.token)
+  if (!found || found.role !== 'student' || !found.row.studentUserId) return res.status(404).json({ error: 'Ссылка не найдена' })
+  const student = await prisma.user.findUnique({ where: { id: found.row.studentUserId } })
+  if (!student?.viaLink) return res.status(409).json({ error: 'У вас уже есть аккаунт — войдите в него', ownAccount: true })
+  try {
+    const user = await completeSignup(student.id, req.body ?? {})
+    issueToken(res, user)
+    res.json({ ok: true })
+  } catch (error) {
+    res.status(error.status ?? 500).json({ error: error.message })
+  }
+})
+
+// --- Payments from Advent ------------------------------------------------------
+
+// `payment.succeeded`: a student paid on the Advent site. The lessons are
+// added to their package on the platform, so they and the teacher see how
+// many are paid; the trial limits are lifted. The teacher(s) and the owner
+// are told. Shape agreed with Maxim (see CLAUDE.md):
+// { event, event_id, payment: { id, student: {id, email, telegram, name}, lessons, amount, currency, plan, paid_at } }
+async function handlePayment(event) {
+  const p = event.payment ?? {}
+  const lessons = Number(p.lessons)
+  if (!Number.isInteger(lessons) || lessons <= 0 || lessons > 200) return [422, { error: 'invalid_payment', message: 'payment.lessons — целое число уроков' }]
+  const adventStudentId = p.student?.id ? String(p.student.id) : null
+  let userId = null
+  if (adventStudentId) userId = (await prisma.adventLesson.findFirst({ where: { studentAdventId: adventStudentId, studentUserId: { not: null } }, orderBy: { startsAt: 'desc' }, select: { studentUserId: true } }))?.studentUserId ?? null
+  if (!userId && p.student?.email) userId = (await prisma.user.findUnique({ where: { email: String(p.student.email).trim().toLowerCase() }, select: { id: true } }))?.id ?? null
+  if (!userId) return [422, { error: 'student_not_found', message: 'Ученик не найден на платформе (нет пробного урока с этим student.id)' }]
+  const student = await prisma.user.findUnique({ where: { id: userId } })
+  if (!student || student.role !== 'STUDENT') return [422, { error: 'student_not_found', message: 'Ученик не найден на платформе' }]
+  // Lessons still left in the current package are kept: a new package of
+  // what is left + what was paid, counted from now.
+  let left = 0
+  if (student.lessonsPaid != null) {
+    const held = await prisma.session.count({ where: { classroom: { studentId: student.id }, counted: true, ...(student.packageStartedAt ? { startedAt: { gte: student.packageStartedAt } } : {}) } }) + (student.heldAdjust ?? 0)
+    left = Math.max(0, student.lessonsPaid - held)
+  }
+  const amount = Number(p.amount)
+  const currency = ['RUB', 'EUR', 'USD'].includes(String(p.currency).toUpperCase()) ? String(p.currency).toUpperCase() : null
+  await prisma.user.update({
+    where: { id: student.id },
+    data: {
+      lessonsPaid: left + lessons,
+      packageStartedAt: new Date(),
+      heldAdjust: 0,
+      paymentReportedAt: null,
+      free: false,
+      trialAccessUntil: null,
+      ...(Number.isFinite(amount) && amount > 0 && currency ? { priceAmount: Math.round((amount * 100) / lessons), priceCurrency: currency } : {})
+    }
+  })
+  const links = await prisma.teacherStudent.findMany({ where: { studentId: student.id }, select: { teacherId: true } })
+  const owners = await prisma.user.findMany({ where: { schoolId: student.schoolId, role: 'OWNER' }, select: { id: true } })
+  notify([...links.map((l) => l.teacherId), ...owners.map((o) => o.id)], { title: `Оплата: ${student.name}`, body: `Оплачено уроков: ${lessons}${left ? ` (+${left} оставалось)` : ''}`, url: `/people/${student.id}/activity` })
+    .catch((error) => console.error('[advent] payment push', error.message))
+  return [200, { ok: true, student_id: student.id, lessons_paid: left + lessons }]
+}
+
+// --- Who didn't come ----------------------------------------------------------
+
+// A lesson the teacher never started a call for: 30 minutes after its start
+// Advent is told who didn't come — the teacher, if the student was waiting
+// in the waiting room; otherwise the student. A call that was held reports
+// itself when it ends (adventCallEnded). Only lessons booked from now on.
+async function sweepNoShows() {
+  if (!adventLessonsEnabled()) return
+  const due = await prisma.adventLesson.findMany({
+    where: { status: 'scheduled', callId: null, finishedSentAt: null, isTest: false, createdAt: { gte: new Date('2026-10-13T16:00:00Z') }, startsAt: { lte: new Date(Date.now() - 30 * 60000) } }
+  })
+  for (const lesson of due) {
+    const outcome = lesson.studentWaitingAt ? 'teacher_no_show' : 'student_no_show'
+    try {
+      await adventApi('POST', `/lessons/${encodeURIComponent(lesson.adventId)}/finished`, {
+        outcome, started_at: null, ended_at: null,
+        teacher_joined_at: null, teacher_left_at: null,
+        student_joined_at: lesson.studentWaitingAt ? lesson.studentWaitingAt.toISOString() : null, student_left_at: null
+      })
+      await prisma.adventLesson.update({ where: { id: lesson.id }, data: { finishedSentAt: new Date(), outcome } })
+    } catch (error) { console.error('[advent] no-show', error.message) }
+  }
+}
+
+// A trial student past the three days who has not paid: the free tier.
+async function sweepTrialAccess() {
+  await prisma.user.updateMany({
+    where: { role: 'STUDENT', trialAccessUntil: { lt: new Date() }, free: false, OR: [{ lessonsPaid: null }, { lessonsPaid: { lte: 0 } }], viaLink: false },
+    data: { free: true, trialAccessUntil: null }
+  }).catch((error) => console.error('[advent] trial access', error.message))
+}
+
+export function startAdventJobs() {
+  const run = () => { sweepNoShows().catch((e) => console.error('[advent] sweep', e.message)); sweepTrialAccess() }
+  setTimeout(run, 60_000)
+  setInterval(run, 5 * 60_000)
+}

@@ -60,7 +60,7 @@ export async function accessibleClassroom(user, classroomId) {
     include: {
       teacher: { select: { id: true, name: true } },
       student: {
-        select: { id: true, name: true, lessonsPaid: true, packageStartedAt: true, heldAdjust: true }
+        select: { id: true, name: true, lessonsPaid: true, packageStartedAt: true, heldAdjust: true, viaLink: true, trialAccessUntil: true }
       }
     }
   })
@@ -247,7 +247,7 @@ classroomsRouter.get('/:id', async (req, res) => {
     classroom: {
       id: classroom.id,
       teacher: classroom.teacher,
-      student: classroom.student ? { id: classroom.student.id, name: classroom.student.name } : null,
+      student: classroom.student ? { id: classroom.student.id, name: classroom.student.name, ...(req.user.role !== 'STUDENT' ? { viaLink: classroom.student.viaLink, trialAccessUntil: classroom.student.trialAccessUntil } : {}) } : null,
       // The student's own contact details, for the teacher.
       contacts: req.user.role !== 'STUDENT' && classroom.student
         ? await prisma.user.findUnique({ where: { id: classroom.student.id }, select: { email: true, phone: true, messenger: true, birthday: true, city: true, timezone: true, about: true } })
