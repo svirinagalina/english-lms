@@ -4,7 +4,7 @@ import { prisma } from '../db.js'
 import { planView } from '../plans.js'
 import { logSignup } from './diag.js'
 import { createHash, randomBytes } from 'crypto'
-import { hashPassword, verifyPassword, issueToken, clearToken, requireAuth, mustSignUp, completeSignup } from '../auth.js'
+import { hashPassword, verifyPassword, issueToken, clearToken, requireAuth, mustSignUp, trialOver, completeSignup } from '../auth.js'
 import { mailEnabled, sendPasswordResetEmail, sendVerifyEmail } from '../mailer.js'
 
 export const authRouter = Router()
@@ -226,7 +226,7 @@ authRouter.get('/me', requireAuth, async (req, res) => {
   // Every visit extends the sign-in by a week, so people who use the
   // platform regularly are never logged out in the middle of a lesson.
   issueToken(res, user)
-  res.json({ user: { ...publicUser(user), schoolName: user.school.name, viaLink: user.viaLink, needsSignup: mustSignUp(user) } })
+  res.json({ user: { ...publicUser(user), schoolName: user.school.name, viaLink: user.viaLink, needsSignup: mustSignUp(user), trialOver: trialOver(user) } })
 })
 
 // A trial-link account chooses its email and password (any time; required

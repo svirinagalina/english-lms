@@ -527,19 +527,10 @@ async function sweepNoShows() {
   }
 }
 
-// A trial student past the three days who has not paid: the free tier.
-async function sweepTrialAccess() {
-  await prisma.user.updateMany({
-    where: { role: 'STUDENT', trialAccessUntil: { lt: new Date() }, free: false, OR: [{ lessonsPaid: null }, { lessonsPaid: { lte: 0 } }] },
-    data: { free: true, trialAccessUntil: null }
-  }).catch((error) => console.error('[advent] trial access', error.message))
-}
-
 export function startAdventJobs() {
   // Agreed 2026-10-13: the platform alone marks who didn't come (Maxim turns
-  // his job off); a trial student who hasn't paid after three days is on the
-  // free tier.
-  const run = () => { sweepNoShows().catch((e) => console.error('[advent] sweep', e.message)); sweepTrialAccess() }
+  // his job off). Three days of access after a trial: `trialOver` in auth.js.
+  const run = () => { sweepNoShows().catch((e) => console.error('[advent] sweep', e.message)) }
   setTimeout(run, 60_000)
   setInterval(run, 5 * 60_000)
 }

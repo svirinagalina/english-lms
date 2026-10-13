@@ -45,12 +45,17 @@ import Courses from './pages/Courses'
 import Course from './pages/Course'
 import LessonLink from './pages/LessonLink'
 import FinishSignup from './pages/FinishSignup'
+import TrialOver from './pages/TrialOver'
 
+// After a trial's three days without paying, only the report and Payment open.
+const OPEN_AFTER_TRIAL = /^\/(billing|report\/|plans)/
 function RequireAuth({ children, roles }) {
   const { user, loading } = useAuth()
+  const location = useLocation()
   if (loading) return <div className="centered">Loading…</div>
   if (!user) return <Navigate to="/login" replace />
   if (user.needsSignup) return <Navigate to="/finish-signup" replace />
+  if (user.trialOver && !OPEN_AFTER_TRIAL.test(location.pathname)) return <Navigate to="/trial-over" replace />
   if (roles && !roles.includes(user.role)) return <Navigate to="/" replace />
   return children
 }
@@ -66,6 +71,7 @@ function HomeRoute() {
   if (loading) return <div className="centered">Loading…</div>
   if (!user) return isNativeApp() ? <Navigate to="/login" replace /> : <Landing />
   if (user.needsSignup) return <Navigate to="/finish-signup" replace />
+  if (user.trialOver) return <Navigate to="/trial-over" replace />
   return <Classrooms />
 }
 
@@ -146,6 +152,7 @@ export default function App() {
       <Route path="/call/:token" element={<Call />} />
       <Route path="/lesson/:token" element={<LessonLink />} />
       <Route path="/finish-signup" element={<FinishSignup />} />
+      <Route path="/trial-over" element={<TrialOver />} />
       <Route path="/" element={<HomeRoute />} />
       <Route path="/plans" element={<RequireAuth><Plans /></RequireAuth>} />
       <Route path="/classroom" element={<RequireAuth><Classrooms /></RequireAuth>} />

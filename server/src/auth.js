@@ -52,10 +52,18 @@ async function userFromCookie(req) {
 export const mustSignUp = (user) => Boolean(user?.viaLink && user.lessonsPaid > 0)
 export const SIGN_UP_NEEDED = { error: 'Чтобы продолжить заниматься, придумайте почту и пароль', needsSignup: true }
 
+// Everyone who came through a trial lesson has the platform for three days
+// (Galina, 2026-10-13); after that, without paid lessons, only the trial
+// report and the Payment page stay open, so they can still pay.
+export const trialOver = (user) => Boolean(user?.role === 'STUDENT' && user.trialAccessUntil && user.trialAccessUntil < new Date() && !(user.lessonsPaid > 0))
+export const TRIAL_OVER = { error: 'Пробный доступ закончился. Чтобы продолжить, оплатите занятия.', trialOver: true }
+const OPEN_AFTER_TRIAL = (req) => req.baseUrl === '/api/auth' || req.baseUrl === '/api/billing' || (req.baseUrl === '/api/trials' && req.method === 'GET') || req.baseUrl === '/api/plans'
+
 export async function requireAuth(req, res, next) {
   const user = await userFromCookie(req)
   if (!user) return res.status(401).json({ error: 'Not authenticated' })
   if (mustSignUp(user) && !(req.baseUrl === '/api/auth')) return res.status(403).json(SIGN_UP_NEEDED)
+  if (trialOver(user) && !OPEN_AFTER_TRIAL(req)) return res.status(403).json(TRIAL_OVER)
   req.user = user
   next()
 }

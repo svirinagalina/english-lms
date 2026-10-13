@@ -20,6 +20,10 @@ async function request(path, options = {}) {
     window.location.assign('/finish-signup')
     return new Promise(() => {})
   }
+  if (response.status === 403 && data.trialOver && !/^\/(trial-over|billing|report\/|lesson\/)/.test(window.location.pathname)) {
+    window.location.assign('/trial-over')
+    return new Promise(() => {})
+  }
   if (response.status === 403 && data.locked) window.dispatchEvent(new CustomEvent('trial-offer', { detail: { feature: data.feature ?? null } }))
   if (!response.ok) {
     const error = new Error(data.error ?? 'Request failed')
