@@ -92,6 +92,16 @@ const unwatch = (map, key, socket) => {
   set.delete(socket)
   if (!set.size) map.delete(key)
 }
+// Which board is spotlighted, by whom, and their last view (see board:spotlight).
+const boardSpotlights = new Map()
+// The spotlighter left the board (another board, or gone): the others stop following.
+function endSpotlight(socket) {
+  const boardId = socket.data.boardId
+  if (!boardId || boardSpotlights.get(boardId)?.from !== socket.id) return
+  boardSpotlights.delete(boardId)
+  emitToWatchers(boardWatchers, boardId, socket, 'board:spotlight', { from: socket.id, on: false })
+}
+
 const emitToWatchers = (map, key, socket, event, payload) => {
   for (const other of map.get(key) ?? []) if (other !== socket) other.emit(event, payload)
 }
@@ -420,6 +430,7 @@ export function setupSignaling(io) {
         return
       }
 
+      endSpotlight(socket)
       unwatch(boardWatchers, socket.data.boardId, socket)
       socket.data.boardId = boardId
       watch(boardWatchers, boardId, socket)
@@ -429,6 +440,11 @@ export function setupSignaling(io) {
       // board to start on. Edits reach everyone through the watchers.
       if (user.role !== 'STUDENT' && socket.data.callId) roomBoards.set(socket.data.roomId, boardId)
       if (typeof ack === 'function') ack({ elements })
+      const spot = boardSpotlights.get(boardId)
+      if (spot && spot.from !== socket.id) {
+        socket.emit('board:spotlight', { from: spot.from, name: spot.name, on: true })
+        if (spot.view) socket.emit('board:view', spot.view)
+      }
     })
 
     socket.on('board:add', async (raw) => {
@@ -568,15 +584,27 @@ export function setupSignaling(io) {
 
     // Spotlight: the teacher's viewport goes to everyone looking at the
     // same board, so their view follows it.
-    socket.on('board:spotlight', (state) => {
+    socket.on('board:spotlight', async (state) => {
       const { boardId } = socket.data
       if (!boardId) return
-      emitToWatchers(boardWatchers, boardId, socket, 'board:spotlight', { from: socket.id, name: socket.data.name, on: Boolean(state?.on) })
+      const on = Boolean(state?.on)
+      // Remembered, so someone opening the board later follows at once (set
+      // before any await: the first board:view comes right after this).
+      const spot = on ? { from: socket.id, name: socket.data.name, view: null } : null
+      if (on) boardSpotlights.set(boardId, spot)
+      else if (boardSpotlights.get(boardId)?.from === socket.id) boardSpotlights.delete(boardId)
+      // Outside a call the name isn't known yet (it is set on join-call).
+      if (!socket.data.name) socket.data.name = (await prisma.user.findUnique({ where: { id: user.id }, select: { name: true } }))?.name ?? 'Teacher'
+      if (spot) spot.name = socket.data.name
+      emitToWatchers(boardWatchers, boardId, socket, 'board:spotlight', { from: socket.id, name: socket.data.name, on })
     })
     socket.on('board:view', (view) => {
       const { boardId } = socket.data
       if (!boardId || typeof view?.scale !== 'number') return
-      emitToWatchers(boardWatchers, boardId, socket, 'board:view', { from: socket.id, scale: view.scale, cx: Number(view.cx) || 0, cy: Number(view.cy) || 0 })
+      const payload = { from: socket.id, scale: view.scale, cx: Number(view.cx) || 0, cy: Number(view.cy) || 0 }
+      const spot = boardSpotlights.get(boardId)
+      if (spot?.from === socket.id) spot.view = payload
+      emitToWatchers(boardWatchers, boardId, socket, 'board:view', payload)
     })
 
     // Wiping a board is the teacher's call; a student can undo their own strokes.
@@ -589,6 +617,7 @@ export function setupSignaling(io) {
     })
 
     socket.on('disconnect', async () => {
+      endSpotlight(socket)
       if (socket.data.boardId) emitToWatchers(boardWatchers, socket.data.boardId, socket, 'board:cursor', { from: socket.id, gone: true })
       unwatch(boardWatchers, socket.data.boardId, socket)
       if (socket.data.docId) emitToWatchers(docWatchers, socket.data.docId, socket, 'doc:selection', { from: socket.id, gone: true })

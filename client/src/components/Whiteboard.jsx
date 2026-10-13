@@ -1113,8 +1113,13 @@ const Whiteboard = forwardRef(function Whiteboard({ socketRef, boardId, title, s
   // their view back mid-gesture read as "the board won't move". Resumes
   // following on the next fresh "Spotlight on" so the teacher can still pull
   // everyone back to one place.
+  // The pause lasts while they keep moving and 6 s after: one scroll used to
+  // stop following for good, so for the student "Spotlight did nothing"
+  // (Anastasia Obóznaya's lessons, 2026-10-13).
   const followPausedRef = useRef(false)
-  const pauseFollowing = () => { followPausedRef.current = true }
+  const pausedAtRef = useRef(0)
+  const lastSpotViewRef = useRef(null)
+  const pauseFollowing = () => { followPausedRef.current = true; pausedAtRef.current = Date.now() }
   const viewBroadcastRef = useRef(0)
   // True while a press is held on the canvas: floating bars step aside.
   const [dragging, setDragging] = useState(false)
@@ -1337,9 +1342,17 @@ const Whiteboard = forwardRef(function Whiteboard({ socketRef, boardId, title, s
     const onSpotlight = ({ name, on }) => {
       setFollowing(on ? { name } : null)
       if (on) followPausedRef.current = false
+      else lastSpotViewRef.current = null
     }
-    const onView = ({ scale, cx, cy }) => {
-      if (spotlightRef.current || followPausedRef.current) return
+    const onView = (view, resumed = false) => {
+      const { scale, cx, cy } = view
+      if (!resumed) lastSpotViewRef.current = view
+      if (spotlightRef.current) return
+      if (followPausedRef.current) {
+        // Not while they are drawing or dragging something.
+        if (Date.now() - pausedAtRef.current < 6000 || pointerRef.current) return
+        followPausedRef.current = false
+      }
       const canvas = canvasRef.current
       if (!canvas) return
       const rect = canvas.getBoundingClientRect()
@@ -1368,7 +1381,13 @@ const Whiteboard = forwardRef(function Whiteboard({ socketRef, boardId, title, s
       })
     }, 2000)
     socket.on('board:spotlight', onSpotlight)
-    socket.on('board:view', onView)
+    const onViewEvent = (view) => onView(view)
+    socket.on('board:view', onViewEvent)
+    // Back to the spotlighter's view 6 s after one's own scrolling stopped,
+    // even if they haven't moved since.
+    const resume = setInterval(() => {
+      if (followPausedRef.current && lastSpotViewRef.current && Date.now() - pausedAtRef.current >= 6000) onView(lastSpotViewRef.current, true)
+    }, 1000)
 
     return () => {
       socket.off('connect', reopen)
@@ -1377,7 +1396,8 @@ const Whiteboard = forwardRef(function Whiteboard({ socketRef, boardId, title, s
       socket.off('board:delete', onDelete)
       socket.off('board:clear', onClear)
       socket.off('board:spotlight', onSpotlight)
-      socket.off('board:view', onView)
+      socket.off('board:view', onViewEvent)
+      clearInterval(resume)
       socket.off('board:cursor', onCursor)
       clearInterval(sweep)
       setCursors({})
