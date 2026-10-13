@@ -132,7 +132,7 @@ const ATTEMPT_INCLUDE = {
   exercise: { select: { prompt: true, answers: true, tags: true, unitId: true } }
 }
 
-statsRouter.get('/students', requireRole('OWNER', 'TEACHER'), async (req, res) => {
+statsRouter.get('/students', requireRole('OWNER', 'PARTNER', 'TEACHER'), async (req, res) => {
   const ids = await visibleStudentIds(req.user)
 
   const students = await prisma.user.findMany({
@@ -164,7 +164,7 @@ statsRouter.get('/students', requireRole('OWNER', 'TEACHER'), async (req, res) =
   res.json({ students: rows })
 })
 
-statsRouter.get('/students/:id', requireRole('OWNER', 'TEACHER'), async (req, res) => {
+statsRouter.get('/students/:id', requireRole('OWNER', 'PARTNER', 'TEACHER'), async (req, res) => {
   const ids = await visibleStudentIds(req.user)
   if (!ids.includes(req.params.id)) return res.status(404).json({ error: 'Student not found' })
 
@@ -268,7 +268,7 @@ statsRouter.get('/activity/me', async (req, res) => {
   res.json(await activityFor(req.user.id))
 })
 
-statsRouter.get('/activity/:id', requireRole('OWNER', 'TEACHER'), async (req, res) => {
+statsRouter.get('/activity/:id', requireRole('OWNER', 'PARTNER', 'TEACHER'), async (req, res) => {
   const ids = await visibleStudentIds(req.user)
   if (!ids.includes(req.params.id)) return res.status(404).json({ error: 'Student not found' })
   res.json(await activityFor(req.params.id))

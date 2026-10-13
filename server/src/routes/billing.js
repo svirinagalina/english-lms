@@ -256,7 +256,7 @@ billingRouter.post('/me/paid', async (req, res) => {
 })
 
 // Seen it: clear the "reports a payment" mark after setting the package.
-billingRouter.post('/students/:id/seen', requireRole('OWNER', 'TEACHER'), async (req, res) => {
+billingRouter.post('/students/:id/seen', requireRole('OWNER', 'PARTNER', 'TEACHER'), async (req, res) => {
   const student = await reachableStudent(req.user, req.params.id)
   if (!student) return res.status(404).json({ error: 'Student not found' })
   await prisma.user.update({ where: { id: student.id }, data: { paymentReportedAt: null } })
@@ -265,14 +265,14 @@ billingRouter.post('/students/:id/seen', requireRole('OWNER', 'TEACHER'), async 
 
 // One student's money and teachers, for the settings block shown in their
 // cabinet and on their person page.
-billingRouter.get('/students/:id', requireRole('OWNER', 'TEACHER'), async (req, res) => {
+billingRouter.get('/students/:id', requireRole('OWNER', 'PARTNER', 'TEACHER'), async (req, res) => {
   const student = await reachableStudent(req.user, req.params.id)
   if (!student) return res.status(404).json({ error: 'Student not found' })
   const links = await prisma.teacherStudent.findMany({ where: { studentId: student.id }, select: { teacher: { select: { id: true, name: true } } } })
   res.json({ student: { ...(await withPackage(student)), teachers: links.map((l) => l.teacher) } })
 })
 
-billingRouter.get('/students', requireRole('OWNER', 'TEACHER'), async (req, res) => {
+billingRouter.get('/students', requireRole('OWNER', 'PARTNER', 'TEACHER'), async (req, res) => {
   const students = await prisma.user.findMany({
     where: {
       schoolId: req.user.schoolId,
@@ -285,7 +285,7 @@ billingRouter.get('/students', requireRole('OWNER', 'TEACHER'), async (req, res)
   res.json({ students: await Promise.all(students.map(withPackage)) })
 })
 
-billingRouter.patch('/students/:id', requireRole('OWNER', 'TEACHER'), async (req, res) => {
+billingRouter.patch('/students/:id', requireRole('OWNER', 'PARTNER', 'TEACHER'), async (req, res) => {
   const parsed = billingSchema.partial().safeParse(req.body)
   if (!parsed.success) {
     return res.status(400).json({ error: 'Invalid data', details: parsed.error.flatten().fieldErrors })
@@ -323,7 +323,7 @@ billingRouter.patch('/school', requireRole('OWNER'), async (req, res) => {
   res.json({ ok: true })
 })
 
-billingRouter.get('/school', requireRole('OWNER', 'TEACHER'), async (req, res) => {
+billingRouter.get('/school', requireRole('OWNER', 'PARTNER', 'TEACHER'), async (req, res) => {
   const school = await prisma.school.findUnique({
     where: { id: req.user.schoolId },
     select: { paymentDetails: true, trialPaymentDetails: true }

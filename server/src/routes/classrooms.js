@@ -34,12 +34,17 @@ export async function ensurePersonalSpace(teacherId, schoolId) {
   return existing ?? prisma.classroom.create({ data: { teacherId, studentId: null, schoolId } })
 }
 
-function packageProgress(student, sessions) {
+// Held lessons count every classroom of the student (two teachers, a moved
+// student), like Payments does — this classroom's own calls alone made the
+// two pages show different numbers.
+const countedForStudent = (student) => prisma.session.count({
+  where: { classroom: { studentId: student.id }, counted: true, ...(student.packageStartedAt ? { startedAt: { gte: student.packageStartedAt } } : {}) }
+})
+
+async function packageProgress(student) {
   if (!student) return null
   const since = student.packageStartedAt
-  const held = sessions.filter(
-    (session) => session.counted && (!since || session.startedAt >= since)
-  ).length + (student.heldAdjust ?? 0)
+  const held = await countedForStudent(student) + (student.heldAdjust ?? 0)
 
   return {
     lessonsPaid: student.lessonsPaid ?? null,
@@ -98,7 +103,7 @@ classroomsRouter.get('/', async (req, res) => {
     include: {
       teacher: { select: { id: true, name: true } },
       student: { select: { id: true, name: true, lessonsPaid: true, packageStartedAt: true, heldAdjust: true } },
-      sessions: { select: { id: true, startedAt: true, counted: true } },
+      sessions: { select: { id: true, startedAt: true, counted: true }, orderBy: { startedAt: 'asc' } },
       _count: { select: { boards: true } }
     },
     orderBy: { createdAt: 'asc' }
@@ -109,7 +114,7 @@ classroomsRouter.get('/', async (req, res) => {
   const linked = new Set(links.map((l) => `${l.teacherId}:${l.studentId}`))
   const current = (classroom) => classroom.student === null || linked.has(`${classroom.teacherId}:${classroom.student.id}`)
 
-  const view = (classroom) => ({
+  const view = async (classroom) => ({
     id: classroom.id,
     teacher: classroom.teacher,
     former: !current(classroom),
@@ -117,10 +122,10 @@ classroomsRouter.get('/', async (req, res) => {
     isTestRoom: classroom.student === null,
     boards: classroom._count.boards,
     lastSession: classroom.sessions.at(-1)?.startedAt ?? null,
-    progress: packageProgress(classroom.student, classroom.sessions)
+    progress: await packageProgress(classroom.student)
   })
 
-  res.json({ classrooms: classrooms.filter((c) => c.student !== null && (current(c) || c.sessions.length > 0)).map(view) })
+  res.json({ classrooms: await Promise.all(classrooms.filter((c) => c.student !== null && (current(c) || c.sessions.length > 0)).map(view)) })
 })
 
 // The student's home: the latest homework on their board, so it is one
@@ -248,7 +253,7 @@ classroomsRouter.get('/:id', async (req, res) => {
         ? await prisma.user.findUnique({ where: { id: classroom.student.id }, select: { email: true, phone: true, messenger: true, birthday: true, city: true, timezone: true, about: true } })
         : null,
       isTestRoom: classroom.student === null,
-      progress: packageProgress(classroom.student, sessions),
+      progress: await packageProgress(classroom.student),
       sessions: sessions.map((session) => ({
         id: session.id,
         startedAt: session.startedAt,

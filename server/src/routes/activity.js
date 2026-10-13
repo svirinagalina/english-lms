@@ -52,7 +52,7 @@ activityRouter.get('/people', requireRole('OWNER'), async (req, res) => {
 // One person: the sections they opened, day by day, and what they worked on.
 // The administrator sees anyone in the school; a teacher sees their own
 // students (and themselves).
-activityRouter.get('/people/:id', requireRole('OWNER', 'TEACHER'), async (req, res) => {
+activityRouter.get('/people/:id', requireRole('OWNER', 'PARTNER', 'TEACHER'), async (req, res) => {
   const user = await prisma.user.findFirst({
     where: { id: req.params.id, schoolId: req.user.schoolId },
     select: { id: true, name: true, email: true, role: true, free: true, createdAt: true, lastSeenAt: true, phone: true, messenger: true, city: true, timezone: true, plan: true, planUntil: true }
@@ -139,7 +139,7 @@ activityRouter.get('/people/:id', requireRole('OWNER', 'TEACHER'), async (req, r
 
 // Trial reports: every one in the school for the owner, a teacher's own
 // students' for a teacher.
-activityRouter.get('/reports', requireRole('OWNER', 'TEACHER'), async (req, res) => {
+activityRouter.get('/reports', requireRole('OWNER', 'PARTNER', 'TEACHER'), async (req, res) => {
   const reports = await prisma.trialReport.findMany({
     where: req.user.role === 'OWNER' ? { classroom: { schoolId: req.user.schoolId } } : { classroom: { teacherId: req.user.id } },
     orderBy: { createdAt: 'desc' },
