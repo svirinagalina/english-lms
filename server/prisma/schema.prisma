@@ -87,6 +87,9 @@ model User {
   // A self-signed-up account confirms its email before the first sign-in
   // (a link in a letter). Invited and existing accounts count as confirmed.
   emailVerified    Boolean   @default(true)
+  // Made for a lesson booked on the Advent site: signs in by its lesson link
+  // (no password of its own until they set one with "Forgot password").
+  viaLink          Boolean   @default(false)
   emailVerifications EmailVerification[]
   trialRequestedAt DateTime?
   trialRequestNote String?
@@ -787,6 +790,12 @@ model AdventLesson {
   studentName     String?
   studentTelegram String?
   studentEmail    String?
+  // Personal links (random) that let the student and the teacher in
+  // without a password; the student's account made for this booking.
+  studentToken    String?   @unique
+  teacherToken    String?   @unique
+  studentUserId   String?
+  teacherNotifiedAt DateTime?
   calendarEventId String?
   callId          String?   @unique
   classroomId     String?

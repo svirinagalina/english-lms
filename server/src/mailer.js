@@ -13,6 +13,8 @@ const escapeHtml = (value) =>
 async function send({ to, subject, html, text }) {
   const apiKey = process.env.RESEND_API_KEY
   if (!apiKey) return { sent: false, reason: 'Email is not configured' }
+  // Accounts made for a lesson link without an email have a .invalid address.
+  if ([].concat(to).every((address) => /\.invalid$/i.test(String(address)))) return { sent: false, reason: 'No email address' }
 
   const from = process.env.MAIL_FROM ?? 'onboarding@resend.dev'
 
@@ -193,4 +195,21 @@ export function sendTrialReportEmail({ to, name, level, summary, reportLink, pay
 </div>`
   const text = `${name}, ваш отчёт по пробному уроку готов.${level ? ` Ваш уровень сейчас: ${level}.` : ''}\n${summary}\n\nОткрыть отчёт: ${reportLink}\nПерейти к оплате: ${paymentLink}\n\nСкидка 5% на первую покупку действует 3 дня. Оплатить можно картой онлайн или переводом в рублях — реквизиты на странице оплаты.`
   return send({ to, subject: 'Ваш отчёт по пробному уроку — Advent Academy', html, text })
+}
+
+// A lesson booked on the Advent site, for its teacher: when, with whom, and
+// the personal link that opens the student's cabinet (no password).
+export function sendAdventLessonEmail({ to, teacherName, what, who, when, link, moved, telegram, isTest }) {
+  const title = `${isTest ? '[ТЕСТ] ' : ''}${moved ? 'Перенос: ' : ''}${what} — ${who}, ${when}`
+  const html = `
+<div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;max-width:520px;margin:0 auto;padding:32px 24px;color:#14453f">
+  <h1 style="font-size:20px;margin:0 0 16px">${escapeHtml(title)}</h1>
+  <p style="font-size:15px;line-height:1.55;margin:0 0 8px">${escapeHtml(teacherName ?? '')}, ${moved ? 'урок перенесли' : 'к вам записались'}: <strong>${escapeHtml(who)}</strong>, ${escapeHtml(when)}.</p>
+  ${telegram ? `<p style="font-size:15px;line-height:1.55;margin:0 0 8px">Telegram ученика: ${escapeHtml(telegram)}</p>` : ''}
+  <p style="font-size:15px;line-height:1.55;margin:0 0 8px">Ученик получил свою ссылку в Telegram и войдёт по ней без регистрации. В назначенное время откройте свою ссылку и нажмите <strong>Trial lesson</strong> — ученика впустит в звонок само.</p>
+  <p style="margin:24px 0 0"><a href="${escapeHtml(link)}" style="display:inline-block;background:#14453f;color:#fff;text-decoration:none;padding:12px 22px;border-radius:8px;font-weight:600;font-size:15px">Открыть урок</a></p>
+  <p style="font-size:13px;color:#5b7570;margin:16px 0 0">Ссылка личная — не пересылайте её.</p>
+</div>`
+  const text = `${title}\n${moved ? 'Урок перенесли' : 'К вам записались'}: ${who}, ${when}.${telegram ? `\nTelegram ученика: ${telegram}` : ''}\nВ назначенное время откройте ссылку и нажмите Trial lesson: ${link}`
+  return send({ to, subject: title, html, text })
 }

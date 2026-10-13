@@ -1826,3 +1826,22 @@ a:hover .gs-arrow { transform: translateX(5px); }
 .ss-teachers { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 14px; }
 .ss-teachers select { width: auto; }
 .ss-x { padding: 0 6px; margin-left: 4px; }
+
+/* A lesson link from the Advent site (LessonLink.jsx): one card, big button. */
+.ll-card { max-width: 460px; width: 100%; text-align: left; }
+.ll-kicker { font-size: 12px; letter-spacing: .08em; text-transform: uppercase; opacity: .7; margin-bottom: 6px; }
+.ll-title { font-size: 26px; margin: 0 0 6px; line-height: 1.2; }
+.ll-when { font-size: 16px; margin: 0 0 18px; opacity: .85; }
+.ll-when::first-letter { text-transform: uppercase; }
+.ll-form { display: grid; gap: 12px; }
+.ll-form label { display: grid; gap: 6px; font-weight: 600; }
+.ll-form input { font-size: 18px; padding: 12px 14px; }
+.ll-go { display: block; width: 100%; font-size: 18px; padding: 14px 18px; text-align: center; text-decoration: none; margin-top: 6px; }
+.ll-note { font-size: 13px; margin: 4px 0 0; }
+.ll-wait { display: flex; gap: 10px; align-items: flex-start; font-size: 16px; line-height: 1.45; padding: 14px; border-radius: 12px; background: rgba(255,255,255,.07); margin-bottom: 14px; }
+.ll-dot { flex: none; width: 10px; height: 10px; margin-top: 7px; border-radius: 50%; background: #4ade80; animation: ll-pulse 1.4s ease-in-out infinite; }
+@keyframes ll-pulse { 50% { opacity: .3; } }
+.ll-check { display: grid; gap: 10px; }
+.ll-video { width: 100%; border-radius: 12px; background: #000; transform: scaleX(-1); aspect-ratio: 4 / 3; object-fit: cover; }
+.ll-meter { height: 8px; border-radius: 4px; background: rgba(255,255,255,.12); overflow: hidden; }
+.ll-meter i { display: block; height: 100%; background: #4ade80; transition: width .08s; }

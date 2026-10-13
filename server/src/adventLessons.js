@@ -2,6 +2,10 @@ import crypto from 'crypto'
 import express from 'express'
 import { prisma } from './db.js'
 import { guardedFetch } from './resilience.js'
+import { hashPassword, issueToken } from './auth.js'
+import { ensureClassroom } from './routes/classrooms.js'
+import { sendAdventLessonEmail } from './mailer.js'
+import { notify } from './push.js'
 
 // Lessons booked on the Advent site (Maxim's partner API, see
 // ~/Downloads/Интеграция_платформы_уроков_Галины_с_Advent.md). Advent sends
@@ -42,11 +46,70 @@ const eventDescription = (lesson) => [
   lesson.student?.email ? `Почта ученика: ${lesson.student.email}` : null
 ].filter(Boolean).join('\n')
 
+// Personal links: a random token each, no password needed (Advent's rules).
+// Lessons booked before the tokens existed got `/?advent=<id>`; that link
+// still opens the student's side (see lessonLink).
+const newToken = () => crypto.randomBytes(18).toString('base64url')
 const links = (row) => ({
   lesson_id: row.id,
-  student_join_url: `${APP_URL()}/?advent=${row.id}`,
-  teacher_join_url: `${APP_URL()}/timetable?advent=${row.id}`
+  student_join_url: `${APP_URL()}/lesson/${row.studentToken}`,
+  teacher_join_url: `${APP_URL()}/lesson/${row.teacherToken}`
 })
+async function withTokens(row) {
+  if (row.studentToken && row.teacherToken) return row
+  return prisma.adventLesson.update({ where: { id: row.id }, data: { studentToken: row.studentToken ?? newToken(), teacherToken: row.teacherToken ?? newToken() } })
+}
+
+// The student of a booking: an account made for it (signing in by the link),
+// linked to the teacher so the lesson is in the teacher's students with its
+// own cabinet — the teacher starts "Trial lesson" there. The same Advent
+// student booking again gets the same account.
+async function ensureStudent(row, teacherId) {
+  const teacher = await prisma.user.findUnique({ where: { id: teacherId }, select: { schoolId: true } })
+  let student = row.studentUserId ? await prisma.user.findUnique({ where: { id: row.studentUserId } }) : null
+  const placeholder = `advent-${(row.studentAdventId || row.adventId).replace(/[^A-Za-z0-9_-]/g, '')}@trial.invalid`
+  if (!student) student = await prisma.user.findUnique({ where: { email: placeholder } })
+  const email = row.studentEmail?.trim().toLowerCase()
+  if (!student && email) student = await prisma.user.findUnique({ where: { email } })
+  if (!student) {
+    student = await prisma.user.create({
+      data: {
+        email: email || placeholder,
+        name: row.studentName?.trim() || 'Ученик',
+        role: 'STUDENT',
+        schoolId: teacher.schoolId,
+        passwordHash: await hashPassword(newToken()),
+        messenger: row.studentTelegram || null,
+        viaLink: true
+      }
+    })
+  }
+  if (student.role !== 'STUDENT' || student.schoolId !== teacher.schoolId) return row
+  await prisma.teacherStudent.upsert({
+    where: { teacherId_studentId: { teacherId, studentId: student.id } },
+    create: { teacherId, studentId: student.id },
+    update: {}
+  })
+  const classroom = await ensureClassroom(teacherId, student.id, teacher.schoolId)
+  return prisma.adventLesson.update({ where: { id: row.id }, data: { studentUserId: student.id, classroomId: row.callId ? row.classroomId : classroom.id } })
+}
+
+const MSK = (d) => new Date(d).toLocaleString('ru-RU', { timeZone: 'Europe/Moscow', day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit' })
+
+// The teacher hears of a new (or moved) lesson at once: email and the phone.
+async function tellTeacher(row, moved = false) {
+  const teacher = await prisma.user.findUnique({ where: { id: row.teacherId }, select: { email: true, name: true } })
+  if (!teacher) return
+  const what = row.kind === 'trial' ? 'Пробный урок' : 'Урок'
+  const who = row.studentName || 'ученик'
+  const when = `${MSK(row.startsAt)} (МСК)`
+  const link = links(row).teacher_join_url
+  sendAdventLessonEmail({ to: teacher.email, teacherName: teacher.name, what, who, when, link, moved, telegram: row.studentTelegram, isTest: row.isTest })
+    .catch((error) => console.error('[advent] teacher email', error.message))
+  notify([row.teacherId], { title: `${moved ? 'Перенос: ' : ''}${what} — ${who}`, body: `${when}. Ссылка на урок — в почте и в Timetable.`, url: `/lesson/${row.teacherToken}` })
+    .catch((error) => console.error('[advent] teacher push', error.message))
+  await prisma.adventLesson.update({ where: { id: row.id }, data: { teacherNotifiedAt: new Date() } })
+}
 
 async function teacherFor(lesson) {
   const email = String(lesson.teacher?.email ?? '').trim()
@@ -115,13 +178,18 @@ async function handle(event) {
       row.calendarEventId = null
     }
     const calendarEventId = await saveCalendar(row, lesson, teacher.id)
-    const updated = await prisma.adventLesson.update({ where: { id: row.id }, data: { ...fields, status: 'scheduled', calendarEventId } })
+    const moved = row.teacherId !== teacher.id || new Date(row.startsAt).getTime() !== fields.startsAt.getTime()
+    let updated = await prisma.adventLesson.update({ where: { id: row.id }, data: { ...fields, status: 'scheduled', calendarEventId } })
+    updated = await ensureStudent(await withTokens(updated), teacher.id)
+    if (moved) await tellTeacher(updated, true).catch((error) => console.error('[advent] tell teacher', error.message))
     return [200, links(updated)]
   }
-  const created = await prisma.adventLesson.create({ data: { ...fields, adventId, status: 'scheduled' } })
+  const created = await prisma.adventLesson.create({ data: { ...fields, adventId, status: 'scheduled', studentToken: newToken(), teacherToken: newToken() } })
   const calendarEventId = await saveCalendar(null, lesson, teacher.id)
-  await prisma.adventLesson.update({ where: { id: created.id }, data: { calendarEventId } })
-  return [200, links(created)]
+  let saved = await prisma.adventLesson.update({ where: { id: created.id }, data: { calendarEventId } })
+  saved = await ensureStudent(saved, teacher.id).catch((error) => { console.error('[advent] student', error.message); return saved })
+  await tellTeacher(saved).catch((error) => console.error('[advent] tell teacher', error.message))
+  return [200, links(saved)]
 }
 
 function signatureOk(req) {
@@ -149,7 +217,7 @@ adventWebhook.post('/', express.raw({ type: '*/*', limit: '1mb' }), async (req, 
   const seen = await prisma.adventEvent.findUnique({ where: { id: eventId } })
   if (seen) {
     const row = seen.lessonId ? await prisma.adventLesson.findUnique({ where: { id: seen.lessonId } }) : null
-    return res.json(row && event.event === 'lesson.created' ? links(row) : {})
+    return res.json(row && event.event === 'lesson.created' ? links(await withTokens(row)) : {})
   }
   try {
     const [status, body] = await handle(event)
@@ -260,3 +328,78 @@ export async function adventTrialReport(report) {
     await prisma.adventLesson.update({ where: { id: lesson.id }, data: { reportSentAt: new Date() } })
   } catch (error) { console.error('[advent] report', error.message) }
 }
+
+// --- The lesson links ----------------------------------------------------------
+
+// A token is a student's or a teacher's; an old `/?advent=<id>` link is the
+// student's (those went out before the tokens existed).
+async function byToken(token) {
+  token = String(token ?? '')
+  if (!token || token.length > 80) return null
+  // Old-style ids only for the lessons booked before the tokens (2026-10-13).
+  const row = await prisma.adventLesson.findFirst({ where: { OR: [{ studentToken: token }, { teacherToken: token }, { id: token, createdAt: { lt: new Date('2026-10-13T14:00:00Z') } }] } })
+  if (!row) return null
+  return { row, role: row.teacherToken === token ? 'teacher' : 'student' }
+}
+
+// The call the teacher started for this lesson, while it is on.
+async function liveCallToken(row) {
+  if (row.callId) {
+    const call = await prisma.call.findUnique({ where: { id: row.callId }, select: { token: true, endedAt: true } })
+    if (call && !call.endedAt) return call.token
+  }
+  if (row.classroomId) {
+    const call = await prisma.call.findFirst({ where: { classroomId: row.classroomId, endedAt: null, createdAt: { gte: new Date(Date.now() - 4 * 3600000) } }, orderBy: { createdAt: 'desc' }, select: { token: true } })
+    if (call) return call.token
+  }
+  return null
+}
+
+export const lessonLinkRouter = express.Router()
+
+lessonLinkRouter.get('/:token', async (req, res) => {
+  const found = await byToken(req.params.token)
+  if (!found) return res.status(404).json({ error: 'Ссылка не найдена — проверьте, что она скопирована целиком' })
+  let { row, role } = found
+  if (role === 'student' && !row.studentUserId && row.status === 'scheduled') row = await ensureStudent(row, row.teacherId).catch(() => row)
+  const teacher = await prisma.user.findUnique({ where: { id: row.teacherId }, select: { name: true } })
+  const student = row.studentUserId ? await prisma.user.findUnique({ where: { id: row.studentUserId }, select: { name: true, viaLink: true } }) : null
+  res.json({
+    role,
+    kind: row.kind,
+    status: row.status,
+    startsAt: row.startsAt,
+    durationMin: row.durationMin,
+    teacherName: teacher?.name ?? null,
+    studentName: student?.name ?? row.studentName ?? null,
+    // A student who already has an account of their own signs in with it.
+    ownAccount: role === 'student' && student ? !student.viaLink : false,
+    classroomId: row.classroomId,
+    callToken: row.status === 'scheduled' ? await liveCallToken(row) : null
+  })
+})
+
+// Enter by the link: signed in as the lesson's student (an account made for
+// it) or its teacher, without a password.
+lessonLinkRouter.post('/:token/enter', express.json(), async (req, res) => {
+  const found = await byToken(req.params.token)
+  if (!found) return res.status(404).json({ error: 'Ссылка не найдена' })
+  let { row, role } = found
+  if (row.status === 'cancelled') return res.status(410).json({ error: 'Урок отменён' })
+  // Usable until six hours after the lesson.
+  if (Date.now() > new Date(row.startsAt).getTime() + (row.durationMin + 360) * 60000) return res.status(410).json({ error: 'Эта ссылка уже не действует — урок прошёл' })
+  if (role === 'teacher') {
+    const teacher = await prisma.user.findUnique({ where: { id: row.teacherId } })
+    if (!teacher) return res.status(404).json({ error: 'Преподаватель не найден' })
+    issueToken(res, teacher)
+    return res.json({ ok: true, redirect: row.classroomId ? `/classroom/${row.classroomId}` : '/timetable' })
+  }
+  if (!row.studentUserId) row = await ensureStudent(row, row.teacherId)
+  const student = row.studentUserId ? await prisma.user.findUnique({ where: { id: row.studentUserId } }) : null
+  if (!student) return res.status(404).json({ error: 'Ученик не найден' })
+  if (!student.viaLink) return res.status(409).json({ error: 'У вас уже есть аккаунт — войдите в него, урок будет в кабинете', ownAccount: true })
+  const name = String(req.body?.name ?? '').trim().slice(0, 80)
+  if (name && name !== student.name) await prisma.user.update({ where: { id: student.id }, data: { name } })
+  issueToken(res, student)
+  res.json({ ok: true })
+})

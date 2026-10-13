@@ -43,6 +43,7 @@ import PersonActivity from './pages/PersonActivity'
 import TrialReportsPage from './pages/TrialReportsPage'
 import Courses from './pages/Courses'
 import Course from './pages/Course'
+import LessonLink from './pages/LessonLink'
 
 function RequireAuth({ children, roles }) {
   const { user, loading } = useAuth()
@@ -57,6 +58,9 @@ function RequireAuth({ children, roles }) {
 // straight on sign-in, as before).
 function HomeRoute() {
   const { user, loading } = useAuth()
+  // The first lesson links from the Advent site were /?advent=<id>.
+  const [params] = useSearchParams()
+  if (params.get('advent')) return <Navigate to={`/lesson/${encodeURIComponent(params.get('advent'))}`} replace />
   if (loading) return <div className="centered">Loading…</div>
   if (!user) return isNativeApp() ? <Navigate to="/login" replace /> : <Landing />
   return <Classrooms />
@@ -137,6 +141,7 @@ export default function App() {
       <Route path="/register" element={user ? <Navigate to="/" replace /> : <Register />} />
       <Route path="/join/:token" element={user ? <Navigate to="/" replace /> : <Join />} />
       <Route path="/call/:token" element={<Call />} />
+      <Route path="/lesson/:token" element={<LessonLink />} />
       <Route path="/" element={<HomeRoute />} />
       <Route path="/plans" element={<RequireAuth><Plans /></RequireAuth>} />
       <Route path="/classroom" element={<RequireAuth><Classrooms /></RequireAuth>} />

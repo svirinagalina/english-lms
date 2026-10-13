@@ -43,7 +43,7 @@ import { stripeWebhook, plansRouter, loadSubscriptionSettings } from './subscrip
 import { startPlanSweep } from './plans.js'
 import { setupSignaling } from './signaling.js'
 import { flushBoards } from './boardStore.js'
-import { adventWebhook } from './adventLessons.js'
+import { adventWebhook, lessonLinkRouter } from './adventLessons.js'
 import { flushDocuments } from './docStore.js'
 
 const app = express()
@@ -94,6 +94,7 @@ app.use('/api/push', pushRouter)
 app.use('/api/plans', plansRouter)
 app.use('/api/leads', leadsRouter)
 app.use('/api/activity', activityRouter)
+app.use('/api/lesson-link', rateLimit({ windowMs: 10 * 60_000, max: 120 }), lessonLinkRouter)
 
 // For the deploy script and Docker: the database must answer within 3 s.
 app.get('/api/health', async (req, res) => {

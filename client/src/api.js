@@ -78,6 +78,8 @@ export const api = {
   myBilling: () => request('/billing/me'),
   billingStudents: () => request('/billing/students'),
   billingStudent: (id) => request(`/billing/students/${id}`),
+  lessonLink: (token) => request(`/lesson-link/${encodeURIComponent(token)}`),
+  enterLessonLink: (token, name) => request(`/lesson-link/${encodeURIComponent(token)}/enter`, { method: 'POST', body: { name } }),
   eurRate: () => request('/billing/rates'),
   checkout: (plan) => request('/billing/checkout', { method: 'POST', body: { plan } }),
   verifyCheckout: (sessionId) => request(`/billing/checkout/verify?session_id=${encodeURIComponent(sessionId)}`),
