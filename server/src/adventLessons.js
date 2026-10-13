@@ -321,7 +321,9 @@ export async function adventTrialReport(report) {
     to_improve: (g.focus ?? []).map((f) => (typeof f === 'string' ? f : f.topic)).filter(Boolean).slice(0, 5),
     homework: (g.plan ?? []).join('\n').slice(0, 1000),
     level: g.level ?? report.teacherLevel ?? null,
-    report_url: `${APP_URL()}/report/${report.id}`
+    // Through the student's lesson link: their account has no password, the
+    // plain report page would ask them to sign in.
+    report_url: lesson.studentToken ? `${APP_URL()}/lesson/${lesson.studentToken}?to=${encodeURIComponent(`/report/${report.id}`)}` : `${APP_URL()}/report/${report.id}`
   }
   try {
     await adventApi('POST', `/lessons/${encodeURIComponent(lesson.adventId)}/report`, body)
@@ -386,8 +388,9 @@ lessonLinkRouter.post('/:token/enter', express.json(), async (req, res) => {
   if (!found) return res.status(404).json({ error: 'Ссылка не найдена' })
   let { row, role } = found
   if (row.status === 'cancelled') return res.status(410).json({ error: 'Урок отменён' })
-  // Usable until six hours after the lesson.
-  if (Date.now() > new Date(row.startsAt).getTime() + (row.durationMin + 360) * 60000) return res.status(410).json({ error: 'Эта ссылка уже не действует — урок прошёл' })
+  // Usable for two weeks after the lesson (the report and the offer are
+  // opened through it too).
+  if (Date.now() > new Date(row.startsAt).getTime() + row.durationMin * 60000 + 14 * 86400000) return res.status(410).json({ error: 'Эта ссылка уже не действует — урок давно прошёл' })
   if (role === 'teacher') {
     const teacher = await prisma.user.findUnique({ where: { id: row.teacherId } })
     if (!teacher) return res.status(404).json({ error: 'Преподаватель не найден' })

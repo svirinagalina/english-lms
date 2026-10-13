@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { useNavigate, useParams } from 'react-router-dom'
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { api } from '../api'
 import { useAuth } from '../AuthContext'
 
@@ -56,6 +56,10 @@ export default function LessonLink() {
   const { token } = useParams()
   const { user } = useAuth()
   const navigate = useNavigate()
+  // ?to=/report/<id>: the trial report, sent by Advent through this link.
+  const [params] = useSearchParams()
+  const to = params.get('to')
+  const safeTo = to && /^\/report\/[A-Za-z0-9_-]+$/.test(to) ? to : null
   const [info, setInfo] = useState(null)
   const [error, setError] = useState('')
   const [name, setName] = useState('')
@@ -68,6 +72,7 @@ export default function LessonLink() {
   const inside = info?.role === 'student' && user?.role === 'STUDENT'
   useEffect(() => {
     if (!inside) return
+    if (safeTo) { navigate(safeTo, { replace: true }); return }
     if (info.callToken) { navigate(`/call/${info.callToken}`, { replace: true }); return }
     const timer = setInterval(load, 4000)
     return () => clearInterval(timer)
@@ -79,7 +84,7 @@ export default function LessonLink() {
     try {
       const result = await api.enterLessonLink(token, name.trim())
       // A fresh page, so the whole app knows who is signed in.
-      window.location.assign(result.redirect ?? window.location.pathname)
+      window.location.assign(result.redirect ?? safeTo ?? window.location.pathname)
     } catch (err) {
       setError(err.message)
       setBusy(false)
@@ -143,7 +148,7 @@ export default function LessonLink() {
           <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Имя" maxLength={80} autoFocus required />
         </label>
         {error && <p className="error">{error}</p>}
-        <button type="submit" className="ll-go" disabled={busy || !name.trim()}>{busy ? 'Вхожу…' : 'Войти на урок'}</button>
+        <button type="submit" className="ll-go" disabled={busy || !name.trim()}>{busy ? 'Вхожу…' : safeTo ? 'Открыть отчёт' : 'Войти на урок'}</button>
         <p className="muted ll-note">Без регистрации и паролей — нужна только эта ссылка. Урок идёт прямо в браузере, ничего устанавливать не нужно.</p>
       </form>
     </div></div>
