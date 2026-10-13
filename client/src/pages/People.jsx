@@ -408,7 +408,7 @@ export default function People() {
       </Panel>
 
       {leads.length > 0 && (
-        <Panel id="people:leads" title="Website requests" count={leads.filter((l) => !l.handled).length} defaultOpen={leads.some((l) => !l.handled)} hint="From the form on the IELTS page.">
+        <Panel id="people:leads" title="Website requests" count={leads.filter((l) => !l.handled).length} defaultOpen={leads.some((l) => !l.handled)} hint="From the form on the IELTS / TOEFL page.">
           <div className="list">
             {leads.map((lead) => (
               <div key={lead.id} className="row column" style={lead.handled ? { opacity: 0.6 } : undefined}>

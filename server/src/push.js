@@ -206,7 +206,7 @@ export function notifyLead(lead) {
   quietly((async () => {
     if (!pushEnabled()) return
     const owners = await prisma.user.findMany({ where: { schoolId: lead.schoolId, role: 'OWNER' }, select: { id: true } })
-    await notify(owners.map((o) => o.id), { title: 'New request from the IELTS page', body: [lead.name, lead.messenger || lead.email].filter(Boolean).join(' · '), url: '/people' })
+    await notify(owners.map((o) => o.id), { title: 'New request from the IELTS / TOEFL page', body: [lead.name, lead.messenger || lead.email].filter(Boolean).join(' · '), url: '/people' })
   })())
 }
 

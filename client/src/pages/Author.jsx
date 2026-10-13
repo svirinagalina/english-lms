@@ -25,7 +25,7 @@ const FORMATS = [
 ]
 
 const COURSES = [
-  { icon: 'icon-ielts', href: '/ielts', title: <>Курс подготовки<br />к IELTS</>, text: 'Качественно подготовитесь к экзамену и сдадите его на нужный балл' },
+  { icon: 'icon-ielts', href: '/ielts', title: <>Курс подготовки<br />к IELTS и TOEFL</>, text: 'Качественно подготовитесь к экзамену и сдадите его на нужный балл' },
   { icon: 'icon-essay', title: 'Курс «Навыки академического эссе»', text: 'Научитесь писать академические тексты, соответствующие стандартам в англоязычной среде' },
   { icon: 'icon-the', title: 'Курс «Английский без ошибок. Артикли, предлоги, словарный запас»', text: 'Избавитесь от ошибок в разговорном английском и научитесь использовать предлоги и артикли' }
 ]
@@ -254,7 +254,7 @@ export default function Author() {
       <footer className="gs-foot">
         <div className="gs-wrap">
           <div className="gs-foot-grid">
-            <div><span>Курс «Английский без ошибок»</span><span>Курс «Навыки академического эссе»</span><Link to="/ielts">Курс подготовки к IELTS</Link></div>
+            <div><span>Курс «Английский без ошибок»</span><span>Курс «Навыки академического эссе»</span><Link to="/ielts">Курс подготовки к IELTS и TOEFL</Link></div>
             <div><span>Обучение для преподавателей</span><span>Литературный клуб</span><span>Самоучитель “English Time”</span></div>
             <div><a href="#about">Обо мне</a><a href="#reviews">Отзывы студентов</a><a href="#contact">Контакты</a></div>
             <div><a href="/privacy.html">Политика конфиденциальности</a><Link to="/">Платформа Advent Academy</Link><span>{new Date().getFullYear()}</span></div>

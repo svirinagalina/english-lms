@@ -11,7 +11,7 @@ import '@fontsource/mulish/latin-800.css'
 import '../styles/ielts.css'
 import { api } from '../api'
 
-// "Курс подготовки к IELTS" — built from Galina's Figma layout
+// "Курс подготовки к IELTS и TOEFL" — built from Galina's Figma layout
 // (Advent Academy (New), «Полная стр десктоп»): Mulish, green #14453f,
 // pink #ffd5ed, cream #fcfbf6. Pictures are in public/ielts.
 
@@ -23,7 +23,7 @@ const img = (name) => `/ielts/${name}`
 const WHY = [
   'Пробные тесты для каждого тарифа перед покупкой обучения.',
   'Авторские материалы для Writing Part, которых нет в учебниках.',
-  'Гарантия сдачи IELTS от 6.5 баллов.',
+  'Гарантия сдачи IELTS от 6.5 баллов или TOEFL от 79 баллов.',
   'Продвинутая аналитика для отслеживания прогресса студентов.'
 ]
 
@@ -56,7 +56,7 @@ const LESSON_LEFT = [
   { b: 'Чат студентов', t: ' с кураторами и с Галиной в телеграм' },
   { b: 'Дополнительные бонусы', t: ' — курсы на произношение, пунктуацию и академический словарь' },
   { b: 'Графики', t: ' для отслеживания прогресса' },
-  { b: 'Доступ к библиотеке ресурсов', t: ' для подготовки к IELTS' },
+  { b: 'Доступ к библиотеке ресурсов', t: ' для подготовки к IELTS и TOEFL' },
   { b: 'Гайды на полезный словарь', t: ' для speaking и writing' }
 ]
 
@@ -66,7 +66,7 @@ const LESSON_GRID = [
 ]
 
 const SECTIONS = [
-  { title: 'Вводная часть', text: 'Знакомство с форматом экзамена IELTS, его структурой и системой оценивания: с чего начать и как распределить силы.' },
+  { title: 'Вводная часть', text: 'Знакомство с форматом экзаменов IELTS и TOEFL, их структурой и системой оценивания: с чего начать и как распределить силы.' },
   { title: 'Раздел 1: Listening', text: 'Типы заданий на аудирование, разбор ловушек и практика на реальных форматах теста.' },
   { title: 'Раздел 2: Reading', text: 'Стратегии работы с текстом, типы вопросов и тренировка скорости чтения.' },
   { title: 'Раздел 3: Writing', text: 'Авторские материалы по Writing Part, разбор примеров эссе и заданий из первой части письма, шаблоны и проверка работ.' },
@@ -156,7 +156,7 @@ export default function Ielts() {
   const [state, setState] = useState({ busy: false, done: false, error: '' })
   const reviewsRef = useRef(null)
 
-  useEffect(() => { document.title = 'Курс подготовки к IELTS — Advent Academy' }, [])
+  useEffect(() => { document.title = 'Курс подготовки к IELTS и TOEFL — Advent Academy' }, [])
 
   const goToForm = (interest) => {
     if (interest) setForm((f) => (f.comment.trim() ? f : { ...f, comment: `Интересует: ${interest}` }))
@@ -189,7 +189,7 @@ export default function Ielts() {
         <header className="iel-head iel-wrap">
           <Link to="/author" className="iel-logo" aria-label="Advent Academy"><img src={img('logo.svg')} alt="Advent Academy" /></Link>
           <div className="iel-head-actions">
-            <a className="iel-btn ghost light small iel-hide-sm" href="#contact">Связаться с нами</a>
+            <a className="iel-btn iel-ghost light small iel-hide-sm" href="#contact">Связаться с нами</a>
             <a className="iel-btn pink small" href="#tariffs">Купить курс</a>
             <button type="button" className="iel-burger" aria-label="Меню" aria-expanded={menu} onClick={() => setMenu((v) => !v)}><i /><i /><i /></button>
           </div>
@@ -213,7 +213,7 @@ export default function Ielts() {
         <div className="iel-hero-body iel-wrap">
           <img className="iel-avatar" src={img('galina.jpg')} alt="" />
           <img className="iel-plane-trail" src={img('plane-trail.svg')} alt="" aria-hidden="true" />
-          <h1>Получи 7+ баллов на IELTS за 2−4 месяца подготовки</h1>
+          <h1>Получи 7+ баллов на IELTS или 94+ на TOEFL за 2−4 месяца подготовки</h1>
           <div className="iel-hero-cta">
             <p>Оставь заявку на пробный период и начни обучение уже сегодня</p>
             <button type="button" className="iel-btn pink big" onClick={() => goToForm()}>Оставить заявку</button>
@@ -246,7 +246,7 @@ export default function Ielts() {
 
       <section className="iel-teachers" id="teachers">
         <div className="iel-wrap">
-          <h2>С вами будет работать преподаватель с собственным балом 8.0+</h2>
+          <h2>С вами будет работать преподаватель с собственным баллом 8.0+</h2>
           <div className="iel-teacher-cards">
             {TEACHERS.map((t) => (
               <article key={t.name} className="iel-teacher">
@@ -285,7 +285,7 @@ export default function Ielts() {
             ))}
           </div>
           <div className="iel-row">
-            <a className="iel-btn ghost light" href="#tariffs">Начать обучение</a>
+            <a className="iel-btn iel-ghost light" href="#tariffs">Начать обучение</a>
             <button type="button" className="iel-btn pink" onClick={() => goToForm()}>Оставить заявку</button>
           </div>
         </div>
@@ -297,7 +297,7 @@ export default function Ielts() {
           <p>Мы включили в курс дополнительные занятия по произношению и большое количество практических заданий для достижения максимальных результатов</p>
           <div className="iel-row">
             <a className="iel-btn pink small" href="#tariffs">Купить курс целиком</a>
-            <a className="iel-btn ghost small" href="#tariffs">Купить раздел курса</a>
+            <a className="iel-btn iel-ghost small" href="#tariffs">Купить раздел курса</a>
           </div>
         </div>
         <Accordion items={SECTIONS} />
@@ -312,7 +312,7 @@ export default function Ielts() {
             <Bullets items={BASE_FEATURES} />
             <div className="iel-plan-foot">
               <strong className="iel-demo">демо-версия курса на 7 дней</strong>
-              <button type="button" className="iel-btn ghost" onClick={() => goToForm('тариф «Самостоятельно», 19 000 ₽')}>Оставить заявку</button>
+              <button type="button" className="iel-btn iel-ghost" onClick={() => goToForm('тариф «Самостоятельно», 19 000 ₽')}>Оставить заявку</button>
             </div>
           </article>
 
@@ -328,7 +328,7 @@ export default function Ielts() {
             <PriceTable rows={CURATOR_PRICES} />
             <div className="iel-plan-foot">
               <strong className="iel-demo">демо-версия курса на 7 дней</strong>
-              <button type="button" className="iel-btn ghost" onClick={() => goToForm('тариф «С куратором»')}>Оставить заявку</button>
+              <button type="button" className="iel-btn iel-ghost" onClick={() => goToForm('тариф «С куратором»')}>Оставить заявку</button>
             </div>
           </article>
 
@@ -410,7 +410,7 @@ export default function Ielts() {
             <span>© {new Date().getFullYear()}. Advent Academy.<br />All rights reserved</span>
           </div>
           <nav className="iel-foot-links">
-            <Link to="/ielts">IELTS</Link>
+            <Link to="/ielts">IELTS / TOEFL</Link>
             <a href="#contact">Контакты</a>
             <a href={SITE}>Общий английский</a>
             <a href="/privacy.html">Политика конфиденциальности</a>
