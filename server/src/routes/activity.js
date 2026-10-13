@@ -234,3 +234,47 @@ async function teacherExtras(user) {
     }
   }
 }
+
+// Trial lessons booked on the Advent site, step by step, for the owner:
+// booked → waited in the waiting room → held / who didn't come → report sent
+// → paid. Everything from the platform's own records.
+activityRouter.get('/trial-funnel', requireRole('OWNER', 'PARTNER'), async (req, res) => {
+  const since = new Date(Date.now() - 45 * 86400000)
+  const rows = await prisma.adventLesson.findMany({
+    where: { kind: 'trial', startsAt: { gte: since } },
+    orderBy: { startsAt: 'desc' }
+  })
+  const teacherIds = [...new Set(rows.map((r) => r.teacherId))]
+  const studentIds = [...new Set(rows.map((r) => r.studentUserId).filter(Boolean))]
+  const [teachers, students, reports] = await Promise.all([
+    prisma.user.findMany({ where: { id: { in: teacherIds }, schoolId: req.user.schoolId }, select: { id: true, name: true } }),
+    prisma.user.findMany({ where: { id: { in: studentIds } }, select: { id: true, name: true, viaLink: true, lessonsPaid: true, paymentReportedAt: true } }),
+    prisma.trialReport.findMany({ where: { studentId: { in: studentIds } }, select: { id: true, studentId: true, publishedAt: true, generated: true } })
+  ])
+  const byId = (list) => Object.fromEntries(list.map((x) => [x.id, x]))
+  const T = byId(teachers), S = byId(students)
+  res.json({
+    trials: rows.filter((r) => T[r.teacherId]).map((r) => {
+      const s = r.studentUserId ? S[r.studentUserId] : null
+      const report = reports.filter((x) => x.studentId === r.studentUserId && x.publishedAt).sort((a, b) => b.publishedAt - a.publishedAt)[0] ?? null
+      return {
+        id: r.id,
+        startsAt: r.startsAt,
+        status: r.status,
+        isTest: r.isTest,
+        teacher: T[r.teacherId],
+        student: s ? { id: s.id, name: s.name, registered: !s.viaLink } : { id: null, name: r.studentName ?? '—', registered: false },
+        telegram: r.studentTelegram,
+        waitedAt: r.studentWaitingAt,
+        studentJoinedAt: r.studentJoinedAt,
+        teacherJoinedAt: r.teacherJoinedAt,
+        outcome: r.outcome,
+        reportSentAt: report?.publishedAt ?? r.reportSentAt,
+        reportId: report?.id ?? null,
+        level: report?.generated?.level ?? null,
+        lessonsPaid: s?.lessonsPaid ?? null,
+        saysPaid: s?.paymentReportedAt ?? null
+      }
+    })
+  })
+})

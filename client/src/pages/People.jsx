@@ -73,6 +73,40 @@ function InviteForm({ role, teachers, currentUserId, onInvited }) {
 const PLAN_NAMES = { practice: 'Practice', calls: 'Calls', all: 'Everything' }
 const monthAhead = () => { const d = new Date(); d.setMonth(d.getMonth() + 1); return d.toISOString().slice(0, 10) }
 
+// One trial lesson from the Advent site per row: each step it reached.
+const OUTCOME = { held: 'урок прошёл', student_no_show: 'ученик не пришёл', teacher_no_show: 'учитель не пришёл' }
+const shortWhen = (v) => new Date(v).toLocaleString(undefined, { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })
+function TrialFunnel({ trials }) {
+  return (
+    <div className="list">
+      {trials.map((t) => {
+        const past = new Date(t.startsAt) < new Date()
+        const steps = [
+          ['записан', true],
+          ['ждал урока', Boolean(t.waitedAt || t.studentJoinedAt)],
+          [t.outcome ? OUTCOME[t.outcome] ?? t.outcome : past ? 'итог неизвестен' : 'урок впереди', t.outcome === 'held', t.outcome && t.outcome !== 'held'],
+          [t.reportSentAt ? `отчёт отправлен${t.level ? ` · ${t.level}` : ''}` : 'отчёт не отправлен', Boolean(t.reportSentAt)],
+          [t.lessonsPaid > 0 ? `оплатил ${t.lessonsPaid} ур.` : t.saysPaid ? 'говорит, что оплатил' : 'не оплатил', t.lessonsPaid > 0]
+        ]
+        return (
+          <div key={t.id} className="row">
+            <div>
+              <strong>{t.student.id ? <PersonLink id={t.student.id} name={t.student.name} /> : t.student.name}</strong>
+              {t.isTest && <span className="muted"> · тест</span>}
+              <div className="muted">{shortWhen(t.startsAt)} · {t.teacher.name}{t.telegram ? ` · ${t.telegram}` : ''}{t.status === 'cancelled' ? ' · отменён' : ''}</div>
+            </div>
+            <div className="activity-tags">
+              {steps.map(([label, ok, bad]) => (
+                <span key={label} className={`activity-tag${ok ? ' ok' : bad ? ' bad' : ''}`}>{label}</span>
+              ))}
+            </div>
+          </div>
+        )
+      })}
+    </div>
+  )
+}
+
 export default function People() {
   const { user } = useAuth()
   const [people, setPeople] = useState([])
@@ -80,6 +114,7 @@ export default function People() {
   const [leads, setLeads] = useState([])
   const [activity, setActivity] = useState([])
   const [trialReports, setTrialReports] = useState([])
+  const [funnel, setFunnel] = useState([])
   const markLead = async (lead) => {
     const { lead: updated } = await api.handleLead(lead.id, !lead.handled)
     setLeads((list) => list.map((l) => (l.id === updated.id ? updated : l)))
@@ -107,6 +142,7 @@ export default function People() {
     api.listLeads().then(({ leads }) => setLeads(leads)).catch(() => {})
     api.activityPeople().then(({ people }) => setActivity(people)).catch(() => {})
     api.allTrialReports().then(({ reports }) => setTrialReports(reports)).catch(() => {})
+    api.trialFunnel().then(({ trials }) => setFunnel(trials)).catch(() => {})
   }
 
   useEffect(() => {
@@ -271,6 +307,12 @@ export default function People() {
             ? 'Invitation email sent.'
             : `Email not sent (${delivery.reason}). Copy the link below and send it yourself.`}
         </div>
+      )}
+
+      {funnel.length > 0 && (
+        <Panel id="people:trial-funnel" title="Пробные уроки с сайта" count={funnel.filter((t) => !t.isTest).length} hint="запись → пришёл → отчёт → оплата" defaultOpen>
+          <TrialFunnel trials={funnel} />
+        </Panel>
       )}
 
       {trialReports.length > 0 && (

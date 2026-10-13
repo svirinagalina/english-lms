@@ -1848,3 +1848,5 @@ a:hover .gs-arrow { transform: translateX(5px); }
 .ll-late { font-size: 15px; line-height: 1.45; padding: 12px 14px; border-radius: 12px; background: rgba(255, 196, 0, .16); border: 1px solid rgba(255, 196, 0, .45); margin-bottom: 14px; }
 .trial-invite { border: 1px solid rgba(255, 196, 0, .45); background: rgba(255, 196, 0, .08); border-radius: 14px; padding: 14px 16px; margin-bottom: 16px; display: grid; gap: 8px; }
 .trial-invite p { margin: 0; }
+.activity-tag.ok { background: rgba(74, 222, 128, .18); }
+.activity-tag.bad { background: rgba(255, 120, 120, .2); }

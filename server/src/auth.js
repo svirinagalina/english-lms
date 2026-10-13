@@ -41,17 +41,15 @@ async function userFromCookie(req) {
   }
   return prisma.user.findUnique({
     where: { id: payload.sub },
-    select: { id: true, role: true, schoolId: true, free: true, plan: true, planUntil: true, viaLink: true, trialAccessUntil: true }
+    select: { id: true, role: true, schoolId: true, free: true, plan: true, planUntil: true, viaLink: true, trialAccessUntil: true, lessonsPaid: true }
   })
 }
 
-// A trial-link account (no email/password of its own) past its three days:
-// everything waits for the sign-up, except finding out who one is.
-// Off (Galina, 2026-10-13: an email and a password only for those who pay —
-// the teacher invites them). Kept switchable until the post-trial concept is
-// agreed with Maxim's CRM.
-const SIGN_UP_GATE = false
-export const mustSignUp = (user) => SIGN_UP_GATE && Boolean(user?.viaLink && user.trialAccessUntil && user.trialAccessUntil < new Date())
+// A trial-link account (no email/password of its own) that now has paid
+// lessons: it becomes a real student — everything waits for the email and the
+// password, except finding out who one is (Galina, 2026-10-13: sign-up only
+// for those who pay).
+export const mustSignUp = (user) => Boolean(user?.viaLink && user.lessonsPaid > 0)
 export const SIGN_UP_NEEDED = { error: 'Чтобы продолжить заниматься, придумайте почту и пароль', needsSignup: true }
 
 export async function requireAuth(req, res, next) {

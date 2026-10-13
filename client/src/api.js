@@ -189,6 +189,7 @@ export const api = {
   listLeads: () => request('/leads'),
   trackSection: (section) => request('/activity', { method: 'POST', body: { section } }),
   activityPeople: () => request('/activity/people'),
+  trialFunnel: () => request('/activity/trial-funnel'),
   activityPerson: (id) => request(`/activity/people/${id}`),
   allTrialReports: () => request('/activity/reports'),
   handleLead: (id, handled) => request(`/leads/${id}`, { method: 'PATCH', body: { handled } }),

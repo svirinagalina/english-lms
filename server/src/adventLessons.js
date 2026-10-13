@@ -355,19 +355,6 @@ export async function adventTrialReport(report) {
   } catch (error) { console.error('[advent] report', error.message) }
 }
 
-// A student who came through the Advent site (an ad, Maxim's bot): Advent
-// sells to them and sends them the report itself (Galina, 2026-10-13), so the
-// platform shows them no prices, no discount and no "Pay" — and mails no
-// report of its own.
-export async function bookedOnAdvent(studentId, callId = null) {
-  if (!studentId && !callId) return false
-  const row = await prisma.adventLesson.findFirst({
-    where: { OR: [...(studentId ? [{ studentUserId: studentId }] : []), ...(callId ? [{ callId }] : [])] },
-    select: { id: true }
-  })
-  return Boolean(row)
-}
-
 // --- The lesson links ----------------------------------------------------------
 
 // A token is a student's or a teacher's; an old `/?advent=<id>` link is the
@@ -403,7 +390,7 @@ lessonLinkRouter.get('/:token', async (req, res) => {
   if (role === 'student' && !row.studentUserId && row.status === 'scheduled') row = await ensureStudent(row, row.teacherId).catch(() => row)
   if (role === 'student' && req.query.waiting && !row.studentWaitingAt) await prisma.adventLesson.update({ where: { id: row.id }, data: { studentWaitingAt: new Date() } }).catch(() => {})
   const teacher = await prisma.user.findUnique({ where: { id: row.teacherId }, select: { name: true } })
-  const student = row.studentUserId ? await prisma.user.findUnique({ where: { id: row.studentUserId }, select: { name: true, viaLink: true, trialAccessUntil: true } }) : null
+  const student = row.studentUserId ? await prisma.user.findUnique({ where: { id: row.studentUserId }, select: { name: true, viaLink: true, lessonsPaid: true } }) : null
   res.json({
     role,
     kind: row.kind,
@@ -415,7 +402,8 @@ lessonLinkRouter.get('/:token', async (req, res) => {
     // A student who already has an account of their own signs in with it.
     ownAccount: role === 'student' && student ? !student.viaLink : false,
     // The three days are over: the link no longer signs in, the page asks for an email and a password.
-    needsSignup: false,
+    // Paid: the link no longer signs in — the page asks for an email and a password.
+    needsSignup: role === 'student' && Boolean(student?.viaLink && student.lessonsPaid > 0),
     classroomId: row.classroomId,
     callToken: row.status === 'scheduled' ? await liveCallToken(row) : null,
     support: supportContact()
@@ -442,6 +430,7 @@ lessonLinkRouter.post('/:token/enter', express.json(), async (req, res) => {
   const student = row.studentUserId ? await prisma.user.findUnique({ where: { id: row.studentUserId } }) : null
   if (!student) return res.status(404).json({ error: 'Ученик не найден' })
   if (!student.viaLink) return res.status(409).json({ error: 'У вас уже есть аккаунт — войдите в него, урок будет в кабинете', ownAccount: true })
+  if (student.lessonsPaid > 0) return res.status(403).json({ error: 'Вы оплатили занятия — придумайте почту и пароль', needsSignup: true })
   if (!student.trialAccessUntil) await applyTrialAccess(row, student)
   const name = String(req.body?.name ?? '').trim().slice(0, 80)
   if (name && name !== student.name) await prisma.user.update({ where: { id: student.id }, data: { name } })
@@ -513,7 +502,7 @@ async function handlePayment(event) {
 
 // --- Who didn't come ----------------------------------------------------------
 
-// A lesson the teacher never started a call for: 30 minutes after its start
+// A lesson the teacher never started a call for: once its time is over
 // Advent is told who didn't come — the teacher, if the student was waiting
 // in the waiting room; otherwise the student. A call that was held reports
 // itself when it ends (adventCallEnded). Only lessons booked from now on.
@@ -523,6 +512,9 @@ async function sweepNoShows() {
     where: { status: 'scheduled', callId: null, finishedSentAt: null, isTest: false, createdAt: { gte: new Date('2026-10-13T16:00:00Z') }, startsAt: { lte: new Date(Date.now() - 30 * 60000) } }
   })
   for (const lesson of due) {
+    // Decided only once the lesson's time is over: a late teacher who still
+    // held it is "held" (the call reports itself when it ends).
+    if (new Date(lesson.startsAt).getTime() + lesson.durationMin * 60000 > Date.now()) continue
     const outcome = lesson.studentWaitingAt ? 'teacher_no_show' : 'student_no_show'
     try {
       await adventApi('POST', `/lessons/${encodeURIComponent(lesson.adventId)}/finished`, {
@@ -538,16 +530,16 @@ async function sweepNoShows() {
 // A trial student past the three days who has not paid: the free tier.
 async function sweepTrialAccess() {
   await prisma.user.updateMany({
-    where: { role: 'STUDENT', trialAccessUntil: { lt: new Date() }, free: false, OR: [{ lessonsPaid: null }, { lessonsPaid: { lte: 0 } }], viaLink: false },
+    where: { role: 'STUDENT', trialAccessUntil: { lt: new Date() }, free: false, OR: [{ lessonsPaid: null }, { lessonsPaid: { lte: 0 } }] },
     data: { free: true, trialAccessUntil: null }
   }).catch((error) => console.error('[advent] trial access', error.message))
 }
 
 export function startAdventJobs() {
-  // Both off until agreed with Maxim: Advent has its own "didn't come" job
-  // (one place must decide — it sets teachers' pay), and what happens after
-  // the three trial days is not decided yet.
-  const run = () => {}
+  // Agreed 2026-10-13: the platform alone marks who didn't come (Maxim turns
+  // his job off); a trial student who hasn't paid after three days is on the
+  // free tier.
+  const run = () => { sweepNoShows().catch((e) => console.error('[advent] sweep', e.message)); sweepTrialAccess() }
   setTimeout(run, 60_000)
   setInterval(run, 5 * 60_000)
 }

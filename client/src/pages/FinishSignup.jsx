@@ -15,7 +15,7 @@ export default function FinishSignup() {
       <div className="ll-kicker">Advent Academy</div>
       <h1 className="ll-title">Сохраните доступ</h1>
       <p className="ll-when">{user.needsSignup
-        ? 'Три дня пробного доступа закончились. Чтобы продолжить заниматься, придумайте почту и пароль — так вы сможете входить сами.'
+        ? 'Спасибо за оплату! Придумайте почту и пароль — так вы будете входить на платформу сами, без ссылки.'
         : 'Придумайте почту и пароль — так вы сможете входить на платформу сами, без ссылки.'}</p>
       <SignupFields onSubmit={async (body) => { await api.finishSignup(body); window.location.assign('/') }} />
     </div></div>

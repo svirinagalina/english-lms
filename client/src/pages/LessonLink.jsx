@@ -144,7 +144,7 @@ export default function LessonLink() {
     return (
       <div className="centered"><div className="card ll-card">
         {header}
-        <p>Три дня пробного доступа закончились. Чтобы продолжить{safeTo ? ' и открыть отчёт' : ''}, придумайте почту и пароль.</p>
+        <p>Спасибо за оплату! Чтобы продолжить{safeTo ? ' и открыть отчёт' : ''}, придумайте почту и пароль — дальше вы будете входить сами.</p>
         <SignupFields onSubmit={async (body) => { await api.registerLessonLink(token, body); window.location.assign(safeTo ?? '/') }} />
       </div></div>
     )

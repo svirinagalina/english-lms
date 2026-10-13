@@ -52,7 +52,7 @@ export default function Report() {
         <div className="row-actions">
           {isStaff && !report.publishedAt && <span className="paid-badge mid">Draft — the student does not see it yet</span>}
           <button className="ghost" onClick={savePdf} disabled={saving}>{saving ? 'Готовим PDF…' : 'Скачать PDF'}</button>
-          {!isStaff && !report.fromAdvent && <Link className="button" to="/billing">Перейти к оплате</Link>}
+          {!isStaff && <Link className="button" to="/billing">Перейти к оплате</Link>}
         </div>
       </div>
 
@@ -194,8 +194,7 @@ export default function Report() {
 
         {/* Prices and the way to pay are for the website: the App Store
             allows no way to an outside payment from inside the app. */}
-        {/* Students from the Advent site get their offer from Advent's bot. */}
-        {!isNativeApp() && !report.fromAdvent && <section className="report-offer">
+        {!isNativeApp() && <section className="report-offer">
           <h2>{OFFER.heading}</h2>
           <p>{OFFER.intro}</p>
           <p>{OFFER.intro2}</p>

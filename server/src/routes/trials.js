@@ -8,7 +8,7 @@ import { TEST_ITEMS, LEVELS, GRAMMAR_TOPICS, estimateLevel } from '../placementT
 import { buildTrialReport } from '../trialReport.js'
 import { assistantEnabled } from '../assistant.js'
 import { sendTrialReportEmail } from '../mailer.js'
-import { linkCallToAdventLesson, adventTrialReport, bookedOnAdvent } from '../adventLessons.js'
+import { linkCallToAdventLesson, adventTrialReport } from '../adventLessons.js'
 import { notifyCallStarted } from '../push.js'
 
 // Trial lessons: a call that opens on the board the teacher prepared for the
@@ -145,7 +145,7 @@ trialsRouter.post('/:id/publish', requireRole('OWNER', 'TEACHER'), async (req, r
   if (publishing) adventTrialReport(updated).catch(() => {})
   // The student gets the report by email the moment it is published.
   let mailed = false
-  if (publishing && !(await bookedOnAdvent(report.studentId, report.callId))) {
+  if (publishing) {
     const student = await prisma.user.findUnique({ where: { id: report.studentId }, select: { email: true, name: true } })
     if (student) {
       const origin = originOf(req)
@@ -183,7 +183,6 @@ trialsRouter.get('/:id', async (req, res) => {
       ...view(report, { forStudent: req.user.role === 'STUDENT' }),
       student: report.classroom.student?.name ?? '',
       teacher: report.classroom.teacher?.name ?? '',
-      fromAdvent: await bookedOnAdvent(report.studentId, report.callId),
       items: TEST_ITEMS.map((i) => ({ n: i.n, ru: i.ru, en: i.en, topic: i.topic, level: i.level, result: report.answers?.[i.n] ?? null }))
     }
   })
