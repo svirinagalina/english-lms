@@ -44,6 +44,9 @@ import { startPlanSweep } from './plans.js'
 import { setupSignaling } from './signaling.js'
 import { flushBoards } from './boardStore.js'
 import { adventWebhook, lessonLinkRouter, startAdventJobs } from './adventLessons.js'
+import { telegramRouter } from './routes/telegram.js'
+import { loadBotSettings } from './telegram.js'
+import { startBotJobs } from './bot.js'
 import { flushDocuments } from './docStore.js'
 
 const app = express()
@@ -95,6 +98,7 @@ app.use('/api/plans', plansRouter)
 app.use('/api/leads', leadsRouter)
 app.use('/api/activity', activityRouter)
 app.use('/api/lesson-link', rateLimit({ windowMs: 10 * 60_000, max: 120 }), lessonLinkRouter)
+app.use('/api/telegram', telegramRouter)
 
 // For the deploy script and Docker: the database must answer within 3 s.
 app.get('/api/health', async (req, res) => {
@@ -170,11 +174,14 @@ const io = new Server(httpServer, {
 setupSignaling(io)
 startPushJobs()
 startAdventJobs()
+startBotJobs()
 
 // The AI key saved from the Settings page, before the first request.
 loadAiSettings().catch((error) => console.error('Could not load AI settings:', error.message))
 loadSubscriptionSettings().catch((error) => console.error('Could not load subscription settings:', error.message))
 startPlanSweep()
+// The school's Telegram bot: its key, then listening for /start.
+loadBotSettings().catch((error) => console.error('Could not load the Telegram bot:', error.message))
 
 // A whole request must arrive within 5 min (big content uploads included).
 // Slow clients are cut by Caddy in front (read_header 15 s); here the

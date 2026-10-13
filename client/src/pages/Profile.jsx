@@ -3,6 +3,7 @@ import Nav from '../components/Nav'
 import { Avatar } from '../components/Avatar'
 import { useAuth } from '../AuthContext'
 import { api } from '../api'
+import TelegramConnect from '../components/TelegramConnect'
 
 // The zones people actually live in, offered first; any IANA name is accepted.
 const ZONES = ['Europe/Kaliningrad', 'Europe/Moscow', 'Europe/Samara', 'Asia/Yekaterinburg', 'Asia/Omsk', 'Asia/Novosibirsk', 'Asia/Krasnoyarsk', 'Asia/Irkutsk', 'Asia/Yakutsk', 'Asia/Vladivostok', 'Asia/Magadan', 'Asia/Kamchatka', 'Europe/Minsk', 'Europe/Kyiv', 'Asia/Almaty', 'Asia/Tashkent', 'Asia/Tbilisi', 'Asia/Yerevan', 'Asia/Baku', 'Europe/Istanbul', 'Asia/Dubai', 'Europe/London', 'Europe/Berlin', 'Europe/Madrid', 'Europe/Paris', 'Asia/Bangkok', 'America/New_York', 'America/Los_Angeles']
@@ -167,6 +168,7 @@ export default function Profile() {
           </div>
         </form>
       </section>
+      <TelegramConnect />
       {user.role === 'STUDENT' && <DeleteAccount />}
       <p className="muted" style={{ marginTop: 16 }}><a href="/privacy.html" target="_blank" rel="noopener noreferrer">Privacy policy</a></p>
     </div>

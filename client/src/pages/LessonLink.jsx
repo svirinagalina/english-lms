@@ -53,6 +53,20 @@ function DeviceCheck() {
   )
 }
 
+// «Напоминания в Telegram»: the school's bot, connected to this lesson's
+// student (or teacher) by the link's own token. Hidden until there is a bot.
+function TelegramButton({ param, hint }) {
+  const [username, setUsername] = useState(null)
+  useEffect(() => { api.telegramInfo().then((d) => setUsername(d.username)).catch(() => {}) }, [])
+  if (!username) return null
+  return (
+    <>
+      <a className="ll-tg" href={`https://t.me/${username}?start=${param}`} target="_blank" rel="noreferrer">🔔 Напоминания в Telegram</a>
+      {hint && <p className="muted ll-tg-hint">{hint}</p>}
+    </>
+  )
+}
+
 export default function LessonLink() {
   const { token } = useParams()
   const { user } = useAuth()
@@ -121,6 +135,7 @@ export default function LessonLink() {
         <p className="muted">Откроется кабинет ученика — нажмите там <strong>Trial lesson</strong>, ученика впустит в звонок само.</p>
         {error && <p className="error">{error}</p>}
         <button className="ll-go" onClick={enter} disabled={busy}>{busy ? 'Открываю…' : 'Открыть кабинет ученика'}</button>
+        <TelegramButton param={`t_${token}`} hint="Новые пробные уроки и напоминания — в Telegram." />
       </div></div>
     )
   }
@@ -136,6 +151,7 @@ export default function LessonLink() {
           </div>
         )}
         <DeviceCheck />
+        <TelegramButton param={`l_${token}`} hint="Пришлём ссылку, напоминания перед уроком и отчёт." />
       </div></div>
     )
   }
@@ -172,6 +188,7 @@ export default function LessonLink() {
         <button type="submit" className="ll-go" disabled={busy || !name.trim()}>{busy ? 'Вхожу…' : safeTo ? 'Открыть отчёт' : 'Войти на урок'}</button>
         <p className="muted ll-note">Без регистрации и паролей — нужна только эта ссылка. Урок идёт прямо в браузере, ничего устанавливать не нужно.</p>
       </form>
+      <TelegramButton param={`l_${token}`} hint="Пришлём ссылку, напоминания перед уроком и отчёт." />
     </div></div>
   )
 }

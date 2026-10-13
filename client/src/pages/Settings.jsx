@@ -3,6 +3,7 @@ import { api } from '../api'
 import Nav, { refreshTrainerStatus } from '../components/Nav'
 import { SiteFooter } from '../components/Brand'
 import PushSettings from '../components/PushSettings'
+import TelegramSettings from '../components/TelegramSettings'
 
 // Owner's settings. The AI key is pasted here and stored encrypted on the
 // server; it is never shown again, only its last characters.
@@ -164,6 +165,8 @@ export default function Settings() {
           {callsError && <div className="error">{callsError}</div>}
         </section>
       )}
+
+      <TelegramSettings />
 
       <section>
         <h2>Help for students</h2>
