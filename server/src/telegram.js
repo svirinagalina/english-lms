@@ -23,8 +23,8 @@ export const botUsername = () => state.username
 export const botOn = () => Boolean(botToken() && state.on)
 export const botOnSince = () => state.onSince ?? new Date()
 export const botSince = () => state.connectedAt ?? new Date()
-// «Выбрать время»: the platform's own booking page unless Settings says otherwise.
-export const bookingUrl = () => state.bookingUrl || `${APP_URL()}/trial`
+// «Выбрать время»: the booking page on Maxim's site unless Settings says otherwise.
+export const bookingUrl = () => state.bookingUrl || 'https://advent-academy.online/free-lesson'
 export const botSettings = () => ({
   configured: Boolean(botToken()),
   fromEnv: Boolean(process.env.TELEGRAM_BOT_TOKEN),

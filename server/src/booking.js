@@ -31,7 +31,11 @@ async function publicSchool() {
   if (process.env.PUBLIC_SCHOOL_ID) return prisma.school.findUnique({ where: { id: process.env.PUBLIC_SCHOOL_ID } })
   return prisma.school.findFirst({ orderBy: { createdAt: 'asc' } })
 }
-const bookingOpen = () => Boolean(botToken() && botUsername())
+// Off (Galina, 2026-10-14): trials are booked on Maxim's site, the platform
+// holds the paid lessons. The page, the windows and the booking code stay
+// for the day this changes; Move / Teacher / Remove below are in use.
+const PLATFORM_BOOKING = false
+const bookingOpen = () => PLATFORM_BOOKING && Boolean(botToken() && botUsername())
 
 // What keeps a teacher busy: their Timetable lessons (a lesson saved with no
 // length counts as an hour) and trial bookings, pending ones included.

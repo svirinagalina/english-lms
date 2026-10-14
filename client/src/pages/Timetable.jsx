@@ -6,7 +6,6 @@ import { useAuth } from '../AuthContext'
 import Nav from '../components/Nav'
 import { SiteFooter } from '../components/Brand'
 import Panel from '../components/Panel'
-import TrialWindows from '../components/TrialWindows'
 import TrialLessonActions from '../components/TrialLessonActions'
 
 // A Date as the value of a datetime-local input, in the browser's own time.
@@ -572,8 +571,6 @@ export default function Timetable() {
           </div>
         )}
       </Panel>
-
-      {isStaff && <TrialWindows />}
 
       {deleteConfirm && eventToDelete && eventToDelete.recurrence === 'WEEKLY' && (
         <div style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.3)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
