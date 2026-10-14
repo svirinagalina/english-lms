@@ -35,7 +35,7 @@ export default function AdventSyncSettings() {
     <section>
       <h2>Advent site</h2>
       <p className="muted" style={{ marginBottom: 12 }}>
-        Trials are booked on Maxim's site and come here. Everything that happens to them here — the lesson started, its outcome, the report, a cancellation, a move, a new teacher, a payment — goes back to his site, and is retried until his site takes it. Every 6 hours both lesson lists are compared; you get a Telegram message when something was put right or needs a look.
+        Trials are booked on Maxim's site and come here. Everything that happens to them here — the lesson started, its outcome, the report, a cancellation, a move, a new teacher — goes back to his site. Payments stay on the platform only, and is retried until his site takes it. Every 6 hours both lesson lists are compared; you get a Telegram message when something was put right or needs a look.
       </p>
       {!sync.enabled && <div className="error">Not connected: ADVENT_API_KEY / ADVENT_WEBHOOK_SECRET are not set on the server.</div>}
       {last && (

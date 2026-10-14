@@ -8,8 +8,8 @@ import { sendTo, esc } from './telegram.js'
 // 2026-10-14: "нужна полная синхронизация"). Trials are booked on his site
 // and come here by his webhook; from then on the platform is where a lesson
 // changes. Everything the platform tells his site — a lesson started, how it
-// went, the report, a cancellation, a move, a new teacher, a payment — goes
-// through an outbox and is retried until his API takes it, so nothing is lost
+// went, the report, a cancellation, a move, a new teacher — goes through an
+// outbox and is retried until his API takes it, so nothing is lost
 // while his site is down. Every 6 hours both lists are compared: what is
 // missing here is brought in, what differs is put right, the rest is shown in
 // Settings and sent to the owner in Telegram.
@@ -18,7 +18,6 @@ const MIN = 60000
 const HOUR = 60 * MIN
 const DAY = 24 * HOUR
 const BACKOFF = [1, 5, 15, 60, 360].map((m) => m * MIN) // then once a day
-const realEmail = (email) => (email && !/\.invalid$/i.test(email) ? email : null)
 const msk = (d) => new Date(d).toLocaleString('ru-RU', { timeZone: 'Europe/Moscow', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })
 
 // --- The outbox -----------------------------------------------------------------
@@ -66,43 +65,6 @@ export async function flushOutbox({ now = false } = {}) {
       }
     }
   } finally { flushing = false }
-}
-
-// --- Payments: his site hears of every package added here ------------------------
-
-const mark = (u) => `${u.lessonsPaid ?? 0}|${u.packageStartedAt ? new Date(u.packageStartedAt).getTime() : ''}`
-export const adventPaidMark = mark
-
-export async function syncPayments() {
-  if (!adventLessonsEnabled()) return
-  // The students his site knows: they came by a booking from it.
-  const known = await prisma.adventLesson.findMany({
-    where: { source: { not: 'platform' }, studentUserId: { not: null }, studentAdventId: { not: null } },
-    select: { studentUserId: true, studentAdventId: true },
-    distinct: ['studentUserId']
-  })
-  for (const { studentUserId, studentAdventId } of known) {
-    const s = await prisma.user.findUnique({ where: { id: studentUserId }, select: { id: true, name: true, email: true, messenger: true, telegramName: true, lessonsPaid: true, packageStartedAt: true, adventPaidSeen: true, priceAmount: true, priceCurrency: true } })
-    if (!s) continue
-    const now = mark(s)
-    if (now === s.adventPaidSeen) continue
-    await prisma.user.update({ where: { id: s.id }, data: { adventPaidSeen: now } })
-    if (s.adventPaidSeen == null || !(s.lessonsPaid > 0)) continue // the first look only remembers
-    const [oldLessons, oldStart] = s.adventPaidSeen.split('|')
-    const more = oldStart !== now.split('|')[1] ? s.lessonsPaid : s.lessonsPaid - Number(oldLessons)
-    if (more <= 0) continue
-    await toAdventLater('payment', 'POST', '/payments', {
-      student: { id: studentAdventId, name: s.name, email: realEmail(s.email), telegram: s.telegramName || s.messenger || null },
-      platform_student_id: s.id,
-      lessons: more,
-      lessons_in_package: s.lessonsPaid,
-      package_started_at: s.packageStartedAt ? new Date(s.packageStartedAt).toISOString() : null,
-      price_per_lesson: s.priceAmount != null ? s.priceAmount / 100 : null,
-      currency: s.priceCurrency ?? null,
-      paid_at: new Date().toISOString(),
-      source: 'platform'
-    })
-  }
 }
 
 // --- Comparing both lists -------------------------------------------------------
@@ -211,7 +173,6 @@ async function tellOwner(state, previous) {
 export function startSyncJobs() {
   const quietly = (name, job) => job().catch((error) => console.error(`[sync] ${name}`, error.message))
   setInterval(() => quietly('flush', flushOutbox), MIN)
-  setInterval(() => quietly('payments', syncPayments), 5 * MIN)
   setTimeout(() => quietly('reconcile', reconcile), 5 * MIN)
   setInterval(() => quietly('reconcile', reconcile), 6 * HOUR)
 }

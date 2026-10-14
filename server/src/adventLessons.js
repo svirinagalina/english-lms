@@ -7,7 +7,7 @@ import { ensureClassroom } from './routes/classrooms.js'
 import { sendAdventLessonEmail, sendLessonLinkEmail } from './mailer.js'
 import { notify } from './push.js'
 import { supportContact } from './settings.js'
-import { toAdventLater, adventPaidMark } from './adventSync.js'
+import { toAdventLater } from './adventSync.js'
 
 // Lessons booked on the Advent site (Maxim's partner API, see
 // ~/Downloads/Интеграция_платформы_уроков_Галины_с_Advent.md). Advent sends
@@ -494,14 +494,11 @@ async function handlePayment(event) {
   }
   const amount = Number(p.amount)
   const currency = ['RUB', 'EUR', 'USD'].includes(String(p.currency).toUpperCase()) ? String(p.currency).toUpperCase() : null
-  const startedAt = new Date()
   await prisma.user.update({
     where: { id: student.id },
     data: {
       lessonsPaid: left + lessons,
-      packageStartedAt: startedAt,
-      // Paid on Maxim's site: his site knows already, nothing to send back.
-      adventPaidSeen: adventPaidMark({ lessonsPaid: left + lessons, packageStartedAt: startedAt }),
+      packageStartedAt: new Date(),
       heldAdjust: 0,
       paymentReportedAt: null,
       free: false,

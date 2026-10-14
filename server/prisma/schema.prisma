@@ -101,8 +101,6 @@ model User {
   telegramName     String?
   telegramLinkedAt DateTime?
   telegramPaidSeen String?
-  // What Maxim's site last heard of this student's package (adventSync.js).
-  adventPaidSeen   String?
   // Free time a teacher offers for trial lessons (booking.js).
   trialWindows     TrialWindow[]
   emailVerifications EmailVerification[]
@@ -889,11 +887,11 @@ model TrialWindow {
 }
 
 // What the platform tells Maxim's site, kept until his API takes it (a lesson
-// started, its outcome, the report, a cancellation, a move, a payment).
+// started, its outcome, the report, a cancellation, a move, a new teacher).
 // adventSync.js sends it and retries with growing pauses.
 model AdventOutbox {
   id        String    @id @default(cuid())
-  kind      String    // started | finished | report | cancel | move | teacher | payment
+  kind      String    // started | finished | report | cancel | move | teacher | links
   method    String
   path      String
   body      Json?
