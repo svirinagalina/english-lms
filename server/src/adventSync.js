@@ -129,6 +129,7 @@ export async function reconcile() {
   try {
     data = await adventApi('GET', `/lessons?from=${encodeURIComponent(from.toISOString())}&to=${encodeURIComponent(to.toISOString())}`)
   } catch (error) {
+    console.error('[sync] reconcile: his list not available', String(error.message).slice(0, 200))
     await saveState({ at, ok: false, error: `Сайт Advent не отдал список уроков: ${String(error.message).slice(0, 200)}` })
     return loadState()
   }
@@ -189,6 +190,8 @@ export async function reconcile() {
   const state = { at, ok: true, theirs: theirs.size, ...result, failed }
   const previous = await loadState()
   await saveState(state)
+  // Counts only (no names) for the server log.
+  console.log('[sync] reconcile', JSON.stringify({ theirs: state.theirs, shape: Array.isArray(data) ? 'array' : Object.keys(data ?? {}).join(','), imported: result.imported.length, fixedHere: result.fixedHere.length, sentThere: result.sentThere.length, onlyHere: result.onlyHere.length, problems: result.problems.length, failed }))
   await tellOwner(state, previous)
   return state
 }
