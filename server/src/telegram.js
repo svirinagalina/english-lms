@@ -14,12 +14,15 @@ import { encrypt, decrypt, supportContact } from './settings.js'
 const API = () => (process.env.TELEGRAM_API_URL ?? 'https://api.telegram.org').replace(/\/$/, '')
 const APP_URL = () => (process.env.APP_URL ?? 'https://lms.advent-academy.online').replace(/\/$/, '')
 
-const state = { token: null, username: null, on: false, onSince: null, bookingUrl: null, generation: 0, offset: 0 }
+const state = { token: null, username: null, on: false, onSince: null, connectedAt: null, bookingUrl: null, generation: 0, offset: 0 }
 export const botToken = () => process.env.TELEGRAM_BOT_TOKEN || state.token
 export const botUsername = () => state.username
-// Messages to students, teachers and the owner (not the replies to /start).
+// The Settings switch: messages about trials booked on Maxim's site (his bot
+// may still be sending its own). Everything else goes once the bot is
+// connected, and only about what happened after that (`botSince`).
 export const botOn = () => Boolean(botToken() && state.on)
 export const botOnSince = () => state.onSince ?? new Date()
+export const botSince = () => state.connectedAt ?? new Date()
 // «Выбрать время»: the platform's own booking page unless Settings says otherwise.
 export const bookingUrl = () => state.bookingUrl || `${APP_URL()}/trial`
 export const botSettings = () => ({
@@ -55,13 +58,18 @@ export const tg = (method, body, timeoutMs) => {
 const put = (key, value) => prisma.platformSetting.upsert({ where: { key }, create: { key, value }, update: { value } })
 
 export async function loadBotSettings() {
-  const rows = await prisma.platformSetting.findMany({ where: { key: { in: ['telegram.token', 'telegram.username', 'telegram.on', 'telegram.onSince', 'telegram.bookingUrl'] } } })
+  const rows = await prisma.platformSetting.findMany({ where: { key: { in: ['telegram.token', 'telegram.username', 'telegram.on', 'telegram.onSince', 'telegram.connectedAt', 'telegram.bookingUrl'] } } })
   const map = Object.fromEntries(rows.map((r) => [r.key, r.value]))
   try { state.token = map['telegram.token'] ? decrypt(map['telegram.token']) : null } catch { state.token = null }
   state.username = map['telegram.username'] || null
   state.on = map['telegram.on'] === 'on'
   state.onSince = map['telegram.onSince'] ? new Date(map['telegram.onSince']) : null
   state.bookingUrl = map['telegram.bookingUrl'] || null
+  state.connectedAt = map['telegram.connectedAt'] ? new Date(map['telegram.connectedAt']) : null
+  if (botToken() && !state.connectedAt) {
+    state.connectedAt = new Date()
+    await put('telegram.connectedAt', state.connectedAt.toISOString())
+  }
   if (botToken() && !state.username) {
     try { state.username = (await tg('getMe')).username } catch (error) { console.error('[telegram] getMe', error.message) }
   }
@@ -71,7 +79,7 @@ export async function loadBotSettings() {
 // A token is checked with Telegram before it is kept.
 export async function saveBotToken(token) {
   if (!token) {
-    await prisma.platformSetting.deleteMany({ where: { key: { in: ['telegram.token', 'telegram.username'] } } })
+    await prisma.platformSetting.deleteMany({ where: { key: { in: ['telegram.token', 'telegram.username', 'telegram.connectedAt'] } } })
     return loadBotSettings()
   }
   let me
@@ -80,7 +88,7 @@ export async function saveBotToken(token) {
   }
   // Polling and a webhook can't both be on.
   await call(token, 'deleteWebhook', {}).catch(() => {})
-  await prisma.$transaction([put('telegram.token', encrypt(token)), put('telegram.username', me.username)])
+  await prisma.$transaction([put('telegram.token', encrypt(token)), put('telegram.username', me.username), put('telegram.connectedAt', new Date().toISOString())])
   return loadBotSettings()
 }
 

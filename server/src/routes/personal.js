@@ -1,5 +1,4 @@
 import { cancelAdventLesson } from '../adventLessons.js'
-import { timetableChanged } from '../bot.js'
 import { Router } from 'express'
 import { z } from 'zod'
 import { prisma } from '../db.js'
@@ -256,8 +255,6 @@ personalRouter.patch('/calendar/:id', async (req, res) => {
       ...(validZone(parsed.data.timezone) ? { timezone: validZone(parsed.data.timezone) } : {})
     }
   })
-  // Moved: the students hear of it in Telegram.
-  timetableChanged(event, updated).catch((error) => console.error('[bot] timetable', error.message))
   res.json({ event: updated })
 })
 
@@ -276,7 +273,6 @@ personalRouter.delete('/calendar/:id', async (req, res) => {
     // Delete only this single instance
     await prisma.userCalendarEvent.delete({ where: { id: req.params.id } })
   }
-  timetableChanged(event, null).catch((error) => console.error('[bot] timetable', error.message))
 
   res.json({ ok: true })
 })

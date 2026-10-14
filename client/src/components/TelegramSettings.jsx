@@ -21,7 +21,7 @@ export default function TelegramSettings() {
     event.preventDefault()
     run('token', () => api.saveTelegramToken(token.trim()), token.trim() ? 'Saved. Now connect your own Telegram below.' : 'Bot disconnected.').then(() => setToken(''))
   }
-  const toggle = (on) => run('switch', () => api.switchTelegram(on), on ? 'Messages are on.' : 'Messages are off — the bot only answers /start.')
+  const toggle = (on) => run('switch', () => api.switchTelegram(on), on ? "Trials from Advent's site are on." : "Trials from Advent's site are off.")
   const saveBooking = (event) => { event.preventDefault(); run('booking', () => api.saveTelegramBooking(booking.trim()), 'Saved.') }
   const test = () => run('test', () => api.testTelegram(), 'Sent — check your Telegram.')
 
@@ -33,7 +33,7 @@ export default function TelegramSettings() {
     <section>
       <h2>Telegram bot</h2>
       <p className="muted" style={{ marginBottom: 12 }}>
-        The school's own bot sends every message from the table: the booking and its link, reminders, the trial report with prices, the discount days, payments, Timetable lessons and the end of a package. Students connect from their lesson page («Напоминания в Telegram»), everyone else from Profile.
+        The school's own bot: the trial lesson from booking to the first payment (link, reminders, the report with prices, the discount days), a reminder 15 minutes before every Timetable lesson, a polite reminder to pay when a package is used up — and every payment and debt to you and the partner. Students connect from their lesson page («Напоминания в Telegram»), everyone else from Profile.
       </p>
       <div className="row" style={{ marginBottom: 12 }}>
         <div>
@@ -67,10 +67,10 @@ export default function TelegramSettings() {
 
           <label className="row-actions" style={{ alignItems: 'center', gap: 8 }}>
             <input type="checkbox" style={{ width: 'auto' }} checked={bot.on} disabled={busy === 'switch'} onChange={(e) => toggle(e.target.checked)} />
-            <span>Send messages to students, teachers and me</span>
+            <span>Also send messages about trials booked on Advent's site</span>
           </label>
           <p className="muted small-hint">
-            Switch on once Advent's bot has stopped sending its own messages, or students get everything twice. Only what happens after switching on is announced.
+            Everything else already goes as soon as the bot is connected. Switch this on once Advent's bot has stopped sending its own messages, or those students get everything twice.
           </p>
 
           <form className="inline-form" onSubmit={saveBooking} style={{ marginTop: 12 }}>

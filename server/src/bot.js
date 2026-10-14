@@ -1,5 +1,5 @@
 import { prisma } from './db.js'
-import { botOn, botOnSince, botToken, bookingUrl, sendTo, once, wasSent, esc, packageMark, onLinked, appUrl } from './telegram.js'
+import { botOn, botOnSince, botSince, botToken, bookingUrl, sendTo, once, wasSent, esc, packageMark, onLinked, appUrl } from './telegram.js'
 import { confirmBooking } from './booking.js'
 import { OFFER_PLANS, DISCOUNT_DAYS } from './offer.js'
 import { countedCalls } from './routes/billing.js'
@@ -11,9 +11,12 @@ import { generateRecurringInstances } from './routes/personal.js'
 // Almost everything is found by looking (every minute) rather than hooked
 // into the code that changes it, so a lesson, a report or a payment is
 // announced however it came about. Each message is sent once (`once`).
-// Lessons booked on the platform's own page (booking.js) get their messages
-// as soon as the bot exists — no other bot knows them; everything else
-// (bookings from Maxim's site, payments, the Timetable) waits for the switch.
+// What the bot does (Galina, 2026-10-14): the trial lesson from booking to
+// the first payment; a reminder 15 minutes before every Timetable lesson; a
+// polite reminder to pay when a package is used up; and every payment and
+// debt to the owner and the partner (Galina, Maxim). Only trials booked on
+// Maxim's site wait for the Settings switch (his bot may still be talking to
+// those students); everything else goes as soon as the bot is connected.
 
 const MIN = 60000
 const HOUR = 60 * MIN
@@ -56,9 +59,10 @@ const kindWord = (lesson) => (lesson.kind === 'trial' ? 'пробный урок
 const cap = (s) => s[0].toUpperCase() + s.slice(1)
 const test = (lesson) => (lesson.isTest ? '[ТЕСТ] ' : '')
 const ours = (lesson) => lesson?.source === 'platform'
+const fromAdvent = (lesson) => Boolean(lesson) && !ours(lesson)
 // May the bot speak about this lesson now, and is it new enough to announce?
-const allowed = (lesson) => ours(lesson) || botOn()
-const recent = (lesson, at) => ours(lesson) || new Date(at) >= botOnSince()
+const allowed = (lesson) => !fromAdvent(lesson) || botOn()
+const recent = (lesson, at) => new Date(at) >= (fromAdvent(lesson) ? botOnSince() : botSince())
 
 // --- 1–2. A booking from the Advent site, before the lesson --------------------
 
@@ -274,52 +278,53 @@ async function reports() {
   }
 }
 
-// --- 5. Payments --------------------------------------------------------------
+// --- 5. Payments: the owner and the partner hear of every one ---------------
 
 async function payments() {
-  const since = botOnSince()
-  // «Я оплатил»: whoever receives the money checks it (Maxim, Galina).
+  const since = botSince()
+  // «Я оплатил» (a transfer, or a card payment back from Stripe): whoever
+  // receives the money checks it and adds the lessons.
   const reported = await prisma.user.findMany({ where: { role: 'STUDENT', paymentReportedAt: { gte: since, gt: new Date(Date.now() - 2 * 24 * HOUR) } }, select: PERSON })
   for (const student of reported) {
     for (const admin of await admins(student.schoolId)) {
       await once(`reported:${student.id}:${new Date(student.paymentReportedAt).getTime()}:${admin.id}`, () => sendTo(admin,
-        `💳 Ученик ${esc(student.name)} сообщил об оплате. Проверьте поступление и начислите уроки на платформе.`,
+        `💳 Ученик ${esc(student.name)} сообщил об оплате. Проверьте поступление и начислите уроки: Payments → ученик → Edit → New package.`,
         [[{ text: 'Открыть оплаты', url: `${appUrl()}/billing` }]]))
     }
   }
-  // A new package (or more lessons in it): thanks to the student, a note to the teacher.
-  const students = await prisma.user.findMany({ where: { role: 'STUDENT', telegramChatId: { not: null }, lessonsPaid: { gt: 0 } }, select: PERSON })
-  const teachersWithChat = async (id) => (await teachersOf(id)).filter((t) => t.telegramChatId)
+  // Lessons added (by hand after a transfer, or a payment from Advent's site):
+  // every student's package is compared with what the bot saw last time.
+  const students = await prisma.user.findMany({ where: { role: 'STUDENT' }, select: PERSON })
   for (const student of students) {
     const mark = packageMark(student)
     if (mark === student.telegramPaidSeen) continue
-    const [oldLessons, oldStart] = String(student.telegramPaidSeen ?? '0|').split('|')
-    const newPackage = oldStart !== mark.split('|')[1]
-    const first = Number(oldLessons) === 0
-    const more = newPackage ? student.lessonsPaid : student.lessonsPaid - Number(oldLessons)
     await prisma.user.update({ where: { id: student.id }, data: { telegramPaidSeen: mark } })
+    // The first look at someone only remembers what is there already.
+    if (student.telegramPaidSeen == null || !(student.lessonsPaid > 0)) continue
+    const [oldLessons, oldStart] = student.telegramPaidSeen.split('|')
+    const newPackage = oldStart !== mark.split('|')[1]
+    const more = newPackage ? student.lessonsPaid : student.lessonsPaid - Number(oldLessons)
     if (more <= 0) continue
-    const teachers = await teachersWithChat(student.id)
-    const teacherName = teachers[0]?.name ?? (await teachersOf(student.id))[0]?.name
-    const text = first
-      ? [`Спасибо за оплату! ✅ Оплачено уроков: ${student.lessonsPaid}.`,
-          student.viaLink ? 'Откройте ту же ссылку и придумайте почту и пароль — так вы будете входить сами.' : null,
-          teacherName ? `Преподаватель ${esc(teacherName)} свяжется с вами, чтобы выбрать время занятий.` : null].filter(Boolean).join('\n')
-      : `Спасибо за оплату! ✅ Уроков в пакете: ${student.lessonsPaid}. Занятия продолжаются по расписанию.`
-    await sendTo(student, text, [[{ text: 'Открыть платформу', url: await classUrl(student) }]])
-    for (const teacher of teachers) {
-      await sendTo(teacher, first
-        ? `Оплата от ученика ${esc(student.name)}: уроков — ${student.lessonsPaid}. Договоритесь о расписании и поставьте уроки в Timetable.`
-        : `Ученик ${esc(student.name)} продлил пакет: уроков — ${student.lessonsPaid}.`)
+    const teacher = (await teachersOf(student.id))[0]
+    for (const admin of await admins(student.schoolId)) {
+      await sendTo(admin, `✅ Оплата засчитана: ${esc(student.name)}${teacher ? ` (преподаватель ${esc(teacher.name)})` : ''} — уроков в пакете: ${student.lessonsPaid}.`)
+    }
+    // A student from a trial: the end of the trial's path — sign up and wait for the teacher.
+    if (student.viaLink && student.telegramChatId && Number(oldLessons) === 0) {
+      await sendTo(student, [
+        `Спасибо за оплату! ✅ Оплачено уроков: ${student.lessonsPaid}.`,
+        'Откройте ту же ссылку и придумайте почту и пароль — так вы будете входить сами.',
+        teacher ? `Преподаватель ${esc(teacher.name)} свяжется с вами, чтобы выбрать время занятий.` : null
+      ].filter(Boolean).join('\n'), [[{ text: 'Открыть платформу', url: await classUrl(student) }]])
     }
   }
 }
 
-// --- 6. Lessons in the Timetable ------------------------------------------------
+// --- 6. Lessons in the Timetable: a reminder 15 minutes before -----------------
 
 async function timetable() {
   const now = new Date()
-  const horizon = new Date(now.getTime() + 24 * HOUR)
+  const horizon = new Date(now.getTime() + 15 * MIN)
   const events = await prisma.userCalendarEvent.findMany({
     where: {
       studentIds: { isEmpty: false },
@@ -330,68 +335,56 @@ async function timetable() {
   })
   for (const event of events) {
     const students = await prisma.user.findMany({ where: { id: { in: event.studentIds }, schoolId: event.user.schoolId, telegramChatId: { not: null } }, select: PERSON })
-    if (!students.length) continue
     for (const lesson of generateRecurringInstances(event, now, horizon)) {
       const start = new Date(lesson.startTime)
       const left = start - now
-      if (left <= 0) continue
+      if (left <= 5 * MIN || left > 15 * MIN) continue
       for (const student of students) {
-        const button = [[{ text: 'Мой класс', url: await classUrl(student) }]]
-        if (left > 23 * HOUR && left <= 24 * HOUR) {
-          await once(`cal24:${event.id}:${start.getTime()}:${student.id}`, () => sendTo(student, `${cap(day(start))} в ${mskTime(start)} МСК урок. Преподаватель: ${esc(event.user.name)}.`, button))
-        }
-        if (left > 5 * MIN && left <= 15 * MIN) {
-          await once(`cal15:${event.id}:${start.getTime()}:${student.id}`, () => sendTo(student, 'Урок через 15 минут — заходите чуть раньше.', button))
-        }
+        await once(`cal15:${event.id}:${start.getTime()}:${student.id}`, async () => sendTo(student,
+          `Через 15 минут урок с преподавателем ${esc(event.user.name)} (${mskTime(start)} МСК). Заходите чуть раньше — проверьте камеру и микрофон.`,
+          [[{ text: 'Войти на урок', url: await classUrl(student) }]]))
       }
     }
   }
 }
 
-// The next lesson of a Timetable entry from now (a weekly one repeats).
-const nextLesson = (event) => generateRecurringInstances(event, new Date(), new Date(Date.now() + 15 * 24 * HOUR))
-  .map((l) => new Date(l.startTime)).find((d) => d > Date.now()) ?? null
+// --- 7. The package is used up, or lessons go beyond it ------------------------
 
-// The teacher moved or cancelled a lesson in the Timetable (personal.js).
-export async function timetableChanged(before, after) {
-  if (!botOn()) return
-  const was = nextLesson(before)
-  const now = after ? nextLesson(after) : null
-  if (!was || (now && now.getTime() === was.getTime())) return
-  const teacher = await prisma.user.findUnique({ where: { id: before.userId }, select: { schoolId: true, name: true } })
-  const ids = [...new Set([...(before.studentIds ?? []), ...(after?.studentIds ?? [])])]
-  const students = await prisma.user.findMany({ where: { id: { in: ids }, schoolId: teacher?.schoolId, telegramChatId: { not: null } }, select: PERSON })
-  for (const student of students) {
-    const stays = !after || (after.studentIds ?? []).includes(student.id)
-    if (!stays || !now) {
-      const series = before.recurrence === 'WEEKLY' && !after
-      await sendTo(student, series
-        ? `Уроки по расписанию (${new Date(was).toLocaleDateString('ru-RU', { timeZone: MSK, weekday: 'long' })}, ${mskTime(was)} МСК) отменены. Преподаватель предложит другое время.`
-        : `Урок ${mskDate(was)} в ${mskTime(was)} МСК отменён. Преподаватель предложит другое время.`)
-    } else {
-      await sendTo(student, `Урок ${mskDate(was)} в ${mskTime(was)} МСК перенесён на ${mskDate(now)}, ${mskTime(now)} МСК.`, [[{ text: 'Мой класс', url: await classUrl(student) }]])
-    }
-  }
-}
-
-// --- 7. The package is used up --------------------------------------------------
-
-async function packagesUsedUp() {
-  const since = botOnSince()
+async function packages() {
+  const since = botSince()
   const students = await prisma.user.findMany({ where: { role: 'STUDENT', lessonsPaid: { gt: 0 } }, select: PERSON })
   for (const student of students) {
     const held = (await countedCalls(student)) + (student.heldAdjust ?? 0)
     if (held < student.lessonsPaid) continue
-    const key = `pkgend:${student.id}:${student.packageStartedAt ? new Date(student.packageStartedAt).getTime() : 0}:${student.lessonsPaid}`
-    if (await wasSent(`${key}:s`)) continue
-    // Only a package that ran out after the bot was switched on.
+    const pkg = `${student.id}:${student.packageStartedAt ? new Date(student.packageStartedAt).getTime() : 0}:${student.lessonsPaid}`
+    // Only what happened after the bot was connected.
     const last = await prisma.session.findFirst({ where: { classroom: { studentId: student.id }, counted: true }, orderBy: { startedAt: 'desc' }, select: { startedAt: true } })
-    if (!last || new Date(last.startedAt) < since) { await once(`${key}:s`, async () => true); continue }
-    if (!student.telegramChatId) { await once(`${key}:s`, async () => true) } else {
-      await once(`${key}:s`, async () => sendTo(student, 'Оплаченные уроки закончились. Чтобы продолжить, продлите пакет — расписание сохранится.', [[{ text: 'Продлить', url: await payUrl(student) }]]))
-    }
-    for (const teacher of await teachersOf(student.id)) {
-      await once(`${key}:t:${teacher.id}`, () => sendTo(teacher, `Закончились оплаченные уроки. Ученик: ${esc(student.name)}.`))
+    const fresh = last && new Date(last.startedAt) >= since
+    const teacher = (await teachersOf(student.id))[0]
+    const who = `${esc(student.name)}${teacher ? ` (преподаватель ${esc(teacher.name)})` : ''}`
+    if (held === student.lessonsPaid) {
+      if (!fresh) { await once(`pkgend:${pkg}`, async () => true); continue }
+      await once(`pkgend:${pkg}`, async () => {
+        if (student.telegramChatId) {
+          await sendTo(student, [
+            'Спасибо, что занимаетесь с нами! 🌿',
+            `Уроки этого пакета закончились — вы прошли все ${student.lessonsPaid}.`,
+            'Чтобы занятия шли без перерыва, оплатите, пожалуйста, следующий пакет — расписание сохранится.'
+          ].join('\n'), [[{ text: 'Оплатить', url: await payUrl(student) }]])
+        }
+        for (const admin of await admins(student.schoolId)) await sendTo(admin, `📦 Пакет закончился: ${who} — проведено ${held} из ${student.lessonsPaid}. Ждём следующую оплату.`)
+        return true
+      })
+    } else {
+      // More lessons held than paid for: a debt, told once per extra lesson.
+      const debt = held - student.lessonsPaid
+      if (!fresh) { await once(`debt:${pkg}:${debt}`, async () => true); continue }
+      await once(`debt:${pkg}:${debt}`, async () => {
+        for (const admin of await admins(student.schoolId)) {
+          await sendTo(admin, `⚠️ Задолженность: ${who} — проведено ${held}, оплачено ${student.lessonsPaid}. Долг: ${debt} ${debt === 1 ? 'урок' : debt < 5 ? 'урока' : 'уроков'}.`, [[{ text: 'Открыть оплаты', url: `${appUrl()}/billing` }]])
+        }
+        return true
+      })
     }
   }
 }
@@ -407,10 +400,8 @@ async function everyMinute() {
     await quietly('bookings', bookings)
     await quietly('outcomes', outcomes)
     await quietly('reports', reports)
-    if (botOn()) {
-      await quietly('payments', payments)
-      await quietly('timetable', timetable)
-    }
+    await quietly('payments', payments)
+    await quietly('timetable', timetable)
   } finally { running = false }
 }
 let ticks = 0
@@ -419,11 +410,11 @@ export function startBotJobs() {
   setInterval(() => {
     everyMinute()
     // Counting lessons for every student is heavier: every 10 minutes.
-    if (++ticks % 10 === 0 && botOn()) quietly('packages', packagesUsedUp)
+    if (++ticks % 10 === 0 && botToken()) quietly('packages', packages)
   }, MIN)
 }
 // For a test run: one pass of everything.
 export async function runBotOnce() {
   await everyMinute()
-  await quietly('packages', packagesUsedUp)
+  await quietly('packages', packages)
 }
