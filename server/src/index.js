@@ -44,6 +44,7 @@ import { startPlanSweep } from './plans.js'
 import { setupSignaling } from './signaling.js'
 import { flushBoards } from './boardStore.js'
 import { adventWebhook, lessonLinkRouter, startAdventJobs } from './adventLessons.js'
+import { startPurchaseJobs } from './purchases.js'
 import { telegramRouter } from './routes/telegram.js'
 import { loadBotSettings } from './telegram.js'
 import { startBotJobs } from './bot.js'
@@ -180,6 +181,7 @@ const io = new Server(httpServer, {
 setupSignaling(io)
 startPushJobs()
 startAdventJobs()
+startPurchaseJobs()
 startBotJobs()
 startBookingJobs()
 startArchiveJobs()

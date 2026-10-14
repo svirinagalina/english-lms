@@ -7,6 +7,7 @@ import { ensureClassroom } from './routes/classrooms.js'
 import { sendAdventLessonEmail, sendLessonLinkEmail } from './mailer.js'
 import { notify } from './push.js'
 import { supportContact } from './settings.js'
+import { creditLessons } from './purchases.js'
 import { toAdventLater } from './adventSync.js'
 
 // Lessons booked on the Advent site (Maxim's partner API, see
@@ -485,27 +486,9 @@ async function handlePayment(event) {
   if (!userId) return [422, { error: 'student_not_found', message: 'Ученик не найден на платформе (нет пробного урока с этим student.id)' }]
   const student = await prisma.user.findUnique({ where: { id: userId } })
   if (!student || student.role !== 'STUDENT') return [422, { error: 'student_not_found', message: 'Ученик не найден на платформе' }]
-  // Lessons still left in the current package are kept: a new package of
-  // what is left + what was paid, counted from now.
-  let left = 0
-  if (student.lessonsPaid != null) {
-    const held = await prisma.session.count({ where: { classroom: { studentId: student.id }, counted: true, ...(student.packageStartedAt ? { startedAt: { gte: student.packageStartedAt } } : {}) } }) + (student.heldAdjust ?? 0)
-    left = Math.max(0, student.lessonsPaid - held)
-  }
   const amount = Number(p.amount)
   const currency = ['RUB', 'EUR', 'USD'].includes(String(p.currency).toUpperCase()) ? String(p.currency).toUpperCase() : null
-  await prisma.user.update({
-    where: { id: student.id },
-    data: {
-      lessonsPaid: left + lessons,
-      packageStartedAt: new Date(),
-      heldAdjust: 0,
-      paymentReportedAt: null,
-      free: false,
-      trialAccessUntil: null,
-      ...(Number.isFinite(amount) && amount > 0 && currency ? { priceAmount: Math.round((amount * 100) / lessons), priceCurrency: currency } : {})
-    }
-  })
+  const { left } = await creditLessons(student.id, lessons, Number.isFinite(amount) && amount > 0 && currency ? { pricePerLesson: Math.round((amount * 100) / lessons), currency } : {})
   const links = await prisma.teacherStudent.findMany({ where: { studentId: student.id }, select: { teacherId: true } })
   const owners = await prisma.user.findMany({ where: { schoolId: student.schoolId, role: 'OWNER' }, select: { id: true } })
   notify([...links.map((l) => l.teacherId), ...owners.map((o) => o.id)], { title: `Оплата: ${student.name}`, body: `Оплачено уроков: ${lessons}${left ? ` (+${left} оставалось)` : ''}`, url: `/people/${student.id}/activity` })

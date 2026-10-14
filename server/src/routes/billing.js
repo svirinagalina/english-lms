@@ -7,6 +7,7 @@ import { sendPaymentReportedEmail } from '../mailer.js'
 import { offerLinks, stripeKey } from '../settings.js'
 import { OFFER_PLANS, discountActive } from '../offer.js'
 import { guardedFetch } from '../resilience.js'
+import { creditOfferPurchase } from '../purchases.js'
 
 export const billingRouter = Router()
 
@@ -176,14 +177,9 @@ billingRouter.get('/checkout/verify', async (req, res) => {
     const session = await stripeCall(`/checkout/sessions/${encodeURIComponent(id)}`)
     if (session.client_reference_id !== req.user.id) return res.status(404).json({ error: 'Not your payment' })
     const paid = session.payment_status === 'paid'
-    if (paid) {
-      const student = await prisma.user.findUnique({ where: { id: req.user.id }, select: { id: true, name: true, paymentReportedAt: true, studentLinks: { select: { teacher: { select: { email: true } } } } } })
-      const note = `Оплачено через Stripe: тариф ${session.metadata?.plan ?? ''}, ${(session.amount_total / 100).toFixed(2)} ${String(session.currency).toUpperCase()} (${session.metadata?.rub ?? ''} ₽)`
-      await prisma.user.update({ where: { id: req.user.id }, data: { paymentReportedAt: new Date() } })
-      const teachers = [...new Set(student.studentLinks.map((l) => l.teacher.email))]
-      if (teachers.length) sendPaymentReportedEmail({ to: teachers, studentName: student.name, note }).catch(() => {})
-    }
-    res.json({ paid, amount: session.amount_total / 100, currency: session.currency })
+    // Credited here or by the webhook, whichever comes first (once).
+    const credit = paid ? await creditOfferPurchase(session) : null
+    res.json({ paid, credited: Boolean(credit), amount: session.amount_total / 100, currency: session.currency })
   } catch (error) {
     res.status(502).json({ error: `Stripe: ${error.message}` })
   }

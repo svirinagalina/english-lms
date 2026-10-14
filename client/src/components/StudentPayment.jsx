@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { api } from '../api'
+import { useAuth } from '../AuthContext'
 import { PackageBadge } from './PackageBadge'
 import { parseDetails, formatCard, detailsAsText } from '../utils/paymentDetails'
 import { OFFER, formatRub, discountDeadline } from '../offer'
@@ -13,6 +14,7 @@ const formatPrice = (amount, currency) =>
 // their teacher set for them. `lessonsOnly` (the iOS app, where the App
 // Store allows no way to an outside payment) shows just the lessons left.
 export default function StudentPayment({ lessonsOnly = false }) {
+  const { user } = useAuth()
   const [billing, setBilling] = useState(null)
   const [copied, setCopied] = useState(false)
   const [note, setNote] = useState('')
@@ -28,7 +30,12 @@ export default function StudentPayment({ lessonsOnly = false }) {
   useEffect(() => {
     const sessionId = searchParams.get('session_id')
     if (searchParams.get('paid') === '1' && sessionId) {
-      api.verifyCheckout(sessionId).then((r) => { setPaidResult(r); if (r.paid) setReported(new Date().toISOString()) }).catch((err) => setPaidResult({ paid: false, error: err.message }))
+      api.verifyCheckout(sessionId).then((r) => {
+        setPaidResult(r)
+        if (r.paid) setReported(new Date().toISOString())
+        // A trial-link student who has just paid chooses an email and a password next.
+        if (r.paid && user?.viaLink) setTimeout(() => window.location.assign('/finish-signup'), 2500)
+      }).catch((err) => setPaidResult({ paid: false, error: err.message }))
       setSearchParams({}, { replace: true })
     } else if (searchParams.get('paid') === '0') {
       setSearchParams({}, { replace: true })
@@ -159,7 +166,7 @@ export default function StudentPayment({ lessonsOnly = false }) {
           {payError && <div className="error">{payError}</div>}
           {paidResult && (
             paidResult.paid
-              ? <div className="notice">Оплата получена — спасибо! Преподаватель добавит уроки в ваш пакет.</div>
+              ? <div className="notice">Оплата получена — спасибо! Уроки уже добавлены в ваш пакет.{user?.viaLink ? ' Сейчас откроется страница, где вы придумаете почту и пароль.' : ''}</div>
               : <div className="error">{paidResult.error ? `Не удалось проверить оплату: ${paidResult.error}` : 'Оплата не завершена. Попробуйте ещё раз.'}</div>
           )}
           <p className="muted small-hint">{OFFER.expertNote}</p>

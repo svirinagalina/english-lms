@@ -936,3 +936,17 @@ model ActivityDay {
   @@id([userId, day, section])
   @@index([userId, lastAt])
 }
+
+// A trial-offer purchase paid through Stripe Checkout (one row per session),
+// so a payment is credited once whether the webhook or the return page sees
+// it first.
+model OfferPurchase {
+  id          String   @id // the Checkout session id
+  userId      String
+  plan        String
+  lessons     Int
+  amountCents Int
+  currency    String
+  rub         Int?
+  createdAt   DateTime @default(now())
+}

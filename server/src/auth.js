@@ -49,7 +49,7 @@ async function userFromCookie(req) {
 // lessons: it becomes a real student — everything waits for the email and the
 // password, except finding out who one is (Galina, 2026-10-13: sign-up only
 // for those who pay).
-export const mustSignUp = (user) => Boolean(user?.viaLink && user.lessonsPaid > 0)
+export const mustSignUp = (user) => Boolean(user?.viaLink && (user.lessonsPaid > 0 || (user.plan && user.planUntil && user.planUntil > new Date())))
 export const SIGN_UP_NEEDED = { error: 'Чтобы продолжить заниматься, придумайте почту и пароль', needsSignup: true }
 
 // Everyone who came through a trial lesson has the platform for three days
