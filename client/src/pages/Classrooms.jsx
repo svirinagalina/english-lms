@@ -95,8 +95,11 @@ export default function Classrooms() {
   const q = query.trim().toLowerCase()
   const nameMatches = (c) => matchesSearch(q, c.student?.name)
   const boardMatches = (b) => matchesSearch(q, b.title, b.sharedWith?.map((c) => c.name) ?? [])
-  const own = classrooms.filter((c) => user.role === 'STUDENT' || (c.teacher?.id === user.id && nameMatches(c)))
-  const others = isAdmin ? classrooms.filter((c) => c.teacher?.id !== user.id && nameMatches(c)) : []
+  // Trial students who didn't pay within three days leave the lists for
+  // their own folded panel (Galina, 2026-10-14); paying brings them back.
+  const own = classrooms.filter((c) => user.role === 'STUDENT' || (c.teacher?.id === user.id && !c.trialOver && nameMatches(c)))
+  const others = isAdmin ? classrooms.filter((c) => c.teacher?.id !== user.id && !c.trialOver && nameMatches(c)) : []
+  const trialLeads = isStaff ? classrooms.filter((c) => c.trialOver && (isAdmin || c.teacher?.id === user.id) && nameMatches(c)) : []
   const myBoards = mine ? mine.boards.filter(boardMatches) : []
   const otherTeachers = [...new Map(others.map((c) => [c.teacher.id, c.teacher])).values()]
 
@@ -178,6 +181,12 @@ export default function Classrooms() {
               {studentList(others.filter((c) => c.teacher.id === teacher.id))}
             </div>
           ))}
+        </Panel>
+      )}
+
+      {trialLeads.length > 0 && (
+        <Panel id="home:trial-over" title="Пробные без оплаты" count={trialLeads.length} hint="пробный прошёл, за 3 дня не оплатили" forceOpen={Boolean(q)}>
+          {studentList(trialLeads)}
         </Panel>
       )}
 

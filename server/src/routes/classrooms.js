@@ -109,7 +109,7 @@ classroomsRouter.get('/', async (req, res) => {
     where,
     include: {
       teacher: { select: { id: true, name: true } },
-      student: { select: { id: true, name: true, lessonsPaid: true, packageStartedAt: true, heldAdjust: true } },
+      student: { select: { id: true, name: true, lessonsPaid: true, packageStartedAt: true, heldAdjust: true, trialAccessUntil: true } },
       sessions: { select: { id: true, startedAt: true, counted: true }, orderBy: { startedAt: 'asc' } },
       _count: { select: { boards: true } }
     },
@@ -127,6 +127,8 @@ classroomsRouter.get('/', async (req, res) => {
     former: !current(classroom),
     student: classroom.student ? { id: classroom.student.id, name: classroom.student.name } : null,
     isTestRoom: classroom.student === null,
+    // A trial student past the three days without paid lessons (folded away in the list).
+    trialOver: Boolean(classroom.student?.trialAccessUntil && classroom.student.trialAccessUntil < new Date() && !(classroom.student.lessonsPaid > 0)),
     boards: classroom._count.boards,
     lastSession: classroom.sessions.at(-1)?.startedAt ?? null,
     progress: await packageProgress(classroom.student)
