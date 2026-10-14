@@ -87,13 +87,15 @@ export default function LessonLink() {
   useEffect(() => { load() }, [token])
 
   // Signed in as this lesson's student: wait here, open the call when it starts.
-  const inside = info?.role === 'student' && user?.role === 'STUDENT'
+  // Only this lesson's own student waits here; someone else signed in on this
+  // computer (a brother on the same laptop) gets the name form, which signs in as the right one.
+  const inside = info?.role === 'student' && user?.role === 'STUDENT' && Boolean(info.studentId) && user.id === info.studentId
   useEffect(() => {
     if (!inside) return
     if (safeTo) { navigate(safeTo, { replace: true }); return }
     if (info.callToken) { navigate(`/call/${info.callToken}`, { replace: true }); return }
     load(true)
-    const timer = setInterval(() => load(true), 4000)
+    const timer = setInterval(() => load(true), 5000)
     return () => clearInterval(timer)
   }, [inside, info?.callToken])
 

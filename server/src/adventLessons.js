@@ -294,16 +294,22 @@ export async function cancelAdventLesson(id, user, reason) {
 // teacher, the same kind, starting within an hour and a half of the booked time.
 export async function linkCallToAdventLesson(call) {
   const now = Date.now()
-  const lesson = await prisma.adventLesson.findFirst({
+  // Whichever button started it (Trial lesson or Start lesson): a trial
+  // started with "Start lesson" stayed unlinked and was later marked "the
+  // student didn't come" although it was held. The lesson in this call's
+  // classroom first, then the same kind (never another student's lesson).
+  const candidates = await prisma.adventLesson.findMany({
     where: {
       teacherId: call.hostId,
       status: { in: ['scheduled', 'pending'] },
       callId: null,
-      kind: call.kind === 'TRIAL' ? 'trial' : 'regular',
       startsAt: { gte: new Date(now - 90 * 60000), lte: new Date(now + 90 * 60000) }
     },
     orderBy: { startsAt: 'asc' }
   })
+  const kind = call.kind === 'TRIAL' ? 'trial' : 'regular'
+  const lesson = (call.classroomId && candidates.find((l) => l.classroomId === call.classroomId))
+    ?? candidates.find((l) => l.kind === kind && (!call.classroomId || !l.classroomId))
   if (!lesson) return
   await prisma.adventLesson.update({ where: { id: lesson.id }, data: { callId: call.id, classroomId: call.classroomId ?? null } })
 }
@@ -412,6 +418,9 @@ lessonLinkRouter.get('/:token', async (req, res) => {
     studentName: student?.name ?? row.studentName ?? null,
     // A student who already has an account of their own signs in with it.
     ownAccount: role === 'student' && student ? !student.viaLink : false,
+    // Whose lesson this is: the page lets in only that student, not whoever
+    // else is signed in on this computer.
+    studentId: role === 'student' ? row.studentUserId : null,
     // The three days are over: the link no longer signs in, the page asks for an email and a password.
     // Paid: the link no longer signs in — the page asks for an email and a password.
     needsSignup: role === 'student' && Boolean(student?.viaLink && student.lessonsPaid > 0),
