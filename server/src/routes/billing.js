@@ -134,6 +134,14 @@ const stripeCall = async (path, params) => {
   return data
 }
 
+// Has this trial student paid already (through Stripe, or lessons set by
+// hand)? Then the offer is a renewal: "Продлить пакет", full price.
+async function paidBefore(userId) {
+  if (await prisma.offerPurchase.findFirst({ where: { userId }, select: { id: true } })) return true
+  const u = await prisma.user.findUnique({ where: { id: userId }, select: { lessonsPaid: true } })
+  return u?.lessonsPaid > 0
+}
+
 billingRouter.post('/checkout', async (req, res) => {
   if (req.user.role !== 'STUDENT') return res.status(403).json({ error: 'Students only' })
   if (!stripeKey()) return res.status(503).json({ error: 'Online payment is not set up yet — use the link and enter the amount' })
@@ -142,7 +150,10 @@ billingRouter.post('/checkout', async (req, res) => {
   const trial = await prisma.trialReport.findFirst({ where: { studentId: req.user.id, publishedAt: { not: null } }, orderBy: { publishedAt: 'desc' } })
   if (!trial) return res.status(403).json({ error: 'The offer is for students after a trial lesson' })
   const student = await prisma.user.findUnique({ where: { id: req.user.id }, select: { email: true, name: true } })
-  const rub = discountActive(trial.publishedAt) ? plan.discounted : plan.price
+  // The first purchase within three days of the report gets the discount; a
+  // renewal is at the full price.
+  const purchased = await paidBefore(req.user.id)
+  const rub = !purchased && discountActive(trial.publishedAt) ? plan.discounted : plan.price
   let rate
   try { rate = await eurRate() } catch { return res.status(502).json({ error: 'The exchange rate is unavailable right now, try again in a minute' }) }
   const cents = Math.ceil((rub / rate.rate) * 100)
@@ -226,7 +237,7 @@ billingRouter.get('/me', async (req, res) => {
       paymentReportedAt: view.paymentReportedAt,
       paymentDetails: (user.payToTrialCard ?? Boolean(trial)) ? withTrialCard(school.paymentDetails, school.trialPaymentDetails) : school.paymentDetails,
       schoolName: school.name,
-      trial: trial ? { reportId: trial.id, publishedAt: trial.publishedAt, level: trial.generated?.level ?? null, links: offerLinks() } : null
+      trial: trial ? { reportId: trial.id, publishedAt: trial.publishedAt, level: trial.generated?.level ?? null, links: offerLinks(), purchased: await paidBefore(user.id) } : null
     }
   })
 })

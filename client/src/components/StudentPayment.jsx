@@ -104,6 +104,8 @@ export default function StudentPayment({ lessonsOnly = false }) {
   }
 
   const deadline = trial ? discountDeadline(trial.publishedAt) : null
+  // Paid once already: the same block is for renewing, at the full price.
+  const renewal = Boolean(trial?.purchased)
 
   return (
     <section>
@@ -113,17 +115,21 @@ export default function StudentPayment({ lessonsOnly = false }) {
         <div className="trial-offer">
           <div className="row-main">
             <div>
-              <strong>Ваш план после пробного урока</strong>
-              <div className="muted">Уровень {trial.level ?? '—'} · <Link to={`/report/${trial.reportId}`}>отчёт и план</Link></div>
+              <strong>{renewal ? 'Продлить пакет' : 'Ваш план после пробного урока'}</strong>
+              <div className="muted">
+                {renewal && billing.package?.remaining != null ? `Осталось уроков: ${Math.max(0, billing.package.remaining)} · ` : ''}
+                Уровень {trial.level ?? '—'} · <Link to={`/report/${trial.reportId}`}>отчёт и план</Link>
+              </div>
             </div>
-            {deadline.active
+            {!renewal && (deadline.active
               ? <span className="paid-badge active">Скидка {OFFER.discountPercent}% до {deadline.label}</span>
-              : <span className="paid-badge neutral">Скидка первых {OFFER.discountDays} дней закончилась</span>}
+              : <span className="paid-badge neutral">Скидка первых {OFFER.discountDays} дней закончилась</span>)}
           </div>
           <div className="offer-plans">
             {OFFER.plans.map((plan) => {
               const link = trial.links?.[plan.id] || OFFER.stripeLink
-              const price = deadline.active ? plan.discounted : plan.price
+              const discounted = !renewal && deadline.active
+              const price = discounted ? plan.discounted : plan.price
               const euros = inEur(price)
               return (
                 <div key={plan.id} className={`offer-plan ${plan.recommended ? 'mine' : ''}`}>
@@ -131,7 +137,7 @@ export default function StudentPayment({ lessonsOnly = false }) {
                   <div className="offer-plan-name">{plan.name}</div>
                   <div className="muted">{plan.line}</div>
                   <div className="offer-price">
-                    {deadline.active && <s>{formatRub(plan.price)}/мес</s>} <strong>{deadline.active ? '≈' : ''}{formatRub(price)}</strong> /мес
+                    {discounted && <s>{formatRub(plan.price)}/мес</s>} <strong>{discounted ? '≈' : ''}{formatRub(price)}</strong> /мес
                   </div>
                   {euros != null && (
                     <div className="offer-eur">
@@ -141,7 +147,7 @@ export default function StudentPayment({ lessonsOnly = false }) {
                   )}
                   <ul>{plan.includes.map((i) => <li key={i}>{i}</li>)}</ul>
                   <button className="offer-pay" disabled={paying === plan.id} onClick={() => pay(plan, link, price, euros)}>
-                    {paying === plan.id ? 'Открываем оплату…' : `Оплатить ${plan.name}${euros != null ? ` — ${formatEur(euros)}` : ''}`}
+                    {paying === plan.id ? 'Открываем оплату…' : `${renewal ? 'Продлить' : 'Оплатить'} ${plan.name}${euros != null ? ` — ${formatEur(euros)}` : ''}`}
                   </button>
                 </div>
               )
