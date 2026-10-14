@@ -17,6 +17,7 @@ import { adventCallPresence, adventCallEnded } from './adventLessons.js'
 import { trialCallEnded } from './trialReport.js'
 import { sfuEnabled, sfuJoin, sfuKick } from './sfu.js'
 import { notifyHomeworkLater, notifyAfterLessonLater } from './push.js'
+import { isUnpaidLead } from './trialCalls.js'
 
 // A call that resumes within this window continues the previous session rather
 // than counting as a second lesson — reconnects should not inflate the count.
@@ -283,7 +284,8 @@ export function setupSignaling(io) {
       if (call.classroom) {
         const studentHere = user.id === call.classroom.studentId ||
           [...(io.sockets.adapter.rooms.get(`call:${call.token}`) ?? [])].some((id) => io.sockets.sockets.get(id)?.data.user?.id === call.classroom.studentId)
-        if (studentHere) await openSession(call.classroom.id, { counted: call.kind !== 'TRIAL' })
+        // A trial — or any lesson with a trial student who hasn't paid — is never counted.
+        if (studentHere) await openSession(call.classroom.id, { counted: call.kind !== 'TRIAL' && !(await isUnpaidLead(call.classroom.studentId)) })
       }
 
       // Join and list the others without an await in between (see above).

@@ -7,6 +7,7 @@ import { entitlements } from '../plans.js'
 import { notifyCallStarted } from '../push.js'
 import { linkCallToAdventLesson, adventCallEnded } from '../adventLessons.js'
 import { trialCallEnded } from '../trialReport.js'
+import { isUnpaidLead, startTrialCall } from '../trialCalls.js'
 import { callRoomSize } from '../signaling.js'
 import { accessibleClassroom, ensurePersonalSpace } from './classrooms.js'
 
@@ -125,6 +126,16 @@ callsRouter.post('/', requireHost, async (req, res) => {
     // (a pair lesson) see it through the board instead.
     const students = board.sharedWith.filter((c) => c.studentId)
     if (!classroomId && students.length === 1) classroomId = students[0].id
+  }
+
+  // A student from a trial booking who hasn't paid: this is their trial
+  // lesson whichever button started it — not counted, with its report.
+  if (classroomId && req.user.role !== 'STUDENT') {
+    const classroom = await accessibleClassroom(req.user, classroomId)
+    if (classroom?.studentId && await isUnpaidLead(classroom.studentId)) {
+      const { status, body } = await startTrialCall(req.user, classroom, originOf(req))
+      return res.status(status).json({ ...body, trial: true })
+    }
   }
 
   // A second click while the first is still on its way (slow network) used
