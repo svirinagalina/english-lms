@@ -180,8 +180,8 @@ personalRouter.get('/calendar', async (req, res) => {
   const studentMap = new Map(students.map(s => [s.id, s]))
   // Lessons booked on the Advent site carry their link, for "Cancel lesson".
   const advent = new Map((await prisma.adventLesson.findMany({
-    where: { calendarEventId: { in: events.map((e) => e.id) } }, select: { id: true, kind: true, calendarEventId: true }
-  })).map((a) => [a.calendarEventId, { id: a.id, kind: a.kind }]))
+    where: { calendarEventId: { in: events.map((e) => e.id) } }, select: { id: true, kind: true, source: true, calendarEventId: true }
+  })).map((a) => [a.calendarEventId, { id: a.id, kind: a.kind, source: a.source }]))
 
   // Expand recurring events into instances
   const allInstances = events.flatMap(event => {

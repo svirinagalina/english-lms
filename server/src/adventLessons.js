@@ -17,6 +17,10 @@ import { supportContact } from './settings.js'
 const API_URL = () => (process.env.ADVENT_API_URL ?? 'https://advent-academy.online/api/v1/partner').replace(/\/$/, '')
 const APP_URL = () => (process.env.APP_URL ?? 'https://lms.advent-academy.online').replace(/\/$/, '')
 export const adventLessonsEnabled = () => Boolean(process.env.ADVENT_API_KEY && process.env.ADVENT_WEBHOOK_SECRET)
+// Booked on Maxim's site and he can be reached: he is told what happens. A
+// lesson booked on the platform's own /trial page (booking.js) is kept the
+// same way here, with nobody else to tell.
+const toAdvent = (lesson) => lesson.source !== 'platform' && adventLessonsEnabled()
 
 export async function adventApi(method, path, body) {
   const response = await guardedFetch('advent-site', `${API_URL()}${path}`, {
@@ -29,7 +33,7 @@ export async function adventApi(method, path, body) {
   return text ? JSON.parse(text) : null
 }
 
-const MEMO = [
+export const MEMO = [
   'Пробный урок по записи с сайта Advent.',
   'Перед уроком: 1) создайте доску в My boards; 2) назначьте её ученику (Assign);',
   '3) в первый раз нажмите Trial lesson — не Start lesson. После урока отчёт с уровнем уйдёт ученику сам.'
@@ -65,7 +69,7 @@ async function withTokens(row) {
 // linked to the teacher so the lesson is in the teacher's students with its
 // own cabinet — the teacher starts "Trial lesson" there. The same Advent
 // student booking again gets the same account.
-async function ensureStudent(row, teacherId) {
+export async function ensureStudent(row, teacherId) {
   const teacher = await prisma.user.findUnique({ where: { id: teacherId }, select: { schoolId: true } })
   let student = row.studentUserId ? await prisma.user.findUnique({ where: { id: row.studentUserId } }) : null
   const placeholder = `advent-${(row.studentAdventId || row.adventId).replace(/[^A-Za-z0-9_-]/g, '')}@trial.invalid`
@@ -271,8 +275,10 @@ export async function cancelAdventLesson(id, user, reason) {
   const admin = user.role === 'OWNER' || user.role === 'PARTNER'
   if (!lesson || (lesson.teacherId !== user.id && !admin)) throw Object.assign(new Error('Lesson not found'), { status: 404 })
   if (lesson.status === 'cancelled') return
-  if (!adventLessonsEnabled()) throw Object.assign(new Error('The Advent connection is not set up'), { status: 503 })
-  await adventApi('POST', `/lessons/${encodeURIComponent(lesson.adventId)}/cancel`, { reason, cancelled_by: lesson.teacherId === user.id ? 'teacher' : 'admin' })
+  if (lesson.source !== 'platform') {
+    if (!adventLessonsEnabled()) throw Object.assign(new Error('The Advent connection is not set up'), { status: 503 })
+    await adventApi('POST', `/lessons/${encodeURIComponent(lesson.adventId)}/cancel`, { reason, cancelled_by: lesson.teacherId === user.id ? 'teacher' : 'admin' })
+  }
   if (lesson.calendarEventId) await prisma.userCalendarEvent.deleteMany({ where: { id: lesson.calendarEventId } })
   await prisma.adventLesson.update({ where: { id }, data: { status: 'cancelled', calendarEventId: null } })
 }
@@ -282,12 +288,11 @@ export async function cancelAdventLesson(id, user, reason) {
 // A call a teacher starts is the lesson Advent booked for them now: the same
 // teacher, the same kind, starting within an hour and a half of the booked time.
 export async function linkCallToAdventLesson(call) {
-  if (!adventLessonsEnabled()) return
   const now = Date.now()
   const lesson = await prisma.adventLesson.findFirst({
     where: {
       teacherId: call.hostId,
-      status: 'scheduled',
+      status: { in: ['scheduled', 'pending'] },
       callId: null,
       kind: call.kind === 'TRIAL' ? 'trial' : 'regular',
       startsAt: { gte: new Date(now - 90 * 60000), lte: new Date(now + 90 * 60000) }
@@ -302,7 +307,7 @@ const iso = (d) => (d ? new Date(d).toISOString() : null)
 
 // Someone entered or left a call: kept per role; the first entry is "started".
 export async function adventCallPresence(callId, role, joined) {
-  if (!adventLessonsEnabled() || !callId) return
+  if (!callId) return
   const lesson = await prisma.adventLesson.findUnique({ where: { callId } })
   if (!lesson) return
   const staff = role !== 'STUDENT'
@@ -312,7 +317,7 @@ export async function adventCallPresence(callId, role, joined) {
     : (staff ? { teacherLeftAt: now } : { studentLeftAt: now })
   if (joined && !lesson.startedSentAt) data.startedSentAt = now
   if (Object.keys(data).length) await prisma.adventLesson.update({ where: { id: lesson.id }, data })
-  if (joined && !lesson.startedSentAt) {
+  if (joined && !lesson.startedSentAt && toAdvent(lesson)) {
     adventApi('POST', `/lessons/${encodeURIComponent(lesson.adventId)}/started`, { started_at: now.toISOString() })
       .catch((error) => console.error('[advent] started', error.message))
   }
@@ -321,7 +326,7 @@ export async function adventCallPresence(callId, role, joined) {
 // The call ended: how the lesson went, once. A student who never came in is
 // a no-show; the teacher started the call, so the teacher was there.
 export async function adventCallEnded(callId) {
-  if (!adventLessonsEnabled() || !callId) return
+  if (!callId) return
   const lesson = await prisma.adventLesson.findUnique({ where: { callId } })
   if (!lesson || lesson.finishedSentAt) return
   const outcome = !lesson.teacherJoinedAt ? 'teacher_no_show' : !lesson.studentJoinedAt ? 'student_no_show' : 'held'
@@ -333,8 +338,9 @@ export async function adventCallEnded(callId) {
     teacher_joined_at: iso(lesson.teacherJoinedAt), teacher_left_at: iso(lesson.teacherLeftAt),
     student_joined_at: iso(lesson.studentJoinedAt), student_left_at: iso(lesson.studentLeftAt)
   }
+  if (lesson.source !== 'platform' && !adventLessonsEnabled()) return
   try {
-    await adventApi('POST', `/lessons/${encodeURIComponent(lesson.adventId)}/finished`, body)
+    if (toAdvent(lesson)) await adventApi('POST', `/lessons/${encodeURIComponent(lesson.adventId)}/finished`, body)
     await prisma.adventLesson.update({ where: { id: lesson.id }, data: { finishedSentAt: new Date(), outcome } })
   } catch (error) { console.error('[advent] finished', error.message) }
 }
@@ -343,7 +349,7 @@ export async function adventCallEnded(callId) {
 export async function adventTrialReport(report) {
   if (!adventLessonsEnabled() || !report?.callId) return
   const lesson = await prisma.adventLesson.findUnique({ where: { callId: report.callId } })
-  if (!lesson || lesson.reportSentAt) return
+  if (!lesson || lesson.reportSentAt || !toAdvent(lesson)) return
   const g = report.generated ?? {}
   const body = {
     summary: String(g.summary ?? '').slice(0, 800),
@@ -516,7 +522,6 @@ async function handlePayment(event) {
 // in the waiting room; otherwise the student. A call that was held reports
 // itself when it ends (adventCallEnded). Only lessons booked from now on.
 async function sweepNoShows() {
-  if (!adventLessonsEnabled()) return
   const due = await prisma.adventLesson.findMany({
     where: { status: 'scheduled', callId: null, finishedSentAt: null, isTest: false, createdAt: { gte: new Date('2026-10-13T16:00:00Z') }, startsAt: { lte: new Date(Date.now() - 30 * 60000) } }
   })
@@ -525,8 +530,9 @@ async function sweepNoShows() {
     // held it is "held" (the call reports itself when it ends).
     if (new Date(lesson.startsAt).getTime() + lesson.durationMin * 60000 > Date.now()) continue
     const outcome = lesson.studentWaitingAt ? 'teacher_no_show' : 'student_no_show'
+    if (lesson.source !== 'platform' && !adventLessonsEnabled()) continue
     try {
-      await adventApi('POST', `/lessons/${encodeURIComponent(lesson.adventId)}/finished`, {
+      if (toAdvent(lesson)) await adventApi('POST', `/lessons/${encodeURIComponent(lesson.adventId)}/finished`, {
         outcome, started_at: null, ended_at: null,
         teacher_joined_at: null, teacher_left_at: null,
         student_joined_at: lesson.studentWaitingAt ? lesson.studentWaitingAt.toISOString() : null, student_left_at: null

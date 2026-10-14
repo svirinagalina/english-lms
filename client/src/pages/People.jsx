@@ -82,7 +82,7 @@ function TrialFunnel({ trials }) {
       {trials.map((t) => {
         const past = new Date(t.startsAt) < new Date()
         const steps = [
-          ['записан', true],
+          [t.status === 'pending' ? 'ждёт подтверждения в Telegram' : 'записан', t.status !== 'pending'],
           ['ждал урока', Boolean(t.waitedAt || t.studentJoinedAt)],
           [t.outcome ? OUTCOME[t.outcome] ?? t.outcome : past ? 'итог неизвестен' : 'урок впереди', t.outcome === 'held', t.outcome && t.outcome !== 'held'],
           [t.reportSentAt ? `отчёт отправлен${t.level ? ` · ${t.level}` : ''}` : 'отчёт не отправлен', Boolean(t.reportSentAt)],
@@ -93,7 +93,10 @@ function TrialFunnel({ trials }) {
             <div>
               <strong>{t.student.id ? <PersonLink id={t.student.id} name={t.student.name} /> : t.student.name}</strong>
               {t.isTest && <span className="muted"> · тест</span>}
-              <div className="muted">{shortWhen(t.startsAt)} · {t.teacher.name}{t.telegram ? ` · ${t.telegram}` : ''}{t.status === 'cancelled' ? ' · отменён' : ''}</div>
+              <div className="muted">
+                {shortWhen(t.startsAt)} · {t.teacher.name}{t.telegram ? ` · ${t.telegram}` : ''}{t.status === 'cancelled' ? ' · отменён' : ''}
+                {' · '}{t.source === 'platform' ? 'запись на платформе' : 'сайт Advent'}{t.utm?.utm_source ? ` · ${t.utm.utm_source}${t.utm.utm_campaign ? ` / ${t.utm.utm_campaign}` : ''}` : ''}
+              </div>
             </div>
             <div className="activity-tags">
               {steps.map(([label, ok, bad]) => (

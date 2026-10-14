@@ -101,6 +101,8 @@ model User {
   telegramName     String?
   telegramLinkedAt DateTime?
   telegramPaidSeen String?
+  // Free time a teacher offers for trial lessons (booking.js).
+  trialWindows     TrialWindow[]
   emailVerifications EmailVerification[]
   trialRequestedAt DateTime?
   trialRequestNote String?
@@ -829,10 +831,32 @@ model AdventLesson {
   // is announced once.
   botStartsAt     DateTime?
   botTeacherId    String?
+  // 'advent' = booked on Maxim's site (his API is told what happens);
+  // 'platform' = booked on the platform's own /trial page (nobody else to tell).
+  source          String    @default("advent")
+  // Where a platform booking came from: utm_* and ref of the booking page.
+  utm             Json?
   createdAt       DateTime  @default(now())
   updatedAt       DateTime  @updatedAt
 
   @@index([teacherId, startsAt])
+}
+
+// Free time a teacher offers for trial lessons: the /trial page cuts it into
+// 40-minute lessons on the hour. Weekly windows repeat like Timetable lessons
+// (generateRecurringInstances).
+model TrialWindow {
+  id                String    @id @default(cuid())
+  teacherId         String
+  teacher           User      @relation(fields: [teacherId], references: [id], onDelete: Cascade)
+  startTime         DateTime
+  endTime           DateTime
+  recurrence        String?   // null | "WEEKLY"
+  recurrenceEndDate DateTime?
+  timezone          String?
+  createdAt         DateTime  @default(now())
+
+  @@index([teacherId])
 }
 
 // Advent webhook events already handled, so a retry never creates a lesson twice.

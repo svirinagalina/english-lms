@@ -20,7 +20,8 @@ export const botUsername = () => state.username
 // Messages to students, teachers and the owner (not the replies to /start).
 export const botOn = () => Boolean(botToken() && state.on)
 export const botOnSince = () => state.onSince ?? new Date()
-export const bookingUrl = () => state.bookingUrl || 'https://advent-academy.online'
+// «Выбрать время»: the platform's own booking page unless Settings says otherwise.
+export const bookingUrl = () => state.bookingUrl || `${APP_URL()}/trial`
 export const botSettings = () => ({
   configured: Boolean(botToken()),
   fromEnv: Boolean(process.env.TELEGRAM_BOT_TOKEN),

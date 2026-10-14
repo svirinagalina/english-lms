@@ -1,5 +1,6 @@
 import { prisma } from './db.js'
-import { botOn, botOnSince, bookingUrl, sendTo, once, wasSent, esc, packageMark, onLinked, appUrl } from './telegram.js'
+import { botOn, botOnSince, botToken, bookingUrl, sendTo, once, wasSent, esc, packageMark, onLinked, appUrl } from './telegram.js'
+import { confirmBooking } from './booking.js'
 import { OFFER_PLANS, DISCOUNT_DAYS } from './offer.js'
 import { countedCalls } from './routes/billing.js'
 import { generateRecurringInstances } from './routes/personal.js'
@@ -10,6 +11,9 @@ import { generateRecurringInstances } from './routes/personal.js'
 // Almost everything is found by looking (every minute) rather than hooked
 // into the code that changes it, so a lesson, a report or a payment is
 // announced however it came about. Each message is sent once (`once`).
+// Lessons booked on the platform's own page (booking.js) get their messages
+// as soon as the bot exists — no other bot knows them; everything else
+// (bookings from Maxim's site, payments, the Timetable) waits for the switch.
 
 const MIN = 60000
 const HOUR = 60 * MIN
@@ -51,6 +55,10 @@ const paid = (s) => s.lessonsPaid > 0 || (s.plan && s.planUntil && new Date(s.pl
 const kindWord = (lesson) => (lesson.kind === 'trial' ? 'пробный урок' : 'урок')
 const cap = (s) => s[0].toUpperCase() + s.slice(1)
 const test = (lesson) => (lesson.isTest ? '[ТЕСТ] ' : '')
+const ours = (lesson) => lesson?.source === 'platform'
+// May the bot speak about this lesson now, and is it new enough to announce?
+const allowed = (lesson) => ours(lesson) || botOn()
+const recent = (lesson, at) => ours(lesson) || new Date(at) >= botOnSince()
 
 // --- 1–2. A booking from the Advent site, before the lesson --------------------
 
@@ -83,20 +91,23 @@ async function noticeToTeacher(lesson, teacher) {
 }
 
 // A student connected the bot from their lesson link: the booking at once.
+// A booking made on the platform is confirmed by this very Start.
 onLinked(async (user, lesson) => {
-  if (!botOn() || !lesson || user.role !== 'STUDENT' || lesson.studentUserId !== user.id) return
-  const fresh = await prisma.adventLesson.findUnique({ where: { id: lesson.id } })
+  if (!lesson || user.role !== 'STUDENT' || lesson.studentUserId !== user.id) return
+  let fresh = await prisma.adventLesson.findUnique({ where: { id: lesson.id } })
+  if (ours(fresh) && fresh.status === 'pending') fresh = await confirmBooking(fresh)
+  if (!allowed(fresh)) return
   const sent = await confirmToStudent(fresh, user, await person(fresh.teacherId))
   if (sent && !fresh.botStartsAt) await prisma.adventLesson.update({ where: { id: fresh.id }, data: { botStartsAt: fresh.startsAt, botTeacherId: fresh.teacherId } })
 })
 
 async function bookings() {
   const now = Date.now()
-  const since = botOnSince()
   const lessons = await prisma.adventLesson.findMany({
     where: { startsAt: { gt: new Date(now - 30 * MIN), lt: new Date(now + 30 * 24 * HOUR) }, OR: [{ status: 'scheduled' }, { status: 'cancelled', botStartsAt: { not: null } }] }
   })
   for (const lesson of lessons) {
+    if (!allowed(lesson)) continue
     const [student, teacher] = await Promise.all([person(lesson.studentUserId), person(lesson.teacherId)])
     const start = new Date(lesson.startsAt)
 
@@ -137,12 +148,12 @@ async function bookings() {
 
     // New: the teacher (booked after the bot was switched on) and the student (once connected).
     let told = false
-    if (start > now && new Date(lesson.createdAt) >= since) told = (await noticeToTeacher(lesson, teacher)) || told
+    if (start > now && recent(lesson, lesson.createdAt)) told = (await noticeToTeacher(lesson, teacher)) || told
     if (student) told = (await confirmToStudent(lesson, student, teacher)) || told
     if (told && !lesson.botStartsAt) await prisma.adventLesson.update({ where: { id: lesson.id }, data: { botStartsAt: start, botTeacherId: lesson.teacherId } })
 
     // The teacher hasn't confirmed in 2 hours (or it's 3 hours to the lesson): the owner.
-    if (lesson.kind === 'trial' && !lesson.teacherConfirmedAt && start > now && new Date(lesson.createdAt) >= since &&
+    if (lesson.kind === 'trial' && !lesson.teacherConfirmedAt && start > now && recent(lesson, lesson.createdAt) &&
         now > new Date(lesson.createdAt).getTime() + 30 * MIN &&
         (now > new Date(lesson.createdAt).getTime() + 2 * HOUR || now > start.getTime() - 3 * HOUR)) {
       const notified = await wasSent(`book:t:${lesson.id}:${lesson.teacherId}`)
@@ -173,9 +184,10 @@ async function bookings() {
 async function outcomes() {
   const now = Date.now()
   const lessons = await prisma.adventLesson.findMany({
-    where: { finishedSentAt: { gte: botOnSince(), gt: new Date(now - 3 * 24 * HOUR) }, outcome: { not: null } }
+    where: { finishedSentAt: { gt: new Date(now - 3 * 24 * HOUR) }, outcome: { not: null } }
   })
   for (const lesson of lessons) {
+    if (!allowed(lesson) || !recent(lesson, lesson.finishedSentAt)) continue
     const [student, teacher] = await Promise.all([person(lesson.studentUserId), person(lesson.teacherId)])
     const ended = new Date(lesson.finishedSentAt).getTime()
     const report = lesson.callId ? await prisma.trialReport.findFirst({ where: { callId: lesson.callId, publishedAt: { not: null } }, select: { id: true } }) : null
@@ -218,10 +230,12 @@ async function reportLinks(report, student) {
 async function reports() {
   const now = Date.now()
   const list = await prisma.trialReport.findMany({
-    where: { publishedAt: { gte: botOnSince(), gt: new Date(now - (DISCOUNT_DAYS + 1) * 24 * HOUR) } },
+    where: { publishedAt: { gt: new Date(now - (DISCOUNT_DAYS + 1) * 24 * HOUR) } },
     select: { id: true, studentId: true, callId: true, publishedAt: true, teacherLevel: true, generated: true }
   })
   for (const report of list) {
+    const lesson = report.callId ? await prisma.adventLesson.findUnique({ where: { callId: report.callId }, select: { source: true } }) : null
+    if (!allowed(lesson) || !recent(lesson, report.publishedAt)) continue
     const student = await person(report.studentId)
     if (!student?.telegramChatId) continue
     const links = await reportLinks(report, student)
@@ -387,14 +401,16 @@ async function packagesUsedUp() {
 const quietly = (name, job) => job().catch((error) => console.error(`[bot] ${name}`, error.message))
 let running = false
 async function everyMinute() {
-  if (!botOn() || running) return
+  if (!botToken() || running) return
   running = true
   try {
     await quietly('bookings', bookings)
     await quietly('outcomes', outcomes)
     await quietly('reports', reports)
-    await quietly('payments', payments)
-    await quietly('timetable', timetable)
+    if (botOn()) {
+      await quietly('payments', payments)
+      await quietly('timetable', timetable)
+    }
   } finally { running = false }
 }
 let ticks = 0

@@ -55,13 +55,13 @@ function DeviceCheck() {
 
 // «Напоминания в Telegram»: the school's bot, connected to this lesson's
 // student (or teacher) by the link's own token. Hidden until there is a bot.
-function TelegramButton({ param, hint }) {
+function TelegramButton({ param, hint, label = '🔔 Напоминания в Telegram' }) {
   const [username, setUsername] = useState(null)
   useEffect(() => { api.telegramInfo().then((d) => setUsername(d.username)).catch(() => {}) }, [])
   if (!username) return null
   return (
     <>
-      <a className="ll-tg" href={`https://t.me/${username}?start=${param}`} target="_blank" rel="noreferrer">🔔 Напоминания в Telegram</a>
+      <a className="ll-tg" href={`https://t.me/${username}?start=${param}`} target="_blank" rel="noreferrer">{label}</a>
       {hint && <p className="muted ll-tg-hint">{hint}</p>}
     </>
   )
@@ -123,7 +123,24 @@ export default function LessonLink() {
   )
 
   if (info.status === 'cancelled') {
-    return <div className="centered"><div className="card ll-card">{header}<p className="error">Этот урок отменён. Новую запись можно сделать на сайте Advent.</p></div></div>
+    return (
+      <div className="centered"><div className="card ll-card">
+        {header}
+        <p className="error">Этот урок отменён.</p>
+        {info.role === 'student' && <a className="button ll-go" href="/trial">Записаться на другое время</a>}
+      </div></div>
+    )
+  }
+
+  // Booked on the platform, not yet confirmed: the Start in Telegram confirms it.
+  if (info.status === 'pending' && info.role === 'student') {
+    return (
+      <div className="centered"><div className="card ll-card">
+        {header}
+        <p><strong>Подтвердите запись в Telegram</strong>: нажмите кнопку и затем «Start» в боте. Туда придёт ссылка на урок и напоминания.</p>
+        <TelegramButton param={`l_${token}`} label="✈️ Подтвердить в Telegram" hint="Без подтверждения запись отменится через сутки." />
+      </div></div>
+    )
   }
 
   // The teacher's link.
@@ -172,7 +189,7 @@ export default function LessonLink() {
       <div className="centered"><div className="card ll-card">
         {header}
         <p>У вас уже есть аккаунт на платформе. Войдите в него — урок начнётся в вашем кабинете.</p>
-        <a className="ll-go" href={`/login?next=${encodeURIComponent(`/lesson/${token}`)}`}>Войти</a>
+        <a className="button ll-go" href={`/login?next=${encodeURIComponent(`/lesson/${token}`)}`}>Войти</a>
       </div></div>
     )
   }

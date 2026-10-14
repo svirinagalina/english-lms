@@ -1849,6 +1849,18 @@ a:hover .gs-arrow { transform: translateX(5px); }
 .ll-tg { display: flex; align-items: center; justify-content: center; gap: 8px; padding: 11px 14px; border-radius: 12px; border: 1px solid rgba(42, 171, 238, .55); background: rgba(42, 171, 238, .14); color: inherit; text-decoration: none; font-weight: 600; margin-top: 12px; }
 .ll-tg:hover { background: rgba(42, 171, 238, .24); }
 .ll-tg-hint { font-size: 13px; margin: 6px 0 0; text-align: center; }
+/* The trial booking page (/trial): day and time chips on the lesson-link card. */
+.bk-label { font-weight: 600; margin: 14px 0 8px; }
+.bk-days, .bk-times { display: flex; flex-wrap: wrap; gap: 8px; }
+.bk-chip { display: inline-flex; flex-direction: column; align-items: center; gap: 2px; min-width: 76px; padding: 10px 12px; border-radius: 10px; border: 1px solid rgba(255,255,255,.22); background: rgba(255,255,255,.06); color: inherit; font-size: 16px; font-weight: 600; cursor: pointer; }
+.bk-chip small { font-size: 11px; font-weight: 400; opacity: .7; }
+.bk-chip:hover { background: rgba(255,255,255,.12); }
+.bk-chip.on { background: var(--accent); color: var(--accent-ink); border-color: transparent; }
+.bk-chosen { font-size: 18px; font-weight: 600; margin: 0 0 6px; }
+.bk-chosen::first-letter { text-transform: uppercase; }
+.bk-change { background: none; border: 0; padding: 0 0 0 8px; color: inherit; text-decoration: underline; opacity: .75; font-size: 14px; font-weight: 400; cursor: pointer; }
+.bk-again { margin-top: 14px; width: 100%; }
+.bk-trap { position: absolute; left: -9999px; width: 1px; height: 1px; opacity: 0; }
 .trial-invite { border: 1px solid rgba(255, 196, 0, .45); background: rgba(255, 196, 0, .08); border-radius: 14px; padding: 14px 16px; margin-bottom: 16px; display: grid; gap: 8px; }
 .trial-invite p { margin: 0; }
 .activity-tag.ok { background: rgba(74, 222, 128, .18); }

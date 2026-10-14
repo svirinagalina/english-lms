@@ -44,6 +44,7 @@ import TrialReportsPage from './pages/TrialReportsPage'
 import Courses from './pages/Courses'
 import Course from './pages/Course'
 import LessonLink from './pages/LessonLink'
+import TrialBooking from './pages/TrialBooking'
 import FinishSignup from './pages/FinishSignup'
 import TrialOver from './pages/TrialOver'
 
@@ -151,6 +152,7 @@ export default function App() {
       <Route path="/join/:token" element={user ? <Navigate to="/" replace /> : <Join />} />
       <Route path="/call/:token" element={<Call />} />
       <Route path="/lesson/:token" element={<LessonLink />} />
+      <Route path="/trial" element={<TrialBooking />} />
       <Route path="/finish-signup" element={<FinishSignup />} />
       <Route path="/trial-over" element={<TrialOver />} />
       <Route path="/" element={<HomeRoute />} />

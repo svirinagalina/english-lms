@@ -6,6 +6,8 @@ import { useAuth } from '../AuthContext'
 import Nav from '../components/Nav'
 import { SiteFooter } from '../components/Brand'
 import Panel from '../components/Panel'
+import TrialWindows from '../components/TrialWindows'
+import TrialLessonActions from '../components/TrialLessonActions'
 
 // A Date as the value of a datetime-local input, in the browser's own time.
 const toLocalInput = (d) => {
@@ -148,10 +150,11 @@ export default function Timetable() {
     }
   }
 
-  // A lesson booked on Advent is cancelled there too: Advent tells the
-  // student. Editing or plain deleting it here would leave Advent out of step.
+  // A booked trial (Maxim's site or the /trial page) is cancelled through the
+  // platform: the bot tells the student, Maxim's site hears of its own bookings.
+  // Editing or plain deleting the Timetable entry would leave them out of step.
   const cancelAdvent = async (lesson) => {
-    const reason = window.prompt('Отменить урок? Advent сообщит ученику.\nПричина:')
+    const reason = window.prompt('Отменить урок? Ученику придёт сообщение в Telegram.\nПричина:')
     if (reason === null) return
     if (!reason.trim()) { setError('Write the reason for cancelling'); return }
     try {
@@ -196,13 +199,9 @@ export default function Timetable() {
     setShowForm(true)
   }
 
+  // A booked trial: moved, reassigned or cancelled only here (the bot tells everyone).
   const editDeleteButtons = (lesson, small) => isStaff && (lesson.advent ? (
-    <div style={{ display: 'flex', gap: small ? 4 : 6, marginTop: small ? 4 : 6 }}>
-      <button type="button" className="timetable-edit" style={small ? { fontSize: 10 } : undefined} onClick={() => cancelAdvent(lesson)}
-        title="Cancel this lesson here and on Advent; the student is told">
-        Cancel lesson
-      </button>
-    </div>
+    <TrialLessonActions lesson={lesson} small={small} onCancel={() => cancelAdvent(lesson)} onChanged={refresh} />
   ) : (
     <div style={{ display: 'flex', gap: small ? 4 : 6, marginTop: small ? 4 : 6 }}>
       <button
@@ -501,7 +500,7 @@ export default function Timetable() {
                             <div style={{ fontSize: 11, color: 'rgba(20, 69, 63, 0.75)', marginTop: 2 }}>👤 {namesOf(lesson)}</div>
                           )}
                           {/* A trial booked on Advent: the steps before it, in short (full text in the day list). */}
-                          {/Пробный урок/.test(lesson.title) && /Advent/.test(lesson.title) && (
+                          {lesson.advent?.kind === 'trial' && (
                             <div style={{ fontSize: 10, color: '#9d174d', marginTop: 4, lineHeight: 1.3 }}>Доска → Assign ученику → кнопка Trial lesson</div>
                           )}
                           {startButton(lesson, true)}
@@ -573,6 +572,8 @@ export default function Timetable() {
           </div>
         )}
       </Panel>
+
+      {isStaff && <TrialWindows />}
 
       {deleteConfirm && eventToDelete && eventToDelete.recurrence === 'WEEKLY' && (
         <div style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.3)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
