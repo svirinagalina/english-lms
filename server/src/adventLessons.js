@@ -7,6 +7,7 @@ import { ensureClassroom } from './routes/classrooms.js'
 import { sendAdventLessonEmail, sendLessonLinkEmail } from './mailer.js'
 import { notify } from './push.js'
 import { supportContact } from './settings.js'
+import { toAdventLater, adventPaidMark } from './adventSync.js'
 
 // Lessons booked on the Advent site (Maxim's partner API, see
 // ~/Downloads/Интеграция_платформы_уроков_Галины_с_Advent.md). Advent sends
@@ -17,10 +18,12 @@ import { supportContact } from './settings.js'
 const API_URL = () => (process.env.ADVENT_API_URL ?? 'https://advent-academy.online/api/v1/partner').replace(/\/$/, '')
 const APP_URL = () => (process.env.APP_URL ?? 'https://lms.advent-academy.online').replace(/\/$/, '')
 export const adventLessonsEnabled = () => Boolean(process.env.ADVENT_API_KEY && process.env.ADVENT_WEBHOOK_SECRET)
-// Booked on Maxim's site and he can be reached: he is told what happens. A
-// lesson booked on the platform's own /trial page (booking.js) is kept the
-// same way here, with nobody else to tell.
-const toAdvent = (lesson) => lesson.source !== 'platform' && adventLessonsEnabled()
+// A lesson booked on Maxim's site: he is told what happens to it (a booking
+// made on the platform's own page has nobody else to tell). It all goes
+// through the outbox (adventSync.js): kept and retried until his API takes
+// it, so his site being down never blocks the platform.
+const fromSite = (lesson) => lesson.source !== 'platform'
+const lessonPath = (lesson, tail = '') => `/lessons/${encodeURIComponent(lesson.adventId)}${tail}`
 
 export async function adventApi(method, path, body) {
   const response = await guardedFetch('advent-site', `${API_URL()}${path}`, {
@@ -166,11 +169,15 @@ const lessonFields = (lesson, teacherId) => ({
   studentEmail: lesson.student?.email || null
 })
 
-// What each event does; returns [status, body].
+// What each event does; returns [status, body]. Also used by the
+// reconciliation with Maxim's list (adventSync.js) for a lesson that never came.
+export const applyAdventEvent = (event) => handle(event)
 async function handle(event) {
   const lesson = event.lesson ?? {}
   const adventId = String(lesson.id ?? '')
   if (!adventId || !lesson.starts_at) return [422, { error: 'invalid_lesson', message: 'Нет lesson.id или lesson.starts_at' }]
+  // Removed on the platform (People → «Убрать»): stays removed.
+  if (await prisma.adventEvent.findUnique({ where: { id: `removed:${adventId}` } })) return [200, {}]
   const row = await prisma.adventLesson.findUnique({ where: { adventId } })
 
   if (event.event === 'lesson.cancelled') {
@@ -275,12 +282,9 @@ export async function cancelAdventLesson(id, user, reason) {
   const admin = user.role === 'OWNER' || user.role === 'PARTNER'
   if (!lesson || (lesson.teacherId !== user.id && !admin)) throw Object.assign(new Error('Lesson not found'), { status: 404 })
   if (lesson.status === 'cancelled') return
-  if (lesson.source !== 'platform') {
-    if (!adventLessonsEnabled()) throw Object.assign(new Error('The Advent connection is not set up'), { status: 503 })
-    await adventApi('POST', `/lessons/${encodeURIComponent(lesson.adventId)}/cancel`, { reason, cancelled_by: lesson.teacherId === user.id ? 'teacher' : 'admin' })
-  }
   if (lesson.calendarEventId) await prisma.userCalendarEvent.deleteMany({ where: { id: lesson.calendarEventId } })
   await prisma.adventLesson.update({ where: { id }, data: { status: 'cancelled', calendarEventId: null } })
+  if (fromSite(lesson)) await toAdventLater('cancel', 'POST', lessonPath(lesson, '/cancel'), { reason, cancelled_by: lesson.teacherId === user.id ? 'teacher' : 'admin' }, lesson.id)
 }
 
 // --- The call side ------------------------------------------------------------
@@ -317,9 +321,8 @@ export async function adventCallPresence(callId, role, joined) {
     : (staff ? { teacherLeftAt: now } : { studentLeftAt: now })
   if (joined && !lesson.startedSentAt) data.startedSentAt = now
   if (Object.keys(data).length) await prisma.adventLesson.update({ where: { id: lesson.id }, data })
-  if (joined && !lesson.startedSentAt && toAdvent(lesson)) {
-    adventApi('POST', `/lessons/${encodeURIComponent(lesson.adventId)}/started`, { started_at: now.toISOString() })
-      .catch((error) => console.error('[advent] started', error.message))
+  if (joined && !lesson.startedSentAt && fromSite(lesson)) {
+    await toAdventLater('started', 'POST', lessonPath(lesson, '/started'), { started_at: now.toISOString() }, lesson.id)
   }
 }
 
@@ -338,18 +341,15 @@ export async function adventCallEnded(callId) {
     teacher_joined_at: iso(lesson.teacherJoinedAt), teacher_left_at: iso(lesson.teacherLeftAt),
     student_joined_at: iso(lesson.studentJoinedAt), student_left_at: iso(lesson.studentLeftAt)
   }
-  if (lesson.source !== 'platform' && !adventLessonsEnabled()) return
-  try {
-    if (toAdvent(lesson)) await adventApi('POST', `/lessons/${encodeURIComponent(lesson.adventId)}/finished`, body)
-    await prisma.adventLesson.update({ where: { id: lesson.id }, data: { finishedSentAt: new Date(), outcome } })
-  } catch (error) { console.error('[advent] finished', error.message) }
+  await prisma.adventLesson.update({ where: { id: lesson.id }, data: { finishedSentAt: new Date(), outcome } })
+  if (fromSite(lesson)) await toAdventLater('finished', 'POST', lessonPath(lesson, '/finished'), body, lesson.id)
 }
 
 // A trial report was published to the student: it goes to Advent too, once.
 export async function adventTrialReport(report) {
-  if (!adventLessonsEnabled() || !report?.callId) return
+  if (!report?.callId) return
   const lesson = await prisma.adventLesson.findUnique({ where: { callId: report.callId } })
-  if (!lesson || lesson.reportSentAt || !toAdvent(lesson)) return
+  if (!lesson || lesson.reportSentAt || !fromSite(lesson)) return
   const g = report.generated ?? {}
   const body = {
     summary: String(g.summary ?? '').slice(0, 800),
@@ -361,10 +361,8 @@ export async function adventTrialReport(report) {
     // plain report page would ask them to sign in.
     report_url: lesson.studentToken ? `${APP_URL()}/lesson/${lesson.studentToken}?to=${encodeURIComponent(`/report/${report.id}`)}` : `${APP_URL()}/report/${report.id}`
   }
-  try {
-    await adventApi('POST', `/lessons/${encodeURIComponent(lesson.adventId)}/report`, body)
-    await prisma.adventLesson.update({ where: { id: lesson.id }, data: { reportSentAt: new Date() } })
-  } catch (error) { console.error('[advent] report', error.message) }
+  await prisma.adventLesson.update({ where: { id: lesson.id }, data: { reportSentAt: new Date() } })
+  await toAdventLater('report', 'POST', lessonPath(lesson, '/report'), body, lesson.id)
 }
 
 // --- The lesson links ----------------------------------------------------------
@@ -496,11 +494,14 @@ async function handlePayment(event) {
   }
   const amount = Number(p.amount)
   const currency = ['RUB', 'EUR', 'USD'].includes(String(p.currency).toUpperCase()) ? String(p.currency).toUpperCase() : null
+  const startedAt = new Date()
   await prisma.user.update({
     where: { id: student.id },
     data: {
       lessonsPaid: left + lessons,
-      packageStartedAt: new Date(),
+      packageStartedAt: startedAt,
+      // Paid on Maxim's site: his site knows already, nothing to send back.
+      adventPaidSeen: adventPaidMark({ lessonsPaid: left + lessons, packageStartedAt: startedAt }),
       heldAdjust: 0,
       paymentReportedAt: null,
       free: false,
@@ -530,15 +531,14 @@ async function sweepNoShows() {
     // held it is "held" (the call reports itself when it ends).
     if (new Date(lesson.startsAt).getTime() + lesson.durationMin * 60000 > Date.now()) continue
     const outcome = lesson.studentWaitingAt ? 'teacher_no_show' : 'student_no_show'
-    if (lesson.source !== 'platform' && !adventLessonsEnabled()) continue
-    try {
-      if (toAdvent(lesson)) await adventApi('POST', `/lessons/${encodeURIComponent(lesson.adventId)}/finished`, {
+    await prisma.adventLesson.update({ where: { id: lesson.id }, data: { finishedSentAt: new Date(), outcome } })
+    if (fromSite(lesson)) {
+      await toAdventLater('finished', 'POST', lessonPath(lesson, '/finished'), {
         outcome, started_at: null, ended_at: null,
         teacher_joined_at: null, teacher_left_at: null,
         student_joined_at: lesson.studentWaitingAt ? lesson.studentWaitingAt.toISOString() : null, student_left_at: null
-      })
-      await prisma.adventLesson.update({ where: { id: lesson.id }, data: { finishedSentAt: new Date(), outcome } })
-    } catch (error) { console.error('[advent] no-show', error.message) }
+      }, lesson.id)
+    }
   }
 }
 

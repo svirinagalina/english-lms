@@ -4,6 +4,7 @@ import Nav, { refreshTrainerStatus } from '../components/Nav'
 import { SiteFooter } from '../components/Brand'
 import PushSettings from '../components/PushSettings'
 import TelegramSettings from '../components/TelegramSettings'
+import AdventSyncSettings from '../components/AdventSyncSettings'
 
 // Owner's settings. The AI key is pasted here and stored encrypted on the
 // server; it is never shown again, only its last characters.
@@ -167,6 +168,8 @@ export default function Settings() {
       )}
 
       <TelegramSettings />
+
+      <AdventSyncSettings />
 
       <section>
         <h2>Help for students</h2>

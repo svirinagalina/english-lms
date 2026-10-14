@@ -5,6 +5,7 @@ import { prisma } from './db.js'
 import { requireAuth, requireRole, isAdmin, hashPassword } from './auth.js'
 import { generateRecurringInstances } from './routes/personal.js'
 import { ensureStudent, MEMO } from './adventLessons.js'
+import { toAdventLater } from './adventSync.js'
 import { botToken, botUsername, startLink, appUrl } from './telegram.js'
 import { sendLessonLinkEmail } from './mailer.js'
 
@@ -302,6 +303,10 @@ bookingRouter.post('/lessons/:id/move', requireAuth, requireRole(...STAFF), expr
   if (lesson.calendarEventId) {
     await prisma.userCalendarEvent.updateMany({ where: { id: lesson.calendarEventId }, data: { startTime: startsAt, endTime: new Date(startsAt.getTime() + lesson.durationMin * MIN) } })
   }
+  // Booked on Maxim's site: his site moves it too.
+  if (lesson.source !== 'platform') {
+    await toAdventLater('move', 'PATCH', `/lessons/${encodeURIComponent(lesson.adventId)}`, { starts_at: startsAt.toISOString(), changed_by: lesson.teacherId === req.user.id ? 'teacher' : 'admin' }, lesson.id)
+  }
   res.json({ ok: true })
 })
 
@@ -323,6 +328,10 @@ bookingRouter.post('/lessons/:id/teacher', requireAuth, requireRole('OWNER', 'PA
   let row = await prisma.adventLesson.update({ where: { id: lesson.id }, data: { teacherId: teacher.id, teacherConfirmedAt: null } })
   if (row.calendarEventId) await prisma.userCalendarEvent.updateMany({ where: { id: row.calendarEventId }, data: { userId: teacher.id } })
   if (row.status === 'scheduled') row = await ensureStudent(row, teacher.id)
+  if (lesson.source !== 'platform') {
+    const next = await prisma.user.findUnique({ where: { id: teacher.id }, select: { email: true, name: true } })
+    await toAdventLater('teacher', 'PATCH', `/lessons/${encodeURIComponent(lesson.adventId)}`, { teacher: { email: next.email, name: next.name }, changed_by: 'admin' }, lesson.id)
+  }
   // A student who came only for this trial leaves the old teacher's list (no lessons with them yet).
   const student = row.studentUserId ? await prisma.user.findUnique({ where: { id: row.studentUserId }, select: { viaLink: true } }) : null
   if (student?.viaLink) {
@@ -342,6 +351,9 @@ bookingRouter.delete('/lessons/:id', requireAuth, requireRole('OWNER', 'PARTNER'
   if (!lesson || teacher?.schoolId !== req.user.schoolId) return res.status(404).json({ error: 'Not found' })
   if (lesson.calendarEventId) await prisma.userCalendarEvent.deleteMany({ where: { id: lesson.calendarEventId } })
   await prisma.adventLesson.delete({ where: { id: lesson.id } })
+  // Removed for good: neither Maxim's next event about it nor the
+  // reconciliation with his list brings it back.
+  if (lesson.source !== 'platform') await prisma.adventEvent.create({ data: { id: `removed:${lesson.adventId}` } }).catch(() => {})
   let accountRemoved = false
   if (lesson.studentUserId) {
     const student = await prisma.user.findUnique({ where: { id: lesson.studentUserId }, select: { role: true, schoolId: true, viaLink: true, lessonsPaid: true } })

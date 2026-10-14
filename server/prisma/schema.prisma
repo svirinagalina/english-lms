@@ -101,6 +101,8 @@ model User {
   telegramName     String?
   telegramLinkedAt DateTime?
   telegramPaidSeen String?
+  // What Maxim's site last heard of this student's package (adventSync.js).
+  adventPaidSeen   String?
   // Free time a teacher offers for trial lessons (booking.js).
   trialWindows     TrialWindow[]
   emailVerifications EmailVerification[]
@@ -884,6 +886,26 @@ model TrialWindow {
   createdAt         DateTime  @default(now())
 
   @@index([teacherId])
+}
+
+// What the platform tells Maxim's site, kept until his API takes it (a lesson
+// started, its outcome, the report, a cancellation, a move, a payment).
+// adventSync.js sends it and retries with growing pauses.
+model AdventOutbox {
+  id        String    @id @default(cuid())
+  kind      String    // started | finished | report | cancel | move | teacher | payment
+  method    String
+  path      String
+  body      Json?
+  lessonId  String?
+  attempts  Int       @default(0)
+  nextAt    DateTime  @default(now())
+  lastError String?
+  failedAt  DateTime? // gave up: his API refused it (shown in Settings)
+  doneAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([doneAt, nextAt])
 }
 
 // Advent webhook events already handled, so a retry never creates a lesson twice.
