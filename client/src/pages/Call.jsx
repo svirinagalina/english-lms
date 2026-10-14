@@ -787,17 +787,22 @@ export default function Call() {
           // Loaded only for calls that use it (it is a big library).
           const { joinSfu } = await import('../utils/sfu')
           let self = null
+          let wasConnected = false
           const sfu = await joinSfu({
             url: access.url,
             token: access.token,
             onStream: (identity, name, stream) => setPeers((prev) => (!prev[identity] && !stream ? prev : { ...prev, [identity]: { ...(prev[identity] ?? { name, muted: false }), stream } })),
             onLeft: (identity) => setPeers((prev) => { if (!prev[identity]) return prev; const next = { ...prev }; delete next[identity]; return next }),
             onState: (state, info) => {
+              if (state === 'connected') wasConnected = true
               if (state !== 'connected') report(token, 'sfu.state', state, {})
               // The media connection alone was lost (the socket is still up, so
               // nothing else would rejoin): sound and picture stopped until a
               // reload — Lubov twice on 2026-10-08. Joined again in a moment.
-              if (state === 'disconnected' && !info?.leaving) {
+              // Only a connection that had worked: one that never connects is
+              // the retry below (attempts 1–5), or it looped every 2 s (Arina,
+              // 2026-10-14, a network that lets nothing through).
+              if (state === 'disconnected' && !info?.leaving && wasConnected) {
                 setTimeout(() => {
                   if (disposed || socketRef.current !== forSocket || !forSocket.connected) return
                   if (sfuRef.current && sfuRef.current !== self) return
