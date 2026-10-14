@@ -842,6 +842,33 @@ model AdventLesson {
   @@index([teacherId, startsAt])
 }
 
+// A trial student who didn't buy, kept only as a contact once their account
+// is removed a month after the trial (trialArchive.js). Each one is sent to
+// Maxim's site (POST /leads) so he can get back in touch later.
+model TrialContact {
+  id              String    @id @default(cuid())
+  schoolId        String
+  name            String
+  telegram        String?   // @username, from the booking or the school's bot
+  email           String?
+  phone           String?
+  // The chat with the school's bot, so it can still write to them.
+  schoolBotChatId String?
+  source          String    // advent | platform
+  adventStudentId String?
+  bookedAt        DateTime
+  lessonAt        DateTime
+  teacherName     String?
+  outcome         String?   // held | student_no_show | teacher_no_show | cancelled
+  level           String?
+  utm             Json?
+  sentAt          DateTime?
+  sendError       String?
+  createdAt       DateTime  @default(now())
+
+  @@index([schoolId, createdAt])
+}
+
 // Free time a teacher offers for trial lessons: the /trial page cuts it into
 // 40-minute lessons on the hour. Weekly windows repeat like Timetable lessons
 // (generateRecurringInstances).

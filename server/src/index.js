@@ -48,6 +48,7 @@ import { telegramRouter } from './routes/telegram.js'
 import { loadBotSettings } from './telegram.js'
 import { startBotJobs } from './bot.js'
 import { bookingRouter, startBookingJobs } from './booking.js'
+import { trialContactsRouter, startArchiveJobs } from './trialArchive.js'
 import { flushDocuments } from './docStore.js'
 
 const app = express()
@@ -101,6 +102,7 @@ app.use('/api/activity', activityRouter)
 app.use('/api/lesson-link', rateLimit({ windowMs: 10 * 60_000, max: 120 }), lessonLinkRouter)
 app.use('/api/telegram', telegramRouter)
 app.use('/api/booking', rateLimit({ windowMs: 60_000, max: 60 }), bookingRouter)
+app.use('/api/trial-contacts', trialContactsRouter)
 
 // For the deploy script and Docker: the database must answer within 3 s.
 app.get('/api/health', async (req, res) => {
@@ -178,6 +180,7 @@ startPushJobs()
 startAdventJobs()
 startBotJobs()
 startBookingJobs()
+startArchiveJobs()
 
 // The AI key saved from the Settings page, before the first request.
 loadAiSettings().catch((error) => console.error('Could not load AI settings:', error.message))

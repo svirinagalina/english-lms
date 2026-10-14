@@ -111,6 +111,36 @@ function TrialFunnel({ trials, onRemove }) {
   )
 }
 
+// Trial students who didn't buy, a month after the trial: only their contacts
+// are kept (their accounts are removed), for Maxim to get back in touch.
+const OUTCOME_SHORT = { held: 'был на уроке', student_no_show: 'не пришёл', teacher_no_show: 'не пришёл учитель', cancelled: 'отменён' }
+function TrialContacts({ contacts }) {
+  return (
+    <>
+      <p className="muted" style={{ marginTop: 0 }}>
+        Через месяц после пробного урока ученики, которые не оплатили, удаляются с платформы, а их контакты остаются здесь и уходят Максиму в CRM — чтобы предложить занятия позже.{' '}
+        <a href="/api/trial-contacts/csv">Скачать таблицу (CSV)</a>
+      </p>
+      <div className="list">
+        {contacts.map((c) => (
+          <div key={c.id} className="row">
+            <div>
+              <strong>{c.name}</strong>
+              <div className="muted">
+                {[c.telegram, c.email, c.phone].filter(Boolean).join(' · ') || 'только бот школы'}
+              </div>
+              <div className="muted">
+                {shortWhen(c.lessonAt)} · {c.teacherName ?? '—'} · {OUTCOME_SHORT[c.outcome] ?? 'итог неизвестен'}{c.level ? ` · ${c.level}` : ''} · {c.source === 'platform' ? 'запись на платформе' : 'сайт Advent'}
+              </div>
+            </div>
+            <span className={`activity-tag${c.sentAt ? ' ok' : ''}`}>{c.sentAt ? 'у Максима' : 'ждёт отправки'}</span>
+          </div>
+        ))}
+      </div>
+    </>
+  )
+}
+
 export default function People() {
   const { user } = useAuth()
   const [people, setPeople] = useState([])
@@ -119,6 +149,7 @@ export default function People() {
   const [activity, setActivity] = useState([])
   const [trialReports, setTrialReports] = useState([])
   const [funnel, setFunnel] = useState([])
+  const [contacts, setContacts] = useState([])
   // A test or duplicate booking: off the platform, nobody is told.
   const removeBooking = async (t) => {
     if (!window.confirm(`Убрать запись «${t.student.name}» (${shortWhen(t.startsAt)}) с платформы?\n\nУрок исчезнет из Timetable и из этого списка, ученику ничего не придёт. Если урок настоящий, отмените его в Timetable — тогда ученику придёт сообщение.`)) return
@@ -156,6 +187,7 @@ export default function People() {
     api.activityPeople().then(({ people }) => setActivity(people)).catch(() => {})
     api.allTrialReports().then(({ reports }) => setTrialReports(reports)).catch(() => {})
     api.trialFunnel().then(({ trials }) => setFunnel(trials)).catch(() => {})
+    if (['OWNER', 'PARTNER'].includes(user.role)) api.trialContacts().then(({ contacts }) => setContacts(contacts)).catch(() => {})
   }
 
   useEffect(() => {
@@ -325,6 +357,12 @@ export default function People() {
       {funnel.length > 0 && (
         <Panel id="people:trial-funnel" title="Пробные уроки с сайта" count={funnel.filter((t) => !t.isTest).length} hint="запись → пришёл → отчёт → оплата" defaultOpen>
           <TrialFunnel trials={funnel} onRemove={['OWNER', 'PARTNER'].includes(user.role) ? removeBooking : null} />
+        </Panel>
+      )}
+
+      {contacts.length > 0 && (
+        <Panel id="people:trial-contacts" title="Архив пробных — для повторных контактов" count={contacts.length}>
+          <TrialContacts contacts={contacts} />
         </Panel>
       )}
 
