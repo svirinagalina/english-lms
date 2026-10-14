@@ -327,3 +327,28 @@ bookingRouter.post('/lessons/:id/teacher', requireAuth, requireRole('OWNER', 'PA
   }
   res.json({ ok: true })
 })
+
+// People → «Пробные уроки»: a booking that shouldn't be there (a test, a
+// duplicate) is removed from the platform. Nobody is told — a real lesson is
+// cancelled from the Timetable instead. The account made only for it (no
+// other bookings, no lessons held, nothing paid) goes too.
+bookingRouter.delete('/lessons/:id', requireAuth, requireRole('OWNER', 'PARTNER'), async (req, res) => {
+  const lesson = await prisma.adventLesson.findUnique({ where: { id: req.params.id } })
+  const teacher = lesson ? await prisma.user.findUnique({ where: { id: lesson.teacherId }, select: { schoolId: true } }) : null
+  if (!lesson || teacher?.schoolId !== req.user.schoolId) return res.status(404).json({ error: 'Not found' })
+  if (lesson.calendarEventId) await prisma.userCalendarEvent.deleteMany({ where: { id: lesson.calendarEventId } })
+  await prisma.adventLesson.delete({ where: { id: lesson.id } })
+  let accountRemoved = false
+  if (lesson.studentUserId) {
+    const student = await prisma.user.findUnique({ where: { id: lesson.studentUserId }, select: { role: true, schoolId: true, viaLink: true, lessonsPaid: true } })
+    const [others, held] = await Promise.all([
+      prisma.adventLesson.count({ where: { studentUserId: lesson.studentUserId } }),
+      prisma.session.count({ where: { classroom: { studentId: lesson.studentUserId } } })
+    ])
+    if (student?.role === 'STUDENT' && student.schoolId === req.user.schoolId && student.viaLink && !(student.lessonsPaid > 0) && !others && !held) {
+      await prisma.user.delete({ where: { id: lesson.studentUserId } })
+      accountRemoved = true
+    }
+  }
+  res.json({ ok: true, accountRemoved })
+})

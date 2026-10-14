@@ -106,6 +106,7 @@ export const api = {
   bookingTeachers: () => request('/booking/teachers'),
   moveTrialLesson: (id, startsAt) => request(`/booking/lessons/${id}/move`, { method: 'POST', body: { startsAt } }),
   reassignTrialLesson: (id, teacherId) => request(`/booking/lessons/${id}/teacher`, { method: 'POST', body: { teacherId } }),
+  removeTrialBooking: (id) => request(`/booking/lessons/${id}`, { method: 'DELETE' }),
   enterLessonLink: (token, name) => request(`/lesson-link/${encodeURIComponent(token)}/enter`, { method: 'POST', body: { name } }),
   eurRate: () => request('/billing/rates'),
   checkout: (plan) => request('/billing/checkout', { method: 'POST', body: { plan } }),

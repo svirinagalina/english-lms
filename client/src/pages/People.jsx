@@ -76,7 +76,7 @@ const monthAhead = () => { const d = new Date(); d.setMonth(d.getMonth() + 1); r
 // One trial lesson from the Advent site per row: each step it reached.
 const OUTCOME = { held: 'урок прошёл', student_no_show: 'ученик не пришёл', teacher_no_show: 'учитель не пришёл' }
 const shortWhen = (v) => new Date(v).toLocaleString(undefined, { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })
-function TrialFunnel({ trials }) {
+function TrialFunnel({ trials, onRemove }) {
   return (
     <div className="list">
       {trials.map((t) => {
@@ -102,6 +102,7 @@ function TrialFunnel({ trials }) {
               {steps.map(([label, ok, bad]) => (
                 <span key={label} className={`activity-tag${ok ? ' ok' : bad ? ' bad' : ''}`}>{label}</span>
               ))}
+              {onRemove && <button type="button" className="ghost" onClick={() => onRemove(t)} title="Remove this booking from the platform; nobody is told">Убрать</button>}
             </div>
           </div>
         )
@@ -118,6 +119,15 @@ export default function People() {
   const [activity, setActivity] = useState([])
   const [trialReports, setTrialReports] = useState([])
   const [funnel, setFunnel] = useState([])
+  // A test or duplicate booking: off the platform, nobody is told.
+  const removeBooking = async (t) => {
+    if (!window.confirm(`Убрать запись «${t.student.name}» (${shortWhen(t.startsAt)}) с платформы?\n\nУрок исчезнет из Timetable и из этого списка, ученику ничего не придёт. Если урок настоящий, отмените его в Timetable — тогда ученику придёт сообщение.`)) return
+    try {
+      await api.removeTrialBooking(t.id)
+      setFunnel((list) => list.filter((x) => x.id !== t.id))
+      api.allTrialReports().then(({ reports }) => setTrialReports(reports)).catch(() => {})
+    } catch (err) { window.alert(err.message) }
+  }
   const markLead = async (lead) => {
     const { lead: updated } = await api.handleLead(lead.id, !lead.handled)
     setLeads((list) => list.map((l) => (l.id === updated.id ? updated : l)))
@@ -314,13 +324,13 @@ export default function People() {
 
       {funnel.length > 0 && (
         <Panel id="people:trial-funnel" title="Пробные уроки с сайта" count={funnel.filter((t) => !t.isTest).length} hint="запись → пришёл → отчёт → оплата" defaultOpen>
-          <TrialFunnel trials={funnel} />
+          <TrialFunnel trials={funnel} onRemove={['OWNER', 'PARTNER'].includes(user.role) ? removeBooking : null} />
         </Panel>
       )}
 
       {trialReports.length > 0 && (
         <Panel id="people:trial-reports" title="Trial reports" count={trialReports.length} hint={`${trialReports.filter((r) => !r.publishedAt).length} not sent`} defaultOpen={trialReports.some((r) => !r.publishedAt)}>
-          <TrialReportList reports={trialReports} />
+          <TrialReportList reports={trialReports} onRemoved={(id) => setTrialReports((list) => list.filter((r) => r.id !== id))} />
         </Panel>
       )}
 
