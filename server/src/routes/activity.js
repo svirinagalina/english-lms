@@ -1,6 +1,7 @@
 import { Router } from 'express'
 import { prisma } from '../db.js'
 import { requireAuth, requireRole, isAdmin } from '../auth.js'
+import { limitedToSite, peopleScope, siteStudentIds, maySeeStudent } from '../partnerScope.js'
 import { generateRecurringInstances } from './personal.js'
 
 // Who opened which part of the platform, and what they did there — for the
@@ -33,7 +34,7 @@ activityRouter.post('/', async (req, res) => {
 activityRouter.get('/people', requireRole('OWNER'), async (req, res) => {
   const since = dayKey(new Date(Date.now() - 30 * DAY_MS))
   const users = await prisma.user.findMany({
-    where: { schoolId: req.user.schoolId },
+    where: { schoolId: req.user.schoolId, ...(await peopleScope(req.user)) },
     select: { id: true, name: true, email: true, role: true, free: true, createdAt: true, lastSeenAt: true }
   })
   const rows = await prisma.activityDay.groupBy({
@@ -57,7 +58,7 @@ activityRouter.get('/people/:id', requireRole('OWNER', 'PARTNER', 'TEACHER'), as
     where: { id: req.params.id, schoolId: req.user.schoolId },
     select: { id: true, name: true, email: true, role: true, free: true, createdAt: true, lastSeenAt: true, phone: true, messenger: true, city: true, timezone: true, plan: true, planUntil: true }
   })
-  if (!user) return res.status(404).json({ error: 'Person not found' })
+  if (!user || (user.role === 'STUDENT' && !(await maySeeStudent(req.user, user.id)))) return res.status(404).json({ error: 'Person not found' })
   if (!isAdmin(req.user) && user.id !== req.user.id) {
     const link = await prisma.teacherStudent.findFirst({ where: { teacherId: req.user.id, studentId: user.id } })
     if (!link) return res.status(404).json({ error: 'Person not found' })
@@ -141,7 +142,11 @@ activityRouter.get('/people/:id', requireRole('OWNER', 'PARTNER', 'TEACHER'), as
 // students' for a teacher.
 activityRouter.get('/reports', requireRole('OWNER', 'PARTNER', 'TEACHER'), async (req, res) => {
   const reports = await prisma.trialReport.findMany({
-    where: req.user.role === 'OWNER' ? { classroom: { schoolId: req.user.schoolId } } : { classroom: { teacherId: req.user.id } },
+    where: req.user.role === 'OWNER'
+      ? { classroom: { schoolId: req.user.schoolId } }
+      : limitedToSite(req.user)
+        ? { classroom: { schoolId: req.user.schoolId }, studentId: { in: await siteStudentIds() } }
+        : { classroom: { teacherId: req.user.id } },
     orderBy: { createdAt: 'desc' },
     take: 200,
     select: { id: true, createdAt: true, publishedAt: true, teacherLevel: true, generated: true, classroomId: true, studentId: true, teacherId: true, classroom: { select: { student: { select: { name: true } }, teacher: { select: { name: true } } } } }
@@ -241,7 +246,7 @@ async function teacherExtras(user) {
 activityRouter.get('/trial-funnel', requireRole('OWNER', 'PARTNER'), async (req, res) => {
   const since = new Date(Date.now() - 45 * 86400000)
   const rows = await prisma.adventLesson.findMany({
-    where: { kind: 'trial', startsAt: { gte: since } },
+    where: { kind: 'trial', startsAt: { gte: since }, ...(limitedToSite(req.user) ? { source: { not: 'platform' } } : {}) },
     orderBy: { startsAt: 'desc' }
   })
   const teacherIds = [...new Set(rows.map((r) => r.teacherId))]

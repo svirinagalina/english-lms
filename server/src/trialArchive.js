@@ -118,9 +118,11 @@ export function startArchiveJobs() {
 export const trialContactsRouter = express.Router()
 trialContactsRouter.use(requireAuth, requireRole('OWNER', 'PARTNER'))
 
+// The partner: only those who came from his site.
+const contactsWhere = (user) => ({ schoolId: user.schoolId, ...(user.role === 'PARTNER' ? { source: 'advent' } : {}) })
 trialContactsRouter.get('/', async (req, res) => {
-  const contacts = await prisma.trialContact.findMany({ where: { schoolId: req.user.schoolId }, orderBy: { lessonAt: 'desc' }, take: 500 })
-  res.json({ contacts, total: await prisma.trialContact.count({ where: { schoolId: req.user.schoolId } }) })
+  const contacts = await prisma.trialContact.findMany({ where: contactsWhere(req.user), orderBy: { lessonAt: 'desc' }, take: 500 })
+  res.json({ contacts, total: await prisma.trialContact.count({ where: contactsWhere(req.user) }) })
 })
 
 const cell = (v) => {
@@ -128,7 +130,7 @@ const cell = (v) => {
   return /[",;\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s
 }
 trialContactsRouter.get('/csv', async (req, res) => {
-  const contacts = await prisma.trialContact.findMany({ where: { schoolId: req.user.schoolId }, orderBy: { lessonAt: 'desc' } })
+  const contacts = await prisma.trialContact.findMany({ where: contactsWhere(req.user), orderBy: { lessonAt: 'desc' } })
   const head = ['Имя', 'Telegram', 'Почта', 'Телефон', 'Пробный урок', 'Записался', 'Преподаватель', 'Итог', 'Уровень', 'Откуда', 'Реклама', 'Передан Максиму']
   const rows = contacts.map((c) => [c.name, c.telegram, c.email, c.phone, c.lessonAt, c.bookedAt, c.teacherName, c.outcome, c.level, c.source, c.utm, c.sentAt])
   res.setHeader('Content-Type', 'text/csv; charset=utf-8')

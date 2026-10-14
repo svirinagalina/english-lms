@@ -1,5 +1,6 @@
 import { Router } from 'express'
 import { prisma } from '../db.js'
+import { studentScope } from '../partnerScope.js'
 import { requireAuth, requireRole, isAdmin } from '../auth.js'
 import { topicLabel } from '../errorAnalysis.js'
 
@@ -14,7 +15,8 @@ const RECENT_DAYS = 30
 async function visibleStudentIds(user) {
   if (isAdmin(user)) {
     const students = await prisma.user.findMany({
-      where: { schoolId: user.schoolId, role: 'STUDENT' },
+      // The partner: only the students who came from his site.
+      where: { schoolId: user.schoolId, role: 'STUDENT', ...(await studentScope(user)) },
       select: { id: true }
     })
     return students.map((s) => s.id)

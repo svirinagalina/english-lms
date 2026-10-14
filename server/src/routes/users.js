@@ -1,5 +1,6 @@
 import { Router } from 'express'
 import { prisma } from '../db.js'
+import { limitedToSite, peopleScope, siteStudentIds, maySeeStudent } from '../partnerScope.js'
 import { requireAuth, requireRole, isAdmin } from '../auth.js'
 import { enrollStudent, moveStudent, unenrollStudent } from '../advent.js'
 import { loadBoard } from '../boardStore.js'
@@ -44,11 +45,17 @@ const SELECT = {
 usersRouter.get('/', async (req, res) => {
   if (isAdmin(req.user)) {
     const users = await prisma.user.findMany({
-      where: { schoolId: req.user.schoolId },
+      where: { schoolId: req.user.schoolId, ...(await peopleScope(req.user)) },
       select: SELECT,
       orderBy: [{ role: 'asc' }, { createdAt: 'asc' }]
     })
-    return res.json({ people: users.map(personView) })
+    let people = users.map(personView)
+    // The partner: a teacher's list of students shows only the site's too.
+    if (limitedToSite(req.user)) {
+      const site = new Set(await siteStudentIds())
+      people = people.map((p) => ({ ...p, students: p.students?.filter((s) => site.has(s.id)) }))
+    }
+    return res.json({ people })
   }
 
   if (req.user.role === 'TEACHER') {
@@ -94,7 +101,7 @@ usersRouter.get('/:id/lessons', requireRole('OWNER'), async (req, res) => {
   if (!teacher) return res.status(404).json({ error: 'Teacher not found' })
 
   const sessions = await prisma.session.findMany({
-    where: { classroom: { teacherId: teacher.id, studentId: { not: null } } },
+    where: { classroom: { teacherId: teacher.id, studentId: limitedToSite(req.user) ? { in: await siteStudentIds() } : { not: null } } },
     orderBy: { startedAt: 'desc' },
     include: { classroom: { select: { id: true, student: { select: { id: true, name: true } } } } }
   })
@@ -193,7 +200,7 @@ usersRouter.post('/links', requireRole('OWNER'), async (req, res) => {
   ])
 
   if (!teacher) return res.status(404).json({ error: 'Teacher not found' })
-  if (!student) return res.status(404).json({ error: 'Student not found' })
+  if (!student || !(await maySeeStudent(req.user, student.id))) return res.status(404).json({ error: 'Student not found' })
 
   await prisma.teacherStudent.upsert({
     where: { teacherId_studentId: { teacherId, studentId } },
@@ -217,6 +224,7 @@ usersRouter.delete('/links/:teacherId/:studentId', requireRole('OWNER'), async (
     where: { id: teacherId, schoolId: req.user.schoolId }
   })
   if (!teacher) return res.status(404).json({ error: 'Teacher not found' })
+  if (!(await maySeeStudent(req.user, studentId))) return res.status(404).json({ error: 'Student not found' })
 
   await prisma.teacherStudent.deleteMany({ where: { teacherId, studentId } })
   res.json({ ok: true })
@@ -274,7 +282,7 @@ usersRouter.delete('/:id', requireRole('OWNER'), async (req, res) => {
   const target = await prisma.user.findFirst({
     where: { id: req.params.id, schoolId: req.user.schoolId }
   })
-  if (!target) return res.status(404).json({ error: 'User not found' })
+  if (!target || (target.role === 'STUDENT' && !(await maySeeStudent(req.user, target.id)))) return res.status(404).json({ error: 'User not found' })
   if (target.id === req.user.id) return res.status(400).json({ error: 'Cannot remove yourself' })
   if (req.user.role !== 'OWNER' && isAdmin(target)) {
     return res.status(403).json({ error: 'Only the administrator can remove an administrator or partner' })

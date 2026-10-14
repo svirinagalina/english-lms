@@ -2,6 +2,7 @@ import { Router } from 'express'
 import { z } from 'zod'
 import { prisma } from '../db.js'
 import { requireAuth, requireRole, isAdmin } from '../auth.js'
+import { studentScope } from '../partnerScope.js'
 import { sendPaymentReportedEmail } from '../mailer.js'
 import { offerLinks, stripeKey } from '../settings.js'
 import { OFFER_PLANS, discountActive } from '../offer.js'
@@ -76,14 +77,16 @@ async function withPackage(student) {
   }
 }
 
-// A teacher deals with their own students; the owner and partner with everyone.
+// A teacher deals with their own students; the owner with everyone; the
+// partner with the students who came from his site (partnerScope.js).
 async function reachableStudent(user, id) {
   return prisma.user.findFirst({
     where: {
       id,
       schoolId: user.schoolId,
       role: 'STUDENT',
-      ...(isAdmin(user) ? {} : { studentLinks: { some: { teacherId: user.id } } })
+      ...(isAdmin(user) ? {} : { studentLinks: { some: { teacherId: user.id } } }),
+      AND: [await studentScope(user)]
     },
     select: STUDENT_SELECT
   })
@@ -277,7 +280,8 @@ billingRouter.get('/students', requireRole('OWNER', 'PARTNER', 'TEACHER'), async
     where: {
       schoolId: req.user.schoolId,
       role: 'STUDENT',
-      ...(isAdmin(req.user) ? {} : { studentLinks: { some: { teacherId: req.user.id } } })
+      ...(isAdmin(req.user) ? {} : { studentLinks: { some: { teacherId: req.user.id } } }),
+      ...(await studentScope(req.user))
     },
     select: STUDENT_SELECT,
     orderBy: { name: 'asc' }

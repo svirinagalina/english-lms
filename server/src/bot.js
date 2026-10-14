@@ -1,6 +1,7 @@
 import { prisma } from './db.js'
 import { botOn, botOnSince, botSince, botToken, bookingUrl, sendTo, once, wasSent, esc, packageMark, onLinked, appUrl } from './telegram.js'
 import { confirmBooking } from './booking.js'
+import { maySeeStudent } from './partnerScope.js'
 import { OFFER_PLANS, DISCOUNT_DAYS } from './offer.js'
 import { countedCalls } from './routes/billing.js'
 import { generateRecurringInstances } from './routes/personal.js'
@@ -38,7 +39,12 @@ const SOLO = OFFER_PLANS.find((p) => p.id === 'solo')
 const PERSON = { id: true, name: true, role: true, schoolId: true, telegramChatId: true, viaLink: true, lessonsPaid: true, packageStartedAt: true, heldAdjust: true, telegramPaidSeen: true, paymentReportedAt: true, trialAccessUntil: true, plan: true, planUntil: true }
 const person = (id) => (id ? prisma.user.findUnique({ where: { id }, select: PERSON }) : null)
 const owners = (schoolId) => prisma.user.findMany({ where: { schoolId, role: 'OWNER', telegramChatId: { not: null } }, select: PERSON })
-const admins = (schoolId) => prisma.user.findMany({ where: { schoolId, role: { in: ['OWNER', 'PARTNER'] }, telegramChatId: { not: null } }, select: PERSON })
+// Who hears of a student's payments, package and debt: the owner always; the
+// partner (Maxim) only for students who came from his site (partnerScope.js).
+async function admins(student) {
+  const fromSite = await maySeeStudent({ role: 'PARTNER' }, student.id)
+  return prisma.user.findMany({ where: { schoolId: student.schoolId, role: { in: fromSite ? ['OWNER', 'PARTNER'] : ['OWNER'] }, telegramChatId: { not: null } }, select: PERSON })
+}
 const teachersOf = async (studentId) => (await prisma.teacherStudent.findMany({ where: { studentId }, select: { teacher: { select: PERSON } } })).map((l) => l.teacher)
 
 const lessonUrl = (token) => `${appUrl()}/lesson/${token}`
@@ -286,7 +292,7 @@ async function payments() {
   // receives the money checks it and adds the lessons.
   const reported = await prisma.user.findMany({ where: { role: 'STUDENT', paymentReportedAt: { gte: since, gt: new Date(Date.now() - 2 * 24 * HOUR) } }, select: PERSON })
   for (const student of reported) {
-    for (const admin of await admins(student.schoolId)) {
+    for (const admin of await admins(student)) {
       await once(`reported:${student.id}:${new Date(student.paymentReportedAt).getTime()}:${admin.id}`, () => sendTo(admin,
         `💳 Ученик ${esc(student.name)} сообщил об оплате. Проверьте поступление и начислите уроки: Payments → ученик → Edit → New package.`,
         [[{ text: 'Открыть оплаты', url: `${appUrl()}/billing` }]]))
@@ -306,7 +312,7 @@ async function payments() {
     const more = newPackage ? student.lessonsPaid : student.lessonsPaid - Number(oldLessons)
     if (more <= 0) continue
     const teacher = (await teachersOf(student.id))[0]
-    for (const admin of await admins(student.schoolId)) {
+    for (const admin of await admins(student)) {
       await sendTo(admin, `✅ Оплата засчитана: ${esc(student.name)}${teacher ? ` (преподаватель ${esc(teacher.name)})` : ''} — уроков в пакете: ${student.lessonsPaid}.`)
     }
     // A student from a trial: the end of the trial's path — sign up and wait for the teacher.
@@ -372,7 +378,7 @@ async function packages() {
             'Чтобы занятия шли без перерыва, оплатите, пожалуйста, следующий пакет — расписание сохранится.'
           ].join('\n'), [[{ text: 'Оплатить', url: await payUrl(student) }]])
         }
-        for (const admin of await admins(student.schoolId)) await sendTo(admin, `📦 Пакет закончился: ${who} — проведено ${held} из ${student.lessonsPaid}. Ждём следующую оплату.`)
+        for (const admin of await admins(student)) await sendTo(admin, `📦 Пакет закончился: ${who} — проведено ${held} из ${student.lessonsPaid}. Ждём следующую оплату.`)
         return true
       })
     } else {
@@ -380,7 +386,7 @@ async function packages() {
       const debt = held - student.lessonsPaid
       if (!fresh) { await once(`debt:${pkg}:${debt}`, async () => true); continue }
       await once(`debt:${pkg}:${debt}`, async () => {
-        for (const admin of await admins(student.schoolId)) {
+        for (const admin of await admins(student)) {
           await sendTo(admin, `⚠️ Задолженность: ${who} — проведено ${held}, оплачено ${student.lessonsPaid}. Долг: ${debt} ${debt === 1 ? 'урок' : debt < 5 ? 'урока' : 'уроков'}.`, [[{ text: 'Открыть оплаты', url: `${appUrl()}/billing` }]])
         }
         return true

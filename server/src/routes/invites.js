@@ -143,8 +143,8 @@ invitesRouter.get('/', requireRole('OWNER', 'TEACHER'), async (req, res) => {
       schoolId: req.user.schoolId,
       acceptedAt: null,
       expiresAt: { gt: new Date() },
-      // Teachers only see the invitations they sent themselves.
-      ...(req.user.role === 'TEACHER' ? { invitedById: req.user.id } : {})
+      // Teachers (and the partner) only see the invitations they sent themselves.
+      ...(req.user.role !== 'OWNER' ? { invitedById: req.user.id } : {})
     },
     include: { invitedBy: { select: { id: true, name: true } } },
     orderBy: { createdAt: 'desc' }

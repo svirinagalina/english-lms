@@ -1,6 +1,7 @@
 import { Router } from 'express'
 import { z } from 'zod'
 import { prisma } from '../db.js'
+import { limitedToSite, siteStudentIds, maySeeStudent } from '../partnerScope.js'
 import { requireAuth, requireRole, isAdmin } from '../auth.js'
 import { forgetBoard } from '../boardStore.js'
 import { randomBytes } from 'crypto'
@@ -68,16 +69,22 @@ export async function accessibleClassroom(user, classroomId) {
 
   // A test room belongs to its teacher alone; the owner may look in too.
   const allowed =
-    isAdmin(user) ||
     classroom.teacherId === user.id ||
-    (classroom.studentId !== null && classroom.studentId === user.id)
+    (classroom.studentId !== null && classroom.studentId === user.id) ||
+    // The partner: only the cabinets of students who came from his site.
+    (isAdmin(user) && (!limitedToSite(user) || (classroom.studentId !== null && await maySeeStudent(user, classroom.studentId))))
 
   return allowed ? classroom : null
 }
 
+// The partner sees his own spaces and the site's students' cabinets only.
+const partnerRooms = async (user) => ({ schoolId: user.schoolId, OR: [{ teacherId: user.id }, { studentId: { in: await siteStudentIds() } }] })
+
 classroomsRouter.get('/', async (req, res) => {
   const where =
-    isAdmin(req.user)
+    limitedToSite(req.user)
+      ? await partnerRooms(req.user)
+      : isAdmin(req.user)
       ? { schoolId: req.user.schoolId }
       : req.user.role === 'TEACHER'
         ? { teacherId: req.user.id }
@@ -184,7 +191,9 @@ classroomsRouter.get('/mine', requireRole('OWNER', 'TEACHER'), async (req, res) 
 // Every board this person can open in a call: their students' boards
 // (all of them for an admin) and their own. Used by the call's board picker.
 classroomsRouter.get('/boards', async (req, res) => {
-  const where = isAdmin(req.user)
+  const where = limitedToSite(req.user)
+    ? await partnerRooms(req.user)
+    : isAdmin(req.user)
     ? { schoolId: req.user.schoolId }
     : req.user.role === 'TEACHER'
       ? { teacherId: req.user.id }
