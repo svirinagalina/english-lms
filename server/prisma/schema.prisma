@@ -496,6 +496,11 @@ model Session {
 
   // Lets a teacher exclude a session from the package count, e.g. a test call.
   counted Boolean @default(true)
+  // A group lesson (a board shared with several students): one session per
+  // student of the group, all with this call's id — the teacher's lesson
+  // count takes the group once (Galina, 2026-10-15: every student of the
+  // group is charged, whether they came or not).
+  callId  String?
 
   classroomId String
   classroom   Classroom @relation(fields: [classroomId], references: [id], onDelete: Cascade)

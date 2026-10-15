@@ -177,6 +177,9 @@ usersRouter.get('/:id/lessons', requireRole('OWNER'), async (req, res) => {
       minutes: Math.max(1, Math.round((end - start) / 60000)),
       counted: session.counted,
       note: session.note,
+      // A group lesson: the same callId on each student's session.
+      groupId: session.callId ?? null,
+      groupSize: session.callId ? sessions.filter((s) => s.callId === session.callId).length : 1,
       student,
       classroomId: session.classroom.id,
       boards: lessonBoards

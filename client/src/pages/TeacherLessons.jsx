@@ -65,7 +65,10 @@ export default function TeacherLessons() {
   if (error) return <div className="page"><Nav title="People" back="/people" /><div className="error">{error}</div></div>
   if (!data) return <div className="centered">Loading…</div>
 
-  const counted = lessons.filter((l) => l.counted)
+  // A group lesson comes as one row per student of the group: the teacher
+  // taught it once.
+  const seenGroup = new Set()
+  const counted = lessons.filter((l) => l.counted && (!l.groupId || (!seenGroup.has(l.groupId) && seenGroup.add(l.groupId))))
   const totalMinutes = counted.reduce((sum, l) => sum + l.minutes, 0)
   const notCounted = lessons.length - counted.length
 
@@ -117,6 +120,7 @@ export default function TeacherLessons() {
                     <strong>{lesson.student.name}</strong>
                     <div className="muted">
                       {time(lesson.startedAt)}–{lesson.endedAt ? time(lesson.endedAt) : '…'} · {hours(lesson.minutes)}
+                      {lesson.groupSize > 1 && ` · группа, ${lesson.groupSize} уч.`}
                       {!lesson.counted && ' · not counted'}
                       {lesson.note && ` · ${lesson.note}`}
                     </div>

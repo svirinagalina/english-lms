@@ -199,7 +199,7 @@ async function teacherExtras(user) {
   const since8w = new Date(Date.now() - 56 * DAY)
   const [links, sessions, trials, events] = await Promise.all([
     prisma.teacherStudent.findMany({ where: { teacherId: user.id }, select: { student: { select: { id: true, name: true } } } }),
-    prisma.session.findMany({ where: { classroom: { teacherId: user.id }, counted: true }, select: { startedAt: true, endedAt: true, classroom: { select: { studentId: true } } }, orderBy: { startedAt: 'desc' } }),
+    prisma.session.findMany({ where: { classroom: { teacherId: user.id }, counted: true }, select: { startedAt: true, endedAt: true, callId: true, classroom: { select: { studentId: true } } }, orderBy: { startedAt: 'desc' } }),
     prisma.trialReport.count({ where: { teacherId: user.id } }),
     prisma.userCalendarEvent.findMany({ where: { userId: user.id } })
   ])
@@ -214,25 +214,28 @@ async function teacherExtras(user) {
     if (!e.lastAt || s.startedAt > e.lastAt) e.lastAt = s.startedAt
     perStudent.set(id, e)
   }
+  // The teacher's lessons: a group lesson (one session per student) counts once.
+  const seenGroup = new Set()
+  const taught = sessions.filter((s) => !s.callId || (!seenGroup.has(s.callId) && seenGroup.add(s.callId)))
   const weeks = []
   for (let w = 7; w >= 0; w--) {
     const from = new Date(Date.now() - (w + 1) * 7 * DAY), to = new Date(Date.now() - w * 7 * DAY)
-    const inWeek = sessions.filter((s) => s.startedAt >= from && s.startedAt < to)
+    const inWeek = taught.filter((s) => s.startedAt >= from && s.startedAt < to)
     weeks.push({ from, lessons: inWeek.length, hours: Math.round(inWeek.reduce((n, s) => n + minutes(s), 0) / 6) / 10 })
   }
   const now = new Date(), weekAhead = new Date(Date.now() + 7 * DAY)
   const upcoming = events.flatMap((e) => generateRecurringInstances(e, now, weekAhead))
     .map((e) => ({ title: e.title, startTime: e.startTime, students: e.studentIds?.length ?? 0 }))
     .sort((a, b) => new Date(a.startTime) - new Date(b.startTime)).slice(0, 15)
-  const last30 = sessions.filter((s) => s.startedAt >= since30)
+  const last30 = taught.filter((s) => s.startedAt >= since30)
   return {
     teaching: {
       students: links.map((l) => ({ ...l.student, ...(perStudent.get(l.student.id) ?? { total: 0, last30: 0, lastAt: null }) }))
         .sort((a, b) => (b.lastAt ?? 0) - (a.lastAt ?? 0)),
-      lessons: sessions.length,
+      lessons: taught.length,
       lessons30: last30.length,
       hours30: Math.round(last30.reduce((n, s) => n + minutes(s), 0) / 6) / 10,
-      hours8w: Math.round(sessions.filter((s) => s.startedAt >= since8w).reduce((n, s) => n + minutes(s), 0) / 6) / 10,
+      hours8w: Math.round(taught.filter((s) => s.startedAt >= since8w).reduce((n, s) => n + minutes(s), 0) / 6) / 10,
       weeks,
       trialReports: trials,
       upcoming

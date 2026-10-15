@@ -32,7 +32,10 @@ function readTokenCookie(cookieHeader) {
   return null
 }
 
-async function openSession(classroomId, { counted = true } = {}) {
+// Group lessons in progress: call room → the classrooms of its students.
+const groupSessions = new Map()
+
+async function openSession(classroomId, { counted = true, callId = null } = {}) {
   const recent = await prisma.session.findFirst({
     where: { classroomId },
     orderBy: { startedAt: 'desc' }
@@ -46,7 +49,7 @@ async function openSession(classroomId, { counted = true } = {}) {
   }
 
   // A trial lesson is held but never uses up a paid lesson.
-  return prisma.session.create({ data: { classroomId, counted } })
+  return prisma.session.create({ data: { classroomId, counted, callId } })
 }
 
 // The same test as the student's Homework tile (/classrooms/home).
@@ -286,6 +289,24 @@ export function setupSignaling(io) {
           [...(io.sockets.adapter.rooms.get(`call:${call.token}`) ?? [])].some((id) => io.sockets.sockets.get(id)?.data.user?.id === call.classroom.studentId)
         // A trial — or any lesson with a trial student who hasn't paid — is never counted.
         if (studentHere) await openSession(call.classroom.id, { counted: call.kind !== 'TRIAL' && !(await isUnpaidLead(call.classroom.studentId)) })
+      }
+
+      // A group lesson: a call on a board shared with several students. The
+      // moment one of them is there, it is a lesson for every student of the
+      // group — charged whether they came or not (Galina, 2026-10-15). The
+      // sessions close with the call (groupSessions, see 'disconnect').
+      if (!call.classroom && call.boardId && user.role === 'STUDENT' && !groupSessions.has(`call:${call.token}`)) {
+        const group = await prisma.classroom.findMany({
+          where: { schoolId: call.schoolId, studentId: { not: null }, sharedBoards: { some: { id: call.boardId } } },
+          select: { id: true, studentId: true }
+        })
+        if (group.length > 1 && group.some((c) => c.studentId === user.id)) {
+          groupSessions.set(`call:${call.token}`, group.map((c) => c.id))
+          for (const c of group) {
+            await openSession(c.id, { counted: call.kind !== 'TRIAL' && !(await isUnpaidLead(c.studentId)), callId: call.id })
+              .catch((error) => console.error('Group session failed:', error.message))
+          }
+        }
       }
 
       // Join and list the others without an await in between (see above).
@@ -643,6 +664,11 @@ export function setupSignaling(io) {
         await closeSession(classroomId).catch((error) =>
           console.error('Could not close session:', error.message)
         )
+      }
+      // A group lesson ends for everyone of the group.
+      if (stillOnCall === 0 && groupSessions.has(roomId)) {
+        for (const id of groupSessions.get(roomId)) await closeSession(id).catch((error) => console.error('Could not close session:', error.message))
+        groupSessions.delete(roomId)
       }
       // An empty call room is over: the call ends so nothing piles up. The
       // link stays usable for 15 minutes in case someone reconnects.
