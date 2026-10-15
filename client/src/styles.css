@@ -1865,3 +1865,8 @@ a:hover .gs-arrow { transform: translateX(5px); }
 .trial-invite p { margin: 0; }
 .activity-tag.ok { background: rgba(74, 222, 128, .18); }
 .activity-tag.bad { background: rgba(255, 120, 120, .2); }
+.editable-name { display: inline-flex; align-items: center; gap: 4px; }
+.editable-name-btn { padding: 0 6px; min-height: 0; line-height: 1.4; font-size: 14px; opacity: .65; }
+.editable-name-btn:hover, .editable-name-btn:focus-visible { opacity: 1; }
+.editable-name-form { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.editable-name-form input { width: 240px; max-width: 100%; }

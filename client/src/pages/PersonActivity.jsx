@@ -4,6 +4,7 @@ import { api } from '../api'
 import Nav from '../components/Nav'
 import Panel from '../components/Panel'
 import StudentSettings from '../components/StudentSettings'
+import EditableName from '../components/EditableName'
 import { useAuth } from '../AuthContext'
 
 export const SECTION_LABELS = {
@@ -52,6 +53,7 @@ export default function PersonActivity() {
       <Nav title={user.name} back={back} />
       <div className="row" style={{ marginBottom: 16 }}>
         <div>
+          {user.role === 'STUDENT' && <div><EditableName id={user.id} name={user.name} onSaved={load} /></div>}
           <strong>{user.email}</strong>
           <div className="muted">
             {user.role === 'STUDENT' && user.free ? 'Free app user' : user.role.toLowerCase()} · registered {date(user.createdAt)} · last seen {when(user.lastSeenAt)}
@@ -75,7 +77,7 @@ export default function PersonActivity() {
         </div>
       </div>
 
-      {billing && <StudentSettings studentId={user.id} onChanged={load} />}
+      {billing && <StudentSettings key={user.name} studentId={user.id} onChanged={load} />}
 
       {teaching && (
         <>

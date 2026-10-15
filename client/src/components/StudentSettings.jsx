@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { api } from '../api'
 import { useAuth } from '../AuthContext'
+import EditableName from './EditableName'
 
 // Everything about a student's lessons and money in one place, every field
 // open: paid, held, left, the day the package counts from, the price, the
@@ -70,7 +71,10 @@ export default function StudentSettings({ studentId, onChanged }) {
   return (
     <section className="student-settings">
       <div className="ss-head">
-        <h3 style={{ margin: 0 }}>Lessons and payment</h3>
+        <div>
+          <h3 style={{ margin: 0 }}>Lessons and payment</h3>
+          <EditableName id={studentId} name={student.name} as="span" onSaved={async () => { await load(); await onChanged?.() }} />
+        </div>
         {student.paymentReportedAt && <span className="paid-badge active">Says paid {new Date(student.paymentReportedAt).toLocaleDateString()}</span>}
       </div>
       <form onSubmit={save}>
