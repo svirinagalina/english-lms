@@ -128,6 +128,23 @@ function textRuns(line) {
   return runs
 }
 
+// The same text without its per-word colours ({{#rrggbb:…}} spans), so a
+// colour for the whole text shows on every word.
+function stripColorMarkup(text) {
+  let out = ''
+  let depth = 0
+  let i = 0
+  const s = String(text ?? '')
+  while (i < s.length) {
+    const open = s.slice(i).match(COLOR_OPEN)
+    if (open) { depth += 1; i += open[0].length; continue }
+    if (depth && s.startsWith('}}', i)) { depth -= 1; i += 2; continue }
+    out += s[i]
+    i += 1
+  }
+  return out
+}
+
 const sameStyle = (a, b) => a.bold === b.bold && a.italic === b.italic && Boolean(a.strike) === Boolean(b.strike) && a.color === b.color
 
 // The word under a world point inside a text or note, from the same layout
@@ -2866,7 +2883,28 @@ const Whiteboard = forwardRef(function Whiteboard({ socketRef, boardId, title, s
     if (!items.length) return
     const befores = items.map((item) => structuredClone(item))
     const fill = NOTE_FILLS[Math.max(0, COLORS.indexOf(value))]
-    for (const item of items) replaceRaw(item.type === 'note' ? { ...item, fill } : { ...item, color: value })
+    // A text's own coloured words used to keep their colour, so "the colour
+    // doesn't change" — the whole text takes the new one, as in the editor.
+    for (const item of items) replaceRaw(item.type === 'note' ? { ...item, fill } : { ...item, color: value, text: stripColorMarkup(item.text) })
+    recordUpdates(befores)
+    scheduleRender()
+    bump()
+  }
+
+  // A colour from the bottom dock: the colour for what comes next, and — as
+  // people expect — for what is being edited or is selected right now
+  // (before, it only set the next pen/text colour, so a selected text
+  // "didn't change colour").
+  const recolor = (value) => {
+    setColor(value)
+    if (textInput) { colorSelection(value); return }
+    const items = selectedElements()
+    if (!items.length) return
+    if (items.some((item) => item.type === 'text' || item.type === 'note')) colorSelectedTexts(value)
+    const others = items.filter((item) => item.type !== 'text' && item.type !== 'note' && item.type !== 'image' && 'color' in item)
+    if (!others.length) return
+    const befores = others.map((item) => structuredClone(item))
+    for (const item of others) replaceRaw({ ...item, color: value })
     recordUpdates(befores)
     scheduleRender()
     bump()
@@ -3456,7 +3494,9 @@ const Whiteboard = forwardRef(function Whiteboard({ socketRef, boardId, title, s
                   key={value}
                   className={`swatch ${color === value ? 'active' : ''}`}
                   style={{ background: swatchFor(tool, value, index) }}
-                  onClick={() => setColor(value)}
+                  // Keeps an open text editor (a click elsewhere would close it).
+                  onMouseDown={(e) => e.preventDefault()}
+                  onClick={() => recolor(value)}
                   title={value}
                 />
               ))}
