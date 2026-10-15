@@ -9,30 +9,31 @@ import Panel from '../components/Panel'
 import { SiteFooter } from '../components/Brand'
 import PersonLink from '../components/PersonLink'
 
-function InviteForm({ role, teachers, currentUserId, onInvited }) {
+function InviteForm({ role, teachers, currentUserId, onInvited, trialStudents = [] }) {
   const [form, setForm] = useState({ name: '', email: '', teacherId: currentUserId })
   const [error, setError] = useState('')
-  const [duplicate, setDuplicate] = useState(null) // a trial student of that teacher with the same name
   const [busy, setBusy] = useState(false)
+  // A student from a trial (no email yet) is invited as that same account:
+  // their board and history stay, and no second account appears.
+  const [trial, setTrial] = useState(null)
+  const fromTrial = role === 'STUDENT' ? trialStudents.filter((s) => s.teachers?.some((t) => t.id === form.teacherId)) : []
 
-  const submit = async (event, force = false) => {
+  const submit = async (event) => {
     event?.preventDefault()
     setError('')
     setBusy(true)
     try {
       const result = await api.createInvite({
-        name: form.name,
+        name: trial ? (trial.name.length >= 2 ? trial.name : `${trial.name} (ученик)`) : form.name,
         email: form.email,
         role,
-        ...(role === 'STUDENT' ? { teacherId: form.teacherId } : {}),
-        ...(force ? { force: true } : {})
+        ...(trial ? { userId: trial.id } : role === 'STUDENT' ? { teacherId: form.teacherId } : {})
       })
       setForm({ name: '', email: '', teacherId: currentUserId })
-      setDuplicate(null)
+      setTrial(null)
       onInvited(result)
     } catch (err) {
       setError(err.message)
-      setDuplicate(err.data?.duplicate ?? null)
     } finally {
       setBusy(false)
     }
@@ -40,23 +41,31 @@ function InviteForm({ role, teachers, currentUserId, onInvited }) {
 
   return (
     <form className="inline-form" onSubmit={submit}>
-      {error && (
-        <div className="error" style={{ width: '100%' }}>
-          {error}
-          {duplicate && (
-            <div className="row-actions" style={{ marginTop: 8, flexWrap: 'wrap' }}>
-              {duplicate.classroomId && <a className="button-link" style={{ marginTop: 0 }} href={`/classroom/${duplicate.classroomId}`}>Открыть кабинет «{duplicate.name}»</a>}
-              <button type="button" className="ghost" onClick={() => submit(null, true)} disabled={busy}>Это другой человек — пригласить</button>
-            </div>
-          )}
+      {error && <div className="error" style={{ width: '100%' }}>{error}</div>}
+      {fromTrial.length > 0 && !trial && (
+        <div className="muted" style={{ width: '100%' }}>
+          Ученики этого учителя с пробного урока, ещё без почты — если приглашаете одного из них, выберите его:{' '}
+          {fromTrial.map((s) => (
+            <button key={s.id} type="button" className="ghost" style={{ margin: '4px 6px 0 0' }} onClick={() => setTrial(s)}>
+              {s.name} · пробный {new Date(s.createdAt).toLocaleDateString()}
+            </button>
+          ))}
         </div>
       )}
-      <input
-        placeholder="Full name"
-        value={form.name}
-        onChange={(e) => setForm({ ...form, name: e.target.value })}
-        required
-      />
+      {trial && (
+        <div className="notice" style={{ width: '100%' }}>
+          Приглашение уйдёт ученику с пробного <strong>{trial.name}</strong> — его доска и история останутся, второго аккаунта не будет.{' '}
+          <button type="button" className="link-button" onClick={() => setTrial(null)}>Это другой человек</button>
+        </div>
+      )}
+      {!trial && (
+        <input
+          placeholder="Full name"
+          value={form.name}
+          onChange={(e) => setForm({ ...form, name: e.target.value })}
+          required
+        />
+      )}
       <input
         type="email"
         placeholder="Email"
@@ -409,7 +418,7 @@ export default function People() {
         <p className="muted" style={{ marginBottom: 10 }}>
           The student is linked to the teacher you pick and will see that teacher's lessons.
         </p>
-        <InviteForm role="STUDENT" teachers={teachers} currentUserId={user.id} onInvited={handleInvited} />
+        <InviteForm role="STUDENT" teachers={teachers} currentUserId={user.id} onInvited={handleInvited} trialStudents={people.filter((p) => p.role === 'STUDENT' && p.viaLink)} />
       </Panel>
 
       {invites.length > 0 && (

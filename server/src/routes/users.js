@@ -21,6 +21,8 @@ const personView = (user) => ({
   paidUntil: user.paidUntil,
   // Signed up in the app, no teacher yet (see freeTier.js).
   free: user.free,
+  // Came by a trial booking, no email and password yet (the invite form offers them).
+  viaLink: user.viaLink,
   trialRequestedAt: user.trialRequestedAt,
   trialRequestNote: user.trialRequestNote,
   plan: user.plan && user.planUntil && new Date(user.planUntil) > new Date() ? { id: user.plan, until: user.planUntil, source: user.planSource } : null,
@@ -34,7 +36,7 @@ const personView = (user) => ({
 const SELECT = {
   id: true, name: true, email: true, role: true, createdAt: true,
   priceAmount: true, priceCurrency: true, paymentLink: true, paidUntil: true,
-  free: true, trialRequestedAt: true, trialRequestNote: true, messenger: true, phone: true,
+  free: true, viaLink: true, trialRequestedAt: true, trialRequestNote: true, messenger: true, phone: true,
   studentLinks: { include: { teacher: { select: { id: true, name: true } } } },
   teacherLinks: { include: { student: { select: { id: true, name: true } } } },
   studentClassrooms: { select: { id: true, teacherId: true } }

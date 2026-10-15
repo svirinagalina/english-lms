@@ -30,7 +30,7 @@ export function clearToken(res) {
 
 // The role comes from the database, not the cookie, so changing someone's
 // role or removing them takes effect on their next request.
-async function userFromCookie(req) {
+export async function userFromCookie(req) {
   const token = req.cookies[TOKEN_COOKIE]
   if (!token) return null
   let payload

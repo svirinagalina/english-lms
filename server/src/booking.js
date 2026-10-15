@@ -4,7 +4,7 @@ import { z } from 'zod'
 import { prisma } from './db.js'
 import { requireAuth, requireRole, isAdmin, hashPassword } from './auth.js'
 import { generateRecurringInstances } from './routes/personal.js'
-import { ensureStudent, MEMO } from './adventLessons.js'
+import { ensureStudent, MEMO, emptyBookingAccount } from './adventLessons.js'
 import { ensureClassroom } from './routes/classrooms.js'
 import { toAdventLater } from './adventSync.js'
 import { botToken, botUsername, startLink, appUrl } from './telegram.js'
@@ -374,17 +374,6 @@ bookingRouter.delete('/lessons/:id', requireAuth, requireRole('OWNER', 'PARTNER'
 // already has an account (invited separately, a second booking…). The booking
 // moves to that account and the empty account made for it is removed — only
 // when it really is empty (no lessons held, no report, nothing paid).
-export async function emptyBookingAccount(userId, exceptLessonId = null) {
-  const user = userId ? await prisma.user.findUnique({ where: { id: userId } }) : null
-  if (!user || user.role !== 'STUDENT' || !user.viaLink || user.lessonsPaid > 0) return null
-  const [held, reports, others] = await Promise.all([
-    prisma.session.count({ where: { classroom: { studentId: user.id } } }),
-    prisma.trialReport.count({ where: { studentId: user.id } }),
-    prisma.adventLesson.count({ where: { studentUserId: user.id, ...(exceptLessonId ? { id: { not: exceptLessonId } } : {}) } })
-  ])
-  return held || reports || others ? null : user
-}
-
 bookingRouter.post('/lessons/:id/student', requireAuth, requireRole('OWNER'), express.json(), async (req, res) => {
   if (req.user.role !== 'OWNER') return res.status(403).json({ error: 'Only the administrator can merge students' })
   const lesson = await prisma.adventLesson.findUnique({ where: { id: req.params.id } })

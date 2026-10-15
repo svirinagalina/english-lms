@@ -2,7 +2,7 @@ import crypto from 'crypto'
 import express from 'express'
 import { prisma } from './db.js'
 import { guardedFetch } from './resilience.js'
-import { hashPassword, issueToken, completeSignup } from './auth.js'
+import { hashPassword, issueToken, completeSignup, userFromCookie } from './auth.js'
 import { ensureClassroom } from './routes/classrooms.js'
 import { sendAdventLessonEmail, sendLessonLinkEmail } from './mailer.js'
 import { notify } from './push.js'
@@ -120,6 +120,32 @@ export async function ensureStudent(row, teacherId) {
   })
   const classroom = await ensureClassroom(teacherId, student.id, teacher.schoolId)
   return prisma.adventLesson.update({ where: { id: row.id }, data: { studentUserId: student.id, classroomId: row.callId ? row.classroomId : classroom.id } })
+}
+
+export async function emptyBookingAccount(userId, exceptLessonId = null) {
+  const user = userId ? await prisma.user.findUnique({ where: { id: userId } }) : null
+  if (!user || user.role !== 'STUDENT' || !user.viaLink || user.lessonsPaid > 0) return null
+  const [held, reports, others] = await Promise.all([
+    prisma.session.count({ where: { classroom: { studentId: user.id } } }),
+    prisma.trialReport.count({ where: { studentId: user.id } }),
+    prisma.adventLesson.count({ where: { studentUserId: user.id, ...(exceptLessonId ? { id: { not: exceptLessonId } } : {}) } })
+  ])
+  return held || reports || others ? null : user
+}
+
+// The lesson link opened by a student who is signed in with an account of
+// their own (invited earlier, a second booking…): the lesson is theirs — no
+// second account. An account already made for this booking goes, if still empty.
+async function claimForSignedIn(req, row) {
+  const me = await userFromCookie(req).catch(() => null)
+  if (!me || me.role !== 'STUDENT' || me.viaLink || row.studentUserId === me.id) return row
+  const teacher = await prisma.user.findUnique({ where: { id: row.teacherId }, select: { schoolId: true } })
+  if (me.schoolId !== teacher?.schoolId) return row
+  if (row.studentUserId && !(await emptyBookingAccount(row.studentUserId, row.id))) return row
+  const made = row.studentUserId
+  row = await ensureStudent(await prisma.adventLesson.update({ where: { id: row.id }, data: { studentUserId: me.id } }), row.teacherId)
+  if (made) await prisma.user.delete({ where: { id: made } }).catch(() => {})
+  return row
 }
 
 // Everything open for three days after the trial (Galina, 2026-10-13); a
@@ -422,6 +448,7 @@ lessonLinkRouter.get('/:token', async (req, res) => {
   const found = await byToken(req.params.token)
   if (!found) return res.status(404).json({ error: 'Ссылка не найдена — проверьте, что она скопирована целиком' })
   let { row, role } = found
+  if (role === 'student' && row.status !== 'cancelled') row = await claimForSignedIn(req, row).catch(() => row)
   if (role === 'student' && !row.studentUserId && row.status === 'scheduled') row = await ensureStudent(row, row.teacherId).catch(() => row)
   if (role === 'student' && req.query.waiting && !row.studentWaitingAt) await prisma.adventLesson.update({ where: { id: row.id }, data: { studentWaitingAt: new Date() } }).catch(() => {})
   const teacher = await prisma.user.findUnique({ where: { id: row.teacherId }, select: { name: true } })
@@ -467,9 +494,12 @@ lessonLinkRouter.post('/:token/enter', express.json(), async (req, res) => {
     issueToken(res, teacher)
     return res.json({ ok: true, redirect: row.classroomId ? `/classroom/${row.classroomId}` : '/timetable' })
   }
+  row = await claimForSignedIn(req, row).catch(() => row)
   if (!row.studentUserId) row = await ensureStudent(row, row.teacherId)
   const student = row.studentUserId ? await prisma.user.findUnique({ where: { id: row.studentUserId } }) : null
   if (!student) return res.status(404).json({ error: 'Ученик не найден' })
+  // Already signed in as this student (their own account): nothing to do.
+  if (!student.viaLink && (await userFromCookie(req).catch(() => null))?.id === student.id) return res.json({ ok: true })
   if (!student.viaLink) return res.status(409).json({ error: 'У вас уже есть аккаунт — войдите в него, урок будет в кабинете', ownAccount: true })
   if (student.lessonsPaid > 0) return res.status(403).json({ error: 'Вы оплатили занятия — придумайте почту и пароль', needsSignup: true })
   if (!student.trialAccessUntil) await applyTrialAccess(row, student)
