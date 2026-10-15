@@ -83,21 +83,30 @@ async function sendContacts() {
   const pending = await prisma.trialContact.findMany({ where: { sentAt: null }, take: 100, orderBy: { createdAt: 'asc' } })
   for (const c of pending) {
     try {
+      // His format (Maxim's handover, 2026-10-15): status booked | attended |
+      // noshow | bought; `source` and the rest go into the card's description.
+      const outcome = { held: 'был на уроке', student_no_show: 'не пришёл', teacher_no_show: 'не пришёл преподаватель', cancelled: 'урок отменён' }[c.outcome] ?? null
+      const utm = c.utm ? Object.entries(c.utm).map(([k, v]) => `${k}=${v}`).join(' ') : null
       await adventApi('POST', '/leads', {
-        platform_id: c.id,
         name: c.name,
-        telegram: c.telegram,
         email: c.email,
         phone: c.phone,
-        source: c.source,
-        advent_student_id: c.adventStudentId,
-        booked_at: c.bookedAt.toISOString(),
-        trial_at: c.lessonAt.toISOString(),
-        teacher: c.teacherName,
-        outcome: c.outcome,
+        telegram: c.telegram,
+        telegram_id: c.schoolBotChatId,
+        status: c.outcome === 'held' ? 'attended' : c.outcome === 'student_no_show' ? 'noshow' : 'booked',
         level: c.level,
-        utm: c.utm ?? null,
-        reason: 'trial_not_bought'
+        lesson_at: c.lessonAt.toISOString(),
+        source: 'Не оплатил после пробного',
+        comment: [
+          `Пробный урок ${c.lessonAt.toLocaleString('ru-RU', { timeZone: 'Europe/Moscow', day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit' })} МСК`,
+          c.teacherName ? `преподаватель ${c.teacherName}` : null,
+          outcome,
+          c.level ? `уровень ${c.level}` : null,
+          'не оплатил',
+          c.source === 'platform' ? 'записался на платформе' : null,
+          utm ? `реклама: ${utm}` : null
+        ].filter(Boolean).join(', '),
+        platform_id: c.id
       })
       await prisma.trialContact.update({ where: { id: c.id }, data: { sentAt: new Date(), sendError: null } })
     } catch (error) {

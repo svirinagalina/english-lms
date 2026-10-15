@@ -161,7 +161,14 @@ async function whoStarts(param) {
   const p = String(param ?? '')
   if (p.startsWith('l_') || p.startsWith('t_')) {
     const token = p.slice(2)
-    const lesson = await prisma.adventLesson.findFirst({ where: p.startsWith('l_') ? { studentToken: token } : { teacherToken: token } })
+    // l_ also takes a booking's own id: Maxim's site builds the link from the
+    // end of student_join_url, which for bookings before the tokens (13.10)
+    // was /?advent=<id>.
+    const lesson = await prisma.adventLesson.findFirst({
+      where: p.startsWith('l_')
+        ? { OR: [{ studentToken: token }, { id: token, createdAt: { lt: new Date('2026-10-13T14:00:00Z') } }] }
+        : { teacherToken: token }
+    })
     if (!lesson) return null
     return { userId: p.startsWith('l_') ? lesson.studentUserId : lesson.teacherId, lesson }
   }

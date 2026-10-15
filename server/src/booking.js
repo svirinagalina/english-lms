@@ -330,7 +330,7 @@ bookingRouter.post('/lessons/:id/teacher', requireAuth, requireRole('OWNER', 'PA
   if (row.status === 'scheduled') row = await ensureStudent(row, teacher.id)
   if (lesson.source !== 'platform') {
     const next = await prisma.user.findUnique({ where: { id: teacher.id }, select: { email: true, name: true } })
-    await toAdventLater('teacher', 'PATCH', `/lessons/${encodeURIComponent(lesson.adventId)}`, { teacher: { email: next.email, name: next.name }, changed_by: 'admin' }, lesson.id)
+    await toAdventLater('teacher', 'PATCH', `/lessons/${encodeURIComponent(lesson.adventId)}`, { teacher_email: next.email, changed_by: 'admin' }, lesson.id)
   }
   // A student who came only for this trial leaves the old teacher's list (no lessons with them yet).
   const student = row.studentUserId ? await prisma.user.findUnique({ where: { id: row.studentUserId }, select: { viaLink: true } }) : null

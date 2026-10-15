@@ -48,14 +48,16 @@ export async function flushOutbox({ now = false } = {}) {
         const status = Number(String(error.message).match(/: (\d{3})\b/)?.[1] ?? 0)
         const attempts = item.attempts + 1
         const message = String(error.message).slice(0, 300)
-        if (status === 409) {
-          // Already there (a repeat): nothing more to do.
+        // A repeat of something his site already has: nothing more to do. A 409
+        // on a move or a cancellation (lesson_closed, slot_busy) is a real
+        // refusal and is shown in Settings.
+        if (status === 409 && ['started', 'finished', 'report', 'links'].includes(item.kind)) {
           await prisma.adventOutbox.update({ where: { id: item.id }, data: { doneAt: new Date(), attempts, lastError: message } })
           continue
         }
         // His API refused the request itself (bad data): repeating won't help.
         // A 404 may be an address his site doesn't have yet — keep trying daily.
-        const refused = status >= 400 && status < 500 && ![404, 408, 425, 429].includes(status)
+        const refused = status >= 400 && status < 500 && ![404, 408, 425, 429].includes(status) // 409 included
         const tooOld = Date.now() - new Date(item.createdAt).getTime() > 30 * DAY
         await prisma.adventOutbox.update({
           where: { id: item.id },
@@ -136,7 +138,7 @@ export async function reconcile() {
     // here (his webhook was lost): his version is taken.
     if (await changedHere(row.id, ['move', 'teacher'])) {
       if (!(await waiting(row.id, ['move', 'teacher']))) {
-        await toAdventLater('move', 'PATCH', `/lessons/${encodeURIComponent(id)}`, { starts_at: new Date(row.startsAt).toISOString(), teacher: { email: teacher?.email, name: teacher?.name }, changed_by: 'platform' }, row.id)
+        await toAdventLater('move', 'PATCH', `/lessons/${encodeURIComponent(id)}`, { starts_at: new Date(row.startsAt).toISOString(), teacher_email: teacher?.email, changed_by: 'platform' }, row.id)
       }
       result.sentThere.push(`${label(row)}: ${[timeDiffers && 'время', teacherDiffers && 'учитель'].filter(Boolean).join(' и ')}`)
     } else {
