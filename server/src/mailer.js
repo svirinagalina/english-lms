@@ -243,7 +243,7 @@ export function sendTrialWelcomeEmail({ to, name, teacherName, inviteLink, appUr
 <div style="font-family:Manrope,-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;max-width:520px;margin:0 auto;padding:32px 24px;color:#14453f;background:#ffffff">
   <div style="font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:#b5539a;font-weight:700">Advent Academy</div>
   <h1 style="font-size:24px;line-height:1.25;margin:8px 0 12px">${escapeHtml(name || 'Здравствуйте')}, добро пожаловать! 🎉</h1>
-  <p style="font-size:16px;line-height:1.55;margin:0 0 8px">Спасибо, что выбрали нас — мы очень рады, что вы с нами 💚 Здесь всё, чтобы спокойно начать.</p>
+  <p style="font-size:16px;line-height:1.55;margin:0 0 8px">Спасибо, что выбрали нас — мы очень рады, что вы с нами 💚 Здесь всё, чтобы начать.</p>
   ${inviteLink
     ? `<div style="background:#ffd5ed;border-radius:14px;padding:16px 18px;margin:20px 0">
          <strong style="font-size:16px">Шаг 1. Придумайте пароль</strong>
