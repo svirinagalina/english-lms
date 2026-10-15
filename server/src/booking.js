@@ -5,6 +5,7 @@ import { prisma } from './db.js'
 import { requireAuth, requireRole, isAdmin, hashPassword } from './auth.js'
 import { generateRecurringInstances } from './routes/personal.js'
 import { ensureStudent, MEMO } from './adventLessons.js'
+import { ensureClassroom } from './routes/classrooms.js'
 import { toAdventLater } from './adventSync.js'
 import { botToken, botUsername, startLink, appUrl } from './telegram.js'
 import { sendLessonLinkEmail } from './mailer.js'
@@ -367,4 +368,45 @@ bookingRouter.delete('/lessons/:id', requireAuth, requireRole('OWNER', 'PARTNER'
     }
   }
   res.json({ ok: true, accountRemoved })
+})
+
+// People → «Пробные уроки» → «Объединить»: the booking belongs to a student who
+// already has an account (invited separately, a second booking…). The booking
+// moves to that account and the empty account made for it is removed — only
+// when it really is empty (no lessons held, no report, nothing paid).
+export async function emptyBookingAccount(userId, exceptLessonId = null) {
+  const user = userId ? await prisma.user.findUnique({ where: { id: userId } }) : null
+  if (!user || user.role !== 'STUDENT' || !user.viaLink || user.lessonsPaid > 0) return null
+  const [held, reports, others] = await Promise.all([
+    prisma.session.count({ where: { classroom: { studentId: user.id } } }),
+    prisma.trialReport.count({ where: { studentId: user.id } }),
+    prisma.adventLesson.count({ where: { studentUserId: user.id, ...(exceptLessonId ? { id: { not: exceptLessonId } } : {}) } })
+  ])
+  return held || reports || others ? null : user
+}
+
+bookingRouter.post('/lessons/:id/student', requireAuth, requireRole('OWNER'), express.json(), async (req, res) => {
+  if (req.user.role !== 'OWNER') return res.status(403).json({ error: 'Only the administrator can merge students' })
+  const lesson = await prisma.adventLesson.findUnique({ where: { id: req.params.id } })
+  const teacher = lesson ? await prisma.user.findUnique({ where: { id: lesson.teacherId }, select: { schoolId: true } }) : null
+  if (!lesson || teacher?.schoolId !== req.user.schoolId) return res.status(404).json({ error: 'Not found' })
+  const target = await prisma.user.findFirst({ where: { id: String(req.body?.studentId ?? ''), schoolId: req.user.schoolId, role: 'STUDENT' } })
+  if (!target) return res.status(400).json({ error: 'Choose the student' })
+  if (lesson.studentUserId === target.id) return res.json({ ok: true })
+  const old = lesson.studentUserId ? await prisma.user.findUnique({ where: { id: lesson.studentUserId } }) : null
+  if (old && !(await emptyBookingAccount(old.id, lesson.id))) {
+    return res.status(409).json({ error: 'В аккаунте с пробного уже есть уроки, отчёт или оплата — объединять автоматически нельзя' })
+  }
+  await prisma.teacherStudent.upsert({ where: { teacherId_studentId: { teacherId: lesson.teacherId, studentId: target.id } }, create: { teacherId: lesson.teacherId, studentId: target.id }, update: {} })
+  const room = await ensureClassroom(lesson.teacherId, target.id, req.user.schoolId)
+  const keepRoom = lesson.classroomId && (await prisma.classroom.findFirst({ where: { id: lesson.classroomId, studentId: target.id }, select: { id: true } }))
+  await prisma.adventLesson.update({ where: { id: lesson.id }, data: { studentUserId: target.id, classroomId: keepRoom ? lesson.classroomId : room.id } })
+  if (old) {
+    // The school bot's chat comes along, if the real account has none.
+    if (old.telegramChatId && !target.telegramChatId) {
+      await prisma.user.update({ where: { id: target.id }, data: { telegramChatId: old.telegramChatId, telegramName: old.telegramName, telegramLinkedAt: old.telegramLinkedAt } })
+    }
+    await prisma.user.delete({ where: { id: old.id } })
+  }
+  res.json({ ok: true })
 })

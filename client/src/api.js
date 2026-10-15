@@ -102,6 +102,7 @@ export const api = {
   moveTrialLesson: (id, startsAt) => request(`/booking/lessons/${id}/move`, { method: 'POST', body: { startsAt } }),
   reassignTrialLesson: (id, teacherId) => request(`/booking/lessons/${id}/teacher`, { method: 'POST', body: { teacherId } }),
   removeTrialBooking: (id) => request(`/booking/lessons/${id}`, { method: 'DELETE' }),
+  mergeTrialBooking: (id, studentId) => request(`/booking/lessons/${id}/student`, { method: 'POST', body: { studentId } }),
   trialContacts: () => request('/trial-contacts'),
   adventSync: () => request('/advent-sync'),
   runAdventSync: () => request('/advent-sync/run', { method: 'POST' }),

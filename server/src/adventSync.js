@@ -20,6 +20,11 @@ const DAY = 24 * HOUR
 const BACKOFF = [1, 5, 15, 60, 360].map((m) => m * MIN) // then once a day
 const msk = (d) => new Date(d).toLocaleString('ru-RU', { timeZone: 'Europe/Moscow', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })
 
+// Only the real server talks to his site. A copy of the platform on a laptop
+// has the same key in its .env, and its own lessons and links: from there it
+// would send him test outcomes and wrong links. ADVENT_SYNC=on overrides (tests).
+export const syncAllowed = () => process.env.NODE_ENV === 'production' || process.env.ADVENT_SYNC === 'on'
+
 // --- The outbox -----------------------------------------------------------------
 
 export async function toAdventLater(kind, method, path, body, lessonId = null) {
@@ -29,7 +34,7 @@ export async function toAdventLater(kind, method, path, body, lessonId = null) {
 
 let flushing = false
 export async function flushOutbox({ now = false } = {}) {
-  if (!adventLessonsEnabled() || flushing) return
+  if (!adventLessonsEnabled() || !syncAllowed() || flushing) return
   flushing = true
   try {
     const due = await prisma.adventOutbox.findMany({
@@ -87,6 +92,7 @@ async function loadState() {
 export async function reconcile() {
   const at = new Date().toISOString()
   if (!adventLessonsEnabled()) { await saveState({ at, ok: false, error: 'Связь с сайтом Advent не настроена (ADVENT_API_KEY)' }); return loadState() }
+  if (!syncAllowed()) { await saveState({ at, ok: false, error: 'Это не рабочий сервер — сверка с сайтом Advent идёт только на lms.advent-academy.online' }); return loadState() }
   const from = new Date(Date.now() - 14 * DAY)
   const to = new Date(Date.now() + 60 * DAY)
   let data
@@ -173,6 +179,7 @@ async function tellOwner(state, previous) {
 }
 
 export function startSyncJobs() {
+  if (!syncAllowed()) return
   const quietly = (name, job) => job().catch((error) => console.error(`[sync] ${name}`, error.message))
   setInterval(() => quietly('flush', flushOutbox), MIN)
   setTimeout(() => quietly('reconcile', reconcile), 5 * MIN)

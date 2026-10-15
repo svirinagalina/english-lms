@@ -188,6 +188,23 @@ invitesRouter.post('/', requireRole('OWNER', 'TEACHER'), async (req, res) => {
     inviterId = teacher.id
   }
 
+  // The teacher already has this student from a trial (an account made for the
+  // booking, no email yet): inviting them separately would make a second
+  // account. The yellow block in their cabinet invites that same account.
+  if (role === 'STUDENT' && !userId && !req.body?.force) {
+    const firstWord = String(name ?? '').trim().split(/\s+/)[0]
+    const twin = firstWord.length >= 2 && await prisma.user.findFirst({
+      where: { schoolId: req.user.schoolId, role: 'STUDENT', viaLink: true, name: { startsWith: firstWord, mode: 'insensitive' }, studentLinks: { some: { teacherId: inviterId } } },
+      select: { id: true, name: true, studentClassrooms: { where: { teacherId: inviterId }, select: { id: true } } }
+    })
+    if (twin) {
+      return res.status(409).json({
+        error: `У этого учителя уже есть ученик с пробного урока «${twin.name}» без почты. Если это он, пригласите его из его кабинета (жёлтый блок вверху) — тогда доска и история останутся у него и не будет второго аккаунта.`,
+        duplicate: { name: twin.name, classroomId: twin.studentClassrooms[0]?.id ?? null }
+      })
+    }
+  }
+
   await prisma.invite.deleteMany({ where: { email, acceptedAt: null } })
 
   const expiresAt = new Date()

@@ -12,10 +12,11 @@ import PersonLink from '../components/PersonLink'
 function InviteForm({ role, teachers, currentUserId, onInvited }) {
   const [form, setForm] = useState({ name: '', email: '', teacherId: currentUserId })
   const [error, setError] = useState('')
+  const [duplicate, setDuplicate] = useState(null) // a trial student of that teacher with the same name
   const [busy, setBusy] = useState(false)
 
-  const submit = async (event) => {
-    event.preventDefault()
+  const submit = async (event, force = false) => {
+    event?.preventDefault()
     setError('')
     setBusy(true)
     try {
@@ -23,12 +24,15 @@ function InviteForm({ role, teachers, currentUserId, onInvited }) {
         name: form.name,
         email: form.email,
         role,
-        ...(role === 'STUDENT' ? { teacherId: form.teacherId } : {})
+        ...(role === 'STUDENT' ? { teacherId: form.teacherId } : {}),
+        ...(force ? { force: true } : {})
       })
       setForm({ name: '', email: '', teacherId: currentUserId })
+      setDuplicate(null)
       onInvited(result)
     } catch (err) {
       setError(err.message)
+      setDuplicate(err.data?.duplicate ?? null)
     } finally {
       setBusy(false)
     }
@@ -36,7 +40,17 @@ function InviteForm({ role, teachers, currentUserId, onInvited }) {
 
   return (
     <form className="inline-form" onSubmit={submit}>
-      {error && <div className="error" style={{ width: '100%' }}>{error}</div>}
+      {error && (
+        <div className="error" style={{ width: '100%' }}>
+          {error}
+          {duplicate && (
+            <div className="row-actions" style={{ marginTop: 8, flexWrap: 'wrap' }}>
+              {duplicate.classroomId && <a className="button-link" style={{ marginTop: 0 }} href={`/classroom/${duplicate.classroomId}`}>Открыть кабинет «{duplicate.name}»</a>}
+              <button type="button" className="ghost" onClick={() => submit(null, true)} disabled={busy}>Это другой человек — пригласить</button>
+            </div>
+          )}
+        </div>
+      )}
       <input
         placeholder="Full name"
         value={form.name}
@@ -76,7 +90,7 @@ const monthAhead = () => { const d = new Date(); d.setMonth(d.getMonth() + 1); r
 // One trial lesson from the Advent site per row: each step it reached.
 const OUTCOME = { held: 'урок прошёл', student_no_show: 'ученик не пришёл', teacher_no_show: 'учитель не пришёл' }
 const shortWhen = (v) => new Date(v).toLocaleString(undefined, { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })
-function TrialFunnel({ trials, onRemove }) {
+function TrialFunnel({ trials, onRemove, onMerge }) {
   return (
     <div className="list">
       {trials.map((t) => {
@@ -104,6 +118,12 @@ function TrialFunnel({ trials, onRemove }) {
               ))}
               {onRemove && <button type="button" className="ghost" onClick={() => onRemove(t)} title="Remove this booking from the platform; nobody is told">Убрать</button>}
             </div>
+            {t.twin && onMerge && (
+              <div className="notice" style={{ width: '100%', marginTop: 6 }}>
+                Похоже, это уже ваш ученик <strong>{t.twin.name}</strong>{t.twin.email ? ` (${t.twin.email})` : ''}: у него свой аккаунт, а для записи с сайта создан второй.{' '}
+                <button type="button" onClick={() => onMerge(t)}>Объединить</button>
+              </div>
+            )}
           </div>
         )
       })}
@@ -150,6 +170,15 @@ export default function People() {
   const [trialReports, setTrialReports] = useState([])
   const [funnel, setFunnel] = useState([])
   const [contacts, setContacts] = useState([])
+  // The booking's account is a duplicate of a student who already has one.
+  const mergeBooking = async (t) => {
+    if (!window.confirm(`Перенести запись «${t.student.name}» (${shortWhen(t.startsAt)}) на аккаунт «${t.twin.name}»${t.twin.email ? ` (${t.twin.email})` : ''} и удалить пустой аккаунт с пробного?`)) return
+    try {
+      await api.mergeTrialBooking(t.id, t.twin.id)
+      api.trialFunnel().then(({ trials }) => setFunnel(trials)).catch(() => {})
+      refresh()
+    } catch (err) { window.alert(err.message) }
+  }
   // A test or duplicate booking: off the platform, nobody is told.
   const removeBooking = async (t) => {
     if (!window.confirm(`Убрать запись «${t.student.name}» (${shortWhen(t.startsAt)}) с платформы?\n\nУрок исчезнет из Timetable и из этого списка, ученику ничего не придёт. Если урок настоящий, отмените его в Timetable — тогда ученику придёт сообщение.`)) return
@@ -356,7 +385,7 @@ export default function People() {
 
       {funnel.length > 0 && (
         <Panel id="people:trial-funnel" title="Пробные уроки с сайта" count={funnel.filter((t) => !t.isTest).length} hint="запись → пришёл → отчёт → оплата" defaultOpen>
-          <TrialFunnel trials={funnel} onRemove={['OWNER', 'PARTNER'].includes(user.role) ? removeBooking : null} />
+          <TrialFunnel trials={funnel} onRemove={['OWNER', 'PARTNER'].includes(user.role) ? removeBooking : null} onMerge={user.role === 'OWNER' ? mergeBooking : null} />
         </Panel>
       )}
 

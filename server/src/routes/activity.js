@@ -258,6 +258,24 @@ activityRouter.get('/trial-funnel', requireRole('OWNER', 'PARTNER'), async (req,
   ])
   const byId = (list) => Object.fromEntries(list.map((x) => [x.id, x]))
   const T = byId(teachers), S = byId(students)
+  // A booking whose account was made for it while the student already has one
+  // (invited separately): the same teacher, the same first name or Telegram.
+  const twins = {}
+  if (req.user.role === 'OWNER') {
+    const firstWord = (n) => String(n ?? '').trim().split(/\s+/)[0].toLowerCase()
+    const handle = (v) => String(v ?? '').trim().replace(/^@/, '').toLowerCase()
+    for (const r of rows) {
+      const s = r.studentUserId ? S[r.studentUserId] : null
+      if (!s?.viaLink) continue
+      const others = await prisma.user.findMany({
+        where: { schoolId: req.user.schoolId, role: 'STUDENT', viaLink: false, studentLinks: { some: { teacherId: r.teacherId } } },
+        select: { id: true, name: true, email: true, messenger: true, telegramName: true }
+      })
+      const tg = handle(r.studentTelegram)
+      const twin = others.find((o) => tg && [handle(o.messenger), handle(o.telegramName)].includes(tg)) ?? others.find((o) => firstWord(o.name) && firstWord(o.name) === firstWord(s.name))
+      if (twin) twins[r.id] = { id: twin.id, name: twin.name, email: twin.email }
+    }
+  }
   res.json({
     trials: rows.filter((r) => T[r.teacherId]).map((r) => {
       const s = r.studentUserId ? S[r.studentUserId] : null
@@ -281,7 +299,8 @@ activityRouter.get('/trial-funnel', requireRole('OWNER', 'PARTNER'), async (req,
         reportId: report?.id ?? null,
         level: report?.generated?.level ?? null,
         lessonsPaid: s?.lessonsPaid ?? null,
-        saysPaid: s?.paymentReportedAt ?? null
+        saysPaid: s?.paymentReportedAt ?? null,
+        twin: twins[r.id] ?? null
       }
     })
   })

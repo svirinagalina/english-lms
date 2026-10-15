@@ -2,6 +2,7 @@ import express from 'express'
 import { prisma } from './db.js'
 import { requireAuth, requireRole } from './auth.js'
 import { adventApi, adventLessonsEnabled } from './adventLessons.js'
+import { syncAllowed } from './adventSync.js'
 import { unenrollStudent } from './advent.js'
 
 // Trial requests don't pile up (Galina, 2026-10-14): a month after the trial
@@ -79,7 +80,7 @@ export async function archiveOldTrials() {
 
 // To Maxim's site, once each; retried every day until it takes them.
 async function sendContacts() {
-  if (!adventLessonsEnabled()) return
+  if (!adventLessonsEnabled() || !syncAllowed()) return
   const pending = await prisma.trialContact.findMany({ where: { sentAt: null }, take: 100, orderBy: { createdAt: 'asc' } })
   for (const c of pending) {
     try {

@@ -80,6 +80,24 @@ export async function ensureStudent(row, teacherId) {
   if (!student) student = await prisma.user.findUnique({ where: { email: placeholder } })
   const email = row.studentEmail?.trim().toLowerCase()
   if (!student && email) student = await prisma.user.findUnique({ where: { email } })
+  // The same Telegram as a student the school already has (written in their
+  // profile, or connected to the school's bot): that account, not a new one.
+  const tg = String(row.studentTelegram ?? '').trim().replace(/^@/, '').toLowerCase()
+  if (!student && /^[a-z0-9_]{4,}$/.test(tg)) {
+    student = await prisma.user.findFirst({
+      where: {
+        schoolId: teacher.schoolId,
+        role: 'STUDENT',
+        OR: [
+          { telegramName: { equals: `@${tg}`, mode: 'insensitive' } },
+          { messenger: { equals: `@${tg}`, mode: 'insensitive' } },
+          { messenger: { equals: tg, mode: 'insensitive' } },
+          { messenger: { contains: `t.me/${tg}`, mode: 'insensitive' } }
+        ]
+      },
+      orderBy: { createdAt: 'asc' }
+    })
+  }
   if (!student) {
     student = await prisma.user.create({
       data: {
