@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { api } from '../api'
+import TeacherBroadcast from './TeacherBroadcast'
 
 // The school's Telegram bot (owner, Settings): its key from @BotFather, the
 // switch for messages, the booking page for «Выбрать время», a test message.
@@ -78,6 +79,7 @@ export default function TelegramSettings() {
             <button type="submit" disabled={busy === 'booking'}>Save</button>
           </form>
           <p className="muted small-hint">The booking page behind «Выбрать время» (after a missed or cancelled trial).</p>
+          <TeacherBroadcast />
         </>
       )}
       {error && <div className="error">{error}</div>}

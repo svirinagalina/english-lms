@@ -16,6 +16,10 @@ const formatPrice = (amount, currency) =>
 export default function StudentPayment({ lessonsOnly = false }) {
   const { user } = useAuth()
   const [billing, setBilling] = useState(null)
+  // A trial-link student has no email yet: they leave one when reporting a
+  // payment, and the platform sends the invitation there once it is confirmed.
+  const [payEmail, setPayEmail] = useState('')
+  const [reportError, setReportError] = useState('')
   const [copied, setCopied] = useState(false)
   const [note, setNote] = useState('')
   const [reporting, setReporting] = useState(false)
@@ -92,12 +96,17 @@ export default function StudentPayment({ lessonsOnly = false }) {
     try { await navigator.clipboard.writeText(text); setCopied(true); setTimeout(() => setCopied(false), 2000) } catch { window.prompt('Copy:', text) }
   }
 
+  const needsEmail = Boolean(user?.viaLink)
   const report = async (extra = '') => {
+    setReportError('')
+    if (needsEmail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(payEmail.trim())) { setReportError('Укажите почту — на неё придёт приглашение на платформу'); return }
     setReporting(true)
     try {
-      const { reportedAt } = await api.reportPayment([extra, note].filter(Boolean).join(' · '))
+      const { reportedAt } = await api.reportPayment([extra, note].filter(Boolean).join(' · '), needsEmail ? payEmail.trim() : undefined)
       setReported(reportedAt)
       setNote('')
+    } catch (err) {
+      setReportError(err.message)
     } finally {
       setReporting(false)
     }
@@ -241,11 +250,21 @@ export default function StudentPayment({ lessonsOnly = false }) {
       <div className="paid-report">
         {reported ? (
           <p className="muted">
-            You told your teacher about a payment on {new Date(reported).toLocaleString()}. They will set your new lessons once it arrives.
+            {needsEmail
+              ? `Спасибо! Вы сообщили об оплате ${new Date(reported).toLocaleString()}. Как только она придёт, на почту придёт приглашение на платформу.`
+              : `You told your teacher about a payment on ${new Date(reported).toLocaleString()}. They will set your new lessons once it arrives.`}
           </p>
         ) : (
           <>
-            <p className="muted" style={{ marginBottom: 8 }}>After paying, let your teacher know — they confirm and add the lessons.</p>
+            <p className="muted" style={{ marginBottom: 8 }}>
+              {needsEmail
+                ? 'После оплаты нажмите «I have paid». Как только оплата придёт, на вашу почту придёт приглашение на платформу — придумаете пароль и будете входить сами.'
+                : 'After paying, let your teacher know — they confirm and add the lessons.'}
+            </p>
+            {needsEmail && (
+              <input type="email" placeholder="Ваша почта" value={payEmail} onChange={(e) => setPayEmail(e.target.value)} maxLength={200} style={{ width: '100%', marginBottom: 8 }} />
+            )}
+            {reportError && <div className="error">{reportError}</div>}
             <div className="row-actions">
               <input
                 placeholder="Optional note, e.g. “paid 8 lessons by card”"

@@ -44,8 +44,11 @@ export async function creditOfferPurchase(session) {
     return { already: true }
   }
   let note
-  const student = await prisma.user.findUnique({ where: { id: userId }, select: { id: true, name: true, schoolId: true, studentLinks: { select: { teacher: { select: { id: true, email: true } } } } } })
+  const student = await prisma.user.findUnique({ where: { id: userId }, select: { id: true, name: true, schoolId: true, viaLink: true, inviteEmail: true, studentLinks: { select: { teacher: { select: { id: true, email: true } } } } } })
   if (!student) return null
+  // The email they paid with: where the platform invites a trial-link student (afterPayment.js).
+  const paidWith = String(session.customer_details?.email ?? '').trim().toLowerCase()
+  if (student.viaLink && !student.inviteEmail && paidWith) await prisma.user.update({ where: { id: student.id }, data: { inviteEmail: paidWith } })
   if (plan.lessons > 0) {
     const rub = Number(session.metadata?.rub) || plan.price
     const result = await creditLessons(userId, plan.lessons, { pricePerLesson: Math.round((rub * 100) / plan.lessons), currency: 'RUB' })

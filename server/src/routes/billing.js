@@ -166,7 +166,8 @@ billingRouter.post('/checkout', async (req, res) => {
       'line_items[0][price_data][product_data][name]': `Advent Academy — тариф «${plan.name}»`,
       'line_items[0][price_data][product_data][description]': `${rub.toLocaleString('ru-RU')} ₽ по курсу ЦБ РФ ${rate.rate} ₽/€ на ${rate.date}`,
       'line_items[0][quantity]': '1',
-      customer_email: student.email,
+      // A trial-link account has no real email: Stripe asks for one itself.
+      ...(/\.invalid$/i.test(student.email ?? '') ? {} : { customer_email: student.email }),
       client_reference_id: req.user.id,
       'metadata[studentId]': req.user.id,
       'metadata[plan]': plan.id,
@@ -250,8 +251,15 @@ billingRouter.post('/me/paid', async (req, res) => {
   const note = typeof req.body?.note === 'string' ? req.body.note.trim().slice(0, 300) : ''
   const student = await prisma.user.findUnique({
     where: { id: req.user.id },
-    select: { id: true, name: true, paymentReportedAt: true, studentLinks: { select: { teacher: { select: { email: true } } } } }
+    select: { id: true, name: true, viaLink: true, paymentReportedAt: true, studentLinks: { select: { teacher: { select: { email: true } } } } }
   })
+  // A trial-link student leaves their own email: once the payment is in, the
+  // platform invites them there (afterPayment.js).
+  const email = typeof req.body?.email === 'string' ? req.body.email.trim().toLowerCase() : ''
+  if (student.viaLink && email) {
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return res.status(400).json({ error: 'Проверьте почту' })
+    await prisma.user.update({ where: { id: student.id }, data: { inviteEmail: email } })
+  }
   if (student.paymentReportedAt && Date.now() - student.paymentReportedAt.getTime() < 60 * 60 * 1000) {
     return res.json({ reportedAt: student.paymentReportedAt, mailed: false })
   }

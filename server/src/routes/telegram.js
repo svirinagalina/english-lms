@@ -1,7 +1,7 @@
 import { Router } from 'express'
 import { prisma } from '../db.js'
 import { requireAuth, requireRole } from '../auth.js'
-import { botSettings, botUsername, botToken, saveBotToken, saveBotSwitch, saveBookingUrl, sendTo, userStartLink, appUrl } from '../telegram.js'
+import { botSettings, botUsername, botToken, saveBotToken, saveBotSwitch, saveBookingUrl, sendTo, userStartLink, appUrl, esc } from '../telegram.js'
 
 // The school's Telegram bot: who is connected, the owner's settings.
 export const telegramRouter = Router()
@@ -59,4 +59,27 @@ telegramRouter.post('/test', requireAuth, requireRole('OWNER'), async (req, res)
   const sent = await sendTo(me, 'Проверка: бот школы работает ✅', [[{ text: 'Открыть платформу', url: `${appUrl()}/` }]])
   if (!sent) return res.status(502).json({ error: 'Telegram did not take the message — open the bot and press Start again' })
   res.json({ ok: true })
+})
+
+// Settings → «Message to the teachers»: the owner sends one text to every
+// teacher through the school's bot (new rules and the like). Who hasn't
+// connected the bot is listed, so the owner can tell them another way.
+telegramRouter.get('/teachers', requireAuth, requireRole('OWNER'), async (req, res) => {
+  const teachers = await prisma.user.findMany({ where: { schoolId: req.user.schoolId, role: 'TEACHER' }, select: { id: true, name: true, telegramChatId: true }, orderBy: { name: 'asc' } })
+  res.json({ teachers: teachers.map((t) => ({ id: t.id, name: t.name, connected: Boolean(t.telegramChatId) })) })
+})
+
+telegramRouter.post('/broadcast', requireAuth, requireRole('OWNER'), async (req, res) => {
+  if (req.user.role !== 'OWNER') return res.status(403).json({ error: 'Only the administrator sends to all teachers' })
+  const text = typeof req.body?.text === 'string' ? req.body.text.trim() : ''
+  if (text.length < 5 || text.length > 3500) return res.status(400).json({ error: 'Write the message (up to 3500 characters)' })
+  if (!botToken()) return res.status(400).json({ error: 'The bot is not connected' })
+  const teachers = await prisma.user.findMany({ where: { schoolId: req.user.schoolId, role: 'TEACHER' }, select: { id: true, name: true, telegramChatId: true } })
+  const sent = []
+  const missed = []
+  for (const teacher of teachers) {
+    if (teacher.telegramChatId && await sendTo(teacher, esc(text))) sent.push(teacher.name)
+    else missed.push(teacher.name)
+  }
+  res.json({ sent, missed })
 })

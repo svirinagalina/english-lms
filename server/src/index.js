@@ -51,6 +51,7 @@ import { startBotJobs } from './bot.js'
 import { bookingRouter, startBookingJobs } from './booking.js'
 import { trialContactsRouter, startArchiveJobs } from './trialArchive.js'
 import { adventSyncRouter, startSyncJobs } from './adventSync.js'
+import { startWelcomeJobs } from './afterPayment.js'
 import { flushDocuments } from './docStore.js'
 
 const app = express()
@@ -187,6 +188,7 @@ startBotJobs()
 startBookingJobs()
 startArchiveJobs()
 startSyncJobs()
+startWelcomeJobs()
 
 // The AI key saved from the Settings page, before the first request.
 loadAiSettings().catch((error) => console.error('Could not load AI settings:', error.message))

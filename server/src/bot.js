@@ -36,7 +36,7 @@ const rub = (n) => `${n.toLocaleString('ru-RU')} ₽`
 const MENTOR = OFFER_PLANS.find((p) => p.id === 'mentor')
 const SOLO = OFFER_PLANS.find((p) => p.id === 'solo')
 
-const PERSON = { id: true, name: true, role: true, schoolId: true, telegramChatId: true, viaLink: true, lessonsPaid: true, packageStartedAt: true, heldAdjust: true, telegramPaidSeen: true, paymentReportedAt: true, trialAccessUntil: true, plan: true, planUntil: true }
+const PERSON = { id: true, name: true, role: true, schoolId: true, telegramChatId: true, viaLink: true, lessonsPaid: true, packageStartedAt: true, heldAdjust: true, telegramPaidSeen: true, inviteEmail: true, paymentReportedAt: true, trialAccessUntil: true, plan: true, planUntil: true }
 const person = (id) => (id ? prisma.user.findUnique({ where: { id }, select: PERSON }) : null)
 const owners = (schoolId) => prisma.user.findMany({ where: { schoolId, role: 'OWNER', telegramChatId: { not: null } }, select: PERSON })
 // Who hears of a student's payments, package and debt: the owner always; the
@@ -319,7 +319,9 @@ async function payments() {
     if (student.viaLink && student.telegramChatId && Number(oldLessons) === 0) {
       await sendTo(student, [
         `Спасибо за оплату! ✅ Оплачено уроков: ${student.lessonsPaid}.`,
-        'Откройте ту же ссылку и придумайте почту и пароль — так вы будете входить сами.',
+        student.inviteEmail
+          ? `Приглашение на платформу придёт на почту ${esc(student.inviteEmail)} — откройте письмо и придумайте пароль, дальше будете входить сами.`
+          : 'Откройте ту же ссылку и придумайте почту и пароль — так вы будете входить сами.',
         teacher ? `Преподаватель ${esc(teacher.name)} свяжется с вами, чтобы выбрать время занятий.` : null
       ].filter(Boolean).join('\n'), [[{ text: 'Открыть платформу', url: await classUrl(student) }]])
     }

@@ -101,6 +101,11 @@ model User {
   telegramName     String?
   telegramLinkedAt DateTime?
   telegramPaidSeen String?
+  // A trial-link student's own email, given when paying (the «I have paid»
+  // form, Stripe Checkout): the platform invites them there once the payment
+  // is in (afterPayment.js). And when the welcome guide went to them.
+  inviteEmail      String?
+  welcomedAt       DateTime?
   // Free time a teacher offers for trial lessons (booking.js).
   trialWindows     TrialWindow[]
   emailVerifications EmailVerification[]

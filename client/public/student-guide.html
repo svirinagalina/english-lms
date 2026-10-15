@@ -1,434 +1,113 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="ru">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Advent Academy LMS - Путеводитель студента</title>
-    <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-            line-height: 1.7;
-            color: #333;
-            background: #fafafa;
-            padding: 40px 60px;
-            max-width: 950px;
-            margin: 0 auto;
-        }
-
-        .header {
-            text-align: center;
-            margin-bottom: 50px;
-            padding: 40px 0 30px;
-            border-bottom: 4px solid #2d5a4e;
-        }
-        .header h1 {
-            color: #2d5a4e;
-            font-size: 40px;
-            margin-bottom: 10px;
-            font-weight: 700;
-            letter-spacing: -0.5px;
-        }
-        .header p {
-            color: #888;
-            font-size: 18px;
-            font-weight: 300;
-        }
-
-        /* Navigation bar visualization */
-        .nav-mockup {
-            background: white;
-            border: 2px solid #2d5a4e;
-            border-radius: 12px;
-            padding: 20px;
-            margin: 40px 0;
-            display: flex;
-            gap: 15px;
-            flex-wrap: wrap;
-            justify-content: center;
-            align-items: center;
-        }
-        .nav-item {
-            padding: 10px 16px;
-            background: #2d5a4e;
-            color: white;
-            border-radius: 6px;
-            font-size: 14px;
-            font-weight: 500;
-            text-align: center;
-        }
-        .nav-item.active {
-            background: #f59e0b;
-            color: white;
-        }
-
-        .section {
-            margin-bottom: 50px;
-            page-break-inside: avoid;
-        }
-        .section h2 {
-            color: #2d5a4e;
-            font-size: 28px;
-            margin-bottom: 25px;
-            border-left: 5px solid #2d5a4e;
-            padding-left: 20px;
-            font-weight: 700;
-        }
-        .section h3 {
-            color: #2d5a4e;
-            font-size: 18px;
-            margin-top: 28px;
-            margin-bottom: 12px;
-            font-weight: 600;
-        }
-        .section p {
-            color: #555;
-            margin-bottom: 12px;
-        }
-
-        .feature-grid {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 20px;
-            margin: 25px 0;
-        }
-        .feature-box {
-            background: white;
-            border: 2px solid #e0e0e0;
-            border-radius: 12px;
-            padding: 25px;
-            transition: all 0.3s ease;
-        }
-        .feature-box:hover {
-            border-color: #2d5a4e;
-            box-shadow: 0 6px 16px rgba(45, 90, 78, 0.12);
-            transform: translateY(-2px);
-        }
-        .feature-box .emoji {
-            font-size: 32px;
-            margin-bottom: 12px;
-            display: block;
-        }
-        .feature-box strong {
-            color: #2d5a4e;
-            display: block;
-            font-size: 16px;
-            margin-bottom: 8px;
-        }
-        .feature-box p {
-            margin: 0;
-            font-size: 14px;
-            color: #666;
-        }
-
-        .mockup-board {
-            background: white;
-            border: 2px solid #ddd;
-            border-radius: 8px;
-            padding: 20px;
-            margin: 20px 0;
-            text-align: center;
-            color: #999;
-            font-size: 14px;
-            font-family: monospace;
-            min-height: 180px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            position: relative;
-            overflow: hidden;
-        }
-        .mockup-board::before {
-            content: '📊 Доска для взаимодействия учителя и студента';
-            position: absolute;
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-            font-size: 13px;
-            font-style: italic;
-        }
-
-        .tip {
-            background: linear-gradient(135deg, #e8f4f0 0%, #d4eae5 100%);
-            border-left: 5px solid #2d5a4e;
-            padding: 20px;
-            margin: 25px 0;
-            border-radius: 8px;
-        }
-        .tip strong {
-            color: #2d5a4e;
-            display: block;
-            margin-bottom: 8px;
-            font-size: 15px;
-        }
-        .tip p {
-            margin: 0;
-            color: #444;
-        }
-
-        ul {
-            margin-left: 25px;
-            margin-top: 12px;
-        }
-        ul li {
-            margin-bottom: 10px;
-            color: #555;
-        }
-        ul li strong {
-            color: #2d5a4e;
-        }
-
-        .faq-item {
-            background: white;
-            border-left: 4px solid #2d5a4e;
-            padding: 16px 20px;
-            margin: 15px 0;
-            border-radius: 4px;
-        }
-        .faq-item h4 {
-            color: #2d5a4e;
-            margin-bottom: 8px;
-            font-size: 15px;
-        }
-        .faq-item p {
-            margin: 0;
-            color: #666;
-            font-size: 14px;
-        }
-
-        .footer {
-            text-align: center;
-            margin-top: 60px;
-            padding-top: 40px;
-            border-top: 3px solid #2d5a4e;
-        }
-        .footer h3 {
-            color: #2d5a4e;
-            font-size: 18px;
-            margin-bottom: 8px;
-        }
-        .footer p {
-            color: #666;
-            margin: 8px 0;
-        }
-        .footer .emoji {
-            font-size: 32px;
-            margin-bottom: 10px;
-        }
-
-        @media print {
-            body {
-                padding: 20px;
-                max-width: 100%;
-                background: white;
-            }
-            .section, .feature-box, .tip, .mockup-board {
-                page-break-inside: avoid;
-            }
-        }
-
-        @media (max-width: 768px) {
-            body {
-                padding: 20px;
-            }
-            .nav-mockup {
-                gap: 10px;
-            }
-            .nav-item {
-                padding: 8px 12px;
-                font-size: 12px;
-            }
-            .feature-grid {
-                grid-template-columns: 1fr;
-            }
-            .section h2 {
-                font-size: 24px;
-            }
-        }
-    </style>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Гид ученика — Advent Academy</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;600;700;800&display=swap">
+<style>
+  /* The student's guide (linked from the welcome letter after payment). Brand: green, pink, Manrope. */
+  :root { --green: #14453f; --green-2: #1d5a52; --pink: #ffd5ed; --accent: #b5539a; --ink: #14453f; --muted: #5b7570; --line: #d9e3e0; --paper: #f6f8f7; }
+  * { box-sizing: border-box; }
+  body { margin: 0; font-family: Manrope, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; color: var(--ink); background: var(--paper); line-height: 1.6; }
+  .wrap { max-width: 860px; margin: 0 auto; padding: 0 20px 64px; }
+  header { background: var(--green); color: #fff; padding: 48px 20px 40px; }
+  header .wrap { padding-bottom: 0; }
+  .kicker { font-size: 12px; letter-spacing: .1em; text-transform: uppercase; color: var(--pink); font-weight: 700; }
+  h1 { font-size: clamp(30px, 5vw, 44px); line-height: 1.15; margin: 10px 0 12px; font-weight: 800; }
+  header p { font-size: 18px; margin: 0; max-width: 34em; opacity: .92; }
+  h2 { font-size: 26px; margin: 48px 0 16px; font-weight: 800; }
+  p { margin: 0 0 12px; }
+  .steps { display: grid; gap: 14px; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); margin-top: 8px; }
+  .step { background: #fff; border: 1px solid var(--line); border-radius: 16px; padding: 18px; }
+  .step b { display: inline-flex; width: 30px; height: 30px; border-radius: 50%; background: var(--pink); align-items: center; justify-content: center; margin-bottom: 8px; }
+  .step h3 { margin: 0 0 6px; font-size: 17px; }
+  .step p { margin: 0; color: var(--muted); font-size: 15px; }
+  figure { margin: 18px 0; }
+  figure img { width: 100%; max-width: 100%; display: block; border-radius: 14px; border: 1px solid var(--line); box-shadow: 0 10px 30px rgba(20, 69, 63, .10); }
+  figcaption { font-size: 14px; color: var(--muted); margin-top: 8px; }
+  .sections { display: grid; gap: 12px; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); }
+  .card { background: #fff; border: 1px solid var(--line); border-radius: 14px; padding: 16px 18px; }
+  .card .em { font-size: 24px; }
+  .card h3 { margin: 4px 0 4px; font-size: 16px; }
+  .card p { margin: 0; color: var(--muted); font-size: 15px; }
+  .tip { background: var(--pink); border-radius: 16px; padding: 18px 20px; margin: 18px 0; }
+  .tip strong { display: block; margin-bottom: 4px; }
+  ul { padding-left: 20px; margin: 8px 0 0; }
+  li { margin-bottom: 8px; }
+  details { background: #fff; border: 1px solid var(--line); border-radius: 12px; padding: 14px 18px; margin: 10px 0; }
+  summary { cursor: pointer; font-weight: 700; }
+  details p { margin: 10px 0 0; color: var(--muted); }
+  .menu { display: flex; flex-wrap: wrap; gap: 6px; margin: 12px 0; }
+  .menu span { background: var(--green); color: #fff; border-radius: 8px; padding: 6px 10px; font-size: 13px; font-weight: 600; }
+  footer { margin-top: 48px; padding-top: 24px; border-top: 1px solid var(--line); color: var(--muted); font-size: 15px; }
+  a { color: var(--accent); }
+  @media (max-width: 480px) { h2 { font-size: 22px; } header p { font-size: 16px; } }
+</style>
 </head>
 <body>
-    <div class="header">
-        <h1>🎓 Advent Academy LMS</h1>
-        <p>Полный путеводитель студента по платформе</p>
-    </div>
+<header>
+  <div class="wrap">
+    <div class="kicker">Advent Academy</div>
+    <h1>Добро пожаловать! 👋</h1>
+    <p>Короткий гид по платформе: где что лежит и как пройти урок спокойно, без суеты. Читать — пять минут.</p>
+  </div>
+</header>
 
-    <div class="section">
-        <h2>Навигация платформы</h2>
-        <p>Главное меню содержит все основные разделы:</p>
-        <div class="nav-mockup">
-            <div class="nav-item">Classroom</div>
-            <div class="nav-item">Practice</div>
-            <div class="nav-item">Vocabulary</div>
-            <div class="nav-item">Progress</div>
-            <div class="nav-item active">Payment</div>
-        </div>
-    </div>
+<div class="wrap">
+  <h2>С чего начать</h2>
+  <div class="steps">
+    <div class="step"><b>1</b><h3>Войдите</h3><p>На <a href="https://lms.advent-academy.online">lms.advent-academy.online</a> — по своей почте и паролю. Забыли пароль? На странице входа есть «Forgot password».</p></div>
+    <div class="step"><b>2</b><h3>Подключите Telegram</h3><p>Menu → <strong>Profile</strong> → <strong>Connect Telegram</strong> → Start в боте школы. Бот напомнит о каждом уроке за 15 минут.</p></div>
+    <div class="step"><b>3</b><h3>Дождитесь расписания</h3><p>Преподаватель договорится с вами о времени и поставит уроки — они появятся в <strong>My Schedule</strong>.</p></div>
+  </div>
 
-    <div class="section">
-        <h2>Основные разделы</h2>
+  <h2>Как проходит урок</h2>
+  <p>За пару минут до начала откройте платформу: в разделе <strong>Classroom</strong> появится кнопка входа на урок. Браузер спросит доступ к камере и микрофону — разрешите. Урок идёт прямо в браузере, ничего устанавливать не нужно.</p>
+  <figure>
+    <img src="/ielts/platform-board.jpg" alt="Доска урока с заданием, полезными фразами и исправленной ошибкой" loading="lazy">
+    <figcaption>Доска урока. Всё, что вы проходите с преподавателем — задания, новые слова, исправленные ошибки, — остаётся здесь, к ней можно вернуться в любой момент.</figcaption>
+  </figure>
+  <div class="tip"><strong>Маленький секрет</strong>Наведите курсор на любое английское слово на доске — увидите перевод и услышите произношение.</div>
 
-        <h3>📚 Classroom - Ваша классная комната</h3>
-        <p>Это ваш личный кабинет для взаимодействия с преподавателем:</p>
-        <div class="mockup-board"></div>
-        <ul>
-            <li><strong>Доски с материалами:</strong> все материалы, с которыми вы работаете на уроках. Вы видите в реальном времени, что пишет и рисует учитель.</li>
-            <li><strong>История занятий:</strong> записи о всех ваших сессиях (когда были, сколько минут, заметки преподавателя)</li>
-            <li><strong>Прогресс:</strong> информация о количестве оплаченных уроков</li>
-        </ul>
+  <h2>Что где в меню</h2>
+  <div class="menu"><span>Classroom</span><span>My Schedule</span><span>Practice</span><span>Vocabulary</span><span>Trainer</span><span>Dictionary</span><span>Payment</span><span>Profile</span></div>
+  <div class="sections">
+    <div class="card"><div class="em">🏠</div><h3>Classroom</h3><p>Ваш кабинет: доска со всеми уроками, домашнее задание и вход на урок.</p></div>
+    <div class="card"><div class="em">🗓</div><h3>My Schedule</h3><p>Расписание ваших уроков.</p></div>
+    <div class="card"><div class="em">✍️</div><h3>Practice</h3><p>Грамматика из учебника: ответ проверяется сразу, с подсказкой, где ошибка. В <strong>Mistakes</strong> — ваши ошибки с уроков, чтобы их отработать.</p></div>
+    <div class="card"><div class="em">🔁</div><h3>Vocabulary</h3><p>Слова с уроков в карточках. Платформа сама подскажет, какие пора повторить.</p></div>
+    <div class="card"><div class="em">🎯</div><h3>Trainer</h3><p>Тренажёр: словарь и разговорная практика между уроками.</p></div>
+    <div class="card"><div class="em">📖</div><h3>Dictionary</h3><p>Перевод и произношение любого слова.</p></div>
+    <div class="card"><div class="em">💳</div><h3>Payment</h3><p>Сколько уроков осталось в пакете и продление.</p></div>
+    <div class="card"><div class="em">👤</div><h3>Profile</h3><p>Ваши данные, фото и Telegram.</p></div>
+  </div>
+  <figure>
+    <img src="/ielts/platform-practice.jpg" alt="Упражнение в разделе Practice" loading="lazy">
+    <figcaption>Practice: упражнения из учебника с мгновенной проверкой.</figcaption>
+  </figure>
+  <figure>
+    <img src="/ielts/platform-vocab.jpg" alt="Карточки со словами в разделе Vocabulary" loading="lazy">
+    <figcaption>Vocabulary: слова с ваших уроков — в карточках с повторением.</figcaption>
+  </figure>
 
-        <h3>✏️ Practice - Практика и упражнения</h3>
-        <p>Выполняйте упражнения и улучшайте свои навыки:</p>
-        <div class="feature-grid">
-            <div class="feature-box">
-                <span class="emoji">📖</span>
-                <strong>По юнитам</strong>
-                <p>Практикуйте материал каждой темы из учебника. Система автоматически проверяет ответы.</p>
-            </div>
-            <div class="feature-box">
-                <span class="emoji">❌</span>
-                <strong>По ошибкам</strong>
-                <p>Работайте с ошибками, которые вы делали на уроках. Система помогает вам не повторять их.</p>
-            </div>
-        </div>
+  <h2>Советы, чтобы всё шло гладко</h2>
+  <ul>
+    <li><strong>Наушники</strong> — так преподаватель слышит вас чище, и нет эха.</li>
+    <li><strong>Свежий браузер</strong>: Chrome, Safari или Edge. С телефона тоже можно.</li>
+    <li><strong>10 минут в день</strong> в Practice или Vocabulary между уроками дают больше, чем час раз в неделю.</li>
+    <li>Если связь плохая, выключите камеру — звук станет устойчивее.</li>
+  </ul>
 
-        <h3>📖 Vocabulary - Ваш словарь</h3>
-        <p>Учите и повторяйте слова эффективно:</p>
-        <div class="feature-grid">
-            <div class="feature-box">
-                <span class="emoji">⏰</span>
-                <strong>Spaced Repetition режим</strong>
-                <p>Система сама напомнит, когда нужно повторить слово для долгосрочного запоминания</p>
-            </div>
-            <div class="feature-box">
-                <span class="emoji">🎯</span>
-                <strong>Cram режим</strong>
-                <p>Интенсивная практика всех слов перед важным днем или тестом</p>
-            </div>
-        </div>
-        <p style="margin-top: 15px;">Слова можно добавлять со словаря во время уроков или из раздела Practice.</p>
+  <h2>Частые вопросы</h2>
+  <details><summary>Меня не слышно или не видно</summary><p>Нажмите на значок замка или камеры в адресной строке, разрешите камеру и микрофон и обновите страницу. Проверьте, что микрофон не занят другой программой (Zoom, Teams).</p></details>
+  <details><summary>Преподаватель ещё не зашёл</summary><p>Не закрывайте страницу — урок откроется сам, как только преподаватель начнёт. Если он задерживается больше 5 минут, на странице появится сообщение с контактом для связи.</p></details>
+  <details><summary>Как оплатить следующий пакет?</summary><p>В разделе <strong>Payment</strong>. Когда уроки в пакете заканчиваются, бот школы вежливо напомнит об этом.</p></details>
+  <details><summary>Нужно перенести урок</summary><p>Напишите своему преподавателю — он перенесёт урок, а бот пришлёт вам новое время.</p></details>
+  <details><summary>Забыл(а) пароль</summary><p>На странице входа нажмите «Forgot password» — придёт письмо со ссылкой для нового пароля.</p></details>
 
-        <h3>📊 Progress - Отслеживайте свой успех</h3>
-        <p>Видьте свой прогресс по разным темам и навыкам:</p>
-        <ul>
-            <li>Статистика выполненных упражнений по каждому юниту</li>
-            <li>Анализ ошибок и слабых мест</li>
-            <li>История вашего прогресса</li>
-            <li>Сравнение с прошлыми результатами</li>
-        </ul>
-
-        <h3>💳 Payment - Управление подпиской</h3>
-        <p>Следите за своей подпиской и оплатой:</p>
-        <ul>
-            <li>Информация о текущем пакете уроков</li>
-            <li>Сколько уроков осталось и когда истекает пакет</li>
-            <li>История платежей и счета</li>
-            <li>Оплата новых уроков</li>
-        </ul>
-    </div>
-
-    <div class="section">
-        <h2>Во время живого урока</h2>
-        <p>Когда вы присоединяетесь к уроку, у вас есть доступ к мощным инструментам:</p>
-        <div class="feature-grid">
-            <div class="feature-box">
-                <span class="emoji">🎨</span>
-                <strong>Интерактивная доска</strong>
-                <p>Видите все, что рисует и пишет учитель в реальном времени</p>
-            </div>
-            <div class="feature-box">
-                <span class="emoji">🔤</span>
-                <strong>Словарь во время урока</strong>
-                <p>Быстрый перевод любого слова с доски прямо во время урока</p>
-            </div>
-            <div class="feature-box">
-                <span class="emoji">📝</span>
-                <strong>Текстовое общение</strong>
-                <p>Отправляйте текст учителю если не можете говорить</p>
-            </div>
-            <div class="feature-box">
-                <span class="emoji">🎙️</span>
-                <strong>Аудио и видео</strong>
-                <p>Микрофон и камера для общения и практики произношения</p>
-            </div>
-            <div class="feature-box">
-                <span class="emoji">📚</span>
-                <strong>Учебники</strong>
-                <p>Открывайте учебники в отдельном окне для совместной работы</p>
-            </div>
-            <div class="feature-box">
-                <span class="emoji">📋</span>
-                <strong>Заметки об ошибках</strong>
-                <p>Видите исправления и ошибки, отмеченные учителем</p>
-            </div>
-        </div>
-    </div>
-
-    <div class="section">
-        <h2>Полезные советы для успеха</h2>
-
-        <div class="tip">
-            <strong>💡 Совет 1: Добавляйте слова в реальном времени</strong>
-            <p>Добавляйте новые слова в словарь прямо во время уроков. Они автоматически появятся в вашей практике и в системе повторения!</p>
-        </div>
-
-        <div class="tip">
-            <strong>💡 Совет 2: Используйте Practice by Mistakes</strong>
-            <p>Систематически работайте с вашими ошибками. Это самый эффективный способ улучшить слабые стороны.</p>
-        </div>
-
-        <div class="tip">
-            <strong>💡 Совет 3: Проверяйте прогресс регулярно</strong>
-            <p>Посматривайте на раздел Progress еженедельно. Видение своих улучшений мотивирует и помогает сосредоточиться на нужных областях.</p>
-        </div>
-
-        <div class="tip">
-            <strong>💡 Совет 4: Понимайте, почему ошибки</strong>
-            <p>Когда система показывает неправильный ответ, читайте объяснение. Часто там есть правило, которое помогает не повторить ошибку.</p>
-        </div>
-    </div>
-
-    <div class="section">
-        <h2>Часто задаваемые вопросы</h2>
-
-        <div class="faq-item">
-            <h4>❓ Где найти материалы с урока?</h4>
-            <p>Откройте раздел "Classroom" и нажмите на свой класс. Все доски, на которых работал учитель, будут видны в истории.</p>
-        </div>
-
-        <div class="faq-item">
-            <h4>❓ Как начать практиковать упражнения?</h4>
-            <p>Перейдите в "Practice", выберите юнит (тему) и выполняйте упражнения. Система автоматически проверяет правильность.</p>
-        </div>
-
-        <div class="faq-item">
-            <h4>❓ Как добавить слово в словарь?</h4>
-            <p>Во время урока нажмите на слово на доске и выберите "Add to Vocabulary". Слово тут же появится в разделе Vocabulary.</p>
-        </div>
-
-        <div class="faq-item">
-            <h4>❓ Что такое "Spaced Repetition"?</h4>
-            <p>Это система повторения слов в оптимальное время для долгосрочного запоминания. Раздел "Due Words" показывает слова для повторения сегодня.</p>
-        </div>
-
-        <div class="faq-item">
-            <h4>❓ Я допустил ошибку на уроке. Где ее видеть?</h4>
-            <p>Ошибки хранятся в Practice → Mistakes. Вы можете специально практиковать эти ошибки, чтобы избежать их в будущем.</p>
-        </div>
-
-        <div class="faq-item">
-            <h4>❓ Как мне узнать, когда закончится мой пакет уроков?</h4>
-            <p>Откройте раздел "Payment". Там указано, сколько уроков осталось и когда заканчивается текущий пакет.</p>
-        </div>
-    </div>
-
-    <div class="footer">
-        <div class="emoji">🚀</div>
-        <h3>Успехов в обучении!</h3>
-        <p>Если у вас есть вопросы, обратитесь к своему преподавателю</p>
-        <p style="margin-top: 15px; font-size: 13px; color: #999;">Advent Academy LMS • Версия 1.0</p>
-    </div>
+  <footer>Рады, что вы с нами 💚 До встречи на уроке!<br>Галина и команда Advent Academy</footer>
+</div>
 </body>
 </html>

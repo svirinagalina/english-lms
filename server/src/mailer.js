@@ -230,3 +230,57 @@ export function sendLessonLinkEmail({ to, name, what, teacher, when, link }) {
   const text = `Вы записаны: ${what}, ${when}${teacher ? `, преподаватель — ${teacher}` : ''}.\nРегистрироваться не нужно: откройте ссылку в назначенное время, введите имя — и вы в классе.\n${link}`
   return send({ to, subject: `${what} — ${when}`, html, text })
 }
+
+// A student from a trial who has paid (Galina, 2026-10-15): a warm welcome,
+// their invitation (when they haven't set a password yet) and a short guide to
+// the platform with real screenshots. Sent once (afterPayment.js).
+export function sendTrialWelcomeEmail({ to, name, teacherName, inviteLink, appUrl, support }) {
+  const app = appUrl ?? 'https://lms.advent-academy.online'
+  const pic = (file, alt) => `<img src="${app}/ielts/${file}" alt="${alt}" width="472" style="display:block;width:100%;max-width:472px;border-radius:12px;border:1px solid #d9e3e0;margin:12px 0 4px">`
+  const item = (emoji, title, body) => `<tr><td style="padding:8px 12px 8px 0;font-size:20px;vertical-align:top">${emoji}</td><td style="padding:8px 0;font-size:15px;line-height:1.5"><strong>${title}</strong> — ${body}</td></tr>`
+  const button = (href, label) => `<p style="margin:20px 0"><a href="${escapeHtml(href)}" style="display:inline-block;background:#14453f;color:#fff;text-decoration:none;padding:14px 24px;border-radius:10px;font-weight:700;font-size:16px">${label}</a></p>`
+  const html = `
+<div style="font-family:Manrope,-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;max-width:520px;margin:0 auto;padding:32px 24px;color:#14453f;background:#ffffff">
+  <div style="font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:#b5539a;font-weight:700">Advent Academy</div>
+  <h1 style="font-size:24px;line-height:1.25;margin:8px 0 12px">${escapeHtml(name || 'Здравствуйте')}, добро пожаловать! 🎉</h1>
+  <p style="font-size:16px;line-height:1.55;margin:0 0 8px">Спасибо, что выбрали нас — мы очень рады, что вы с нами 💚 Здесь всё, чтобы спокойно начать.</p>
+  ${inviteLink
+    ? `<div style="background:#ffd5ed;border-radius:14px;padding:16px 18px;margin:20px 0">
+         <strong style="font-size:16px">Шаг 1. Придумайте пароль</strong>
+         <p style="font-size:15px;line-height:1.5;margin:6px 0 0">Нажмите кнопку — и вы внутри. Дальше входите по этой почте: <strong>${escapeHtml(to)}</strong>. Доска и всё с пробного урока уже на месте.</p>
+         ${button(inviteLink, 'Придумать пароль и войти')}
+       </div>`
+    : `<p style="font-size:15px;line-height:1.55;margin:16px 0 0">Входите на платформу по почте <strong>${escapeHtml(to)}</strong> и паролю, который вы придумали.</p>${button(app, 'Открыть платформу')}`}
+  <h2 style="font-size:18px;margin:24px 0 8px">Что дальше</h2>
+  <table role="presentation" cellpadding="0" cellspacing="0" style="border-collapse:collapse">
+    ${item('🗓', 'Расписание', `${teacherName ? `преподаватель ${escapeHtml(teacherName)}` : 'ваш преподаватель'} свяжется с вами и поставит уроки — они появятся в разделе <strong>My Schedule</strong>.`)}
+    ${item('🔔', 'Напоминания в Telegram', 'откройте <strong>Profile → Connect Telegram</strong> и нажмите Start в боте школы — он напомнит о каждом уроке за 15 минут.')}
+    ${item('🎧', 'Перед уроком', 'зайдите за пару минут: в кабинете появится кнопка входа на урок. Лучше в наушниках и с хорошим интернетом — урок идёт прямо в браузере.')}
+  </table>
+  <h2 style="font-size:18px;margin:28px 0 4px">Короткий гид по платформе</h2>
+  ${pic('platform-board.jpg', 'Доска урока')}
+  <p style="font-size:13px;color:#5b7570;margin:0 0 12px">Доска урока: всё, что вы проходите с преподавателем, остаётся здесь.</p>
+  <table role="presentation" cellpadding="0" cellspacing="0" style="border-collapse:collapse">
+    ${item('🏠', 'Classroom', 'ваш кабинет: доска со всеми уроками, домашнее задание и вход на урок.')}
+    ${item('✍️', 'Practice', 'грамматика из учебника с мгновенной проверкой и подсказками, а в <strong>Mistakes</strong> — ваши ошибки с уроков, чтобы их отработать.')}
+    ${item('🔁', 'Vocabulary', 'слова с уроков в карточках: платформа сама подскажет, какие пора повторить.')}
+    ${item('📖', 'Dictionary', 'перевод и произношение любого слова — и прямо на доске: наведите на слово.')}
+    ${item('💳', 'Payment', 'сколько уроков осталось и продление пакета.')}
+    ${item('👤', 'Profile', 'ваши данные, фото и Telegram.')}
+  </table>
+  ${pic('platform-practice.jpg', 'Упражнения')}
+  <p style="font-size:13px;color:#5b7570;margin:0 0 12px">Practice: упражнения проверяются сразу, с подсказкой, где ошибка.</p>
+  <p style="font-size:15px;line-height:1.55;margin:20px 0 0">Подробный гид с картинками: <a href="${app}/student-guide.html" style="color:#b5539a">${app.replace(/^https?:\/\//, '')}/student-guide.html</a></p>
+  ${support ? `<p style="font-size:15px;line-height:1.55;margin:12px 0 0">Если что-то не получается — напишите нам: <strong>${escapeHtml(support)}</strong>. Поможем 🙂</p>` : ''}
+  <p style="font-size:15px;line-height:1.55;margin:24px 0 0">До встречи на уроке!<br>Галина и команда Advent Academy</p>
+</div>`
+  const text = [
+    `${name || 'Здравствуйте'}, добро пожаловать в Advent Academy!`,
+    inviteLink ? `Придумайте пароль и войдите: ${inviteLink} (вход — по почте ${to})` : `Входите на ${app} по почте ${to}.`,
+    `${teacherName ? `Преподаватель ${teacherName}` : 'Преподаватель'} свяжется с вами и поставит уроки — они появятся в My Schedule.`,
+    'Напоминания: Profile → Connect Telegram → Start в боте школы.',
+    `Гид по платформе: ${app}/student-guide.html`,
+    support ? `Вопросы: ${support}` : ''
+  ].filter(Boolean).join('\n')
+  return send({ to, subject: 'Добро пожаловать в Advent Academy! 🎉', html, text })
+}
