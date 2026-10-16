@@ -29,7 +29,6 @@ export const OFFER = {
     }
   ],
   expertNote: 'Также доступно обучение лично с Галиной Свириной — подробности уточните у вашего менеджера.',
-  guarantee: 'Передумали до начала занятий — вернём 100% оплаты, без условий.',
   // Stripe page where the customer enters the amount: the plan's rouble
   // price converted to euros at the Bank of Russia rate of the day.
   stripeLink: 'https://buy.stripe.com/6oU3cvace4Be4TpgX0bQY1M',

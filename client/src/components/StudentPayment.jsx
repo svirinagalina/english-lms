@@ -218,7 +218,6 @@ export default function StudentPayment({ lessonsOnly = false }) {
               : <div className="error">{paidResult.error ? `Не удалось проверить оплату: ${paidResult.error}` : 'Оплата не завершена. Попробуйте ещё раз.'}</div>
           )}
           <p className="muted small-hint">{OFFER.expertNote}</p>
-          <p className="muted small-hint">{OFFER.guarantee}</p>
         </div>
       )}
 
