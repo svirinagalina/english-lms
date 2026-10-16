@@ -26,7 +26,10 @@ export default function StudentHome({ classrooms }) {
     api.adventStatus().then(({ connected }) => setTrainer(connected)).catch(() => {})
   }, [])
 
-  const classroom = classrooms[0] ?? null
+  // The cabinet with a current teacher and a board (a former teacher's one
+  // is history after a change of teacher); the newest such one.
+  const rank = (c) => (c.former ? 0 : 2) + (c.boards > 0 ? 1 : 0)
+  const classroom = [...classrooms].reverse().sort((a, b) => rank(b) - rank(a))[0] ?? null
   const nextUnit = units?.find((u) => u.solved < u.total) ?? units?.[0] ?? null
   const due = sets?.reduce((n, s) => n + s.due, 0) ?? 0
   const words = sets?.find((s) => s.personal)

@@ -4,6 +4,7 @@ import { prisma } from '../db.js'
 import { limitedToSite, siteStudentIds, maySeeStudent } from '../partnerScope.js'
 import { requireAuth, requireRole, isAdmin } from '../auth.js'
 import { forgetBoard } from '../boardStore.js'
+import { settleDocuments } from '../docStore.js'
 import { randomBytes } from 'crypto'
 import { mkdir, writeFile } from 'fs/promises'
 import path from 'path'
@@ -33,6 +34,54 @@ export async function ensureClassroom(teacherId, studentId, schoolId) {
 export async function ensurePersonalSpace(teacherId, schoolId) {
   const existing = await prisma.classroom.findFirst({ where: { teacherId, studentId: null } })
   return existing ?? prisma.classroom.create({ data: { teacherId, studentId: null, schoolId } })
+}
+
+// A student moving from one teacher to another takes their board and their
+// Writing along, so the new teacher's cabinet opens on the same board the
+// student has always had. Nothing is deleted: lessons, summaries and mistakes
+// stay in the old cabinet as history. Only done when the new cabinet has no
+// board (or Writing) of its own yet — an Assign the new teacher already made wins.
+export async function carryStudentOver(fromRoom, toRoom) {
+  await settleDocuments(fromRoom.id, toRoom.id)
+  const result = await prisma.$transaction(async (tx) => {
+    await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${toRoom.id}))`
+    const attached = (room) => tx.board.findMany({
+      where: { scratch: false, OR: [{ classroomId: room.id }, { sharedWith: { some: { id: room.id } } }] },
+      select: { id: true, title: true, classroomId: true, classroom: { select: { studentId: true } }, sharedWith: { select: { id: true } } }
+    })
+    const moved = []
+    if (!(await attached(toRoom)).length) {
+      const shelf = await ensurePersonalSpace(toRoom.teacherId, toRoom.schoolId)
+      for (const board of await attached(fromRoom)) {
+        if (board.classroomId === fromRoom.id) {
+          // The student's own board: it simply changes cabinet.
+          await tx.board.update({ where: { id: board.id }, data: { classroomId: toRoom.id } })
+        } else if (board.classroom?.studentId === null && board.sharedWith.length === 1) {
+          // On the old teacher's shelf, shared with this student alone: it is
+          // the student's board, so it moves to the new teacher's shelf.
+          await tx.board.update({ where: { id: board.id }, data: { classroomId: shelf.id, sharedWith: { set: [{ id: toRoom.id }] } } })
+        } else {
+          // A pair/group board stays where it lives; this student follows it.
+          await tx.board.update({ where: { id: board.id }, data: { sharedWith: { disconnect: { id: fromRoom.id }, connect: { id: toRoom.id } } } })
+        }
+        moved.push(board.title)
+      }
+    }
+    const [oldDoc, newDoc] = await Promise.all([
+      tx.document.findUnique({ where: { classroomId: fromRoom.id } }),
+      tx.document.findUnique({ where: { classroomId: toRoom.id } })
+    ])
+    const empty = (doc) => !doc || !Array.isArray(doc.runs) || doc.runs.every((r) => !r?.text)
+    let writing = false
+    if (oldDoc && !empty(oldDoc) && empty(newDoc)) {
+      if (newDoc) await tx.document.delete({ where: { id: newDoc.id } })
+      await tx.document.update({ where: { id: oldDoc.id }, data: { classroomId: toRoom.id } })
+      writing = true
+    }
+    return { boards: moved, writing }
+  })
+  await settleDocuments(fromRoom.id, toRoom.id)
+  return result
 }
 
 // Held lessons count every classroom of the student (two teachers, a moved
@@ -111,13 +160,14 @@ classroomsRouter.get('/', async (req, res) => {
       teacher: { select: { id: true, name: true } },
       student: { select: { id: true, name: true, lessonsPaid: true, packageStartedAt: true, heldAdjust: true, trialAccessUntil: true } },
       sessions: { select: { id: true, startedAt: true, counted: true }, orderBy: { startedAt: 'asc' } },
-      _count: { select: { boards: true } }
+      _count: { select: { boards: true, sharedBoards: true } }
     },
     orderBy: { createdAt: 'asc' }
   })
 
   // A classroom whose teacher–student link was removed (the student moved to
-  // another teacher) is history: hidden unless lessons were held in it.
+  // another teacher) is history: hidden unless lessons were held in it or a
+  // board is still there (a student whose teacher was removed keeps it).
   const linked = new Set(links.map((l) => `${l.teacherId}:${l.studentId}`))
   const current = (classroom) => classroom.student === null || linked.has(`${classroom.teacherId}:${classroom.student.id}`)
 
@@ -129,12 +179,12 @@ classroomsRouter.get('/', async (req, res) => {
     isTestRoom: classroom.student === null,
     // A trial student past the three days without paid lessons (folded away in the list).
     trialOver: Boolean(classroom.student?.trialAccessUntil && classroom.student.trialAccessUntil < new Date() && !(classroom.student.lessonsPaid > 0)),
-    boards: classroom._count.boards,
+    boards: classroom._count.boards + classroom._count.sharedBoards,
     lastSession: classroom.sessions.at(-1)?.startedAt ?? null,
     progress: await packageProgress(classroom.student)
   })
 
-  res.json({ classrooms: await Promise.all(classrooms.filter((c) => c.student !== null && (current(c) || c.sessions.length > 0)).map(view)) })
+  res.json({ classrooms: await Promise.all(classrooms.filter((c) => c.student !== null && (current(c) || c.sessions.length > 0 || c._count.boards + c._count.sharedBoards > 0)).map(view)) })
 })
 
 // The student's home: the latest homework on their board, so it is one
@@ -145,8 +195,11 @@ classroomsRouter.get('/home', async (req, res) => {
   // student's board usually lives on the teacher's shelf, shared in).
   const boards = await prisma.board.findMany({
     where: { OR: [{ classroom: { studentId: req.user.id } }, { sharedWith: { some: { studentId: req.user.id } } }] },
-    select: { id: true, title: true, classroomId: true, elements: true, updatedAt: true, sharedWith: { where: { studentId: req.user.id }, select: { id: true } } }
+    select: { id: true, title: true, classroomId: true, elements: true, updatedAt: true, classroom: { select: { teacherId: true } }, sharedWith: { where: { studentId: req.user.id }, select: { id: true, teacherId: true } } }
   })
+  // After a change of teacher the old cabinet's board is history: the
+  // current teacher's homework comes first.
+  const teachers = new Set((await prisma.teacherStudent.findMany({ where: { studentId: req.user.id }, select: { teacherId: true } })).map((l) => l.teacherId))
   const isText = (e) => (e.type === 'text' || e.type === 'note') && typeof e.text === 'string'
   const clean = (text) => text.replace(/\{\{#[0-9a-f]{6}:([^}]*)\}\}/gi, '$1').replace(/\*\*|__|~~/g, '').trim()
   let homework = null
@@ -165,9 +218,11 @@ classroomsRouter.get('/home', async (req, res) => {
       .sort((a, b) => a.y - b.y || a.x - b.x)
       .map((e) => e.plain)]
       .filter(Boolean)
-    // Opened from the student's own classroom, where a shared board is listed too.
-    const candidate = { boardId: board.id, boardTitle: board.title, classroomId: board.sharedWith[0]?.id ?? board.classroomId, elementId: heading.id, updatedAt: board.updatedAt, lines: lines.slice(0, 6), more: Math.max(0, lines.length - 6) }
-    if (!homework || candidate.updatedAt > homework.updatedAt) homework = candidate
+    // Opened from the student's own cabinet (where a shared board is listed too).
+    const room = board.sharedWith.find((c) => teachers.has(c.teacherId)) ?? board.sharedWith[0] ?? { id: board.classroomId, teacherId: board.classroom.teacherId }
+    const current = teachers.has(room.teacherId)
+    const candidate = { boardId: board.id, boardTitle: board.title, classroomId: room.id, elementId: heading.id, updatedAt: board.updatedAt, current, lines: lines.slice(0, 6), more: Math.max(0, lines.length - 6) }
+    if (!homework || (candidate.current && !homework.current) || (candidate.current === homework.current && candidate.updatedAt > homework.updatedAt)) homework = candidate
   }
   res.json({ homework })
 })

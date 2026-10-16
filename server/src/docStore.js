@@ -70,3 +70,12 @@ export function replaceDocument(classroomId, runs) {
   docs.set(classroomId, runs)
   scheduleSave(classroomId)
 }
+
+// Saves what is pending for these cabinets and forgets the cached copies, so
+// the next open reads the database (a document moved to another cabinet).
+export async function settleDocuments(...classroomIds) {
+  for (const id of classroomIds) {
+    if (saveTimers.has(id)) { clearTimeout(saveTimers.get(id)); await save(id) }
+    docs.delete(id)
+  }
+}

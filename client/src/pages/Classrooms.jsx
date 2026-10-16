@@ -124,7 +124,7 @@ export default function Classrooms() {
           {isStaff && (
             <div className="row-actions">
               <button className="ghost" onClick={() => navigate(`/classroom/${classroom.id}`)}>Open</button>
-              {classroom.teacher?.id === user.id && (
+              {classroom.teacher?.id === user.id && !classroom.former && (
                 <>
                   <button className="ghost" onClick={() => startTrial(classroom)} disabled={startingFor === classroom.id} title="A call with the placement test on the board; not counted as a paid lesson">Trial lesson</button>
                   <button onClick={() => startLesson(classroom)} disabled={startingFor === classroom.id}>

@@ -277,9 +277,35 @@ export default function People() {
     }
   }
 
-  const unlink = async (teacherId, studentId) => {
-    await api.unlinkStudent(teacherId, studentId)
-    await refresh()
+  // What a change of teacher moved to the new cabinet, said once.
+  const [moved, setMoved] = useState(null)
+  const sayMoved = (person, result, teacherName) => {
+    const what = [result?.boards?.length ? `board «${result.boards.join('», «')}»` : null, result?.writing ? 'Writing' : null].filter(Boolean)
+    setMoved(what.length ? `${person.name}: ${what.join(' and ')} moved to ${teacherName}. Past lessons stay in the old cabinet.` : null)
+  }
+  const teacherName = (id) => teachers.find((t) => t.id === id)?.name ?? 'the teacher'
+
+  const unlink = async (person, teacherId) => {
+    const rest = person.teachers.filter((t) => t.id !== teacherId)
+    if (!window.confirm(`Remove ${teacherName(teacherId)} from ${person.name}?\n\nNothing is deleted: past lessons stay in the old cabinet.${rest.length ? ` The board and Writing go to ${rest.at(-1).name} if that cabinet has no board yet.` : ' The student keeps their board.'}`)) return
+    setError('')
+    try {
+      const { moved: result } = await api.unlinkStudent(teacherId, person.id)
+      sayMoved(person, result, rest.at(-1)?.name)
+      await refresh()
+    } catch (err) { setError(err.message) }
+  }
+
+  const changeTeacher = async (person, from, to) => {
+    if (!to || to === from) return
+    if (!window.confirm(`${person.name}: ${teacherName(from)} → ${teacherName(to)}?\n\nThe board and Writing move to ${teacherName(to)}; past lessons stay in the old cabinet.`)) return
+    setError('')
+    try {
+      const { moved: result } = await api.changeTeacher(person.id, from, to)
+      sayMoved(person, result, teacherName(to))
+      setLinking(null)
+      await refresh()
+    } catch (err) { setError(err.message) }
   }
 
   const [editing, setEditing] = useState(null) // { id, name, email }
@@ -355,8 +381,16 @@ export default function People() {
     .sort((a, b) => (b.trialRequestedAt ?? '').localeCompare(a.trialRequestedAt ?? '') || b.createdAt.localeCompare(a.createdAt))
   const requests = freeUsers.filter((p) => p.trialRequestedAt).length
 
-  // The student's cabinet (board, Writing, lessons paid…): mine first.
-  const cabinetOf = (person) => (person.classrooms?.find((c) => c.teacherId === user.id) ?? person.classrooms?.[0])?.id
+  const admin = ['OWNER', 'PARTNER'].includes(user.role)
+  // The student's cabinets (board, Writing, lessons paid…): with a current
+  // teacher first (mine before others), then old ones kept as history.
+  const cabinetsOf = (person) => {
+    const current = new Set(person.teachers?.map((t) => t.id))
+    return [...(person.classrooms ?? [])]
+      .map((c) => ({ ...c, current: current.has(c.teacherId), teacher: teacherName(c.teacherId) }))
+      .sort((a, b) => (b.current - a.current) || ((b.teacherId === user.id) - (a.teacherId === user.id)))
+  }
+  const cabinetOf = (person) => cabinetsOf(person)[0]?.id
   // Only the administrator hands out roles.
   const roleSelect = (person) => user.role === 'OWNER' && (
     <select
@@ -381,6 +415,12 @@ export default function People() {
       {!mail.enabled && (
         <div className="notice">
           Email delivery is off — invitations still work, but you need to send the link yourself.
+        </div>
+      )}
+
+      {moved && (
+        <div className="notice">
+          {moved} <button type="button" className="link-button" onClick={() => setMoved(null)}>OK</button>
         </div>
       )}
 
@@ -609,7 +649,10 @@ export default function People() {
         {students.length === 0 && <p className="muted">No students yet. Send an invitation above — the student sets a password from the link and appears here.</p>}
 
         <div className="list">
-          {students.map((person) => (
+          {students.map((person) => {
+            const cabinets = cabinetsOf(person)
+            const others = teachers.filter((t) => !person.teachers?.some((x) => x.id === t.id))
+            return (
             <div key={person.id} className="row column">
               <div className="row-main">
                 <div>
@@ -622,18 +665,23 @@ export default function People() {
                   </div>
                 </div>
                 <div className="row-actions">
-                  {cabinetOf(person) && (
-                    <button onClick={() => navigate(`/classroom/${cabinetOf(person)}`)} title="Board, Writing, lessons paid and held">Open cabinet</button>
+                  {cabinets[0] && (
+                    <button onClick={() => navigate(`/classroom/${cabinets[0].id}`)} title="Board, Writing, lessons paid and held">Open cabinet</button>
                   )}
+                  {cabinets[0] && (
+                    <button className="ghost" onClick={() => navigate(`/classroom/${cabinets[0].id}?board=default`)} title="The student's board">Board</button>
+                  )}
+                  <button className="ghost" onClick={() => navigate(`/progress/${person.id}`)} title="Grammar, vocabulary and mistakes">Progress</button>
+                  {user.role === 'OWNER' && <button className="ghost" onClick={() => navigate(`/people/${person.id}/activity`)} title="Sections opened, practice, words, lessons, reports">Activity</button>}
                   {roleSelect(person)}
                   <button className="ghost" onClick={() => setEditing(editing?.id === person.id ? null : { id: person.id, name: person.name, email: person.email })}>
                     {editing?.id === person.id ? 'Close' : 'Edit'}
                   </button>
-                  {user.role === 'OWNER' && <button
+                  {admin && <button
                     className="ghost"
                     onClick={() => setLinking(linking === person.id ? null : person.id)}
                   >
-                    {linking === person.id ? 'Close' : 'Change teacher'}
+                    {linking === person.id ? 'Close' : 'Teachers'}
                   </button>}
                   {user.role === 'OWNER' && (
                     <button className="ghost" onClick={() => removePerson(person.id, person.name, person.role)}>
@@ -646,27 +694,42 @@ export default function People() {
               {editForm(person)}
               {linking === person.id && (
                 <div className="link-editor">
-                  <div className="muted">Link to:</div>
-                  <div className="row-actions">
-                    {teachers.map((teacher) => {
-                      const linked = person.teachers?.some((t) => t.id === teacher.id)
-                      return (
-                        <button
-                          key={teacher.id}
-                          className={linked ? '' : 'ghost'}
-                          onClick={() =>
-                            linked ? unlink(teacher.id, person.id) : link(person.id, teacher.id)
-                          }
-                        >
-                          {teacher.name}{teacher.id === user.id ? ' (me)' : ''}{linked ? ' ✓' : ''}
+                  {person.teachers?.map((t) => (
+                    <div key={t.id} className="row-actions">
+                      <strong>{t.name}{t.id === user.id ? ' (me)' : ''}</strong>
+                      {others.length > 0 && (
+                        <select value="" onChange={(e) => changeTeacher(person, t.id, e.target.value)} title="The board and Writing move to the new teacher">
+                          <option value="">Change to…</option>
+                          {others.map((o) => <option key={o.id} value={o.id}>{o.name}{o.id === user.id ? ' (me)' : ''}</option>)}
+                        </select>
+                      )}
+                      <button className="ghost" onClick={() => unlink(person, t.id)}>Remove teacher</button>
+                    </div>
+                  ))}
+                  {others.length > 0 && (
+                    <div className="row-actions">
+                      <span className="muted">{person.teachers?.length ? 'Add another teacher:' : 'Link to a teacher:'}</span>
+                      {others.map((teacher) => (
+                        <button key={teacher.id} className="ghost" onClick={() => link(person.id, teacher.id)}>
+                          + {teacher.name}{teacher.id === user.id ? ' (me)' : ''}
                         </button>
-                      )
-                    })}
-                  </div>
+                      ))}
+                    </div>
+                  )}
+                  {cabinets.some((c) => !c.current) && (
+                    <div className="row-actions">
+                      <span className="muted">Past cabinets (history):</span>
+                      {cabinets.filter((c) => !c.current).map((c) => (
+                        <Link key={c.id} className="button-link" style={{ marginTop: 0 }} to={`/classroom/${c.id}`}>with {c.teacher}</Link>
+                      ))}
+                    </div>
+                  )}
+                  <div className="muted">Changing a teacher moves the student's board and Writing to the new teacher; past lessons stay in the old cabinet. Nothing is deleted.</div>
                 </div>
               )}
             </div>
-          ))}
+            )
+          })}
         </div>
       </Panel>
       <SiteFooter />

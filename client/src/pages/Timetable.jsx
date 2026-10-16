@@ -54,10 +54,11 @@ export default function Timetable() {
       const shared = ids.length > 1
         ? rowsOf(ids[0]).find((row) => ids.every((sid) => boards.some((b) => b.id === row.id && b.studentId === sid)))
         : null
-      const board = shared ?? (ids.length ? rowsOf(ids[0])[0] : null)
+      // A current cabinet, not one kept as history after a change of teacher.
       const classroom = ids.length === 1
-        ? [...classrooms].filter((c) => c.student?.id === ids[0]).sort((a, b) => (a.teacher?.id === user.id ? -1 : 0) - (b.teacher?.id === user.id ? -1 : 0))[0]
+        ? [...classrooms].filter((c) => c.student?.id === ids[0]).sort((a, b) => (a.former - b.former) || ((a.teacher?.id === user.id ? -1 : 0) - (b.teacher?.id === user.id ? -1 : 0)))[0]
         : null
+      const board = shared ?? (ids.length ? (rowsOf(ids[0]).find((b) => b.classroomId === classroom?.id) ?? rowsOf(ids[0])[0]) : null)
       const { call } = await api.createCall({
         ...(classroom ? { classroomId: classroom.id } : {}),
         ...(board ? { boardId: board.id } : {}),

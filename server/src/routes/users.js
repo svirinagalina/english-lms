@@ -4,6 +4,7 @@ import { limitedToSite, peopleScope, siteStudentIds, maySeeStudent } from '../pa
 import { requireAuth, requireRole, isAdmin } from '../auth.js'
 import { enrollStudent, moveStudent, unenrollStudent } from '../advent.js'
 import { loadBoard } from '../boardStore.js'
+import { ensureClassroom, carryStudentOver } from './classrooms.js'
 
 export const usersRouter = Router()
 
@@ -30,7 +31,10 @@ const personView = (user) => ({
   teachers: user.studentLinks?.map((link) => ({ id: link.teacher.id, name: link.teacher.name })),
   students: user.teacherLinks?.map((link) => ({ id: link.student.id, name: link.student.name })),
   // A student's cabinets (one per teacher), for "Open cabinet" in People.
-  classrooms: user.studentClassrooms?.map((c) => ({ id: c.id, teacherId: c.teacherId }))
+  // A cabinet of a former teacher with nothing in it is not worth listing.
+  classrooms: user.studentClassrooms
+    ?.filter((c) => user.studentLinks?.some((l) => l.teacher.id === c.teacherId) || c._count.sessions + c._count.boards + c._count.sharedBoards > 0)
+    .map((c) => ({ id: c.id, teacherId: c.teacherId }))
 })
 
 const SELECT = {
@@ -39,7 +43,7 @@ const SELECT = {
   free: true, viaLink: true, trialRequestedAt: true, trialRequestNote: true, messenger: true, phone: true,
   studentLinks: { include: { teacher: { select: { id: true, name: true } } } },
   teacherLinks: { include: { student: { select: { id: true, name: true } } } },
-  studentClassrooms: { select: { id: true, teacherId: true } }
+  studentClassrooms: { select: { id: true, teacherId: true, _count: { select: { sessions: true, boards: true, sharedBoards: true } } } }
 }
 
 // Everyone sees a different slice: the owner sees the school, a teacher sees
@@ -222,6 +226,21 @@ usersRouter.post('/links', requireRole('OWNER'), async (req, res) => {
   res.status(201).json({ ok: true })
 })
 
+// Taking a teacher away from a student. Nothing is deleted: the old cabinet
+// keeps its lessons as history, and the student's board and Writing move to
+// the cabinet of the teacher they still have (the newest one), if that
+// cabinet has no board yet. With no teacher left, the board stays where it
+// is and the student still sees it.
+async function removeTeacher(teacherId, studentId, schoolId) {
+  const link = await prisma.teacherStudent.findUnique({ where: { teacherId_studentId: { teacherId, studentId } } })
+  if (!link) return { boards: [], writing: false }
+  await prisma.teacherStudent.delete({ where: { id: link.id } })
+  const fromRoom = await prisma.classroom.findUnique({ where: { teacherId_studentId: { teacherId, studentId } } })
+  const next = await prisma.teacherStudent.findFirst({ where: { studentId }, orderBy: { createdAt: 'desc' } })
+  if (!fromRoom || !next) return { boards: [], writing: false }
+  return carryStudentOver(fromRoom, await ensureClassroom(next.teacherId, studentId, schoolId))
+}
+
 usersRouter.delete('/links/:teacherId/:studentId', requireRole('OWNER'), async (req, res) => {
   const { teacherId, studentId } = req.params
 
@@ -231,8 +250,31 @@ usersRouter.delete('/links/:teacherId/:studentId', requireRole('OWNER'), async (
   if (!teacher) return res.status(404).json({ error: 'Teacher not found' })
   if (!(await maySeeStudent(req.user, studentId))) return res.status(404).json({ error: 'Student not found' })
 
-  await prisma.teacherStudent.deleteMany({ where: { teacherId, studentId } })
-  res.json({ ok: true })
+  const moved = await removeTeacher(teacherId, studentId, req.user.schoolId)
+  res.json({ ok: true, moved })
+})
+
+// Change of teacher in one step: the new one is linked, the old one removed,
+// and the student's board and Writing go to the new teacher's cabinet.
+usersRouter.post('/:id/change-teacher', requireRole('OWNER'), async (req, res) => {
+  const { from, to } = req.body ?? {}
+  if (typeof from !== 'string' || typeof to !== 'string' || from === to) return res.status(400).json({ error: 'from and to are required' })
+  const [teacher, student] = await Promise.all([
+    prisma.user.findFirst({ where: { id: to, schoolId: req.user.schoolId, role: { in: ['OWNER', 'PARTNER', 'TEACHER'] } } }),
+    prisma.user.findFirst({ where: { id: req.params.id, schoolId: req.user.schoolId, role: 'STUDENT' } })
+  ])
+  if (!teacher) return res.status(404).json({ error: 'Teacher not found' })
+  if (!student || !(await maySeeStudent(req.user, student.id))) return res.status(404).json({ error: 'Student not found' })
+  if (!(await prisma.teacherStudent.findUnique({ where: { teacherId_studentId: { teacherId: from, studentId: student.id } } }))) {
+    return res.status(404).json({ error: 'This teacher is not linked to the student' })
+  }
+
+  // Re-linking an old teacher counts as the newest link, so the board goes there.
+  await prisma.teacherStudent.deleteMany({ where: { teacherId: to, studentId: student.id } })
+  await prisma.teacherStudent.create({ data: { teacherId: to, studentId: student.id } })
+  await ensureClassroom(to, student.id, req.user.schoolId)
+  const moved = await removeTeacher(from, student.id, req.user.schoolId)
+  res.json({ ok: true, moved })
 })
 
 // Only the owner hands out roles; a partner cannot promote or demote anyone.

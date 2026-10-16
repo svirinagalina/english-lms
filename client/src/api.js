@@ -74,6 +74,8 @@ export const api = {
     request('/users/links', { method: 'POST', body: { teacherId, studentId } }),
   unlinkStudent: (teacherId, studentId) =>
     request(`/users/links/${teacherId}/${studentId}`, { method: 'DELETE' }),
+  changeTeacher: (studentId, from, to) =>
+    request(`/users/${studentId}/change-teacher`, { method: 'POST', body: { from, to } }),
 
   listInvites: () => request('/invites'),
   createInvite: (body) => request('/invites', { method: 'POST', body }),

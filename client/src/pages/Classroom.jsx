@@ -207,6 +207,27 @@ export default function Classroom() {
     await refresh()
   }
 
+  // A link (homework, a push, a lesson summary, the mistake notebook) can
+  // name a board that lives in another of this person's cabinets now — the
+  // student changed teacher, or it was assigned elsewhere. Go to the cabinet
+  // that has it; failing that, open the student's own board instead of nothing.
+  const wanted = openBoardId && openBoardId !== 'default' && classroom?.id === id && !classroom.boards.some((b) => b.id === openBoardId) ? openBoardId : null
+  useEffect(() => {
+    if (!wanted) return
+    let cancelled = false
+    api.allBoards().then(({ boards }) => {
+      if (cancelled) return
+      const rows = boards.filter((b) => b.id === wanted)
+      const row = rows.find((b) => classroom.student && b.studentId === classroom.student.id) ?? rows.find((b) => b.studentId) ?? rows[0]
+      if (row && row.classroomId !== id) {
+        navigate(`/classroom/${row.classroomId}?${searchParams.toString()}`, { replace: true })
+      } else if (classroom.student && classroom.boards[0]) {
+        setOpenBoardId(classroom.boards[0].id)
+      }
+    }).catch(() => {})
+    return () => { cancelled = true }
+  }, [wanted, id])
+
   if (error && !classroom) {
     return (
       <div className="centered">
