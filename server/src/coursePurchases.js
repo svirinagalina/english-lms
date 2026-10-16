@@ -66,6 +66,30 @@ async function telegramAccess(chatId, { course, user, until }) {
 }
 
 // t.me/<bot>?start=co_<orderId>, shown right after paying.
+// Bought courses of these people, for People and Activity: which course, until
+// when, how it was paid (and how much, from the order that opened it).
+export async function coursesOf(userIds) {
+  const result = new Map()
+  if (!userIds.length) return result
+  const [accesses, orders] = await Promise.all([
+    prisma.courseAccess.findMany({ where: { userId: { in: userIds } }, orderBy: { until: 'desc' }, select: { userId: true, courseId: true, until: true, source: true, course: { select: { title: true } } } }),
+    prisma.courseOrder.findMany({ where: { userId: { in: userIds }, status: 'granted' }, orderBy: { createdAt: 'desc' }, select: { userId: true, courseId: true, method: true, rub: true, amountCents: true, currency: true, createdAt: true } })
+  ])
+  for (const a of accesses) {
+    const order = orders.find((o) => o.userId === a.userId && o.courseId === a.courseId)
+    const list = result.get(a.userId) ?? []
+    list.push({
+      title: a.course.title,
+      until: a.until,
+      source: a.source,
+      paidAt: order?.createdAt ?? null,
+      amount: order?.amountCents != null && order.currency ? `${(order.amountCents / 100).toFixed(2)} ${order.currency.toUpperCase()}` : order ? `${order.rub} ₽` : null
+    })
+    result.set(a.userId, list)
+  }
+  return result
+}
+
 export const telegramLinkFor = (orderId) => startLink(`co_${orderId}`)
 
 onCourseStart(async ({ chatId, orderId }) => {

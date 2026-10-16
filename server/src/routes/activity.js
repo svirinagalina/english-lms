@@ -2,6 +2,7 @@ import { Router } from 'express'
 import { prisma } from '../db.js'
 import { requireAuth, requireRole, isAdmin } from '../auth.js'
 import { limitedToSite, peopleScope, siteStudentIds, maySeeStudent } from '../partnerScope.js'
+import { coursesOf } from '../coursePurchases.js'
 import { generateRecurringInstances } from './personal.js'
 
 // Who opened which part of the platform, and what they did there — for the
@@ -105,8 +106,10 @@ activityRouter.get('/people/:id', requireRole('OWNER', 'PARTNER', 'TEACHER'), as
 
   const extra = user.role === 'STUDENT' ? await studentExtras(user) : await teacherExtras(user)
   const sessions = classrooms.flatMap((c) => c.sessions)
+  const courses = (await coursesOf([user.id])).get(user.id) ?? []
   res.json({
     user,
+    courses,
     sections: [...sectionMap.values()].sort((a, b) => b.lastAt - a.lastAt),
     timeline: timeline.slice(0, 30),
     work: {

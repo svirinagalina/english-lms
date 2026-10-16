@@ -32,7 +32,7 @@ export default function PersonActivity() {
 
   if (error) return <div className="page"><Nav title="Activity" back={back} /><div className="error">{error}</div></div>
   if (!data) return <div className="centered">Loading…</div>
-  const { user, sections, timeline, work, reports, billing, teachers, contacts, plan, teaching } = data
+  const { user, courses, sections, timeline, work, reports, billing, teachers, contacts, plan, teaching } = data
   const { practice, mistakes, vocabulary, lessons } = work
   // A section row opens that place for this student, where staff can see it.
   const room = lessons.classrooms[0]
@@ -71,6 +71,13 @@ export default function PersonActivity() {
               {[contacts?.messenger, contacts?.phone, contacts?.city, contacts?.timezone].filter(Boolean).join(' · ') || 'no contacts given'}
             </div>
           )}
+          {courses?.map((c) => (
+            <div key={c.title} className="muted">
+              <span className={`paid-badge ${new Date(c.until) > new Date() ? 'active' : ''}`}>
+                Course «{c.title}» {new Date(c.until) > new Date() ? 'until' : 'ended'} {date(c.until)} · {{ stripe: 'Stripe', transfer: 'card transfer', manual: 'opened by hand' }[c.source] ?? c.source}{c.amount ? ` · ${c.amount}` : ''}{c.paidAt ? ` · paid ${date(c.paidAt)}` : ''}
+              </span>
+            </div>
+          ))}
         </div>
         <div className="row-actions">
           {lessons.classrooms.map((c) => (

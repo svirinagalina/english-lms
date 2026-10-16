@@ -171,6 +171,20 @@ function TrialContacts({ contacts }) {
   )
 }
 
+const COURSE_PAID = { stripe: 'Stripe', transfer: 'card transfer', manual: 'opened by hand' }
+
+// A course a free user bought on their own: which, until when, how paid.
+function CourseBadge({ course }) {
+  const active = new Date(course.until) > new Date()
+  return (
+    <div className="muted">
+      <span className={`paid-badge ${active ? 'active' : ''}`}>
+        Course «{course.title}» {active ? 'until' : 'ended'} {new Date(course.until).toLocaleDateString()} · {COURSE_PAID[course.source] ?? course.source}{course.amount ? ` · ${course.amount}` : ''}{course.paidAt ? ` · paid ${new Date(course.paidAt).toLocaleDateString()}` : ''}
+      </span>
+    </div>
+  )
+}
+
 export default function People() {
   const { user } = useAuth()
   const [people, setPeople] = useState([])
@@ -413,8 +427,9 @@ export default function People() {
                     <div className="muted">
                       {person.plan
                         ? <span className="paid-badge active">{PLAN_NAMES[person.plan.id]} until {new Date(person.plan.until).toLocaleDateString()}{person.plan.source === 'manual' ? ' · by card' : ' · Stripe'}</span>
-                        : 'Free plan'}
+                        : person.courses?.length ? null : 'Free plan'}
                     </div>
+                    {person.courses?.map((c) => <CourseBadge key={c.title} course={c} />)}
                     {person.trialRequestedAt && (
                       <div className="free-request">
                         <span className="paid-badge active">Trial lesson requested {new Date(person.trialRequestedAt).toLocaleDateString()}</span>
