@@ -177,7 +177,6 @@ function BuyDialog({ onClose }) {
               <span>Переведите {shop.priceRub.toLocaleString('ru-RU')} ₽ на карту</span>
               <strong>{formatCard(details.card)}</strong>
               {details.cardNote && <span>{details.cardNote}</span>}
-              {details.note && <span className="iel-modal-note">{details.note}</span>}
               <button type="button" className="iel-link" onClick={() => { navigator.clipboard?.writeText(details.card).then(() => setCopied(true)).catch(() => {}) }}>{copied ? 'Скопировано ✓' : 'Скопировать номер'}</button>
             </div>
             <p className="iel-modal-note">После перевода оставьте почту — на неё откроем курс.</p>
