@@ -18,6 +18,7 @@ import PendingTrialReports from '../components/PendingTrialReports'
 import ActivityHeatmap from '../components/ActivityHeatmap'
 import TrainerProgress from '../components/TrainerProgress'
 import StudentSettings from '../components/StudentSettings'
+import StudentTeachers from '../components/StudentTeachers'
 
 // A student from a trial lesson link has no email or password yet. The
 // teacher invites them as before — the invitation goes to the same account,
@@ -431,6 +432,9 @@ export default function Classroom() {
 
       {isStaff && !isPersonal && classroom.student?.viaLink && <InviteTrialStudent student={classroom.student} />}
       {isStaff && !isPersonal && classroom.student && <StudentSettings studentId={classroom.student.id} onChanged={refresh} />}
+      {['OWNER', 'PARTNER'].includes(user.role) && !isPersonal && classroom.student && (
+        <StudentTeachers studentId={classroom.student.id} classroomId={id} teacherId={classroom.teacher.id} onMoved={(next) => navigate(`/classroom/${next}`)} />
+      )}
 
       {!isPersonal && isStaff && classroom.contacts && (() => {
         // What the student filled in on their own profile page.
