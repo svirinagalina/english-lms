@@ -921,6 +921,10 @@ model AdventLesson {
   source          String    @default("advent")
   // Where a platform booking came from: utm_* and ref of the booking page.
   utm             Json?
+  // Taken off People → «Пробные уроки с сайта» for a student who paid: the
+  // booking stays (it still makes them a student from Maxim's site — card,
+  // partner's view, bot), only the list stops showing it.
+  hiddenAt        DateTime?
   createdAt       DateTime  @default(now())
   updatedAt       DateTime  @updatedAt
 

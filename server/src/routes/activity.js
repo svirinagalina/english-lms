@@ -258,7 +258,7 @@ async function teacherExtras(user) {
 activityRouter.get('/trial-funnel', requireRole('OWNER', 'PARTNER'), async (req, res) => {
   const since = new Date(Date.now() - 45 * 86400000)
   const rows = await prisma.adventLesson.findMany({
-    where: { kind: 'trial', startsAt: { gte: since }, ...(limitedToSite(req.user) ? { source: { not: 'platform' } } : {}) },
+    where: { kind: 'trial', startsAt: { gte: since }, hiddenAt: null, ...(limitedToSite(req.user) ? { source: { not: 'platform' } } : {}) },
     orderBy: { startsAt: 'desc' }
   })
   const teacherIds = [...new Set(rows.map((r) => r.teacherId))]
@@ -288,8 +288,10 @@ activityRouter.get('/trial-funnel', requireRole('OWNER', 'PARTNER'), async (req,
       if (twin) twins[r.id] = { id: twin.id, name: twin.name, email: twin.email }
     }
   }
+  // A student who paid has moved on to Students (Galina, 2026-10-16): the
+  // list is for trials still on their way.
   res.json({
-    trials: rows.filter((r) => T[r.teacherId]).map((r) => {
+    trials: rows.filter((r) => T[r.teacherId] && !(S[r.studentUserId]?.lessonsPaid > 0)).map((r) => {
       const s = r.studentUserId ? S[r.studentUserId] : null
       const report = reports.filter((x) => x.studentId === r.studentUserId && x.publishedAt).sort((a, b) => b.publishedAt - a.publishedAt)[0] ?? null
       return {

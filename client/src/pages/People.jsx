@@ -191,7 +191,7 @@ export default function People() {
   }
   // A test or duplicate booking: off the platform, nobody is told.
   const removeBooking = async (t) => {
-    if (!window.confirm(`Убрать запись «${t.student.name}» (${shortWhen(t.startsAt)}) с платформы?\n\nУрок исчезнет из Timetable и из этого списка, ученику ничего не придёт. Если урок настоящий, отмените его в Timetable — тогда ученику придёт сообщение.`)) return
+    if (!window.confirm(`Убрать запись «${t.student.name}» (${shortWhen(t.startsAt)}) с платформы?\n\nУрок исчезнет из Timetable и из этого списка, ученику ничего не придёт. Если урок настоящий, отмените его в Timetable — тогда ученику придёт сообщение.\n\nУченик, который уже оплатил, остаётся в Students со всем доступом — запись просто пропадёт из этого списка.`)) return
     try {
       await api.removeTrialBooking(t.id)
       setFunnel((list) => list.filter((x) => x.id !== t.id))

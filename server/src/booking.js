@@ -350,6 +350,17 @@ bookingRouter.delete('/lessons/:id', requireAuth, requireRole('OWNER', 'PARTNER'
   const lesson = await prisma.adventLesson.findUnique({ where: { id: req.params.id } })
   const teacher = lesson ? await prisma.user.findUnique({ where: { id: lesson.teacherId }, select: { schoolId: true } }) : null
   if (!lesson || teacher?.schoolId !== req.user.schoolId) return res.status(404).json({ error: 'Not found' })
+  // A student who paid stays exactly as they are: the booking is only hidden
+  // from the trial list, so they remain a student from Maxim's site (card,
+  // partner's view, bot) and nothing about their access changes.
+  if (lesson.studentUserId) {
+    const paid = await prisma.user.findUnique({ where: { id: lesson.studentUserId }, select: { lessonsPaid: true, plan: true, planUntil: true } })
+    const bought = await prisma.offerPurchase.findFirst({ where: { userId: lesson.studentUserId }, select: { id: true } })
+    if (paid?.lessonsPaid > 0 || bought || (paid?.plan && paid.planUntil > new Date())) {
+      await prisma.adventLesson.update({ where: { id: lesson.id }, data: { hiddenAt: new Date() } })
+      return res.json({ ok: true, hidden: true, accountRemoved: false })
+    }
+  }
   if (lesson.calendarEventId) await prisma.userCalendarEvent.deleteMany({ where: { id: lesson.calendarEventId } })
   await prisma.adventLesson.delete({ where: { id: lesson.id } })
   // Removed for good: neither Maxim's next event about it nor the

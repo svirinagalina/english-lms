@@ -1,0 +1,1 @@
+ALTER TABLE "AdventLesson" ADD COLUMN "hiddenAt" TIMESTAMP(3);
