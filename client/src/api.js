@@ -182,6 +182,11 @@ export const api = {
   adventProgress: (classroomId) => request(`/advent/progress${classroomId ? `?classroomId=${encodeURIComponent(classroomId)}` : ''}`),
   adventSettings: () => request('/settings/advent'),
   saveAdventKey: (key) => request('/settings/advent', { method: 'PUT', body: { key } }),
+  homeworkDocs: (classroomId) => request(`/classrooms/${classroomId}/homework-docs`),
+  homeworkDoc: (classroomId, docId) => request(`/classrooms/${classroomId}/homework-docs/${docId}`),
+  createHomeworkDoc: (classroomId, title) => request(`/classrooms/${classroomId}/homework-docs`, { method: 'POST', body: { title } }),
+  renameHomeworkDoc: (classroomId, docId, title) => request(`/classrooms/${classroomId}/homework-docs/${docId}`, { method: 'PATCH', body: { title } }),
+  deleteHomeworkDoc: (classroomId, docId) => request(`/classrooms/${classroomId}/homework-docs/${docId}`, { method: 'DELETE' }),
   uploadWritingImage: (classroomId, data) =>
     request(`/classrooms/${classroomId}/writing/images`, { method: 'POST', body: { data } }),
   createCall: (body) => request('/calls', { method: 'POST', body }),

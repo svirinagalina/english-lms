@@ -26,8 +26,21 @@ export const runsSchema = z.array(runSchema).max(5000).refine(
 const docs = new Map()
 const saveTimers = new Map()
 
+// A key is a classroom id (its one Writing document) or "hw:<id>" for a
+// homework document.
+export const HOMEWORK_PREFIX = 'hw:'
+const homeworkId = (key) => key.startsWith(HOMEWORK_PREFIX) ? key.slice(HOMEWORK_PREFIX.length) : null
+
 export async function loadDocument(classroomId) {
   if (docs.has(classroomId)) return docs.get(classroomId)
+  const hwId = homeworkId(classroomId)
+  if (hwId) {
+    const record = await prisma.homeworkDoc.findUnique({ where: { id: hwId } })
+    if (!record) throw new Error('Homework document not found')
+    const runs = Array.isArray(record.runs) ? record.runs : []
+    docs.set(classroomId, runs)
+    return runs
+  }
   let record = await prisma.document.findUnique({ where: { classroomId } })
   if (!record) {
     // Two people opening a fresh document at once both try to create it;
@@ -48,7 +61,9 @@ async function save(classroomId) {
   const runs = docs.get(classroomId)
   if (!runs) return
   try {
-    await prisma.document.update({ where: { classroomId }, data: { runs } })
+    const hwId = homeworkId(classroomId)
+    if (hwId) await prisma.homeworkDoc.update({ where: { id: hwId }, data: { runs } })
+    else await prisma.document.update({ where: { classroomId }, data: { runs } })
   } catch (error) {
     console.error(`Failed to save document ${classroomId}:`, error.message)
   }
@@ -69,6 +84,13 @@ export async function flushDocuments() {
 export function replaceDocument(classroomId, runs) {
   docs.set(classroomId, runs)
   scheduleSave(classroomId)
+}
+
+// Forgets a deleted homework document without saving it back.
+export function dropDocument(key) {
+  clearTimeout(saveTimers.get(key))
+  saveTimers.delete(key)
+  docs.delete(key)
 }
 
 // Saves what is pending for these cabinets and forgets the cached copies, so

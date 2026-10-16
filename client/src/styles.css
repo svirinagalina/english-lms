@@ -1876,3 +1876,12 @@ a:hover .gs-arrow { transform: translateX(5px); }
 .editable-name-btn:hover, .editable-name-btn:focus-visible { opacity: 1; }
 .editable-name-form { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 6px; }
 .editable-name-form input { width: 240px; max-width: 100%; }
+
+/* Homework documents (HomeworkDocs.jsx) */
+.homework-new { display: flex; gap: 8px; margin: 12px 0 16px; flex-wrap: wrap; }
+.homework-new input { flex: 1; min-width: 200px; }
+.homework-docs { list-style: none; padding: 0; margin: 0; }
+.homework-docs li { padding: 10px 0; border-bottom: 1px solid rgba(255, 255, 255, 0.08); display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.homework-docs li a { font-weight: 600; }
+.homework-doc-actions { margin-left: auto; display: flex; gap: 6px; }
+.homework-doc-actions button { margin: 0; padding: 4px 10px; }

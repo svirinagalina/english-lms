@@ -400,6 +400,7 @@ model Classroom {
 
   sessions Session[]
   document Document?
+  homeworkDocs HomeworkDoc[]
   boards   Board[]
   // Boards that live elsewhere but are shared into this space as well.
   sharedBoards Board[] @relation("BoardShares")
@@ -527,6 +528,21 @@ model Document {
 
   classroomId String    @unique
   classroom   Classroom @relation(fields: [classroomId], references: [id], onDelete: Cascade)
+}
+
+// A homework document: like Writing (same runs, same tracked changes), but
+// one per assignment, each with its own title and page.
+model HomeworkDoc {
+  id        String   @id @default(cuid())
+  title     String   @default("Homework")
+  runs      Json     @default("[]")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  classroomId String
+  classroom   Classroom @relation(fields: [classroomId], references: [id], onDelete: Cascade)
+
+  @@index([classroomId])
 }
 
 model Board {

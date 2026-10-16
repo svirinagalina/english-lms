@@ -12,7 +12,7 @@ import {
   clearBoard,
   forgetBoard
 } from './boardStore.js'
-import { loadDocument, replaceDocument, runsSchema } from './docStore.js'
+import { loadDocument, replaceDocument, runsSchema, HOMEWORK_PREFIX } from './docStore.js'
 import { buildSummary } from './lessonSummary.js'
 import { adventCallPresence, adventCallEnded } from './adventLessons.js'
 import { trialCallEnded } from './trialReport.js'
@@ -548,6 +548,11 @@ const PARTNER_BLOCKED_EVENTS = new Set(['call:start', 'drawing', 'board:add', 'b
 
     const docAllowed = async (classroomId) => {
       if (typeof classroomId !== 'string') return false
+      // A homework document: whoever may open its cabinet may open it.
+      if (classroomId.startsWith(HOMEWORK_PREFIX)) {
+        const hw = await prisma.homeworkDoc.findUnique({ where: { id: classroomId.slice(HOMEWORK_PREFIX.length) }, select: { classroomId: true } })
+        return Boolean(hw && await accessibleClassroom(user, hw.classroomId))
+      }
       // A student's writing is theirs alone; a student opens only their own.
       if (user.role === 'STUDENT') return Boolean(await accessibleClassroom(user, classroomId))
       const { roomId } = socket.data
@@ -567,7 +572,7 @@ const PARTNER_BLOCKED_EVENTS = new Set(['call:start', 'drawing', 'board:add', 'b
       unwatch(docWatchers, socket.data.docId, socket)
       socket.data.docId = classroomId
       watch(docWatchers, classroomId, socket)
-      if (user.role !== 'STUDENT' && socket.data.callId) roomDocs.set(socket.data.roomId, classroomId)
+      if (user.role !== 'STUDENT' && socket.data.callId && !classroomId.startsWith(HOMEWORK_PREFIX)) roomDocs.set(socket.data.roomId, classroomId)
       let runs
       try {
         runs = await loadDocument(classroomId)

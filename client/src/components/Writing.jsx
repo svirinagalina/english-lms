@@ -261,7 +261,7 @@ function setCaret(root, offset) {
 
 const IMAGE_CHAR = '\uFFFC'
 
-export default function Writing({ socketRef, classroomId, user, title, subtitle, onClose, backLabel = '← Back', embedded = false, wordPicker = false }) {
+export default function Writing({ socketRef, classroomId, docKey, user, title, subtitle, onClose, backLabel = '← Back', embedded = false, wordPicker = false }) {
   const [runs, setRuns] = useState([])
   const [loaded, setLoaded] = useState(false)
   const [error, setError] = useState('')
@@ -302,9 +302,11 @@ export default function Writing({ socketRef, classroomId, user, title, subtitle,
   // Load and follow the document over the socket.
   useEffect(() => {
     const socket = socketRef.current
-    if (!socket || !classroomId) return
+    // The cabinet's own Writing, or a homework document ("hw:<id>").
+    const key = docKey ?? classroomId
+    if (!socket || !key) return
     setLoaded(false)
-    const open = (quiet) => socket.emit('doc:open', classroomId, { quiet }, (response) => {
+    const open = (quiet) => socket.emit('doc:open', key, { quiet }, (response) => {
       if (response?.error) { setError(response.error); return }
       // A reconnect (quiet) whose local edits never got confirmed synced —
       // a deploy or a network blip dropped the socket mid-edit — used to
@@ -324,7 +326,7 @@ export default function Writing({ socketRef, classroomId, user, title, subtitle,
     if (socket.connected) reopen()
     socket.on('connect', reopen)
     const onUpdate = ({ classroomId: id, runs: incoming, from }) => {
-      if (id !== classroomId || from === socket.id) return
+      if (id !== key || from === socket.id) return
       // Keep the caret where it was in the text if the other side edited.
       const root = editorRef.current
       const sel = root ? selectionOffsets(root) : null
@@ -333,7 +335,7 @@ export default function Writing({ socketRef, classroomId, user, title, subtitle,
     }
     socket.on('doc:update', onUpdate)
     return () => { socket.off('connect', reopen); socket.off('doc:update', onUpdate) }
-  }, [socketRef, classroomId])
+  }, [socketRef, classroomId, docKey])
 
   const lastSelRef = useRef(null)
   // Restore the caret after every re-render caused by an edit.

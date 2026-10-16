@@ -4,7 +4,7 @@ import { prisma } from '../db.js'
 import { limitedToSite, siteStudentIds, maySeeStudent } from '../partnerScope.js'
 import { requireAuth, requireRole, isAdmin } from '../auth.js'
 import { forgetBoard } from '../boardStore.js'
-import { settleDocuments } from '../docStore.js'
+import { settleDocuments, dropDocument, HOMEWORK_PREFIX } from '../docStore.js'
 import { randomBytes } from 'crypto'
 import { mkdir, writeFile } from 'fs/promises'
 import path from 'path'
@@ -78,6 +78,9 @@ export async function carryStudentOver(fromRoom, toRoom) {
       await tx.document.update({ where: { id: oldDoc.id }, data: { classroomId: toRoom.id } })
       writing = true
     }
+    // Homework documents go along too (their live copies are keyed by their
+    // own id, so nothing cached needs settling).
+    await tx.homeworkDoc.updateMany({ where: { classroomId: fromRoom.id }, data: { classroomId: toRoom.id } })
     return { boards: moved, writing }
   })
   await settleDocuments(fromRoom.id, toRoom.id)
@@ -517,6 +520,57 @@ classroomsRouter.post('/:id/writing/images', async (req, res) => {
   await writeFile(path.join(directory, fileName), bytes)
 
   res.status(201).json({ src: `/uploads/${classroom.id.toLowerCase()}/${fileName}` })
+})
+
+// --- Homework documents --------------------------------------------------------
+// Each one opens like Writing on its own page; teacher and student both edit
+// it live (the text itself goes over the socket, see docStore.js).
+
+const homeworkTitle = z.object({ title: z.string().trim().min(1).max(120) })
+const homeworkSummary = { id: true, title: true, createdAt: true, updatedAt: true }
+
+classroomsRouter.get('/:id/homework-docs', async (req, res) => {
+  const classroom = await accessibleClassroom(req.user, req.params.id)
+  if (!classroom) return res.status(404).json({ error: 'Classroom not found' })
+  const docs = await prisma.homeworkDoc.findMany({ where: { classroomId: classroom.id }, orderBy: { createdAt: 'desc' }, select: homeworkSummary })
+  res.json({ docs })
+})
+
+classroomsRouter.get('/:id/homework-docs/:docId', async (req, res) => {
+  const classroom = await accessibleClassroom(req.user, req.params.id)
+  if (!classroom) return res.status(404).json({ error: 'Classroom not found' })
+  const doc = await prisma.homeworkDoc.findFirst({ where: { id: req.params.docId, classroomId: classroom.id }, select: homeworkSummary })
+  if (!doc) return res.status(404).json({ error: 'Homework not found' })
+  res.json({ doc })
+})
+
+// Staff set homework; the student opens and writes in it.
+classroomsRouter.post('/:id/homework-docs', requireRole('OWNER', 'PARTNER', 'TEACHER'), async (req, res) => {
+  const classroom = await accessibleClassroom(req.user, req.params.id)
+  if (!classroom) return res.status(404).json({ error: 'Classroom not found' })
+  const parsed = homeworkTitle.safeParse(req.body)
+  if (!parsed.success) return res.status(400).json({ error: 'Give the homework a title' })
+  const doc = await prisma.homeworkDoc.create({ data: { classroomId: classroom.id, title: parsed.data.title }, select: homeworkSummary })
+  res.status(201).json({ doc })
+})
+
+classroomsRouter.patch('/:id/homework-docs/:docId', requireRole('OWNER', 'PARTNER', 'TEACHER'), async (req, res) => {
+  const classroom = await accessibleClassroom(req.user, req.params.id)
+  if (!classroom) return res.status(404).json({ error: 'Classroom not found' })
+  const parsed = homeworkTitle.safeParse(req.body)
+  if (!parsed.success) return res.status(400).json({ error: 'Give the homework a title' })
+  const { count } = await prisma.homeworkDoc.updateMany({ where: { id: req.params.docId, classroomId: classroom.id }, data: { title: parsed.data.title } })
+  if (!count) return res.status(404).json({ error: 'Homework not found' })
+  res.json({ ok: true })
+})
+
+classroomsRouter.delete('/:id/homework-docs/:docId', requireRole('OWNER', 'PARTNER', 'TEACHER'), async (req, res) => {
+  const classroom = await accessibleClassroom(req.user, req.params.id)
+  if (!classroom) return res.status(404).json({ error: 'Classroom not found' })
+  const { count } = await prisma.homeworkDoc.deleteMany({ where: { id: req.params.docId, classroomId: classroom.id } })
+  if (!count) return res.status(404).json({ error: 'Homework not found' })
+  dropDocument(HOMEWORK_PREFIX + req.params.docId)
+  res.json({ ok: true })
 })
 
 // --- Sessions -----------------------------------------------------------------

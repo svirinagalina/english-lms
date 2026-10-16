@@ -14,6 +14,7 @@ import TrialOffer from './components/TrialOffer'
 import { setUpPush } from './utils/native'
 import Classrooms from './pages/Classrooms'
 import Classroom from './pages/Classroom'
+import HomeworkDocs from './pages/HomeworkDocs'
 import Practice from './pages/Practice'
 import Trainer from './pages/Trainer'
 import UnitPractice from './pages/UnitPractice'
@@ -159,6 +160,8 @@ export default function App() {
       <Route path="/plans" element={<RequireAuth><Plans /></RequireAuth>} />
       <Route path="/classroom" element={<RequireAuth><Classrooms /></RequireAuth>} />
       <Route path="/classroom/:id" element={<RequireAuth><Classroom /></RequireAuth>} />
+      <Route path="/classroom/:id/homework" element={<RequireAuth><HomeworkDocs /></RequireAuth>} />
+      <Route path="/classroom/:id/homework/:docId" element={<RequireAuth><HomeworkDocs /></RequireAuth>} />
       <Route path="/courses" element={<RequireAuth><Courses /></RequireAuth>} />
       <Route path="/courses/:courseId" element={<RequireAuth><Course /></RequireAuth>} />
       <Route path="/practice" element={<RequireAuth><Practice /></RequireAuth>} />

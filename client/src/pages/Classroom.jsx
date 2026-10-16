@@ -468,7 +468,10 @@ export default function Classroom() {
               ? 'Write your essays and texts here; your teacher corrects them with tracked changes you can accept or reject.'
               : 'The student writes here; your corrections show as tracked changes, like suggestions in Google Docs. Also opens inside a call.'}
           </p>
-          <button onClick={() => setWritingOpen(true)}>Open writing</button>
+          <div className="row-actions">
+            <button onClick={() => setWritingOpen(true)}>Open writing</button>
+            <button onClick={() => navigate(`/classroom/${id}/homework`)} title="Homework documents — one per assignment, edited together live">Homework</button>
+          </div>
         </Panel>
       )}
 
