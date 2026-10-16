@@ -1,7 +1,7 @@
 import { prisma } from './db.js'
 import { botOn, botOnSince, botSince, botToken, bookingUrl, sendTo, once, wasSent, esc, packageMark, onLinked, appUrl } from './telegram.js'
 import { confirmBooking } from './booking.js'
-import { maySeeStudent } from './partnerScope.js'
+import { maySeeStudent, siteStudentIds } from './partnerScope.js'
 import { OFFER_PLANS, DISCOUNT_DAYS } from './offer.js'
 import { countedCalls } from './routes/billing.js'
 import { generateRecurringInstances } from './routes/personal.js'
@@ -245,7 +245,8 @@ async function reports() {
   })
   for (const report of list) {
     const lesson = report.callId ? await prisma.adventLesson.findUnique({ where: { callId: report.callId }, select: { source: true } }) : null
-    if (!allowed(lesson) || !recent(lesson, report.publishedAt)) continue
+    // Only trials booked on Maxim's landing (Galina, 2026-10-16: the bot is for them alone).
+    if (!lesson || lesson.source === 'platform' || !allowed(lesson) || !recent(lesson, report.publishedAt)) continue
     const student = await person(report.studentId)
     if (!student?.telegramChatId) continue
     const links = await reportLinks(report, student)
@@ -288,9 +289,11 @@ async function reports() {
 
 async function payments() {
   const since = botSince()
+  // Only students who came from Maxim's landing (Galina, 2026-10-16).
+  const site = await siteStudentIds()
   // «Я оплатил» (a transfer, or a card payment back from Stripe): whoever
   // receives the money checks it and adds the lessons.
-  const reported = await prisma.user.findMany({ where: { role: 'STUDENT', paymentReportedAt: { gte: since, gt: new Date(Date.now() - 2 * 24 * HOUR) } }, select: PERSON })
+  const reported = await prisma.user.findMany({ where: { role: 'STUDENT', id: { in: site }, paymentReportedAt: { gte: since, gt: new Date(Date.now() - 2 * 24 * HOUR) } }, select: PERSON })
   for (const student of reported) {
     for (const admin of await admins(student)) {
       await once(`reported:${student.id}:${new Date(student.paymentReportedAt).getTime()}:${admin.id}`, () => sendTo(admin,
@@ -300,7 +303,7 @@ async function payments() {
   }
   // Lessons added (by hand after a transfer, or a payment from Advent's site):
   // every student's package is compared with what the bot saw last time.
-  const students = await prisma.user.findMany({ where: { role: 'STUDENT' }, select: PERSON })
+  const students = await prisma.user.findMany({ where: { role: 'STUDENT', id: { in: site } }, select: PERSON })
   for (const student of students) {
     const mark = packageMark(student)
     if (mark === student.telegramPaidSeen) continue
@@ -332,6 +335,7 @@ async function payments() {
 
 async function timetable() {
   const now = new Date()
+  const site = new Set(await siteStudentIds())
   const horizon = new Date(now.getTime() + 15 * MIN)
   const events = await prisma.userCalendarEvent.findMany({
     where: {
@@ -342,7 +346,7 @@ async function timetable() {
     include: { user: { select: { name: true, schoolId: true } } }
   })
   for (const event of events) {
-    const students = await prisma.user.findMany({ where: { id: { in: event.studentIds }, schoolId: event.user.schoolId, telegramChatId: { not: null } }, select: PERSON })
+    const students = await prisma.user.findMany({ where: { id: { in: event.studentIds.filter((id) => site.has(id)) }, schoolId: event.user.schoolId, telegramChatId: { not: null } }, select: PERSON })
     for (const lesson of generateRecurringInstances(event, now, horizon)) {
       const start = new Date(lesson.startTime)
       const left = start - now
@@ -360,7 +364,7 @@ async function timetable() {
 
 async function packages() {
   const since = botSince()
-  const students = await prisma.user.findMany({ where: { role: 'STUDENT', lessonsPaid: { gt: 0 } }, select: PERSON })
+  const students = await prisma.user.findMany({ where: { role: 'STUDENT', id: { in: await siteStudentIds() }, lessonsPaid: { gt: 0 } }, select: PERSON })
   for (const student of students) {
     const held = (await countedCalls(student)) + (student.heldAdjust ?? 0)
     if (held < student.lessonsPaid) continue

@@ -18,6 +18,12 @@ export async function siteStudentIds() {
   return rows.map((r) => r.studentUserId)
 }
 
+// One student: did they come from Maxim's site (the landing)?
+export async function isSiteStudent(studentId) {
+  if (!studentId) return false
+  return Boolean(await prisma.adventLesson.findFirst({ where: { source: { not: 'platform' }, studentUserId: studentId }, select: { id: true } }))
+}
+
 // A `where` piece for a query on students: nothing for the owner/teachers.
 export async function studentScope(user) {
   if (!limitedToSite(user)) return {}
