@@ -917,7 +917,82 @@ function mistakeNoteParts(text) {
 
 // Some drags (a screenshot straight from its corner preview) arrive with no
 // MIME type, so the name decides then.
-const isImageFile = (file) => Boolean(file) && (file.type.startsWith('image/') || (!file.type && /\.(png|jpe?g|gif|webp)$/i.test(file.name)))
+const isImageFile = (file) => Boolean(file) && (file.type.startsWith('image/') || (!file.type && /\.(png|jpe?g|gif|webp|tiff?)$/i.test(file.name)))
+
+// The server takes PNG/JPEG/GIF/WebP up to 5 MB. A Retina screenshot of a
+// PDF page is often bigger, and a selection dragged out of Preview arrives as
+// TIFF, which Chrome can't even show — both used to fail. Every picture is
+// redrawn here: at most 2400 px on its long side, PNG when that stays small
+// (crisp text), otherwise JPEG. A GIF is kept as is so it still moves.
+const MAX_SIDE = 2400
+const MAX_UPLOAD = 3.5 * 1024 * 1024
+
+const readAsDataUrl = (blob) => new Promise((resolve, reject) => {
+  const reader = new FileReader()
+  reader.onload = () => resolve(reader.result)
+  reader.onerror = reject
+  reader.readAsDataURL(blob)
+})
+
+const loadImage = (src) => new Promise((resolve, reject) => {
+  const image = new Image()
+  image.onload = () => resolve(image)
+  image.onerror = reject
+  image.src = src
+})
+
+async function decodeTiff(file) {
+  const UTIF = (await import('utif')).default
+  const buffer = await file.arrayBuffer()
+  const pages = UTIF.decode(buffer)
+  UTIF.decodeImage(buffer, pages[0])
+  const rgba = UTIF.toRGBA8(pages[0])
+  const canvas = document.createElement('canvas')
+  canvas.width = pages[0].width
+  canvas.height = pages[0].height
+  canvas.getContext('2d').putImageData(new ImageData(new Uint8ClampedArray(rgba.buffer, rgba.byteOffset, rgba.length), canvas.width, canvas.height), 0, 0)
+  return canvas
+}
+
+async function prepareImage(file) {
+  if (file.type === 'image/gif' && file.size <= MAX_UPLOAD) {
+    const dataUrl = await readAsDataUrl(file)
+    const image = await loadImage(dataUrl)
+    return { dataUrl, size: { w: image.naturalWidth, h: image.naturalHeight } }
+  }
+
+  let source
+  const url = URL.createObjectURL(file)
+  try { source = await loadImage(url) } catch {
+    if (!/tiff?$/i.test(file.type) && !/\.tiff?$/i.test(file.name)) throw new Error('unreadable')
+    source = await decodeTiff(file)
+  } finally { URL.revokeObjectURL(url) }
+
+  const w0 = source.naturalWidth ?? source.width
+  const h0 = source.naturalHeight ?? source.height
+  const scale = Math.min(1, MAX_SIDE / Math.max(w0, h0))
+  const canvas = document.createElement('canvas')
+  canvas.width = Math.max(1, Math.round(w0 * scale))
+  canvas.height = Math.max(1, Math.round(h0 * scale))
+  canvas.getContext('2d').drawImage(source, 0, 0, canvas.width, canvas.height)
+
+  let dataUrl = canvas.toDataURL('image/png')
+  if (dataUrl.length * 0.75 > MAX_UPLOAD) {
+    // JPEG has no transparency: put the picture on white first.
+    const flat = document.createElement('canvas')
+    flat.width = canvas.width
+    flat.height = canvas.height
+    const ctx = flat.getContext('2d')
+    ctx.fillStyle = '#ffffff'
+    ctx.fillRect(0, 0, flat.width, flat.height)
+    ctx.drawImage(canvas, 0, 0)
+    for (const quality of [0.9, 0.8, 0.65, 0.5]) {
+      dataUrl = flat.toDataURL('image/jpeg', quality)
+      if (dataUrl.length * 0.75 <= MAX_UPLOAD) break
+    }
+  }
+  return { dataUrl, size: { w: canvas.width, h: canvas.height } }
+}
 
 const Whiteboard = forwardRef(function Whiteboard({ socketRef, boardId, title, subtitle, onClose, backLabel = '← Back', onStartCall, onOpenWriting, canSpotlight = false, onUploadImage, onAssist, assistEnabled, wordPicker = false, saveAllMoves = false, focusElementId = null, onMistake, onMistakeRemoved, insertBlock = null, onInserted, onAddWords, students = null, writingStudents = null }, ref) {
   const [assisting, setAssisting] = useState(null)
@@ -1616,21 +1691,18 @@ const Whiteboard = forwardRef(function Whiteboard({ socketRef, boardId, title, s
   }
 
   const placeImage = useCallback(async (file) => {
-    if (!onUploadImage || !isImageFile(file)) return
+    if (!onUploadImage) return
+    if (!isImageFile(file)) {
+      if (file) showToast('Only pictures can go on the board')
+      return
+    }
 
-    const dataUrl = await new Promise((resolve, reject) => {
-      const reader = new FileReader()
-      reader.onload = () => resolve(reader.result)
-      reader.onerror = reject
-      reader.readAsDataURL(file)
-    })
-
-    const size = await new Promise((resolve) => {
-      const probe = new Image()
-      probe.onload = () => resolve({ w: probe.naturalWidth, h: probe.naturalHeight })
-      probe.onerror = () => resolve({ w: 400, h: 300 })
-      probe.src = dataUrl
-    })
+    let prepared
+    try { prepared = await prepareImage(file) } catch {
+      showToast('This picture could not be read — try a PNG or JPEG')
+      return
+    }
+    const { dataUrl, size } = prepared
 
     const src = await onUploadImage(dataUrl)
     if (!src) return
@@ -1676,7 +1748,11 @@ const Whiteboard = forwardRef(function Whiteboard({ socketRef, boardId, title, s
       setDragOver(false)
       if (!hasFiles(event) || event.defaultPrevented) return
       event.preventDefault()
-      placeImage([...event.dataTransfer.files].find(isImageFile))
+      const files = [...event.dataTransfer.files]
+      const fromItems = [...(event.dataTransfer.items ?? [])].filter((i) => i.kind === 'file').map((i) => i.getAsFile()).filter(Boolean)
+      const file = files.find(isImageFile) ?? fromItems.find(isImageFile) ?? files[0] ?? fromItems[0]
+      if (!file) showToast('Nothing arrived from that app — copy the picture (⌘C) and paste it on the board (⌘V)')
+      placeImage(file)
     }
     window.addEventListener('dragover', onDragOver)
     window.addEventListener('dragleave', onDragLeave)
