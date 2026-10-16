@@ -261,7 +261,7 @@ function setCaret(root, offset) {
 
 const IMAGE_CHAR = '\uFFFC'
 
-export default function Writing({ socketRef, classroomId, docKey, user, title, subtitle, onClose, backLabel = '← Back', embedded = false, wordPicker = false }) {
+export default function Writing({ socketRef, classroomId, docKey, onHomework, user, title, subtitle, onClose, backLabel = '← Back', embedded = false, wordPicker = false }) {
   const [runs, setRuns] = useState([])
   const [loaded, setLoaded] = useState(false)
   const [error, setError] = useState('')
@@ -1071,6 +1071,11 @@ export default function Writing({ socketRef, classroomId, docKey, user, title, s
           {notice && <span className="writing-notice"> {notice}</span>}
         </div>
         <div className="row-actions">
+          {!docKey && classroomId && (
+            // The cabinet's homework documents; in a call they open in a new
+            // tab so the lesson stays where it is.
+            <button className="tool" onMouseDown={(e) => e.preventDefault()} onClick={() => (onHomework ? onHomework() : window.open(`/classroom/${classroomId}/homework`, '_blank'))} title="Homework documents — one per assignment, edited together live">Homework</button>
+          )}
           {pending > 0 && (
             <>
               <button className="tool accept" onClick={() => commit(resolveAll(runsRef.current, true), null)} title="Apply every correction to the text">Accept all changes</button>

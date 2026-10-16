@@ -290,6 +290,7 @@ export default function Classroom() {
             title="Writing"
             subtitle={partner}
             onClose={() => setWritingOpen(false)}
+            onHomework={() => navigate(`/classroom/${id}/homework`)}
             wordPicker={!isStaff}
           />
         </div>
