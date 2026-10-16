@@ -97,7 +97,7 @@ async function reachableStudent(user, id) {
 // be paid in euros at the day's rate. Official XML first, a JSON mirror as
 // fallback; cached for an hour.
 let rateCache = { at: 0, value: null }
-async function eurRate() {
+export async function eurRate() {
   if (Date.now() - rateCache.at < 60 * 60 * 1000 && rateCache.value) return rateCache.value
   const parse = async () => {
     try {

@@ -61,21 +61,21 @@ export default function TrialReports({ classroomId, canEdit = false, focus = fal
   // One step for the teacher: write the report and send it to the student.
   const send = async () => {
     setBusy('send'); setError('')
-    try { await api.generateTrial(current.id); if (!current.publishedAt) await api.publishTrial(current.id, false); await refresh() } catch (err) { setError(err.message) } finally { setBusy('') }
+    try { await api.generateTrial(current.id); if (!current.publishedAt) await api.publishTrial(current.id, false); await refresh(); window.dispatchEvent(new Event('trial-sent')) } catch (err) { setError(err.message) } finally { setBusy('') }
   }
   const publish = async (unpublish) => {
     setBusy('publish'); setError('')
-    try { await api.publishTrial(current.id, unpublish); await refresh() } catch (err) { setError(err.message) } finally { setBusy('') }
+    try { await api.publishTrial(current.id, unpublish); await refresh(); window.dispatchEvent(new Event('trial-sent')) } catch (err) { setError(err.message) } finally { setBusy('') }
   }
   const remove = async () => {
     if (!window.confirm('Delete this trial lesson record and its report?')) return
-    try { await api.deleteTrial(current.id); setOpen(null); await refresh() } catch (err) { setError(err.message) }
+    try { await api.deleteTrial(current.id); setOpen(null); await refresh(); window.dispatchEvent(new Event('trial-sent')) } catch (err) { setError(err.message) }
   }
 
   const answered = current ? Object.values(current.answers ?? {}).filter(Boolean).length : 0
 
   return (
-    <div ref={boxRef}>
+    <div ref={boxRef} id={`trial-panel-${classroomId}`}>
     <Panel id={`trial:${classroomId}`} title="Trial lesson" count={reports.length} forceOpen={focus}>
       {error && <div className="error">{error}</div>}
       {!reports.length && (

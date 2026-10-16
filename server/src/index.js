@@ -13,6 +13,7 @@ import { fileURLToPath } from 'url'
 import { authRouter } from './routes/auth.js'
 import { activityRouter } from './routes/activity.js'
 import { leadsRouter } from './routes/leads.js'
+import { courseShopRouter } from './coursePurchases.js'
 import { usersRouter } from './routes/users.js'
 import { invitesRouter } from './routes/invites.js'
 import { classroomsRouter } from './routes/classrooms.js'
@@ -101,6 +102,7 @@ app.use('/api/courses', coursesRouter)
 app.use('/api/push', pushRouter)
 app.use('/api/plans', plansRouter)
 app.use('/api/leads', leadsRouter)
+app.use('/api/course-shop', courseShopRouter)
 app.use('/api/activity', activityRouter)
 // The waiting room asks every 5 s (120 per 10 min alone): a late teacher must not lock the student out.
 app.use('/api/lesson-link', rateLimit({ windowMs: 10 * 60_000, max: 600 }), lessonLinkRouter)

@@ -1,6 +1,7 @@
 import { Router } from 'express'
 import { prisma } from '../db.js'
-import { requireAuth, requireRole, requirePaid } from '../auth.js'
+import { requireAuth, requireRole } from '../auth.js'
+import { canOpenCourse, courseSalesRouter } from '../coursePurchases.js'
 import { assistantEnabled, judgeWriting } from '../assistant.js'
 
 // Courses: self-paced learning modules (IELTS, FCE, etc), organized by
@@ -8,8 +9,10 @@ import { assistantEnabled, judgeWriting } from '../assistant.js'
 // in bulk from an external source (see scripts/import-course.js).
 export const coursesRouter = Router()
 coursesRouter.use(requireAuth)
-// Not part of the free tier.
-coursesRouter.use(requirePaid)
+// Price, purchases and access (admins): /api/courses/:courseId/sales.
+coursesRouter.use('/:courseId/sales', courseSalesRouter)
+// Not part of the free tier, except a course bought on its own (canOpenCourse).
+const LOCKED = { error: 'This course opens after purchase', locked: true, feature: 'course' }
 
 // POST /api/courses/blocks/:id/check { answer } — AI check of a writing
 // block. The task and the key are read from the block, never from the client.
@@ -25,6 +28,7 @@ coursesRouter.post('/blocks/:id/check', async (req, res) => {
   if (!block || block.type !== 'writing' || block.lesson.course.skillset.schoolId !== req.user.schoolId) {
     return res.status(404).json({ error: 'Exercise not found' })
   }
+  if (!(await canOpenCourse(req.user, block.lesson.courseId))) return res.status(403).json(LOCKED)
   const key = `${block.id}\u0000${answer.replace(/\s+/g, ' ')}`
   let verdict = writingVerdicts.get(key)
   if (!verdict) {
@@ -48,13 +52,21 @@ coursesRouter.get('/', async (req, res) => {
     where: { schoolId },
     include: {
       courses: {
-        select: { id: true, title: true, description: true, createdAt: true },
+        select: { id: true, title: true, description: true, priceRub: true, createdAt: true },
         orderBy: { createdAt: 'asc' },
       },
     },
     orderBy: { name: 'asc' },
   })
 
+  // A free account sees only courses it bought or can buy, each with `locked`.
+  if (req.user.role === 'STUDENT' && req.user.free) {
+    for (const skillset of skillsets) {
+      const open = await Promise.all(skillset.courses.map((c) => canOpenCourse(req.user, c.id)))
+      skillset.courses = skillset.courses.map((c, i) => ({ ...c, locked: !open[i] })).filter((c) => !c.locked || c.priceRub)
+    }
+    return res.json(skillsets.filter((s) => s.courses.length))
+  }
   res.json(skillsets)
 })
 
@@ -82,8 +94,13 @@ coursesRouter.get('/:courseId/full', async (req, res) => {
   if (course.skillset.schoolId !== schoolId) {
     return res.status(403).json({ error: 'Not allowed' })
   }
-
-  res.json(course)
+  // Not bought: the outline only, so the page can say what opens after purchase.
+  if (!(await canOpenCourse(req.user, course.id))) {
+    if (!course.priceRub) return res.status(403).json(LOCKED)
+    return res.json({ ...course, locked: true, lessons: course.lessons.map(({ blocks, exercises, ...l }) => ({ ...l, blocks: [], exercises: [] })) })
+  }
+  const access = req.user.free ? await prisma.courseAccess.findUnique({ where: { courseId_userId: { courseId: course.id, userId: req.user.id } }, select: { until: true } }) : null
+  res.json({ ...course, accessUntil: access?.until ?? null })
 })
 
 // GET /api/courses/:courseId/lessons/:position — one lesson by its position
@@ -106,6 +123,7 @@ coursesRouter.get('/:courseId/lessons/:position', async (req, res) => {
   if (lesson.course.skillset.schoolId !== schoolId) {
     return res.status(403).json({ error: 'Not allowed' })
   }
+  if (!(await canOpenCourse(req.user, courseId))) return res.status(403).json(LOCKED)
 
   res.json(lesson)
 })

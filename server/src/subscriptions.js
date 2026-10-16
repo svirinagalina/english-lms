@@ -15,6 +15,7 @@ import { PLANS, PLAN_IDS, PERIODS, setPlan } from './plans.js'
 import { requireAuth, requireRole } from './auth.js'
 import { guardedFetch } from './resilience.js'
 import { creditOfferPurchase } from './purchases.js'
+import { creditCoursePurchase } from './coursePurchases.js'
 
 const lookupKey = (plan, period) => `lms_${plan}_${period}`
 
@@ -160,6 +161,8 @@ stripeWebhook.post('/', express.raw({ type: '*/*', limit: '1mb' }), async (req, 
     if (event.type.startsWith('customer.subscription.')) await applySubscription(object)
     else if (event.type === 'checkout.session.completed' && object.subscription) await applySubscription(await stripe(`/subscriptions/${object.subscription}`))
     // A trial-offer purchase (one payment): lessons or a month of the platform.
+    // A course bought on the website.
+    else if (event.type === 'checkout.session.completed' && object.mode === 'payment' && object.metadata?.courseId) await creditCoursePurchase(object)
     else if (event.type === 'checkout.session.completed' && object.mode === 'payment') await creditOfferPurchase(object)
     else if (event.type === 'invoice.paid') {
       const subId = object.subscription ?? object.parent?.subscription_details?.subscription

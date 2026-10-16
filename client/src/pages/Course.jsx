@@ -1,5 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
-import { useParams, useSearchParams } from 'react-router-dom'
+import { Link, useParams, useSearchParams } from 'react-router-dom'
+import { useAuth } from '../AuthContext'
+import Panel from '../components/Panel'
 import { api } from '../api'
 import Nav from '../components/Nav'
 import { SiteFooter } from '../components/Brand'
@@ -231,7 +233,88 @@ function Block({ block }) {
   return null
 }
 
+// Admins: the price, what a purchase opens, transfers to confirm and who has it.
+function CourseSales({ courseId }) {
+  const [data, setData] = useState(null)
+  const [error, setError] = useState('')
+  const [note, setNote] = useState('')
+  const [form, setForm] = useState({ priceRub: '', accessDays: '' })
+  const [grant, setGrant] = useState({ name: '', email: '' })
+
+  const load = () => api.courseSales(courseId).then((d) => {
+    setData(d)
+    setForm({ priceRub: d.priceRub ?? '', accessDays: d.accessDays })
+  }).catch((err) => setError(err.message))
+  useEffect(() => { load() }, [courseId])
+
+  const act = async (fn, done) => {
+    setError(''); setNote('')
+    try {
+      const result = await fn()
+      setNote(done(result))
+      load()
+    } catch (err) { setError(err.message) }
+  }
+  const granted = (r) => `Открыто до ${new Date(r.until).toLocaleDateString('ru-RU')}. ${r.mailed ? 'Письмо отправлено.' : `Письмо не ушло${r.passwordLink ? ` — передайте ссылку: ${r.passwordLink}` : ''}`}`
+  if (!data) return error ? <div className="error">{error}</div> : null
+  const pending = data.orders.filter((o) => o.status === 'pending')
+  const now = Date.now()
+
+  return (
+    <Panel id={`course-sales:${courseId}`} title="Продажи" count={pending.length || undefined} defaultOpen={pending.length > 0}>
+      {error && <div className="error">{error}</div>}
+      {note && <div className="notice">{note}</div>}
+      <form className="row-actions" style={{ flexWrap: 'wrap', alignItems: 'end' }} onSubmit={(e) => { e.preventDefault(); act(() => api.saveCourseSale(courseId, { priceRub: form.priceRub === '' ? null : Number(form.priceRub), accessDays: Number(form.accessDays) }), () => 'Сохранено') }}>
+        <label>Цена, ₽ <input type="number" min="1" value={form.priceRub} placeholder="не продаётся" onChange={(e) => setForm({ ...form, priceRub: e.target.value })} style={{ width: 120 }} /></label>
+        <label>Доступ, дней <input type="number" min="1" value={form.accessDays} onChange={(e) => setForm({ ...form, accessDays: e.target.value })} style={{ width: 90 }} /></label>
+        <button type="submit">Сохранить</button>
+        <a className="button ghost" href="/ielts#tariffs" target="_blank" rel="noreferrer">Страница покупки ↗</a>
+      </form>
+
+      <h4>Переводы — проверить и открыть</h4>
+      {pending.length === 0 && <p className="muted">Нет новых.</p>}
+      <div className="list">
+        {pending.map((o) => (
+          <div key={o.id} className="row">
+            <div>
+              <strong>{o.name}</strong> · {o.email}{o.messenger ? ` · ${o.messenger}` : ''}
+              <div className="muted">{o.rub.toLocaleString('ru-RU')} ₽ · {new Date(o.createdAt).toLocaleString('ru-RU')}{o.note ? ` · ${o.note}` : ''}</div>
+            </div>
+            <div className="row-actions">
+              <button onClick={() => act(() => api.grantCourse(courseId, { orderId: o.id }), granted)}>Открыть доступ</button>
+              <button className="ghost" onClick={() => act(() => api.dismissCourseOrder(courseId, o.id), () => 'Убрано')}>Не пришло</button>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      <h4>Открыть вручную</h4>
+      <form className="row-actions" style={{ flexWrap: 'wrap' }} onSubmit={(e) => { e.preventDefault(); act(() => api.grantCourse(courseId, grant), (r) => { setGrant({ name: '', email: '' }); return granted(r) }) }}>
+        <input placeholder="Имя" value={grant.name} onChange={(e) => setGrant({ ...grant, name: e.target.value })} />
+        <input type="email" required placeholder="Почта" value={grant.email} onChange={(e) => setGrant({ ...grant, email: e.target.value })} />
+        <button type="submit">Открыть</button>
+      </form>
+
+      <h4>У кого есть доступ ({data.accesses.length})</h4>
+      <div className="list">
+        {data.accesses.map((a) => (
+          <div key={a.id} className="row">
+            <div>
+              <strong>{a.user.name}</strong> · {a.user.email}
+              <div className="muted">{new Date(a.until).getTime() > now ? 'до' : 'закончился'} {new Date(a.until).toLocaleDateString('ru-RU')} · {{ stripe: 'Stripe', transfer: 'перевод', manual: 'вручную' }[a.source] ?? a.source}</div>
+            </div>
+            <button className="ghost" onClick={() => { if (window.confirm(`Закрыть курс для ${a.user.name}?`)) act(() => api.revokeCourse(courseId, a.user.id), () => 'Доступ закрыт') }}>Закрыть</button>
+          </div>
+        ))}
+      </div>
+      <p className="muted">Ученики с преподавателем видят все курсы бесплатно; покупка нужна только аккаунтам без преподавателя.</p>
+    </Panel>
+  )
+}
+
 export default function Course() {
+  const { user } = useAuth()
+  const admin = user?.role === 'OWNER' || user?.role === 'PARTNER'
   const { courseId } = useParams()
   const [searchParams, setSearchParams] = useSearchParams()
   const [course, setCourse] = useState(null)
@@ -270,6 +353,13 @@ export default function Course() {
   return (
     <div className="page">
       <Nav title={course.title} back="/courses" />
+      {admin && <CourseSales courseId={course.id} />}
+      {course.locked && (
+        <div className="notice">
+          Курс открывается после покупки — {course.priceRub?.toLocaleString('ru-RU')} ₽. <Link to="/ielts#tariffs">Купить</Link>
+        </div>
+      )}
+      {course.accessUntil && <p className="muted">Доступ до {new Date(course.accessUntil).toLocaleDateString('ru-RU')}</p>}
 
       <div className="course-layout">
         <nav className="course-lessons">
@@ -289,7 +379,9 @@ export default function Course() {
         </nav>
 
         <section className="course-content" ref={contentRef} onDoubleClick={handleDoubleClick}>
-          {lesson ? (
+          {course.locked ? (
+            <p className="muted">После оплаты здесь откроются все {course.lessons.length} уроков: видео, материалы и задания.</p>
+          ) : lesson ? (
             <>
               <h2>{lesson.position}. {lesson.title}</h2>
               <p className="muted" style={{ marginTop: -12 }}>Double-click any word to hear it and add it to your vocabulary.</p>

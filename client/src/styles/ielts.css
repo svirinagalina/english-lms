@@ -263,3 +263,18 @@
   .iel-foot-links { grid-template-columns: 1fr; }
 }
 @media (prefers-reduced-motion: reduce) { .iel-btn, .iel-plus { transition: none; } }
+
+/* «Купить» dialog */
+.iel-modal { position: fixed; inset: 0; z-index: 50; background: rgba(10, 34, 31, .55); display: flex; align-items: center; justify-content: center; padding: 16px; overflow-y: auto; }
+.iel-modal-card { position: relative; background: var(--b); color: var(--g); border-radius: 24px; padding: 32px 28px 28px; width: 100%; max-width: 480px; max-height: calc(100vh - 32px); overflow-y: auto; font-family: 'Mulish', sans-serif; }
+.iel-modal-card h3 { margin: 0 0 6px; font-size: 24px; }
+.iel-modal-x { position: absolute; top: 12px; right: 14px; border: 0; background: none; font-size: 28px; line-height: 1; color: var(--g); cursor: pointer; }
+.iel-modal-lead { font-size: 16px; line-height: 1.5; margin: 8px 0 16px; }
+.iel-modal-ways { display: flex; flex-direction: column; gap: 12px; }
+.iel-modal-ways .iel-btn { width: 100%; }
+.iel-modal-note { font-size: 13px; line-height: 1.45; opacity: .75; margin: 0; }
+.iel-modal-form { padding-left: 0; max-width: none; }
+.iel-modal-form .iel-btn { align-self: stretch; }
+.iel-requisites { display: flex; flex-direction: column; gap: 4px; background: var(--p); border-radius: 16px; padding: 16px 18px; margin-bottom: 8px; font-size: 15px; }
+.iel-requisites strong { font-size: 22px; letter-spacing: .04em; }
+.iel-link { border: 0; background: none; padding: 4px 0; color: var(--g); font: 700 14px 'Mulish', sans-serif; text-decoration: underline; cursor: pointer; align-self: flex-start; }

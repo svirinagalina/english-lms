@@ -10,6 +10,7 @@ import '@fontsource/mulish/latin-700.css'
 import '@fontsource/mulish/latin-800.css'
 import '../styles/ielts.css'
 import { api } from '../api'
+import { parseDetails, formatCard } from '../utils/paymentDetails'
 
 // "Курс подготовки к IELTS и TOEFL" — built from Galina's Figma layout
 // (Advent Academy (New), «Полная стр десктоп»): Mulish, green #14453f,
@@ -19,6 +20,9 @@ const TELEGRAM = 'https://t.me/svirinagalina'
 const INSTAGRAM = 'https://www.instagram.com/advent_academy_gram'
 const SITE = 'https://advent-academy.online'
 const img = (name) => `/ielts/${name}`
+// The course sold by the «Самостоятельно» tariff (price and access days are
+// set on the course page, Sales panel).
+const COURSE_ID = 'cmucp0xsi0003mm2cyz5lv19'
 
 const WHY = [
   'Пробные тесты для каждого тарифа перед покупкой обучения.',
@@ -112,6 +116,103 @@ const FAQ = [
 
 const MENU = [['Почему мы', '#why'], ['Преподаватели', '#teachers'], ['Как проходят занятия', '#lessons'], ['Тарифы', '#tariffs'], ['Отзывы', '#reviews'], ['Вопросы', '#faq']]
 
+// «Купить»: Stripe (the price converted to euros, access opens by itself)
+// or a rouble transfer to the school's card + «Я оплатил(а)».
+function BuyDialog({ onClose }) {
+  const [shop, setShop] = useState(null)
+  const [error, setError] = useState('')
+  const [way, setWay] = useState(null) // null | 'transfer'
+  const [busy, setBusy] = useState(false)
+  const [done, setDone] = useState(false)
+  const [copied, setCopied] = useState(false)
+  const [form, setForm] = useState({ name: '', email: '', messenger: '', website: '' })
+
+  useEffect(() => {
+    api.courseShop(COURSE_ID).then(setShop).catch((err) => setError(err.message))
+    const onKey = (e) => { if (e.key === 'Escape') onClose() }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [])
+
+  const payByCard = async () => {
+    setBusy(true); setError('')
+    try {
+      const { url } = await api.courseCheckout(COURSE_ID)
+      window.location.href = url
+    } catch (err) { setError(err.message); setBusy(false) }
+  }
+  const reportTransfer = async (event) => {
+    event.preventDefault()
+    setBusy(true); setError('')
+    try {
+      await api.courseTransfer(COURSE_ID, form)
+      setDone(true)
+    } catch (err) { setError(err.message) }
+    setBusy(false)
+  }
+  const details = parseDetails(shop?.paymentDetails)
+  const months = shop ? Math.round(shop.accessDays / 30.5) : 4
+  const field = (key) => ({ value: form[key], onChange: (e) => setForm({ ...form, [key]: e.target.value }) })
+
+  return (
+    <div className="iel-modal" role="dialog" aria-modal="true" aria-label="Покупка курса" onClick={(e) => { if (e.target === e.currentTarget) onClose() }}>
+      <div className="iel-modal-card">
+        <button type="button" className="iel-modal-x" aria-label="Закрыть" onClick={onClose}>×</button>
+        <h3>Тариф «Самостоятельно»</h3>
+        {shop && <p className="iel-price">{shop.priceRub.toLocaleString('ru-RU')} ₽</p>}
+        <p className="iel-modal-lead">Доступ к курсу на платформе на {months} {months === 1 ? 'месяц' : months < 5 ? 'месяца' : 'месяцев'}. После оплаты на почту придёт письмо со входом.</p>
+        {!shop && !error && <p>Загружаем…</p>}
+        {error && <p className="iel-error" role="alert">{error}</p>}
+        {shop && done && <p className="iel-ok" role="status">Спасибо! Как только перевод придёт, мы откроем курс и пришлём письмо на {form.email}.</p>}
+        {shop && !done && way === null && (
+          <div className="iel-modal-ways">
+            {shop.stripe && <button type="button" className="iel-btn pink" disabled={busy} onClick={payByCard}>{busy ? 'Открываем оплату…' : 'Оплатить картой (Stripe)'}</button>}
+            {details.card && <button type="button" className="iel-btn iel-ghost" onClick={() => setWay('transfer')}>Перевод в рублях</button>}
+            {shop.stripe && <p className="iel-modal-note">Карта любой страны, кроме российских. Сумма спишется в евро по курсу ЦБ РФ на сегодня.</p>}
+          </div>
+        )}
+        {shop && !done && way === 'transfer' && (
+          <form className="iel-form iel-modal-form" onSubmit={reportTransfer}>
+            <div className="iel-requisites">
+              <span>Переведите {shop.priceRub.toLocaleString('ru-RU')} ₽ на карту</span>
+              <strong>{formatCard(details.card)}</strong>
+              {details.cardNote && <span>{details.cardNote}</span>}
+              {details.note && <span className="iel-modal-note">{details.note}</span>}
+              <button type="button" className="iel-link" onClick={() => { navigator.clipboard?.writeText(details.card).then(() => setCopied(true)).catch(() => {}) }}>{copied ? 'Скопировано ✓' : 'Скопировать номер'}</button>
+            </div>
+            <p className="iel-modal-note">После перевода оставьте почту — на неё откроем курс.</p>
+            <label><span>Ваше имя</span><input required maxLength={100} autoComplete="name" {...field('name')} /></label>
+            <label><span>Ваш email</span><input required type="email" maxLength={160} autoComplete="email" {...field('email')} /></label>
+            <label><span>Telegram (по желанию)</span><input maxLength={120} {...field('messenger')} /></label>
+            <input className="iel-hp" tabIndex={-1} autoComplete="off" aria-hidden="true" {...field('website')} />
+            <button type="submit" className="iel-btn pink" disabled={busy}>{busy ? 'Отправляем…' : 'Я оплатил(а)'}</button>
+            <button type="button" className="iel-link" onClick={() => setWay(null)}>← Другой способ</button>
+          </form>
+        )}
+      </div>
+    </div>
+  )
+}
+
+// Back from Stripe: /ielts?paid=1&session_id=… — the course opens at once.
+function PaidBanner({ sessionId, onClose }) {
+  const [state, setState] = useState({ loading: true })
+  useEffect(() => {
+    api.courseCheckoutVerify(sessionId).then((r) => setState(r)).catch((err) => setState({ error: err.message }))
+  }, [sessionId])
+  return (
+    <div className="iel-modal" role="dialog" aria-modal="true" onClick={(e) => { if (e.target === e.currentTarget) onClose() }}>
+      <div className="iel-modal-card">
+        <button type="button" className="iel-modal-x" aria-label="Закрыть" onClick={onClose}>×</button>
+        {state.loading && <p>Проверяем оплату…</p>}
+        {state.error && <p className="iel-error">{state.error}</p>}
+        {state.paid && <><h3>Спасибо за покупку! 🎉</h3><p className="iel-modal-lead">Курс открыт. Письмо со входом отправлено на {state.email ?? 'вашу почту'} — проверьте и папку «Спам».</p></>}
+        {state.paid === false && <p className="iel-modal-lead">Оплата ещё не прошла. Если деньги списались — напишите нам в Telegram, разберёмся.</p>}
+      </div>
+    </div>
+  )
+}
+
 function Accordion({ items }) {
   const [open, setOpen] = useState(null)
   return (
@@ -154,6 +255,8 @@ export default function Ielts() {
   const [form, setForm] = useState({ name: '', messenger: '', email: '', comment: '', website: '' })
   const [state, setState] = useState({ busy: false, done: false, error: '' })
   const reviewsRef = useRef(null)
+  const [buying, setBuying] = useState(false)
+  const [paidSession, setPaidSession] = useState(() => new URLSearchParams(window.location.search).get('session_id'))
 
   useEffect(() => { document.title = 'Курс подготовки к IELTS и TOEFL — Advent Academy' }, [])
 
@@ -311,7 +414,8 @@ export default function Ielts() {
             <Bullets items={BASE_FEATURES} />
             <div className="iel-plan-foot">
               <strong className="iel-demo">демо-версия курса на 7 дней</strong>
-              <button type="button" className="iel-btn iel-ghost" onClick={() => goToForm('тариф «Самостоятельно», 19 000 ₽')}>Оставить заявку</button>
+              <button type="button" className="iel-btn pink" onClick={() => setBuying(true)}>Купить</button>
+              <a className="iel-btn iel-ghost" href={TELEGRAM} target="_blank" rel="noopener noreferrer">Связаться</a>
             </div>
           </article>
 
@@ -401,6 +505,9 @@ export default function Ielts() {
           </form>
         </div>
       </section>
+
+      {buying && <BuyDialog onClose={() => setBuying(false)} />}
+      {paidSession && <PaidBanner sessionId={paidSession} onClose={() => { setPaidSession(null); window.history.replaceState(null, '', '/ielts') }} />}
 
       <footer className="iel-foot iel-wrap">
         <div className="iel-foot-bar">

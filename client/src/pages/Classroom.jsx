@@ -14,6 +14,7 @@ import MistakeNotebook from '../components/MistakeNotebook'
 import LessonSummaries from '../components/LessonSummaries'
 import { trackSection } from '../utils/activity'
 import TrialReports from '../components/TrialReports'
+import PendingTrialReports from '../components/PendingTrialReports'
 import ActivityHeatmap from '../components/ActivityHeatmap'
 import TrainerProgress from '../components/TrainerProgress'
 import StudentSettings from '../components/StudentSettings'
@@ -366,6 +367,7 @@ export default function Classroom() {
 
       {error && <div className="error">{error}</div>}
 
+      {(user.role === 'OWNER' || user.role === 'TEACHER') && !isPersonal && <PendingTrialReports classroomId={id} refreshKey={searchParams.toString()} />}
       {!isStaff && <LiveLesson classroomId={id} />}
 
       <Panel id={`room:boards:${id}`} title={isPersonal ? 'Boards' : 'Board'} count={classroom.boards.length} defaultOpen>

@@ -284,3 +284,49 @@ export function sendTrialWelcomeEmail({ to, name, teacherName, inviteLink, appUr
   ].filter(Boolean).join('\n')
   return send({ to, subject: 'Добро пожаловать в Advent Academy! 🎉', html, text })
 }
+
+// A course bought on the website: how to get in. A new account gets a
+// "choose a password" link; someone already here is told it is open.
+export function sendCourseOpenedEmail({ to, name, courseTitle, until, passwordLink, courseLink, support }) {
+  const button = (href, label) => `<p style="margin:20px 0"><a href="${escapeHtml(href)}" style="display:inline-block;background:#14453f;color:#fff;text-decoration:none;padding:14px 24px;border-radius:10px;font-weight:700;font-size:16px">${label}</a></p>`
+  const untilText = new Date(until).toLocaleDateString('ru-RU', { day: 'numeric', month: 'long', year: 'numeric' })
+  const html = `
+<div style="font-family:Manrope,-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;max-width:520px;margin:0 auto;padding:32px 24px;color:#14453f;background:#ffffff">
+  <div style="font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:#b5539a;font-weight:700">Advent Academy</div>
+  <h1 style="font-size:24px;line-height:1.25;margin:8px 0 12px">${escapeHtml(name || 'Здравствуйте')}, курс открыт! 🎉</h1>
+  <p style="font-size:16px;line-height:1.55;margin:0 0 8px">Спасибо за покупку курса <strong>${escapeHtml(courseTitle)}</strong>. Доступ открыт до <strong>${untilText}</strong>.</p>
+  ${passwordLink
+    ? `<div style="background:#ffd5ed;border-radius:14px;padding:16px 18px;margin:20px 0">
+         <strong style="font-size:16px">Придумайте пароль</strong>
+         <p style="font-size:15px;line-height:1.5;margin:6px 0 0">Нажмите кнопку и придумайте пароль. Дальше входите по этой почте: <strong>${escapeHtml(to)}</strong>.</p>
+         ${button(passwordLink, 'Придумать пароль')}
+         <p style="font-size:13px;line-height:1.5;margin:0">Ссылка действует 14 дней. Если не успеете — на странице входа нажмите «Забыли пароль?».</p>
+       </div>`
+    : `<p style="font-size:15px;line-height:1.55;margin:16px 0 0">Входите по почте <strong>${escapeHtml(to)}</strong> и своему паролю.</p>`}
+  ${button(courseLink, 'Открыть курс')}
+  ${support ? `<p style="font-size:15px;line-height:1.55;margin:12px 0 0">Если что-то не получается — напишите нам: <strong>${escapeHtml(support)}</strong>.</p>` : ''}
+  <p style="font-size:15px;line-height:1.55;margin:24px 0 0">Удачной подготовки!<br>Галина и команда Advent Academy</p>
+</div>`
+  const text = [
+    `${name || 'Здравствуйте'}, курс «${courseTitle}» открыт до ${untilText}.`,
+    passwordLink ? `Придумайте пароль: ${passwordLink} (вход — по почте ${to})` : `Входите по почте ${to}.`,
+    `Курс: ${courseLink}`,
+    support ? `Вопросы: ${support}` : ''
+  ].filter(Boolean).join('\n')
+  return send({ to, subject: `Курс «${courseTitle}» открыт`, html, text })
+}
+
+// Someone reports a rouble transfer for a course: the owners check and open it.
+export function sendCourseTransferEmail({ to, order, courseTitle, link }) {
+  const rows = [['Имя', order.name], ['Почта', order.email], ['Связь', order.messenger], ['Комментарий', order.note]].filter(([, v]) => v)
+  const html = `
+<div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;max-width:520px;margin:0 auto;padding:32px 24px;color:#1a1a1a">
+  <h1 style="font-size:20px;margin:0 0 16px">Перевод за курс «${escapeHtml(courseTitle)}»</h1>
+  <p style="font-size:15px;line-height:1.55;margin:0 0 12px">Человек сообщил, что перевёл ${order.rub.toLocaleString('ru-RU')} ₽:</p>
+  ${rows.map(([k, v]) => `<p style="font-size:15px;margin:4px 0"><strong>${k}:</strong> ${escapeHtml(v)}</p>`).join('')}
+  <p style="font-size:15px;line-height:1.55;margin:16px 0">Проверьте, что деньги пришли, и нажмите «Открыть доступ» на странице курса.</p>
+  <p><a href="${escapeHtml(link)}">${escapeHtml(link)}</a></p>
+</div>`
+  const text = `Перевод за курс «${courseTitle}», ${order.rub} ₽: ${rows.map(([k, v]) => `${k}: ${v}`).join('; ')}. Проверьте и откройте доступ: ${link}`
+  return send({ to, subject: `Перевод за курс: ${order.name}`, html, text })
+}

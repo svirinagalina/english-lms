@@ -42,6 +42,7 @@ model School {
 
 model User {
   id           String   @id @default(cuid())
+  courseAccess CourseAccess[]
   email        String   @unique
   passwordHash String
   name         String
@@ -731,13 +732,60 @@ model Course {
   skillsetId  String
   title       String
   description String?
+  // Sold on its own (the IELTS page): the price in roubles and how long a
+  // purchase opens it. null = not for sale, open to students with a teacher only.
+  priceRub    Int?
+  accessDays  Int?
   lessons     CourseLesson[]
+  accesses    CourseAccess[]
+  orders      CourseOrder[]
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
   skillset Skillset @relation(fields: [skillsetId], references: [id], onDelete: Cascade)
 
   @@index([skillsetId])
+}
+
+// A bought course: open to this person until `until`.
+model CourseAccess {
+  id        String   @id @default(cuid())
+  courseId  String
+  userId    String
+  until     DateTime
+  source    String   // "stripe", "transfer", "manual"
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  course Course @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([courseId, userId])
+  @@index([userId])
+}
+
+// A purchase of a course: a Stripe payment (credited at once) or a rouble
+// transfer the buyer reported (pending until an admin opens the course).
+model CourseOrder {
+  id              String    @id @default(cuid())
+  courseId        String
+  method          String    // "stripe", "transfer"
+  status          String    @default("pending") // "pending", "granted", "dismissed"
+  name            String
+  email           String
+  messenger       String?
+  note            String?
+  rub             Int
+  amountCents     Int?
+  currency        String?
+  stripeSessionId String?   @unique
+  userId          String?
+  createdAt       DateTime  @default(now())
+  handledAt       DateTime?
+
+  course Course @relation(fields: [courseId], references: [id], onDelete: Cascade)
+
+  @@index([courseId, status])
 }
 
 model CourseLesson {

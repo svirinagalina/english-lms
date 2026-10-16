@@ -4,6 +4,7 @@ import { setPlan } from './plans.js'
 import { notify } from './push.js'
 import { sendPaymentReportedEmail } from './mailer.js'
 import { stripeKey } from './settings.js'
+import { creditCoursePurchase } from './coursePurchases.js'
 
 // Paid lessons added to a student's package: what was left in the current
 // package is kept, the new package (left + paid) counts from now. The trial
@@ -79,6 +80,11 @@ async function sweepStripe() {
   if (!response.ok) throw new Error(`Stripe ${response.status}`)
   const { data } = await response.json()
   for (const session of data ?? []) {
+    if (session.metadata?.courseId) {
+      if (await prisma.courseOrder.findUnique({ where: { stripeSessionId: session.id }, select: { id: true } })) continue
+      await creditCoursePurchase(session).catch((error) => console.error('[stripe] course credit', session.id, error.message))
+      continue
+    }
     if (!session.metadata?.plan) continue
     if (await prisma.offerPurchase.findUnique({ where: { id: session.id }, select: { id: true } })) continue
     await creditOfferPurchase(session).catch((error) => console.error('[stripe] credit', session.id, error.message))
