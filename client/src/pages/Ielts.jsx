@@ -22,7 +22,7 @@ const SITE = 'https://advent-academy.online'
 const img = (name) => `/ielts/${name}`
 // The course sold by the «Самостоятельно» tariff (price and access days are
 // set on the course page, Sales panel).
-const COURSE_ID = 'cmucp0xsi0003mm2cyz5lv19'
+const COURSE_ID = 'cmucp0xsi0003mm2cyuz5lv19'
 
 const WHY = [
   'Пробные тесты для каждого тарифа перед покупкой обучения.',
