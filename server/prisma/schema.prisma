@@ -780,6 +780,9 @@ model CourseOrder {
   currency        String?
   stripeSessionId String?   @unique
   userId          String?
+  // The buyer pressed Start in the school bot (t.me/…?start=co_<id>): the
+  // access link goes there too.
+  telegramChatId  String?
   createdAt       DateTime  @default(now())
   handledAt       DateTime?
 

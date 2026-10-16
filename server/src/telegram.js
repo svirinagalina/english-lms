@@ -180,7 +180,9 @@ async function whoStarts(param) {
 const reply = (chatId, text) => tg('sendMessage', { chat_id: chatId, text, parse_mode: 'HTML', disable_web_page_preview: true })
   .catch((error) => console.error('[telegram] reply', error.message))
 
-const hooks = { onLinked: null }
+const hooks = { onLinked: null, onCourseStart: null }
+// coursePurchases.js: a course buyer connects to get the access link here.
+export const onCourseStart = (fn) => { hooks.onCourseStart = fn }
 // bot.js sends the lesson's confirmation right after a student connects.
 export const onLinked = (fn) => { hooks.onLinked = fn }
 
@@ -191,6 +193,10 @@ async function handleStart(message, param) {
     return reply(chatId, known
       ? `Вы подключены, ${esc(known.name)} ✅ Сюда приходят напоминания об уроках.`
       : 'Здравствуйте! Это бот школы Advent Academy. Чтобы получать напоминания об уроках, откройте свою ссылку на урок и нажмите там «Напоминания в Telegram».')
+  }
+  if (param.startsWith('co_') && hooks.onCourseStart) {
+    const text = await hooks.onCourseStart({ chatId, orderId: param.slice(3), username: message.from?.username ?? null }).catch((error) => { console.error('[telegram] course', error.message); return null })
+    return reply(chatId, text ?? 'Ссылка не подошла. Напишите нам, и мы откроем доступ.')
   }
   const found = await whoStarts(param)
   if (!found) return reply(chatId, 'Ссылка не подошла. Откройте её ещё раз со страницы урока или из профиля на платформе.')

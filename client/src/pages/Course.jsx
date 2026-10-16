@@ -255,7 +255,7 @@ function CourseSales({ courseId }) {
       load()
     } catch (err) { setError(err.message) }
   }
-  const granted = (r) => `Открыто до ${new Date(r.until).toLocaleDateString('ru-RU')}. ${r.mailed ? 'Письмо отправлено.' : `Письмо не ушло${r.passwordLink ? ` — передайте ссылку: ${r.passwordLink}` : ''}`}`
+  const granted = (r) => `Открыто до ${new Date(r.until).toLocaleDateString('ru-RU')}. ${r.mailed ? 'Письмо отправлено.' : ''}${r.telegram ? ' Отправлено в Telegram.' : ''}${r.mailed || r.telegram ? '' : `Письмо не ушло${r.passwordLink ? ` — передайте ссылку: ${r.passwordLink}` : ''}`}`
   if (!data) return error ? <div className="error">{error}</div> : null
   const pending = data.orders.filter((o) => o.status === 'pending')
   const now = Date.now()

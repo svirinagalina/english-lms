@@ -123,7 +123,7 @@ function BuyDialog({ onClose }) {
   const [error, setError] = useState('')
   const [way, setWay] = useState(null) // null | 'transfer'
   const [busy, setBusy] = useState(false)
-  const [done, setDone] = useState(false)
+  const [done, setDone] = useState(null) // the transfer report's answer
   const [copied, setCopied] = useState(false)
   const [form, setForm] = useState({ name: '', email: '', messenger: '', website: '' })
 
@@ -145,8 +145,7 @@ function BuyDialog({ onClose }) {
     event.preventDefault()
     setBusy(true); setError('')
     try {
-      await api.courseTransfer(COURSE_ID, form)
-      setDone(true)
+      setDone(await api.courseTransfer(COURSE_ID, form))
     } catch (err) { setError(err.message) }
     setBusy(false)
   }
@@ -163,7 +162,12 @@ function BuyDialog({ onClose }) {
         <p className="iel-modal-lead">Доступ к курсу на платформе на {months} {months === 1 ? 'месяц' : months < 5 ? 'месяца' : 'месяцев'}. После оплаты на почту придёт письмо со входом.</p>
         {!shop && !error && <p>Загружаем…</p>}
         {error && <p className="iel-error" role="alert">{error}</p>}
-        {shop && done && <p className="iel-ok" role="status">Спасибо! Как только перевод придёт, мы откроем курс и пришлём письмо на {form.email}.</p>}
+        {shop && done && (
+          <>
+            <p className="iel-ok" role="status">Спасибо! Как только перевод придёт, мы откроем курс и пришлём письмо на {form.email}.</p>
+            <TelegramButton link={done.telegramLink} />
+          </>
+        )}
         {shop && !done && way === null && (
           <div className="iel-modal-ways">
             {shop.stripe && <button type="button" className="iel-btn pink" disabled={busy} onClick={payByCard}>{busy ? 'Открываем оплату…' : 'Оплатить картой (Stripe)'}</button>}
@@ -193,6 +197,18 @@ function BuyDialog({ onClose }) {
   )
 }
 
+// Telegram can't be written to by @username: the buyer presses Start in the
+// school bot, and the access link comes there too.
+function TelegramButton({ link }) {
+  if (!link) return null
+  return (
+    <div className="iel-modal-ways" style={{ marginTop: 14 }}>
+      <a className="iel-btn iel-ghost" href={link} target="_blank" rel="noopener noreferrer">Получить доступ в Telegram</a>
+      <p className="iel-modal-note">Откройте бота школы и нажмите «Start» — ссылка на курс придёт туда же.</p>
+    </div>
+  )
+}
+
 // Back from Stripe: /ielts?paid=1&session_id=… — the course opens at once.
 function PaidBanner({ sessionId, onClose }) {
   const [state, setState] = useState({ loading: true })
@@ -205,7 +221,7 @@ function PaidBanner({ sessionId, onClose }) {
         <button type="button" className="iel-modal-x" aria-label="Закрыть" onClick={onClose}>×</button>
         {state.loading && <p>Проверяем оплату…</p>}
         {state.error && <p className="iel-error">{state.error}</p>}
-        {state.paid && <><h3>Спасибо за покупку! 🎉</h3><p className="iel-modal-lead">Курс открыт. Письмо со входом отправлено на {state.email ?? 'вашу почту'} — проверьте и папку «Спам».</p></>}
+        {state.paid && <><h3>Спасибо за покупку! 🎉</h3><p className="iel-modal-lead">Курс открыт. Письмо со входом отправлено на {state.email ?? 'вашу почту'} — проверьте и папку «Спам».</p><TelegramButton link={state.telegramLink} /></>}
         {state.paid === false && <p className="iel-modal-lead">Оплата ещё не прошла. Если деньги списались — напишите нам в Telegram, разберёмся.</p>}
       </div>
     </div>

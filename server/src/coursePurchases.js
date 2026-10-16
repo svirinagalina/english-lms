@@ -8,7 +8,7 @@ import { guardedFetch, rateLimit } from './resilience.js'
 import { eurRate } from './routes/billing.js'
 import { sendCourseOpenedEmail, sendCourseTransferEmail, sendPaymentReportedEmail } from './mailer.js'
 import { notify } from './push.js'
-import { sendTo, esc } from './telegram.js'
+import { sendTo, esc, tg, startLink, onCourseStart } from './telegram.js'
 
 // Courses sold on their own (Galina, 2026-10-16: the IELTS page's "Купить"
 // — Stripe or a rouble transfer, then access). A course with `priceRub` is
@@ -34,6 +34,54 @@ export async function canOpenCourse(user, courseId) {
   const access = await prisma.courseAccess.findUnique({ where: { courseId_userId: { courseId, userId: user.id } }, select: { until: true } })
   return Boolean(access && access.until > new Date())
 }
+
+// A fresh "choose a password" link for an account that never set one
+// (made by a purchase); null once they have signed in with their own.
+async function passwordLinkFor(user) {
+  if (user.emailVerified) return null
+  const token = randomBytes(32).toString('base64url')
+  await prisma.passwordReset.create({ data: { tokenHash: hashToken(token), userId: user.id, expiresAt: new Date(Date.now() + PASSWORD_LINK_DAYS * 86400000) } })
+  return `${APP_URL()}/reset/${token}`
+}
+
+// The access message in the buyer's Telegram (they pressed Start in the bot).
+async function telegramAccess(chatId, { course, user, until }) {
+  const passwordLink = await passwordLinkFor(user)
+  const untilText = new Date(until).toLocaleDateString('ru-RU')
+  const text = [
+    `<b>Курс «${esc(course.title)}» открыт</b> 🎉 Доступ до ${untilText}.`,
+    passwordLink ? `Придумайте пароль по кнопке ниже — дальше входите по почте <b>${esc(user.email)}</b>.` : `Входите по почте <b>${esc(user.email)}</b> и своему паролю.`,
+    'Ссылки также отправлены на почту.'
+  ].join('\n')
+  const buttons = [...(passwordLink ? [[{ text: 'Придумать пароль', url: passwordLink }]] : []), [{ text: 'Открыть курс', url: `${APP_URL()}/courses/${course.id}` }]]
+  try {
+    await tg('sendMessage', { chat_id: chatId, text, parse_mode: 'HTML', disable_web_page_preview: true, reply_markup: { inline_keyboard: buttons } })
+    // Reminders and the rest of the school's messages can reach them too.
+    await prisma.user.updateMany({ where: { id: user.id, telegramChatId: null }, data: { telegramChatId: chatId, telegramLinkedAt: new Date() } })
+    return true
+  } catch (error) {
+    console.error('[course] telegram', error.message)
+    return false
+  }
+}
+
+// t.me/<bot>?start=co_<orderId>, shown right after paying.
+export const telegramLinkFor = (orderId) => startLink(`co_${orderId}`)
+
+onCourseStart(async ({ chatId, orderId }) => {
+  const order = await prisma.courseOrder.findUnique({ where: { id: orderId }, include: { course: true } })
+  if (!order) return null
+  await prisma.courseOrder.update({ where: { id: order.id }, data: { telegramChatId: chatId } })
+  if (order.status === 'granted' && order.userId) {
+    const [user, access] = await Promise.all([
+      prisma.user.findUnique({ where: { id: order.userId } }),
+      prisma.courseAccess.findUnique({ where: { courseId_userId: { courseId: order.courseId, userId: order.userId } } })
+    ])
+    if (user && access && await telegramAccess(chatId, { course: order.course, user, until: access.until })) return 'Готово ✅'
+  }
+  if (order.status === 'dismissed') return 'Мы не нашли этот перевод. Напишите нам — разберёмся.'
+  return `Спасибо, ${esc(order.name)}! Как только перевод подтвердится, пришлём сюда доступ к курсу «${esc(order.course.title)}».`
+})
 
 export async function grantCourse({ course, email, name, source }) {
   email = cleanEmail(email)
@@ -100,7 +148,7 @@ export async function creditCoursePurchase(session) {
   await prisma.courseOrder.update({ where: { id: order.id }, data: { userId: result.user.id } })
   const note = `Оплачено через Stripe: курс «${course.title}» — ${((session.amount_total ?? 0) / 100).toFixed(2)} ${String(session.currency).toUpperCase()}, ${email}. Доступ открыт автоматически до ${result.until.toLocaleDateString('ru-RU')}.`
   await tellOwners(course.skillset.schoolId, { title: `Курс куплен: ${name || email}`, body: note, url: `/courses/${course.id}`, email: (to) => sendPaymentReportedEmail({ to, studentName: name || email, note }) })
-  return { credited: true }
+  return { credited: true, orderId: order.id }
 }
 
 const stripeCall = async (path, params) => {
@@ -144,7 +192,8 @@ courseShopRouter.get('/checkout/verify', async (req, res) => {
     if (!session.metadata?.courseId) return res.status(404).json({ error: 'Not a course payment' })
     const paid = session.payment_status === 'paid'
     if (paid) await creditCoursePurchase(session)
-    res.json({ paid, email: session.customer_details?.email ?? null })
+    const order = paid ? await prisma.courseOrder.findUnique({ where: { stripeSessionId: session.id }, select: { id: true } }) : null
+    res.json({ paid, email: session.customer_details?.email ?? null, telegramLink: order ? telegramLinkFor(order.id) : null })
   } catch (error) {
     res.status(502).json({ error: `Stripe: ${error.message}` })
   }
@@ -201,7 +250,7 @@ courseShopRouter.post('/:id/transfer', rateLimit({ windowMs: 60 * 60_000, max: 8
     url,
     email: (to) => sendCourseTransferEmail({ to, order, courseTitle: course.title, link: `${APP_URL()}${url}` })
   })
-  res.status(201).json({ ok: true })
+  res.status(201).json({ ok: true, telegramLink: telegramLinkFor(order.id) })
 })
 
 // --- Admin: on the course page ------------------------------------------------------
@@ -245,7 +294,8 @@ courseSalesRouter.post('/grant', async (req, res) => {
   try {
     const result = await grantCourse({ course, email, name, source: order ? order.method : 'manual' })
     if (order) await prisma.courseOrder.update({ where: { id: order.id }, data: { status: 'granted', handledAt: new Date(), userId: result.user.id } })
-    res.json({ until: result.until, mailed: result.mailed, passwordLink: result.mailed ? null : result.passwordLink })
+    const telegram = order?.telegramChatId ? await telegramAccess(order.telegramChatId, { course, user: result.user, until: result.until }) : false
+    res.json({ until: result.until, mailed: result.mailed, telegram, passwordLink: result.mailed || telegram ? null : result.passwordLink })
   } catch (error) {
     res.status(400).json({ error: error.message })
   }
