@@ -11,6 +11,7 @@ import path from 'path'
 import { fileURLToPath } from 'url'
 
 import { authRouter } from './routes/auth.js'
+import { partnerReadOnly } from './auth.js'
 import { activityRouter } from './routes/activity.js'
 import { leadsRouter } from './routes/leads.js'
 import { courseShopRouter } from './coursePurchases.js'
@@ -77,6 +78,7 @@ app.use('/api', rateLimit({ windowMs: 60_000, max: 900 }))
 app.use(express.json({ limit: '8mb' }))
 app.use(cookieParser())
 
+app.use('/api', partnerReadOnly)
 app.use('/api/auth', authRouter)
 app.use('/api/users', usersRouter)
 app.use('/api/invites', invitesRouter)

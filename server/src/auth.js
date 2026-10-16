@@ -124,8 +124,25 @@ export function requirePaid(req, res, next) {
   next()
 }
 
-// A partner has the owner's access everywhere except role management.
+// A partner sees what the owner sees.
 export const isAdmin = (user) => user.role === 'OWNER' || user.role === 'PARTNER'
+
+// …but changes nothing (Galina, 2026-10-16: «Максиму на платформе только
+// просмотр»). Every API write from a partner is refused here, before any
+// router, whatever the route says; the sockets refuse board/Writing edits the
+// same way (signaling.js). Only his own account stays his: sign-in/out, his
+// profile, his phone's push and Telegram link, and the page-visit/diagnostic
+// reports the client sends on its own.
+const PARTNER_MAY_WRITE = ['/api/auth/', '/api/profile', '/api/push/', '/api/telegram/me', '/api/activity', '/api/diag']
+export const PARTNER_READ_ONLY = { error: 'Partner access is view-only — ask the administrator to make this change', readOnly: true }
+
+export async function partnerReadOnly(req, res, next) {
+  if (req.method === 'GET' || req.method === 'HEAD' || req.method === 'OPTIONS') return next()
+  if (PARTNER_MAY_WRITE.some((prefix) => req.originalUrl.startsWith(prefix))) return next()
+  const user = (await userFromCookie(req)) ?? (await userFromBearer(req))
+  if (user?.role === 'PARTNER') return res.status(403).json(PARTNER_READ_ONLY)
+  next()
+}
 
 export function requireRole(...roles) {
   return (req, res, next) => {

@@ -1,5 +1,6 @@
 import jwt from 'jsonwebtoken'
 import { prisma } from './db.js'
+import { PARTNER_READ_ONLY } from './auth.js'
 import { accessibleClassroom } from './routes/classrooms.js'
 import {
   elementSchema,
@@ -216,8 +217,20 @@ export function setupSignaling(io) {
     next(new Error('Not authenticated'))
   })
 
+const PARTNER_BLOCKED_EVENTS = new Set(['call:start', 'drawing', 'board:add', 'board:update', 'board:delete', 'board:clear', 'doc:update'])
+
   io.on('connection', (socket) => {
     const user = socket.data.user
+
+    // A partner only looks: no board, drawing or Writing edits, no starting a
+    // call (see partnerReadOnly in auth.js).
+    if (user.role === 'PARTNER') {
+      socket.use(([event, ...args], next) => {
+        if (!PARTNER_BLOCKED_EVENTS.has(event)) return next()
+        const ack = args[args.length - 1]
+        if (typeof ack === 'function') ack({ error: PARTNER_READ_ONLY.error })
+      })
+    }
 
     // withCall marks a real lesson; opening the room to look at materials
     // or edit a board must not count as one.
