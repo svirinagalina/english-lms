@@ -404,107 +404,8 @@ export default function People() {
     </select>
   )
 
-  return (
-    <div className="page">
-      <Nav title="People" />
-
-      {error && <div className="error">{error}</div>}
-
-      <input className="home-search" type="search" placeholder="Search people by name or email" value={query} onChange={(e) => setQuery(e.target.value)} />
-
-      {!mail.enabled && (
-        <div className="notice">
-          Email delivery is off — invitations still work, but you need to send the link yourself.
-        </div>
-      )}
-
-      {moved && (
-        <div className="notice">
-          {moved} <button type="button" className="link-button" onClick={() => setMoved(null)}>OK</button>
-        </div>
-      )}
-
-      {delivery && (
-        <div className={delivery.sent ? 'notice' : 'error'}>
-          {delivery.sent
-            ? 'Invitation email sent.'
-            : `Email not sent (${delivery.reason}). Copy the link below and send it yourself.`}
-        </div>
-      )}
-
-      {funnel.length > 0 && (
-        <Panel id="people:trial-funnel" title="Пробные уроки с сайта" count={funnel.filter((t) => !t.isTest).length} hint="запись → пришёл → отчёт → оплата" defaultOpen>
-          <TrialFunnel trials={funnel} onRemove={['OWNER', 'PARTNER'].includes(user.role) ? removeBooking : null} onMerge={user.role === 'OWNER' ? mergeBooking : null} />
-        </Panel>
-      )}
-
-      {contacts.length > 0 && (
-        <Panel id="people:trial-contacts" title="Архив пробных — для повторных контактов" count={contacts.length}>
-          <TrialContacts contacts={contacts} />
-        </Panel>
-      )}
-
-      {trialReports.length > 0 && (
-        <Panel id="people:trial-reports" title="Trial reports" count={trialReports.length} hint={`${trialReports.filter((r) => !r.publishedAt).length} not sent`} defaultOpen={trialReports.some((r) => !r.publishedAt)}>
-          <TrialReportList reports={trialReports} onRemoved={(id) => setTrialReports((list) => list.filter((r) => r.id !== id))} />
-        </Panel>
-      )}
-
-      <Panel id="people:invite-teacher" title="Invite a teacher">
-        <InviteForm role="TEACHER" teachers={teachers} currentUserId={user.id} onInvited={handleInvited} />
-      </Panel>
-
-      <Panel id="people:invite-student" title="Invite a student" defaultOpen>
-        <p className="muted" style={{ marginBottom: 10 }}>
-          The student is linked to the teacher you pick and will see that teacher's lessons.
-        </p>
-        <InviteForm role="STUDENT" teachers={teachers} currentUserId={user.id} onInvited={handleInvited} trialStudents={people.filter((p) => p.role === 'STUDENT' && p.viaLink)} />
-      </Panel>
-
-      {invites.length > 0 && (
-        <Panel id="people:invites" title="Pending invitations" count={invites.length}>
-          <p className="muted" style={{ marginBottom: 10 }}>
-            {mail.enabled
-              ? 'An email went out automatically. The link also works if you prefer to send it yourself.'
-              : 'Send the link to the person yourself — by email or messenger.'}{' '}
-            It works once and expires in 14 days.
-          </p>
-          <div className="list">
-            {invites.map((invite) => (
-              <div key={invite.id} className="row column">
-                <div className="row-main">
-                  <div>
-                    <strong>{invite.name}</strong>
-                    <div className="muted">
-                      {invite.email} · {invite.role.toLowerCase()}
-                      {invite.teacher && ` · with ${invite.teacher.name}`}
-                    </div>
-                  </div>
-                  <div className="row-actions">
-                    {mail.enabled && (
-                      <button className="ghost" onClick={() => resend(invite)} disabled={resending === invite.id}>
-                        {resending === invite.id ? 'Sending…' : 'Resend email'}
-                      </button>
-                    )}
-                    <button onClick={() => copyLink(invite)}>
-                      {copied === invite.id ? 'Copied' : 'Copy link'}
-                    </button>
-                    <button className="ghost" onClick={() => revoke(invite.id)}>Revoke</button>
-                  </div>
-                </div>
-                <code className="invite-link">{invite.link}</code>
-              </div>
-            ))}
-          </div>
-        </Panel>
-      )}
-
-      <Panel id="people:team" title="Team" count={staff.length} forceOpen={Boolean(q)}>
-        <p className="muted" style={{ marginBottom: 10 }}>
-          A partner has the same access as the administrator, except for changing roles.
-        </p>
-        <div className="list">
-          {staff.map((person) => (
+  // One row per person, used in their own panel and in the search results.
+  const staffRow = (person) => (
             <div key={person.id} className="row column">
              <div className="row-main">
               <div>
@@ -532,42 +433,8 @@ export default function People() {
              </div>
              {editForm(person)}
             </div>
-          ))}
-        </div>
-      </Panel>
-
-      {leads.length > 0 && (
-        <Panel id="people:leads" title="Website requests" count={leads.filter((l) => !l.handled).length} defaultOpen={leads.some((l) => !l.handled)} hint="From the form on the IELTS / TOEFL page.">
-          <div className="list">
-            {leads.map((lead) => (
-              <div key={lead.id} className="row column" style={lead.handled ? { opacity: 0.6 } : undefined}>
-                <div className="row-main">
-                  <div>
-                    <strong>{lead.name}</strong>
-                    <div className="muted">
-                      {[lead.messenger, lead.email].filter(Boolean).join(' · ')} · {new Date(lead.createdAt).toLocaleString()}
-                    </div>
-                    {lead.comment && <div style={{ marginTop: 6 }}>{lead.comment}</div>}
-                  </div>
-                  <div className="row-actions">
-                    <button className="ghost" onClick={() => markLead(lead)}>{lead.handled ? 'Reopen' : 'Done'}</button>
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-        </Panel>
-      )}
-
-      {freeUsers.length > 0 && (
-        <Panel id="people:free" title="Free app users" count={freeUsers.length} defaultOpen={requests > 0} forceOpen={Boolean(q)}
-          hint={requests ? `${requests} asked for a trial lesson` : 'signed up in the app'}>
-          <p className="muted" style={{ marginBottom: 10 }}>
-            They signed up by themselves and use the free plan (the first grammar units, part of the vocabulary, the dictionary, the trainer's trial).
-            Linking one to a teacher makes them a student: everything opens, the trainer included.
-          </p>
-          <div className="list">
-            {freeUsers.map((person) => (
+  )
+  const freeRow = (person) => (
               <div key={person.id} className="row column">
                 <div className="row-main">
                   <div>
@@ -624,32 +491,8 @@ export default function People() {
                   </div>
                 )}
               </div>
-            ))}
-          </div>
-        </Panel>
-      )}
-
-      {user.role === 'OWNER' && activity.length > 0 && (
-        <Panel id="people:activity" title="Activity" count={activity.filter((p) => p.activeDays30 > 0).length} hint="active in the last 30 days · everyone who registered">
-          <div className="list">
-            {activity.map((p) => (
-              <div key={p.id} className="row">
-                <div>
-                  <PersonLink id={p.id} name={p.name} /> <span className="muted">· {p.role === 'STUDENT' && p.free ? 'free app user' : p.role.toLowerCase()}</span>
-                  <div className="muted">last seen {p.lastSeenAt ? new Date(p.lastSeenAt).toLocaleString(undefined, { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : 'not recorded yet'} · {p.activeDays30} active {p.activeDays30 === 1 ? 'day' : 'days'} in 30</div>
-                </div>
-                <button className="ghost" onClick={() => navigate(`/people/${p.id}/activity`)}>Activity</button>
-              </div>
-            ))}
-          </div>
-        </Panel>
-      )}
-
-      <Panel id="people:students" title="Students" count={students.length} defaultOpen>
-        {students.length === 0 && <p className="muted">No students yet. Send an invitation above — the student sets a password from the link and appears here.</p>}
-
-        <div className="list">
-          {students.map((person) => {
+  )
+  const studentRow = (person) => {
             const cabinets = cabinetsOf(person)
             const others = teachers.filter((t) => !person.teachers?.some((x) => x.id === t.id))
             return (
@@ -729,9 +572,194 @@ export default function People() {
               )}
             </div>
             )
-          })}
+  }
+  const ROLE_LABEL = { OWNER: 'Team · administrator', PARTNER: 'Team · partner', TEACHER: 'Team · teacher' }
+  const sectionOf = (p) => ROLE_LABEL[p.role] ?? (p.free ? 'Free app user' : 'Student')
+
+  return (
+    <div className="page">
+      <Nav title="People" />
+
+      {error && <div className="error">{error}</div>}
+
+      <input className="home-search" type="search" placeholder="Search people by name or email" value={query} onChange={(e) => setQuery(e.target.value)} />
+
+      {/* While searching, the matches come first — right under the box —
+          and the rest of the page waits until the search is cleared. */}
+      {q && (
+        <section className="search-results">
+          <div className="muted" style={{ marginBottom: 8 }}>
+            {found.length ? `Found ${found.length}` : 'Nobody found'} ·{' '}
+            <button type="button" className="link-button" onClick={() => setQuery('')}>Clear search</button>
+          </div>
+          <div className="list">
+            {found.map((person) => (
+              <div key={person.id}>
+                <div className="muted" style={{ fontSize: 12, margin: '6px 0 2px' }}>{sectionOf(person)}</div>
+                {person.role !== 'STUDENT' ? staffRow(person) : person.free ? freeRow(person) : studentRow(person)}
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
+
+      {!mail.enabled && (
+        <div className="notice">
+          Email delivery is off — invitations still work, but you need to send the link yourself.
+        </div>
+      )}
+
+      {moved && (
+        <div className="notice">
+          {moved} <button type="button" className="link-button" onClick={() => setMoved(null)}>OK</button>
+        </div>
+      )}
+
+      {delivery && (
+        <div className={delivery.sent ? 'notice' : 'error'}>
+          {delivery.sent
+            ? 'Invitation email sent.'
+            : `Email not sent (${delivery.reason}). Copy the link below and send it yourself.`}
+        </div>
+      )}
+
+      {!q && (<>
+      {funnel.length > 0 && (
+        <Panel id="people:trial-funnel" title="Пробные уроки с сайта" count={funnel.filter((t) => !t.isTest).length} hint="запись → пришёл → отчёт → оплата" defaultOpen>
+          <TrialFunnel trials={funnel} onRemove={['OWNER', 'PARTNER'].includes(user.role) ? removeBooking : null} onMerge={user.role === 'OWNER' ? mergeBooking : null} />
+        </Panel>
+      )}
+
+      {contacts.length > 0 && (
+        <Panel id="people:trial-contacts" title="Архив пробных — для повторных контактов" count={contacts.length}>
+          <TrialContacts contacts={contacts} />
+        </Panel>
+      )}
+
+      {trialReports.length > 0 && (
+        <Panel id="people:trial-reports" title="Trial reports" count={trialReports.length} hint={`${trialReports.filter((r) => !r.publishedAt).length} not sent`} defaultOpen={trialReports.some((r) => !r.publishedAt)}>
+          <TrialReportList reports={trialReports} onRemoved={(id) => setTrialReports((list) => list.filter((r) => r.id !== id))} />
+        </Panel>
+      )}
+
+      <Panel id="people:invite-teacher" title="Invite a teacher">
+        <InviteForm role="TEACHER" teachers={teachers} currentUserId={user.id} onInvited={handleInvited} />
+      </Panel>
+
+      <Panel id="people:invite-student" title="Invite a student" defaultOpen>
+        <p className="muted" style={{ marginBottom: 10 }}>
+          The student is linked to the teacher you pick and will see that teacher's lessons.
+        </p>
+        <InviteForm role="STUDENT" teachers={teachers} currentUserId={user.id} onInvited={handleInvited} trialStudents={people.filter((p) => p.role === 'STUDENT' && p.viaLink)} />
+      </Panel>
+
+      {invites.length > 0 && (
+        <Panel id="people:invites" title="Pending invitations" count={invites.length}>
+          <p className="muted" style={{ marginBottom: 10 }}>
+            {mail.enabled
+              ? 'An email went out automatically. The link also works if you prefer to send it yourself.'
+              : 'Send the link to the person yourself — by email or messenger.'}{' '}
+            It works once and expires in 14 days.
+          </p>
+          <div className="list">
+            {invites.map((invite) => (
+              <div key={invite.id} className="row column">
+                <div className="row-main">
+                  <div>
+                    <strong>{invite.name}</strong>
+                    <div className="muted">
+                      {invite.email} · {invite.role.toLowerCase()}
+                      {invite.teacher && ` · with ${invite.teacher.name}`}
+                    </div>
+                  </div>
+                  <div className="row-actions">
+                    {mail.enabled && (
+                      <button className="ghost" onClick={() => resend(invite)} disabled={resending === invite.id}>
+                        {resending === invite.id ? 'Sending…' : 'Resend email'}
+                      </button>
+                    )}
+                    <button onClick={() => copyLink(invite)}>
+                      {copied === invite.id ? 'Copied' : 'Copy link'}
+                    </button>
+                    <button className="ghost" onClick={() => revoke(invite.id)}>Revoke</button>
+                  </div>
+                </div>
+                <code className="invite-link">{invite.link}</code>
+              </div>
+            ))}
+          </div>
+        </Panel>
+      )}
+
+      <Panel id="people:team" title="Team" count={staff.length} forceOpen={Boolean(q)}>
+        <p className="muted" style={{ marginBottom: 10 }}>
+          A partner has the same access as the administrator, except for changing roles.
+        </p>
+        <div className="list">
+          {staff.map(staffRow)}
         </div>
       </Panel>
+
+      {leads.length > 0 && (
+        <Panel id="people:leads" title="Website requests" count={leads.filter((l) => !l.handled).length} defaultOpen={leads.some((l) => !l.handled)} hint="From the form on the IELTS / TOEFL page.">
+          <div className="list">
+            {leads.map((lead) => (
+              <div key={lead.id} className="row column" style={lead.handled ? { opacity: 0.6 } : undefined}>
+                <div className="row-main">
+                  <div>
+                    <strong>{lead.name}</strong>
+                    <div className="muted">
+                      {[lead.messenger, lead.email].filter(Boolean).join(' · ')} · {new Date(lead.createdAt).toLocaleString()}
+                    </div>
+                    {lead.comment && <div style={{ marginTop: 6 }}>{lead.comment}</div>}
+                  </div>
+                  <div className="row-actions">
+                    <button className="ghost" onClick={() => markLead(lead)}>{lead.handled ? 'Reopen' : 'Done'}</button>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </Panel>
+      )}
+
+      {freeUsers.length > 0 && (
+        <Panel id="people:free" title="Free app users" count={freeUsers.length} defaultOpen={requests > 0} forceOpen={Boolean(q)}
+          hint={requests ? `${requests} asked for a trial lesson` : 'signed up in the app'}>
+          <p className="muted" style={{ marginBottom: 10 }}>
+            They signed up by themselves and use the free plan (the first grammar units, part of the vocabulary, the dictionary, the trainer's trial).
+            Linking one to a teacher makes them a student: everything opens, the trainer included.
+          </p>
+          <div className="list">
+            {freeUsers.map(freeRow)}
+          </div>
+        </Panel>
+      )}
+
+      {user.role === 'OWNER' && activity.length > 0 && (
+        <Panel id="people:activity" title="Activity" count={activity.filter((p) => p.activeDays30 > 0).length} hint="active in the last 30 days · everyone who registered">
+          <div className="list">
+            {activity.map((p) => (
+              <div key={p.id} className="row">
+                <div>
+                  <PersonLink id={p.id} name={p.name} /> <span className="muted">· {p.role === 'STUDENT' && p.free ? 'free app user' : p.role.toLowerCase()}</span>
+                  <div className="muted">last seen {p.lastSeenAt ? new Date(p.lastSeenAt).toLocaleString(undefined, { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : 'not recorded yet'} · {p.activeDays30} active {p.activeDays30 === 1 ? 'day' : 'days'} in 30</div>
+                </div>
+                <button className="ghost" onClick={() => navigate(`/people/${p.id}/activity`)}>Activity</button>
+              </div>
+            ))}
+          </div>
+        </Panel>
+      )}
+
+      <Panel id="people:students" title="Students" count={students.length} defaultOpen>
+        {students.length === 0 && <p className="muted">No students yet. Send an invitation above — the student sets a password from the link and appears here.</p>}
+
+        <div className="list">
+          {students.map(studentRow)}
+        </div>
+      </Panel>
+      </>)}
       <SiteFooter />
     </div>
   )
