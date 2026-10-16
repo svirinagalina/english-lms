@@ -5,12 +5,15 @@ import { requireAuth, requireRole } from '../auth.js'
 import { rateLimit } from '../resilience.js'
 import { sendLeadEmail } from '../mailer.js'
 import { notifyLead } from '../push.js'
+import { sendTo, esc } from '../telegram.js'
 
-// Requests from forms on the public website (the IELTS page). Anyone may
-// send one; the owners read them in People and get an email and a push.
+// Requests from forms on the public website (the IELTS page, and the home
+// page for people who want to study on the platform on their own). Anyone
+// may send one; the owners read them in People and get an email, a push and
+// a Telegram message (if they connected the school's bot).
 export const leadsRouter = Router()
 
-const SOURCES = ['ielts']
+const SOURCES = ['ielts', 'platform']
 const text = (max) => z.string().trim().max(max).optional().transform((v) => v || null)
 
 const schema = z.object({
@@ -41,9 +44,12 @@ leadsRouter.post('/', rateLimit({ windowMs: 60 * 60_000, max: 8, message: 'Too m
   const lead = await prisma.lead.create({ data: { ...data, schoolId: school.id } })
 
   const origin = process.env.CLIENT_ORIGIN ?? `${req.protocol}://${req.get('host')}`
-  const owners = await prisma.user.findMany({ where: { schoolId: school.id, role: 'OWNER' }, select: { email: true } })
+  const owners = await prisma.user.findMany({ where: { schoolId: school.id, role: 'OWNER' }, select: { email: true, telegramChatId: true } })
   for (const owner of owners) sendLeadEmail({ to: owner.email, lead, link: `${origin}/people` })
   notifyLead(lead)
+  const rows = [['Имя', lead.name], ['Мессенджер', lead.messenger], ['Почта', lead.email], ['Комментарий', lead.comment]].filter(([, v]) => v)
+  const message = `<b>${lead.source === 'platform' ? 'Заявка: самостоятельные занятия на платформе' : 'Заявка со страницы IELTS / TOEFL'}</b>\n${rows.map(([k, v]) => `${k}: ${esc(v)}`).join('\n')}`
+  for (const owner of owners) sendTo(owner, message, [[{ text: 'Открыть заявки', url: `${origin}/people` }]]).catch(() => {})
   res.status(201).json({ ok: true })
 })
 

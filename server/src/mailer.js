@@ -121,16 +121,19 @@ export function sendPaymentReportedEmail({ to, studentName, note }) {
 }
 
 // A request from a form on the website: the owner gets the contacts at once.
+const LEAD_TITLES = { ielts: 'New request from the IELTS / TOEFL page', platform: 'New request: self-study on the platform' }
+const LEAD_SUBJECTS = { ielts: 'IELTS / TOEFL request', platform: 'Platform request' }
 export function sendLeadEmail({ to, lead, link }) {
+  const title = LEAD_TITLES[lead.source] ?? LEAD_TITLES.ielts
   const rows = [['Name', lead.name], ['Messenger', lead.messenger], ['Email', lead.email], ['Comment', lead.comment]].filter(([, v]) => v)
   const html = `
 <div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;max-width:520px;margin:0 auto;padding:32px 24px;color:#14453f">
-  <h1 style="font-size:20px;margin:0 0 16px">New request from the IELTS / TOEFL page</h1>
+  <h1 style="font-size:20px;margin:0 0 16px">${title}</h1>
   ${rows.map(([k, v]) => `<p style="font-size:15px;line-height:1.55;margin:0 0 8px"><strong>${k}:</strong> ${escapeHtml(v)}</p>`).join('')}
   <p style="margin:24px 0 0"><a href="${escapeHtml(link)}" style="display:inline-block;background:#14453f;color:#fff;text-decoration:none;padding:12px 22px;border-radius:8px;font-weight:600;font-size:15px">Open People</a></p>
 </div>`
-  const text = `New request from the IELTS / TOEFL page.\n${rows.map(([k, v]) => `${k}: ${v}`).join('\n')}\n\n${link}`
-  return send({ to, subject: `IELTS / TOEFL request — ${lead.name}`, html, text })
+  const text = `${title}.\n${rows.map(([k, v]) => `${k}: ${v}`).join('\n')}\n\n${link}`
+  return send({ to, subject: `${LEAD_SUBJECTS[lead.source] ?? LEAD_SUBJECTS.ielts} — ${lead.name}`, html, text })
 }
 
 // A free app user asks for a trial lesson: the owner gets their contacts.

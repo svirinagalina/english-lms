@@ -1,4 +1,6 @@
+import { useState } from 'react'
 import { Link } from 'react-router-dom'
+import { api } from '../api'
 import { Brand, SiteFooter } from '../components/Brand'
 
 // What a signed-out visitor sees at the site's address. The hero shows the
@@ -90,25 +92,59 @@ const FEATURES = [
 ]
 
 const STEPS = [
-  { title: 'Создайте аккаунт', text: 'Минута и почта — без карты и без звонков менеджера.' },
-  { title: 'Занимайтесь бесплатно', text: '10 тем грамматики, словарь, карточки и чат-бот открыты сразу.' },
-  { title: 'Откройте всё, когда захотите', text: 'Подписка от 390 ₽ в месяц, отменить можно в любой момент.' }
-]
-
-const PLANS = [
-  { name: 'Бесплатно', price: '0', note: 'навсегда', items: ['10 тем грамматики', '20 проверок ИИ в день', 'Словарь и карточки', 'Пробные разговоры с чат-ботом'] },
-  { name: 'Практика', price: '390', eur: '4,90 €', items: ['Вся грамматика — 34 темы', 'ИИ без ограничений', 'Все наборы слов', 'Чат-бот без ограничений'] },
-  { name: 'Звонки', price: '490', eur: '5,90 €', items: ['Свои видеозвонки без лимита времени', 'Доска, документ, размытие фона', 'До 6 участников', 'Гости заходят бесплатно'] },
-  { name: 'Всё вместе', price: '690', eur: '8,90 €', best: true, items: ['Практика + Звонки', 'Выгоднее, чем по отдельности', 'Годовой тариф — ещё около −30%'] }
+  { title: 'Оставьте заявку', text: 'Имя и как с вами связаться — это минута.' },
+  { title: 'Мы напишем вам', text: 'Ответим в Telegram или на почту, расскажем про платформу и откроем доступ.' },
+  { title: 'Занимайтесь сами', text: 'Грамматика, слова, карточки и чат-бот — в любое время и в любом месте.' }
 ]
 
 const FAQ = [
-  { q: 'Нужна ли карта, чтобы начать?', a: 'Нет. Бесплатный доступ открывается сразу после подтверждения почты и ничего не списывает.' },
-  { q: 'Можно отменить подписку?', a: 'Да, в любой момент в два клика. Доступ сохраняется до конца оплаченного периода.' },
-  { q: 'Чем это лучше Zoom или Duolingo?', a: 'Здесь звонок, доска, грамматика, словарь и разговорная практика в одном месте — и дешевле, чем каждый сервис по отдельности. Слова с урока сразу попадают в ваши карточки.' },
-  { q: 'А если я хочу заниматься с преподавателем?', a: 'Запишитесь на пробный урок из личного кабинета. Ученикам с преподавателем все тарифы включены бесплатно.' },
-  { q: 'Можно оплатить российской картой?', a: 'Да: оставьте контакт на странице тарифов, пришлём реквизиты — тариф откроется, как только придёт оплата.' }
+  { q: 'Как получить доступ к платформе?', a: 'Оставьте заявку внизу страницы — мы напишем вам в Telegram или на почту и откроем доступ.' },
+  { q: 'Чем это лучше Zoom или Duolingo?', a: 'Здесь звонок, доска, грамматика, словарь и разговорная практика в одном месте. Слова с урока сразу попадают в ваши карточки.' },
+  { q: 'А если я хочу заниматься с преподавателем?', a: 'Напишите об этом в комментарии к заявке — подберём преподавателя и запишем на пробный урок.' }
 ]
+
+const EMPTY_FORM = { name: '', messenger: '', email: '', comment: '', website: '' }
+
+// The request form: goes to the owners' email and Telegram (server/src/routes/leads.js).
+function ApplyForm() {
+  const [form, setForm] = useState(EMPTY_FORM)
+  const [state, setState] = useState({ busy: false, done: false, error: '' })
+  const field = (key) => ({ value: form[key], onChange: (e) => setForm({ ...form, [key]: e.target.value }) })
+
+  const submit = async (event) => {
+    event.preventDefault()
+    if (state.busy) return
+    if (!form.messenger.trim() && !form.email.trim()) return setState({ busy: false, done: false, error: 'Оставьте Telegram или почту, чтобы мы могли ответить' })
+    setState({ busy: true, done: false, error: '' })
+    try {
+      await api.sendLead({ source: 'platform', ...form })
+      setState({ busy: false, done: true, error: '' })
+      setForm(EMPTY_FORM)
+    } catch (err) {
+      setState({ busy: false, done: false, error: err.message })
+    }
+  }
+
+  if (state.done) {
+    return (
+      <div className="lp-form lp-form-done">
+        <strong>Спасибо, заявка отправлена!</strong>
+        <p>Мы напишем вам в ближайшее время.</p>
+      </div>
+    )
+  }
+  return (
+    <form className="lp-form" onSubmit={submit}>
+      <label>Имя<input required maxLength={100} autoComplete="name" {...field('name')} /></label>
+      <label>Telegram или WhatsApp<input maxLength={120} placeholder="@username или номер" {...field('messenger')} /></label>
+      <label>Почта<input type="email" maxLength={160} autoComplete="email" {...field('email')} /></label>
+      <label>Комментарий<textarea rows={3} maxLength={2000} placeholder="Ваш уровень, цель, что хотите подтянуть" {...field('comment')} /></label>
+      <input className="lp-hp" tabIndex={-1} autoComplete="off" aria-hidden="true" {...field('website')} />
+      {state.error && <p className="lp-form-error" role="alert">{state.error}</p>}
+      <button className="lp-btn dark" type="submit" disabled={state.busy}>{state.busy ? 'Отправляем…' : 'Отправить заявку'}</button>
+    </form>
+  )
+}
 
 export default function Landing() {
   return (
@@ -124,12 +160,12 @@ export default function Landing() {
           <div className="lp-hero-text">
             <span className="lp-eyebrow">Все инструменты для изучения английского в одном месте</span>
             <h1>Эффективная среда изучения <span className="lp-accent">английского<Scribble /></span></h1>
-            <p className="lp-lead">Видеоуроки на общей доске, упражнения с умной проверкой, слова, которые запоминаются, и чат-бот для разговора. Начните бесплатно сегодня.</p>
+            <p className="lp-lead">Видеоуроки на общей доске, упражнения с умной проверкой, слова, которые запоминаются, и чат-бот для разговора.</p>
             <div className="lp-actions">
-              <Link className="lp-btn primary" to="/signup">Начать бесплатно <span aria-hidden="true">→</span></Link>
+              <a className="lp-btn primary" href="#apply">Хочу попробовать <span aria-hidden="true">→</span></a>
               <Link className="lp-btn" to="/login">У меня уже есть аккаунт</Link>
             </div>
-            <p className="lp-small">Без карты · Регистрация за минуту · Отмена в любой момент</p>
+            <p className="lp-small">Оставьте заявку — мы напишем и откроем доступ</p>
           </div>
           <HeroCollage />
         </section>
@@ -160,23 +196,6 @@ export default function Landing() {
           </ol>
         </section>
 
-        <section className="lp-pricing">
-          <h2 className="lp-h2">Тарифы дешевле, чем <em>один урок</em> у репетитора</h2>
-          <p className="lp-sub">Для сравнения: Zoom Pro, Duolingo Super или ELSA по отдельности стоят дороже, чем «Всё вместе» здесь.</p>
-          <div className="lp-plans">
-            {PLANS.map((p) => (
-              <div key={p.name} className={`lp-plan${p.best ? ' best' : ''}`}>
-                {p.best && <span className="lp-ribbon">Выгоднее всего</span>}
-                <h3>{p.name}</h3>
-                <div className="lp-price"><span className="lp-price-num">{p.price}</span><span className="lp-price-cur">₽</span><span className="lp-price-note">{p.note ?? '/ мес'}</span></div>
-                {p.eur && <div className="lp-eur">или {p.eur} картой любой страны</div>}
-                <ul>{p.items.map((item) => <li key={item}>{item}</li>)}</ul>
-                <Link className={`lp-btn${p.best ? ' primary' : ''}`} to="/signup">{p.price === '0' ? 'Начать бесплатно' : 'Попробовать'}</Link>
-              </div>
-            ))}
-          </div>
-        </section>
-
         <section className="lp-faq">
           <h2 className="lp-h2">Частые вопросы</h2>
           {FAQ.map((item) => (
@@ -187,10 +206,10 @@ export default function Landing() {
           ))}
         </section>
 
-        <section className="lp-final">
-          <h2>Первое занятие — <em>уже сегодня</em></h2>
-          <p>Зарегистрируйтесь и сделайте первое упражнение за 5 минут. Это бесплатно.</p>
-          <Link className="lp-btn dark" to="/signup">Создать аккаунт бесплатно <span aria-hidden="true">→</span></Link>
+        <section className="lp-final" id="apply">
+          <h2>Хотите заниматься <em>самостоятельно</em>?</h2>
+          <p>Оставьте заявку — мы напишем вам в Telegram или на почту и откроем доступ к платформе.</p>
+          <ApplyForm />
         </section>
       </main>
       <SiteFooter />

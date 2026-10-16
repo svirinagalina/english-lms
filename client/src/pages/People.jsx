@@ -627,7 +627,7 @@ export default function People() {
       </Panel>
 
       {leads.length > 0 && (
-        <Panel id="people:leads" title="Website requests" count={leads.filter((l) => !l.handled).length} defaultOpen={leads.some((l) => !l.handled)} hint="From the form on the IELTS / TOEFL page.">
+        <Panel id="people:leads" title="Website requests" count={leads.filter((l) => !l.handled).length} defaultOpen={leads.some((l) => !l.handled)} hint="From the forms on the IELTS / TOEFL page and the home page (self-study on the platform).">
           <div className="list">
             {leads.map((lead) => (
               <div key={lead.id} className="row column" style={lead.handled ? { opacity: 0.6 } : undefined}>
@@ -635,7 +635,7 @@ export default function People() {
                   <div>
                     <strong>{lead.name}</strong>
                     <div className="muted">
-                      {[lead.messenger, lead.email].filter(Boolean).join(' · ')} · {new Date(lead.createdAt).toLocaleString()}
+                      {[lead.messenger, lead.email].filter(Boolean).join(' · ')} · {new Date(lead.createdAt).toLocaleString()} · {lead.source === 'platform' ? 'platform, self-study' : 'IELTS / TOEFL'}
                     </div>
                     {lead.comment && <div style={{ marginTop: 6 }}>{lead.comment}</div>}
                   </div>
