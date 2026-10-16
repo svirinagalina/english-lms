@@ -37,16 +37,23 @@ export default function PersonActivity() {
   // A section row opens that place for this student, where staff can see it.
   const room = lessons.classrooms[0]
   const boardRoom = lessons.classrooms.find((c) => c.board)
+  const student = user.role === 'STUDENT'
+  const cabinet = room ? `/classroom/${room.id}` : null
+  const progress = student ? `/progress/${user.id}` : null
   const sectionLink = (section) => ({
-    board: boardRoom ? `/classroom/${boardRoom.id}?board=${boardRoom.board.id}` : null,
-    call: room ? `/classroom/${room.id}` : null,
-    classroom: room ? `/classroom/${room.id}` : null,
+    board: boardRoom ? `/classroom/${boardRoom.id}?board=${boardRoom.board.id}` : cabinet,
+    home: cabinet,
+    call: cabinet,
+    classroom: cabinet,
     writing: room ? `/classroom/${room.id}?writing=1` : null,
-    practice: user.role === 'STUDENT' ? `/progress/${user.id}` : null,
-    mistakes: user.role === 'STUDENT' ? `/progress/${user.id}` : null,
-    progress: user.role === 'STUDENT' ? `/progress/${user.id}` : null,
+    trainer: room ? `/classroom/${room.id}?trainer=1` : null,
+    practice: progress,
+    mistakes: progress,
+    progress,
+    vocabulary: progress,
+    billing: student ? '/billing' : null,
     report: reports[0]?.generated ? `/report/${reports[0].id}` : null
-  })[section] ?? null
+  })[section] ?? (student ? cabinet : null)
 
   return (
     <div className="page">

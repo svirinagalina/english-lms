@@ -72,9 +72,11 @@ activityRouter.get('/people/:id', requireRole('OWNER', 'PARTNER', 'TEACHER'), as
     prisma.lessonMistake.findMany({ where: { studentId: user.id }, select: { practicedCorrect: true, lastPracticedAt: true, createdAt: true } }),
     prisma.vocabCard.count({ where: { set: { ownerId: user.id } } }),
     prisma.cardReview.findMany({ where: { studentId: user.id }, select: { streak: true, dueAt: true, lastResult: true } }),
-    prisma.classroom.findMany({ where: { studentId: user.id }, select: { id: true, teacher: { select: { name: true } }, sessions: { where: { counted: true }, select: { startedAt: true }, orderBy: { startedAt: 'desc' } }, document: { select: { updatedAt: true } }, boards: { select: { id: true, title: true }, orderBy: { updatedAt: 'desc' }, take: 1 } } }),
+    prisma.classroom.findMany({ where: { studentId: user.id }, select: { id: true, teacher: { select: { name: true } }, sessions: { where: { counted: true }, select: { startedAt: true }, orderBy: { startedAt: 'desc' } }, document: { select: { updatedAt: true } }, teacherId: true, boards: { where: { scratch: false }, select: { id: true, title: true, updatedAt: true }, orderBy: { updatedAt: 'desc' }, take: 1 }, sharedBoards: { where: { scratch: false }, select: { id: true, title: true, updatedAt: true }, orderBy: { updatedAt: 'desc' }, take: 1 } } }),
     prisma.trialReport.findMany({ where: { studentId: user.id }, orderBy: { createdAt: 'desc' }, select: { id: true, createdAt: true, publishedAt: true, teacherLevel: true, generated: true, classroomId: true } })
   ])
+
+  const currentTeachers = new Set((await prisma.teacherStudent.findMany({ where: { studentId: user.id }, select: { teacherId: true } })).map((l) => l.teacherId))
 
   // Sections: totals over the period, most recent first.
   const sectionMap = new Map()
@@ -130,7 +132,14 @@ activityRouter.get('/people/:id', requireRole('OWNER', 'PARTNER', 'TEACHER'), as
         held: sessions.length,
         last30: sessions.filter((s) => s.startedAt >= since).length,
         lastAt: sessions.sort((a, b) => b.startedAt - a.startedAt)[0]?.startedAt ?? null,
-        classrooms: classrooms.map((c) => ({ id: c.id, teacher: c.teacher?.name ?? null, writingUpdatedAt: c.document?.updatedAt ?? null, board: c.boards?.[0] ?? null }))
+        // Current teacher's cabinet first; its board is the one owned or (after
+        // Assign, the usual case) shared in from the teacher's shelf.
+        classrooms: classrooms
+          .map((c) => {
+            const board = [...c.boards, ...c.sharedBoards].sort((a, b) => b.updatedAt - a.updatedAt)[0]
+            return { id: c.id, teacher: c.teacher?.name ?? null, current: currentTeachers.has(c.teacherId), writingUpdatedAt: c.document?.updatedAt ?? null, board: board ? { id: board.id, title: board.title } : null }
+          })
+          .sort((a, b) => b.current - a.current)
       }
     },
     ...extra,

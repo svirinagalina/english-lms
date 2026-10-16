@@ -455,7 +455,7 @@ export default function Classroom() {
         )
       })()}
 
-      {!isPersonal && isStaff && <TrainerProgress classroomId={id} />}
+      {!isPersonal && isStaff && <TrainerProgress classroomId={id} focus={searchParams.get('trainer') === '1'} />}
 
       {!isPersonal && (
         <Panel id={`room:writing:${id}`} title="Writing">

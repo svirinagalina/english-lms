@@ -12,7 +12,7 @@ const GROUPS = [
 ]
 const topicName = (t) => String(t).replace(/_/g, ' ').replace(/^./, (c) => c.toUpperCase())
 
-export default function TrainerProgress({ classroomId }) {
+export default function TrainerProgress({ classroomId, focus = false }) {
   const [data, setData] = useState(null)
   useEffect(() => {
     let live = true
@@ -22,10 +22,16 @@ export default function TrainerProgress({ classroomId }) {
       .catch(() => { if (live) setData(null) })
     return () => { live = false }
   }, [classroomId])
+  // Opened from the owner's activity page (?trainer=1): unfolded and in view.
+  useEffect(() => {
+    if (focus && data) document.getElementById('trainer-progress')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  }, [focus, data])
   if (!data) return null
   const weak = data.topics?.weak?.length ?? 0
   return (
-    <Panel id={`room:trainer:${classroomId}`} title="Trainer" hint={data.found ? `${data.plan ?? ''}${data.pro ? ' · PRO' : ''}` : 'not started'} count={weak || undefined}>
+    <>
+    <div id="trainer-progress" />
+    <Panel id={`room:trainer:${classroomId}`} forceOpen={focus} title="Trainer" hint={data.found ? `${data.plan ?? ''}${data.pro ? ' · PRO' : ''}` : 'not started'} count={weak || undefined}>
       {!data.found && <p className="muted">The student hasn’t opened the trainer yet.</p>}
       {data.found && (
         <div className="trainer-topics">
@@ -49,5 +55,6 @@ export default function TrainerProgress({ classroomId }) {
         </div>
       )}
     </Panel>
+    </>
   )
 }
