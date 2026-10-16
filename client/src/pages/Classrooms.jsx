@@ -10,7 +10,6 @@ import { PackageBadge } from '../components/PackageBadge'
 import StudentHome from '../components/StudentHome'
 import FreeHome from '../components/FreeHome'
 import Panel from '../components/Panel'
-import PendingTrialReports from '../components/PendingTrialReports'
 import Textbooks from '../components/Textbooks'
 import PersonLink from '../components/PersonLink'
 
@@ -147,7 +146,6 @@ export default function Classrooms() {
 
       {user.free && <FreeHome />}
       {!isStaff && !user.free && <StudentHome classrooms={classrooms} />}
-      {(user.role === 'OWNER' || user.role === 'TEACHER') && <PendingTrialReports />}
 
       {isStaff && (
         <input className="home-search" type="search" placeholder="Search students and boards" value={query}

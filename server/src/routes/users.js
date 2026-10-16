@@ -5,6 +5,7 @@ import { requireAuth, requireRole, isAdmin } from '../auth.js'
 import { enrollStudent, moveStudent, unenrollStudent } from '../advent.js'
 import { loadBoard } from '../boardStore.js'
 import { ensureClassroom, carryStudentOver } from './classrooms.js'
+import { pendingTrialReports } from './trials.js'
 
 export const usersRouter = Router()
 
@@ -55,7 +56,9 @@ usersRouter.get('/', async (req, res) => {
       select: SELECT,
       orderBy: [{ role: 'asc' }, { createdAt: 'asc' }]
     })
-    let people = users.map(personView)
+    // A small «report not sent» mark next to a student, instead of a banner.
+    const unsent = new Set((await pendingTrialReports({ classroom: { schoolId: req.user.schoolId } })).map((r) => r.studentId))
+    let people = users.map((u) => ({ ...personView(u), ...(unsent.has(u.id) ? { trialReportPending: true } : {}) }))
     // The partner: a teacher's list of students shows only the site's too.
     if (limitedToSite(req.user)) {
       const site = new Set(await siteStudentIds())

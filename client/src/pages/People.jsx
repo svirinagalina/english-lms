@@ -471,6 +471,9 @@ export default function People() {
                   {cabinets[0]
                     ? <Link className="person-link" to={`/classroom/${cabinets[0].id}`} title="Cabinet: board, payment, lessons, teachers, statistics"><strong>{person.name}</strong></Link>
                     : <PersonLink id={person.id} name={person.name} />}
+                  {person.trialReportPending && cabinets[0] && (
+                    <Link className="activity-tag bad" style={{ marginLeft: 8 }} to={`/classroom/${cabinets[0].id}?trial=1`} title="The trial lesson is over; its report hasn't been sent">report not sent</Link>
+                  )}
                   <div className="muted">{person.email}</div>
                   <div className="muted">
                     {person.teachers?.length

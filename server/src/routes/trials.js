@@ -2,7 +2,7 @@ import { Router } from 'express'
 import { z } from 'zod'
 import { randomBytes } from 'crypto'
 import { prisma } from '../db.js'
-import { requireAuth, requireRole } from '../auth.js'
+import { requireAuth, requireRole, isAdmin } from '../auth.js'
 import { accessibleClassroom } from './classrooms.js'
 import { TEST_ITEMS, LEVELS, GRAMMAR_TOPICS, estimateLevel } from '../placementTest.js'
 import { buildTrialReport } from '../trialReport.js'
@@ -35,25 +35,37 @@ trialsRouter.get('/test-items', requireRole('OWNER', 'TEACHER'), (req, res) => {
   res.json({ items: TEST_ITEMS.map((i) => ({ n: i.n, ru: i.ru })) })
 })
 
-// The teacher's trial lessons that are over but whose report hasn't been
-// sent: the home and student pages show a "Send the report" banner, however
-// the teacher left the call (closed tab, student hung up…).
-trialsRouter.get('/pending', requireRole('OWNER', 'TEACHER'), async (req, res) => {
-  const since = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000)
+// Trial lessons that are over but whose report hasn't been sent. Shown only
+// in that student's cabinet (Galina, 2026-10-16: not on top of the home
+// page): to the trial's teacher, and to an administrator. A trial older than
+// PENDING_DAYS, or one booked as a test, no longer nags.
+export const PENDING_DAYS = 14
+
+export async function pendingTrialReports(where) {
+  const since = new Date(Date.now() - PENDING_DAYS * 24 * 60 * 60 * 1000)
   const reports = await prisma.trialReport.findMany({
-    where: { teacherId: req.user.id, publishedAt: null, callId: { not: null }, createdAt: { gt: since } },
+    where: { ...where, publishedAt: null, callId: { not: null }, createdAt: { gt: since } },
     orderBy: { createdAt: 'desc' },
-    select: { id: true, classroomId: true, callId: true, createdAt: true, classroom: { select: { student: { select: { name: true } } } } }
+    select: { id: true, classroomId: true, studentId: true, teacherId: true, callId: true, createdAt: true, classroom: { select: { student: { select: { name: true } } } } }
   })
-  const ended = new Set((await prisma.call.findMany({
-    where: { id: { in: reports.map((r) => r.callId) }, endedAt: { not: null } },
-    select: { id: true }
-  })).map((c) => c.id))
-  res.json({
-    reports: reports.filter((r) => ended.has(r.callId)).map((r) => ({
-      id: r.id, classroomId: r.classroomId, createdAt: r.createdAt, student: r.classroom?.student?.name ?? 'the student'
-    }))
-  })
+  if (!reports.length) return []
+  const [ended, tests] = await Promise.all([
+    prisma.call.findMany({ where: { id: { in: reports.map((r) => r.callId) }, endedAt: { not: null } }, select: { id: true } }),
+    // A student whose only bookings are test ones.
+    prisma.adventLesson.findMany({ where: { studentUserId: { in: reports.map((r) => r.studentId) } }, select: { studentUserId: true, isTest: true } })
+  ])
+  const over = new Set(ended.map((c) => c.id))
+  const testOnly = new Set(tests.filter((l) => l.isTest).map((l) => l.studentUserId).filter((id) => !tests.some((l) => l.studentUserId === id && !l.isTest)))
+  return reports
+    .filter((r) => over.has(r.callId) && !testOnly.has(r.studentId))
+    .map((r) => ({ id: r.id, classroomId: r.classroomId, studentId: r.studentId, teacherId: r.teacherId, createdAt: r.createdAt, student: r.classroom?.student?.name ?? 'the student' }))
+}
+
+trialsRouter.get('/pending', requireRole('OWNER', 'TEACHER'), async (req, res) => {
+  const classroom = await accessibleClassroom(req.user, String(req.query.classroomId ?? ''))
+  if (!classroom) return res.json({ reports: [] })
+  const reports = await pendingTrialReports({ classroomId: classroom.id, ...(isAdmin(req.user) ? {} : { teacherId: req.user.id }) })
+  res.json({ reports })
 })
 
 const view = (r, { forStudent = false } = {}) => ({

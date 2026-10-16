@@ -228,7 +228,7 @@ export const api = {
   allTrialReports: () => request('/activity/reports'),
   handleLead: (id, handled) => request(`/leads/${id}`, { method: 'PATCH', body: { handled } }),
   trialTestItems: () => request('/trials/test-items'),
-  pendingTrials: () => request('/trials/pending'),
+  pendingTrials: (classroomId) => request(`/trials/pending?classroomId=${encodeURIComponent(classroomId)}`),
   trialReports: (classroomId) => request(`/trials/classroom/${classroomId}`),
   trialReport: (id) => request(`/trials/${id}`),
   updateTrial: (id, body) => request(`/trials/${id}`, { method: 'PATCH', body }),

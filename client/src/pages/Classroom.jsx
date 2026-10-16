@@ -389,7 +389,7 @@ export default function Classroom() {
 
       {error && <div className="error">{error}</div>}
 
-      {(user.role === 'OWNER' || user.role === 'TEACHER') && !isPersonal && <PendingTrialReports classroomId={id} refreshKey={searchParams.toString()} />}
+      {isStaff && !isPersonal && <PendingTrialReports classroomId={id} refreshKey={searchParams.toString()} />}
       {!isStaff && <LiveLesson classroomId={id} />}
 
       <Panel id={`room:boards:${id}`} title={isPersonal ? 'Boards' : 'Board'} count={classroom.boards.length} defaultOpen>
