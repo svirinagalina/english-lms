@@ -431,3 +431,6 @@ select.tool { appearance: auto; padding: 5px 8px; }
   .mistake-edit { position: fixed; top: calc(8px + env(safe-area-inset-top)) !important; left: 8px !important; right: 8px; width: auto; }
   .mistake-edit input { font-size: 16px; }
 }
+
+/* A picture being dragged over the window: the board shows it will take it. */
+.whiteboard.drag-over .board-canvas-wrap { outline: 3px dashed #3b82f6; outline-offset: -6px; }

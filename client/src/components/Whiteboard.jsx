@@ -915,6 +915,10 @@ function mistakeNoteParts(text) {
   }
 }
 
+// Some drags (a screenshot straight from its corner preview) arrive with no
+// MIME type, so the name decides then.
+const isImageFile = (file) => Boolean(file) && (file.type.startsWith('image/') || (!file.type && /\.(png|jpe?g|gif|webp)$/i.test(file.name)))
+
 const Whiteboard = forwardRef(function Whiteboard({ socketRef, boardId, title, subtitle, onClose, backLabel = '← Back', onStartCall, onOpenWriting, canSpotlight = false, onUploadImage, onAssist, assistEnabled, wordPicker = false, saveAllMoves = false, focusElementId = null, onMistake, onMistakeRemoved, insertBlock = null, onInserted, onAddWords, students = null, writingStudents = null }, ref) {
   const [assisting, setAssisting] = useState(null)
   const [exporting, setExporting] = useState(false)
@@ -1612,7 +1616,7 @@ const Whiteboard = forwardRef(function Whiteboard({ socketRef, boardId, title, s
   }
 
   const placeImage = useCallback(async (file) => {
-    if (!onUploadImage || !file || !file.type.startsWith('image/')) return
+    if (!onUploadImage || !isImageFile(file)) return
 
     const dataUrl = await new Promise((resolve, reject) => {
       const reader = new FileReader()
@@ -1653,6 +1657,36 @@ const Whiteboard = forwardRef(function Whiteboard({ socketRef, boardId, title, s
     selectedRef.current = [element.id]
     setTool('select')
   }, [onUploadImage])
+
+  // A picture dragged in from Finder or a fresh screenshot is caught anywhere
+  // in the window, not only over the bare canvas: dropped on the toolbar or a
+  // video tile it used to slip past, and the browser opened it instead.
+  const [dragOver, setDragOver] = useState(false)
+  useEffect(() => {
+    if (!onUploadImage) return
+    const hasFiles = (event) => [...(event.dataTransfer?.types ?? [])].includes('Files')
+    const onDragOver = (event) => {
+      if (!hasFiles(event) || event.defaultPrevented) return
+      event.preventDefault()
+      event.dataTransfer.dropEffect = 'copy'
+      setDragOver(true)
+    }
+    const onDragLeave = (event) => { if (!event.relatedTarget) setDragOver(false) }
+    const onDrop = (event) => {
+      setDragOver(false)
+      if (!hasFiles(event) || event.defaultPrevented) return
+      event.preventDefault()
+      placeImage([...event.dataTransfer.files].find(isImageFile))
+    }
+    window.addEventListener('dragover', onDragOver)
+    window.addEventListener('dragleave', onDragLeave)
+    window.addEventListener('drop', onDrop)
+    return () => {
+      window.removeEventListener('dragover', onDragOver)
+      window.removeEventListener('dragleave', onDragLeave)
+      window.removeEventListener('drop', onDrop)
+    }
+  }, [onUploadImage, placeImage])
 
   useEffect(() => {
     const onPaste = (event) => {
@@ -3166,7 +3200,7 @@ const Whiteboard = forwardRef(function Whiteboard({ socketRef, boardId, title, s
   const selected = selectedElement()
 
   return (
-    <div className="whiteboard">
+    <div className={`whiteboard${dragOver ? ' drag-over' : ''}`}>
       <div className="board-canvas-wrap">
         <canvas
           ref={canvasRef}
@@ -3185,12 +3219,6 @@ const Whiteboard = forwardRef(function Whiteboard({ socketRef, boardId, title, s
           onDoubleClick={handleDoubleClick}
           onWheel={handleWheel}
           onContextMenu={(e) => e.preventDefault()}
-          onDragOver={(e) => { if (onUploadImage) e.preventDefault() }}
-          onDrop={(e) => {
-            if (!onUploadImage) return
-            e.preventDefault()
-            placeImage(e.dataTransfer.files?.[0])
-          }}
         />
 
         {/* Corner chip with the board's name, like a Figma file tab. On a
