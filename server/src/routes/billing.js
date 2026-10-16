@@ -34,18 +34,21 @@ const billingSchema = z.object({
   // The day the package counts from (a lesson given on credit before the
   // payment belongs to the new package: pick that lesson's day).
   packageStartedAt: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).nullable(),
-  payToTrialCard: z.boolean().nullable()
+  payToTrialCard: z.boolean().nullable(),
+  // An extra card's id, or null for the main/after-trial choice above.
+  payCardId: z.string().max(40).nullable()
 })
 
 const detailsSchema = z.object({
   paymentDetails: z.string().max(2000).nullable(),
-  trialPaymentDetails: z.string().max(1000).nullable().optional()
+  trialPaymentDetails: z.string().max(1000).nullable().optional(),
+  extraPaymentCards: z.string().max(4000).nullable().optional()
 })
 
 const STUDENT_SELECT = {
   id: true, name: true, email: true,
   priceAmount: true, priceCurrency: true, paymentLink: true,
-  lessonsPaid: true, packageStartedAt: true, heldAdjust: true, paymentReportedAt: true, payToTrialCard: true
+  lessonsPaid: true, packageStartedAt: true, heldAdjust: true, paymentReportedAt: true, payToTrialCard: true, payCardId: true
 }
 
 export const countedCalls = (student) => prisma.session.count({
@@ -207,13 +210,26 @@ billingRouter.get('/rates', async (req, res) => {
 
 // After a trial lesson the rouble card (and its holder) come from the trial
 // details; everything else — the euro link, the note — stays the school's.
+// The card a student pays to: an extra card set for them by hand, else the
+// after-trial card (set by hand, or automatically after a trial), else the
+// school's main card.
+function studentDetails(school, user, hadTrial) {
+  const extra = extraCards(school.extraPaymentCards).find((c) => c.id === user.payCardId)
+  if (extra) return withTrialCard(school.paymentDetails, JSON.stringify(extra))
+  return (user.payToTrialCard ?? hadTrial) ? withTrialCard(school.paymentDetails, school.trialPaymentDetails) : school.paymentDetails
+}
+
+const extraCards = (raw) => {
+  try { const list = JSON.parse(raw ?? '[]'); return Array.isArray(list) ? list.filter((c) => c?.id && c?.card) : [] } catch { return [] }
+}
+
 function withTrialCard(main, trial) {
   let t = null
   try { t = trial ? JSON.parse(trial) : null } catch { t = null }
   if (!t?.card) return main
   let m = {}
   try { m = main ? JSON.parse(main) : {} } catch { m = { note: main } }
-  return JSON.stringify({ ...m, card: t.card, cardNote: t.cardNote ?? '' })
+  return JSON.stringify({ ...m, card: t.card, cardNote: t.cardNote ?? '', cardName: t.cardName ?? '' })
 }
 
 // What the signed-in student needs in order to pay. A student who came
@@ -222,7 +238,7 @@ function withTrialCard(main, trial) {
 billingRouter.get('/me', async (req, res) => {
   const user = await prisma.user.findUnique({
     where: { id: req.user.id },
-    select: { ...STUDENT_SELECT, school: { select: { paymentDetails: true, trialPaymentDetails: true, name: true } } }
+    select: { ...STUDENT_SELECT, school: { select: { paymentDetails: true, trialPaymentDetails: true, extraPaymentCards: true, name: true } } }
   })
   if (!user) return res.status(401).json({ error: 'Not authenticated' })
 
@@ -236,7 +252,7 @@ billingRouter.get('/me', async (req, res) => {
       paymentLink: view.paymentLink,
       package: view.package,
       paymentReportedAt: view.paymentReportedAt,
-      paymentDetails: (user.payToTrialCard ?? Boolean(trial)) ? withTrialCard(school.paymentDetails, school.trialPaymentDetails) : school.paymentDetails,
+      paymentDetails: studentDetails(school, user, Boolean(trial)),
       schoolName: school.name,
       trial: trial ? { reportId: trial.id, publishedAt: trial.publishedAt, level: trial.generated?.level ?? null, links: offerLinks(), purchased: await paidBefore(user.id) } : null
     }
@@ -338,7 +354,11 @@ billingRouter.patch('/school', requireRole('OWNER'), async (req, res) => {
 
   await prisma.school.update({
     where: { id: req.user.schoolId },
-    data: { paymentDetails: parsed.data.paymentDetails, ...(parsed.data.trialPaymentDetails !== undefined ? { trialPaymentDetails: parsed.data.trialPaymentDetails } : {}) }
+    data: {
+      paymentDetails: parsed.data.paymentDetails,
+      ...(parsed.data.trialPaymentDetails !== undefined ? { trialPaymentDetails: parsed.data.trialPaymentDetails } : {}),
+      ...(parsed.data.extraPaymentCards !== undefined ? { extraPaymentCards: parsed.data.extraPaymentCards } : {})
+    }
   })
 
   res.json({ ok: true })
@@ -347,7 +367,7 @@ billingRouter.patch('/school', requireRole('OWNER'), async (req, res) => {
 billingRouter.get('/school', requireRole('OWNER', 'PARTNER', 'TEACHER'), async (req, res) => {
   const school = await prisma.school.findUnique({
     where: { id: req.user.schoolId },
-    select: { paymentDetails: true, trialPaymentDetails: true }
+    select: { paymentDetails: true, trialPaymentDetails: true, extraPaymentCards: true }
   })
-  res.json({ paymentDetails: school?.paymentDetails ?? null, trialPaymentDetails: school?.trialPaymentDetails ?? null })
+  res.json({ paymentDetails: school?.paymentDetails ?? null, trialPaymentDetails: school?.trialPaymentDetails ?? null, extraPaymentCards: school?.extraPaymentCards ?? null })
 })

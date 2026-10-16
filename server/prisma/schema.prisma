@@ -28,6 +28,9 @@ model School {
   // pay in roubles to this card instead; the euro link and note stay the
   // school's. JSON { card, cardNote }, null = same as paymentDetails.
   trialPaymentDetails String?
+  // More named cards a student can be set to pay to (Dmitry card…):
+  // JSON [{ id, name, card, cardNote }].
+  extraPaymentCards String?
 
   users     User[]
   units      Unit[]
@@ -78,6 +81,8 @@ model User {
   // (School.trialPaymentDetails), false = the school's own, null = decided
   // automatically (true once they have a published trial report).
   payToTrialCard Boolean?
+  // One of the school's extra cards (extraPaymentCards[].id); wins over payToTrialCard.
+  payCardId      String?
 
   // Signed up by themselves (the app, /signup), no teacher yet: the free tier
   // — about 30% of grammar and vocabulary, the trainer's trial, a board to

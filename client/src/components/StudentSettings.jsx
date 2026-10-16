@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { api } from '../api'
 import { useAuth } from '../AuthContext'
 import EditableName from './EditableName'
+import { MAIN_CARD_NAME, TRIAL_CARD_NAME, parseDetails, parseExtraCards, formatCard } from '../utils/paymentDetails'
 
 // Everything about a student's lessons and money in one place, every field
 // open: paid, held, left, the day the package counts from, the price, the
@@ -16,6 +17,7 @@ export default function StudentSettings({ studentId, onChanged }) {
   const [student, setStudent] = useState(null)
   const [form, setForm] = useState(null)
   const [allTeachers, setAllTeachers] = useState([])
+  const [cards, setCards] = useState({ main: MAIN_CARD_NAME, trial: TRIAL_CARD_NAME, extra: [] })
   const [addTeacher, setAddTeacher] = useState('')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
@@ -30,11 +32,23 @@ export default function StudentSettings({ studentId, onChanged }) {
       from: dayOf(student.package.startedAt),
       price: student.priceAmount == null ? '' : String(student.priceAmount / 100),
       currency: student.priceCurrency || 'RUB',
-      card: student.paysTrialCardAuto ? 'auto' : student.payToTrialCard ? 'trial' : 'school',
+      card: student.payCardId ? `extra:${student.payCardId}` : student.paysTrialCardAuto ? 'auto' : student.payToTrialCard ? 'trial' : 'school',
       link: student.paymentLink ?? ''
     })
   }).catch((err) => setError(err.message))
   useEffect(() => { load() }, [studentId])
+  useEffect(() => {
+    api.schoolPaymentDetails().then(({ paymentDetails, trialPaymentDetails, extraPaymentCards }) => {
+      const label = (name, fallback, card) => `${name || fallback}${card ? ` · ${formatCard(card).slice(-4)}` : ''}`
+      const main = parseDetails(paymentDetails)
+      const trial = parseDetails(trialPaymentDetails)
+      setCards({
+        main: label(main.cardName, MAIN_CARD_NAME, main.card),
+        trial: label(trial.cardName, TRIAL_CARD_NAME, trial.card),
+        extra: parseExtraCards(extraPaymentCards).filter((c) => c.id && c.card).map((c) => ({ id: c.id, label: label(c.name, 'Card', c.card) }))
+      })
+    }).catch(() => {})
+  }, [])
   useEffect(() => { if (isOwner) api.listTeachers().then(({ teachers }) => setAllTeachers(teachers)).catch(() => {}) }, [isOwner])
 
   if (!form) return error ? <div className="error">{error}</div> : null
@@ -60,6 +74,7 @@ export default function StudentSettings({ studentId, onChanged }) {
         priceAmount: price,
         priceCurrency: form.currency,
         payToTrialCard: form.card === 'auto' ? null : form.card === 'trial',
+        payCardId: form.card.startsWith('extra:') ? form.card.slice(6) : null,
         paymentLink: form.link.trim() === '' ? null : form.link.trim()
       })
       if (student.paymentReportedAt) await api.paymentSeen(studentId).catch(() => {})
@@ -93,9 +108,10 @@ export default function StudentSettings({ studentId, onChanged }) {
           </label>
           <label>Rubles go to
             <select value={form.card} onChange={set('card')}>
-              <option value="auto">Automatic ({student.paysTrialCard ? 'after-trial card' : 'school card'})</option>
-              <option value="school">School card</option>
-              <option value="trial">After-trial card</option>
+              <option value="auto">Automatic ({student.paysTrialCard ? cards.trial : cards.main})</option>
+              <option value="school">{cards.main}</option>
+              <option value="trial">{cards.trial}</option>
+              {cards.extra.map((c) => <option key={c.id} value={`extra:${c.id}`}>{c.label}</option>)}
             </select>
           </label>
           <label>Payment link (card abroad)<input type="url" value={form.link} onChange={set('link')} placeholder="https://buy.stripe.com/…" /></label>

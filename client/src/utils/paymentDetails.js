@@ -1,7 +1,7 @@
 // The school's payment details are stored as one text field. New saves put
 // structured JSON in it; older plain text is read heuristically, so nothing
 // a teacher wrote before is lost.
-export const emptyDetails = () => ({ card: '', cardNote: '', link: '', note: '' })
+export const emptyDetails = () => ({ card: '', cardNote: '', cardName: '', link: '', note: '' })
 
 export function parseDetails(raw) {
   if (!raw) return emptyDetails()
@@ -21,8 +21,17 @@ export function parseDetails(raw) {
 }
 
 export const serializeDetails = (d) => {
-  const clean = { card: (d.card ?? '').replace(/[ \-]/g, ''), cardNote: (d.cardNote ?? '').trim(), link: (d.link ?? '').trim(), note: (d.note ?? '').trim() }
+  const clean = { card: (d.card ?? '').replace(/[ \-]/g, ''), cardNote: (d.cardNote ?? '').trim(), cardName: (d.cardName ?? '').trim(), link: (d.link ?? '').trim(), note: (d.note ?? '').trim() }
   return Object.values(clean).some(Boolean) ? JSON.stringify(clean) : null
+}
+
+// The names staff see for the school's cards (students see only the number
+// and the holder). The main card is Galina's, the after-trial one Maxim's.
+export const MAIN_CARD_NAME = 'Galina card'
+export const TRIAL_CARD_NAME = 'Maxim card'
+
+export const parseExtraCards = (raw) => {
+  try { const list = JSON.parse(raw ?? '[]'); return Array.isArray(list) ? list : [] } catch { return [] }
 }
 
 // "2200000000000000" → "2200 0000 0000 0000"
