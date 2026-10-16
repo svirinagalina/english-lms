@@ -29,13 +29,40 @@ export function soundKey(text) {
     .trim()
 }
 
-// True when `query` occurs in any of the texts, as typed or by sound.
+// Typed on the wrong keyboard layout: "Fyyf" is "Анна" on the Russian
+// layout, "Фттф" is "Anna" on the English one (standard Mac/PC ЙЦУКЕН).
+const EN_KEYS = "`qwertyuiop[]asdfghjkl;'zxcvbnm,."
+const RU_KEYS = 'ёйцукенгшщзхъфывапролджэячсмитьбю'
+const swap = (text, from, to) => [...text].map((ch) => { const i = from.indexOf(ch); return i < 0 ? ch : to[i] }).join('')
+
+// The ways a query may have been meant: as typed, and on the other layout.
+function variants(q) {
+  const ru = swap(q, EN_KEYS, RU_KEYS)
+  const en = swap(q, RU_KEYS, EN_KEYS)
+  return [...new Set([q, ru, en])]
+}
+
+// The sound keys a query may stand for while it is still being typed: its
+// last "i" can turn into a dropped soft sign once the next vowel comes
+// ("Мари" before "Мария" = "mara").
+function queryKeys(q) {
+  const key = soundKey(q)
+  if (!key) return []
+  return key.length > 1 && key.endsWith('i') ? [key, key.slice(0, -1)] : [key]
+}
+
+// True when `query` occurs in any of the texts: as typed (anywhere, so a part
+// of an email works), or by sound or keyboard layout from the start of a word
+// (Анна = Anna = Fyyf = Фттф), case-insensitive.
 export function matchesSearch(query, ...texts) {
   const q = String(query ?? '').trim().toLowerCase()
   if (!q) return true
-  const qKey = soundKey(q)
+  const tries = variants(q)
+  const keys = tries.flatMap(queryKeys)
   return texts.flat().some((t) => {
     const text = String(t ?? '').toLowerCase()
-    return text.includes(q) || (qKey && soundKey(text).includes(qKey))
+    if (tries.some((v) => text.includes(v))) return true
+    const words = ` ${soundKey(text)}`
+    return keys.some((k) => words.includes(` ${k}`))
   })
 }
