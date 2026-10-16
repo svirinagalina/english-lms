@@ -1,7 +1,7 @@
 import { prisma } from './db.js'
 import { botOn, botOnSince, botSince, botToken, bookingUrl, sendTo, once, wasSent, esc, packageMark, onLinked, appUrl } from './telegram.js'
 import { confirmBooking } from './booking.js'
-import { maySeeStudent, siteStudentIds } from './partnerScope.js'
+import { maySeeStudent, siteStudentIds, paysMaximCard } from './partnerScope.js'
 import { OFFER_PLANS, DISCOUNT_DAYS } from './offer.js'
 import { countedCalls } from './routes/billing.js'
 import { generateRecurringInstances } from './routes/personal.js'
@@ -289,16 +289,26 @@ async function reports() {
 
 async function payments() {
   const since = botSince()
-  // Only students who came from Maxim's landing (Galina, 2026-10-16).
+  // Packages: only students who came from Maxim's landing (Galina, 2026-10-16).
   const site = await siteStudentIds()
-  // «Я оплатил» (a transfer, or a card payment back from Stripe): whoever
-  // receives the money checks it and adds the lessons.
-  const reported = await prisma.user.findMany({ where: { role: 'STUDENT', id: { in: site }, paymentReportedAt: { gte: since, gt: new Date(Date.now() - 2 * 24 * HOUR) } }, select: PERSON })
+  // «Я оплатил» from any student (Galina, 2026-10-16): the owner hears of
+  // every one; the partner (Maxim) only when the student pays to his card.
+  const reported = await prisma.user.findMany({ where: { role: 'STUDENT', paymentReportedAt: { gte: since, gt: new Date(Date.now() - 2 * 24 * HOUR) } }, select: PERSON })
   for (const student of reported) {
-    for (const admin of await admins(student)) {
-      await once(`reported:${student.id}:${new Date(student.paymentReportedAt).getTime()}:${admin.id}`, () => sendTo(admin,
-        `💳 Ученик ${esc(student.name)} сообщил об оплате. Проверьте поступление и начислите уроки: Payments → ученик → Edit → New package.`,
-        [[{ text: 'Открыть оплаты', url: `${appUrl()}/billing` }]]))
+    const record = await prisma.paymentRecord.findFirst({ where: { studentId: student.id, kind: 'reported' }, orderBy: { createdAt: 'desc' }, select: { lessons: true, card: true, note: true } })
+    const room = await prisma.classroom.findFirst({ where: { studentId: student.id }, orderBy: { createdAt: 'desc' }, select: { id: true } })
+    const roles = (await paysMaximCard(student.id)) ? ['OWNER', 'PARTNER'] : ['OWNER']
+    const recipients = await prisma.user.findMany({ where: { schoolId: student.schoolId, role: { in: roles }, telegramChatId: { not: null } }, select: PERSON })
+    const text = [
+      `💳 Ученик ${esc(student.name)} нажал «I have paid».`,
+      record?.lessons ? `Уроков: ${record.lessons}` : null,
+      record?.card ? `Карта: ${esc(record.card)}` : null,
+      record?.note ? `Комментарий: ${esc(record.note)}` : null,
+      'Проверьте поступление и начислите уроки в кабинете ученика → Lessons and payment.'
+    ].filter(Boolean).join('\n')
+    for (const admin of recipients) {
+      await once(`reported:${student.id}:${new Date(student.paymentReportedAt).getTime()}:${admin.id}`, () => sendTo(admin, text,
+        [[{ text: 'Открыть оплату ученика', url: room ? `${appUrl()}/classroom/${room.id}?payment=1` : `${appUrl()}/billing` }]]))
     }
   }
   // Lessons added (by hand after a transfer, or a payment from Advent's site):

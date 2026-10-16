@@ -235,7 +235,7 @@ async function cardLabel(studentId) {
   const tail = (card) => (card ? ` · ${String(card).replace(/\D/g, '').slice(-4)}` : '')
   const extra = extraCards(school.extraPaymentCards).find((c) => c.id === user.payCardId)
   if (extra) return `${extra.name || 'Card'}${tail(extra.card)}`
-  const hadTrial = user.payToTrialCard ?? Boolean(await prisma.trialReport.findFirst({ where: { studentId, publishedAt: { not: null } }, select: { id: true } }))
+  const hadTrial = user.payToTrialCard ?? await isSiteStudent(studentId)
   const trial = parse(school.trialPaymentDetails)
   if (hadTrial && trial.card) return `${trial.cardName || TRIAL_CARD_NAME}${tail(trial.card)}`
   const main = parse(school.paymentDetails)
@@ -288,7 +288,10 @@ billingRouter.get('/me', async (req, res) => {
 // does not send two letters.
 billingRouter.post('/me/paid', async (req, res) => {
   if (req.user.role !== 'STUDENT') return res.status(403).json({ error: 'Students only' })
-  const note = typeof req.body?.note === 'string' ? req.body.note.trim().slice(0, 300) : ''
+  // How many lessons they paid for (the form asks), plus an optional note.
+  const lessons = Number.isInteger(req.body?.lessons) && req.body.lessons > 0 && req.body.lessons <= 500 ? req.body.lessons : null
+  const extra = typeof req.body?.note === 'string' ? req.body.note.trim().slice(0, 300) : ''
+  const note = [lessons ? `Оплачено уроков: ${lessons}` : '', extra].filter(Boolean).join(' · ')
   const student = await prisma.user.findUnique({
     where: { id: req.user.id },
     select: { id: true, name: true, viaLink: true, paymentReportedAt: true, studentLinks: { select: { teacher: { select: { email: true } } } } }
@@ -304,7 +307,7 @@ billingRouter.post('/me/paid', async (req, res) => {
     return res.json({ reportedAt: student.paymentReportedAt, mailed: false })
   }
   const updated = await prisma.user.update({ where: { id: student.id }, data: { paymentReportedAt: new Date() }, select: { paymentReportedAt: true } })
-  await prisma.paymentRecord.create({ data: { studentId: student.id, kind: 'reported', note: note || null, card: await cardLabel(student.id) } })
+  await prisma.paymentRecord.create({ data: { studentId: student.id, kind: 'reported', lessons, note: extra || null, card: await cardLabel(student.id) } })
   const teachers = [...new Set(student.studentLinks.map((l) => l.teacher.email))]
   let mailed = false
   if (teachers.length) {

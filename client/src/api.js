@@ -116,7 +116,7 @@ export const api = {
   checkout: (plan) => request('/billing/checkout', { method: 'POST', body: { plan } }),
   verifyCheckout: (sessionId) => request(`/billing/checkout/verify?session_id=${encodeURIComponent(sessionId)}`),
   saveStripeKey: (key) => request('/settings/stripe', { method: 'PUT', body: { key } }),
-  reportPayment: (note, email) => request('/billing/me/paid', { method: 'POST', body: { note, ...(email ? { email } : {}) } }),
+  reportPayment: (note, email, lessons) => request('/billing/me/paid', { method: 'POST', body: { note, ...(email ? { email } : {}), ...(lessons ? { lessons } : {}) } }),
   paymentSeen: (id) => request(`/billing/students/${id}/seen`, { method: 'POST' }),
   studentPayments: (id) => request(`/billing/students/${id}/payments`),
   deleteStudentPayment: (id, recordId) => request(`/billing/students/${id}/payments/${recordId}`, { method: 'DELETE' }),

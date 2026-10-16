@@ -21,7 +21,7 @@ export default function StudentPayment({ lessonsOnly = false }) {
   const [payEmail, setPayEmail] = useState('')
   const [reportError, setReportError] = useState('')
   const [copied, setCopied] = useState(false)
-  const [note, setNote] = useState('')
+  const [lessons, setLessons] = useState('')
   const [reporting, setReporting] = useState(false)
   const [reported, setReported] = useState(null)
   const [eur, setEur] = useState(null) // { rate, date }
@@ -97,14 +97,18 @@ export default function StudentPayment({ lessonsOnly = false }) {
   }
 
   const needsEmail = Boolean(user?.viaLink)
+  // The button asks how many lessons were paid; the automatic report from
+  // a payment link (`extra`) goes without.
   const report = async (extra = '') => {
     setReportError('')
+    const count = Number(lessons)
+    if (!extra && !(Number.isInteger(count) && count > 0)) { setReportError(needsEmail ? 'Укажите, сколько уроков вы оплатили' : 'Enter how many lessons you paid for'); return }
     if (needsEmail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(payEmail.trim())) { setReportError('Укажите почту — на неё придёт приглашение на платформу'); return }
     setReporting(true)
     try {
-      const { reportedAt } = await api.reportPayment([extra, note].filter(Boolean).join(' · '), needsEmail ? payEmail.trim() : undefined)
+      const { reportedAt } = await api.reportPayment(extra, needsEmail ? payEmail.trim() : undefined, extra ? undefined : count)
       setReported(reportedAt)
-      setNote('')
+      setLessons('')
     } catch (err) {
       setReportError(err.message)
     } finally {
@@ -126,26 +130,29 @@ export default function StudentPayment({ lessonsOnly = false }) {
           <p className="muted">
             {needsEmail
               ? `Спасибо! Вы сообщили об оплате ${new Date(reported).toLocaleString()}. Как только она придёт, на почту придёт приглашение на платформу.`
-              : `You told your teacher about a payment on ${new Date(reported).toLocaleString()}. They will set your new lessons once it arrives.`}
+              : `Thank you! Payment reported on ${new Date(reported).toLocaleString()}. Your lessons will be added once it arrives.`}
           </p>
         ) : (
           <>
-            <p className="muted" style={{ marginBottom: 8 }}>
-              {needsEmail
-                ? 'После оплаты нажмите «I have paid». Как только оплата придёт, на вашу почту придёт приглашение на платформу — придумаете пароль и будете входить сами.'
-                : 'After paying, let your teacher know — they confirm and add the lessons.'}
-            </p>
+            {needsEmail && (
+              <p className="muted" style={{ marginBottom: 8 }}>
+                После оплаты нажмите «I have paid». Как только оплата придёт, на вашу почту придёт приглашение на платформу — придумаете пароль и будете входить сами.
+              </p>
+            )}
             {needsEmail && (
               <input type="email" placeholder="Ваша почта" value={payEmail} onChange={(e) => setPayEmail(e.target.value)} maxLength={200} style={{ width: '100%', marginBottom: 8 }} />
             )}
             {reportError && <div className="error">{reportError}</div>}
             <div className="row-actions">
               <input
-                placeholder="Optional note, e.g. “paid 8 lessons by card”"
-                value={note}
-                onChange={(e) => setNote(e.target.value)}
-                maxLength={300}
-                style={{ flex: 1, minWidth: 220 }}
+                type="number"
+                inputMode="numeric"
+                min="1"
+                max="500"
+                placeholder={needsEmail ? 'Сколько уроков оплатили' : 'Number of lessons paid'}
+                value={lessons}
+                onChange={(e) => setLessons(e.target.value)}
+                style={{ flex: 1, minWidth: 200 }}
               />
               <button onClick={() => report()} disabled={reporting}>{reporting ? 'Sending…' : 'I have paid'}</button>
             </div>

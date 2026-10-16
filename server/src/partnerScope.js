@@ -24,6 +24,15 @@ export async function isSiteStudent(studentId) {
   return Boolean(await prisma.adventLesson.findFirst({ where: { source: { not: 'platform' }, studentUserId: studentId }, select: { id: true } }))
 }
 
+// Does this student pay to Maxim's card (the after-trial card)? A card set by
+// hand wins; otherwise students from his site's landing do (as withPackage
+// in billing.js decides). An extra card (Dmitry…) is never Maxim's.
+export async function paysMaximCard(studentId) {
+  const u = await prisma.user.findUnique({ where: { id: studentId }, select: { payCardId: true, payToTrialCard: true } })
+  if (!u || u.payCardId) return false
+  return u.payToTrialCard ?? await isSiteStudent(studentId)
+}
+
 // A `where` piece for a query on students: nothing for the owner/teachers.
 export async function studentScope(user) {
   if (!limitedToSite(user)) return {}
