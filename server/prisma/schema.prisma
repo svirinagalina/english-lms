@@ -1016,3 +1016,22 @@ model OfferPurchase {
   rub         Int?
   createdAt   DateTime @default(now())
 }
+
+// A student's payment history, as staff see it in the cabinet: a package
+// set by hand (kind "package"), a Stripe purchase ("stripe") or the
+// student's own «I have paid» ("reported"). `card` is the card's name and
+// last digits at that moment (the student's card can change later).
+model PaymentRecord {
+  id          String   @id @default(cuid())
+  studentId   String
+  kind        String
+  lessons     Int?
+  amountCents Int?
+  currency    String?
+  card        String?
+  note        String?
+  byUserId    String?
+  createdAt   DateTime @default(now())
+
+  @@index([studentId, createdAt])
+}

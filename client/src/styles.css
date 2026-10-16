@@ -873,7 +873,7 @@ button.play-word, button.play-word.small { padding: 0; }
 .tile strong { font-size: 18px; }
 .tile-kicker { font-size: 12px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); }
 .tile-lines { display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
-.paid-report { margin-top: 14px; }
+.paid-report { margin: 4px 0 16px; border: 1px solid var(--accent); }
 .link-button { background: none; border: none; color: inherit; text-decoration: underline; padding: 0 0 0 8px; font: inherit; cursor: pointer; }
 .paid-badge.neutral { background: rgba(255, 255, 255, 0.07); color: var(--muted); }
 
@@ -1816,6 +1816,11 @@ a:hover .gs-arrow { transform: translateX(5px); }
 .student-settings { border: 1px solid var(--border, rgba(255,255,255,.15)); border-radius: 14px; padding: 16px; margin-bottom: 16px; }
 .ss-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px; align-items: end; }
 .ss-grid label { display: grid; gap: 4px; font-size: 13px; min-width: 0; }
+.ss-payments { margin-top: 16px; overflow-x: auto; }
+.ss-payments h4 { margin: 0 0 8px; }
+.ss-pay-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.ss-pay-table th { text-align: left; font-weight: 600; opacity: .7; padding: 4px 8px 4px 0; }
+.ss-pay-table td { padding: 6px 8px 6px 0; border-top: 1px solid var(--border, rgba(255,255,255,.12)); vertical-align: top; }
 .ss-left { font-size: 22px; font-weight: 700; padding: 6px 0; }
 .ss-left.out { color: #ff9b9b; }
 .ss-price { display: flex; gap: 6px; min-width: 0; width: 100%; }

@@ -431,7 +431,7 @@ export default function Classroom() {
       </Panel>
 
       {isStaff && !isPersonal && classroom.student?.viaLink && <InviteTrialStudent student={classroom.student} />}
-      {isStaff && !isPersonal && classroom.student && <StudentSettings studentId={classroom.student.id} onChanged={refresh} />}
+      {isStaff && !isPersonal && classroom.student && <StudentSettings studentId={classroom.student.id} onChanged={refresh} focus={searchParams.get('payment') === '1'} />}
       {['OWNER', 'PARTNER'].includes(user.role) && !isPersonal && classroom.student && (
         <StudentTeachers studentId={classroom.student.id} classroomId={id} teacherId={classroom.teacher.id} onMoved={(next) => navigate(`/classroom/${next}`)} />
       )}

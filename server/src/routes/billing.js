@@ -2,7 +2,7 @@ import { Router } from 'express'
 import { z } from 'zod'
 import { prisma } from '../db.js'
 import { requireAuth, requireRole, isAdmin } from '../auth.js'
-import { studentScope } from '../partnerScope.js'
+import { studentScope, isSiteStudent } from '../partnerScope.js'
 import { sendPaymentReportedEmail } from '../mailer.js'
 import { offerLinks, stripeKey } from '../settings.js'
 import { OFFER_PLANS, discountActive } from '../offer.js'
@@ -36,7 +36,11 @@ const billingSchema = z.object({
   packageStartedAt: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).nullable(),
   payToTrialCard: z.boolean().nullable(),
   // An extra card's id, or null for the main/after-trial choice above.
-  payCardId: z.string().max(40).nullable()
+  payCardId: z.string().max(40).nullable(),
+  // What came in with a new package (cents, in priceCurrency), for the
+  // payment history; left out = lessons × price.
+  paidAmount: z.number().int().min(0).max(100_000_000).nullable(),
+  paidNote: z.string().max(300)
 })
 
 const detailsSchema = z.object({
@@ -62,11 +66,10 @@ export const countedCalls = (student) => prisma.session.count({
 // Lessons held since the package started, across every classroom of the
 // student (a call that reaches the student counts, wherever it was started).
 async function withPackage(student) {
-  // The rouble card this student sees: set by hand, else after-trial once
-  // a trial report has been published for them.
-  const hadTrial = student.payToTrialCard == null
-    ? Boolean(await prisma.trialReport.findFirst({ where: { studentId: student.id, publishedAt: { not: null } }, select: { id: true } }))
-    : null
+  // The rouble card this student sees: set by hand (owner only), else Maxim's
+  // card for a student who came from his site's landing, else Galina's
+  // (Galina, 2026-10-16).
+  const hadTrial = student.payToTrialCard == null ? await isSiteStudent(student.id) : null
   student = { ...student, paysTrialCard: student.payToTrialCard ?? hadTrial, paysTrialCardAuto: student.payToTrialCard == null }
   const held = await countedCalls(student) + (student.heldAdjust ?? 0)
   const { packageStartedAt, heldAdjust, ...rest } = student
@@ -219,6 +222,24 @@ function studentDetails(school, user, hadTrial) {
   return (user.payToTrialCard ?? hadTrial) ? withTrialCard(school.paymentDetails, school.trialPaymentDetails) : school.paymentDetails
 }
 
+// The card a student pays to, as staff call it: "Dmitry card · 8702".
+const MAIN_CARD_NAME = 'Galina card'
+const TRIAL_CARD_NAME = 'Maxim card'
+async function cardLabel(studentId) {
+  const user = await prisma.user.findUnique({ where: { id: studentId }, select: { payToTrialCard: true, payCardId: true, school: { select: { paymentDetails: true, trialPaymentDetails: true, extraPaymentCards: true } } } })
+  if (!user) return null
+  const { school } = user
+  const parse = (raw) => { try { return JSON.parse(raw ?? 'null') ?? {} } catch { return {} } }
+  const tail = (card) => (card ? ` · ${String(card).replace(/\D/g, '').slice(-4)}` : '')
+  const extra = extraCards(school.extraPaymentCards).find((c) => c.id === user.payCardId)
+  if (extra) return `${extra.name || 'Card'}${tail(extra.card)}`
+  const hadTrial = user.payToTrialCard ?? Boolean(await prisma.trialReport.findFirst({ where: { studentId, publishedAt: { not: null } }, select: { id: true } }))
+  const trial = parse(school.trialPaymentDetails)
+  if (hadTrial && trial.card) return `${trial.cardName || TRIAL_CARD_NAME}${tail(trial.card)}`
+  const main = parse(school.paymentDetails)
+  return `${main.cardName || MAIN_CARD_NAME}${tail(main.card)}`
+}
+
 const extraCards = (raw) => {
   try { const list = JSON.parse(raw ?? '[]'); return Array.isArray(list) ? list.filter((c) => c?.id && c?.card) : [] } catch { return [] }
 }
@@ -252,7 +273,7 @@ billingRouter.get('/me', async (req, res) => {
       paymentLink: view.paymentLink,
       package: view.package,
       paymentReportedAt: view.paymentReportedAt,
-      paymentDetails: studentDetails(school, user, Boolean(trial)),
+      paymentDetails: studentDetails(school, user, view.paysTrialCard),
       schoolName: school.name,
       trial: trial ? { reportId: trial.id, publishedAt: trial.publishedAt, level: trial.generated?.level ?? null, links: offerLinks(), purchased: await paidBefore(user.id) } : null
     }
@@ -280,6 +301,7 @@ billingRouter.post('/me/paid', async (req, res) => {
     return res.json({ reportedAt: student.paymentReportedAt, mailed: false })
   }
   const updated = await prisma.user.update({ where: { id: student.id }, data: { paymentReportedAt: new Date() }, select: { paymentReportedAt: true } })
+  await prisma.paymentRecord.create({ data: { studentId: student.id, kind: 'reported', note: note || null, card: await cardLabel(student.id) } })
   const teachers = [...new Set(student.studentLinks.map((l) => l.teacher.email))]
   let mailed = false
   if (teachers.length) {
@@ -329,7 +351,9 @@ billingRouter.patch('/students/:id', requireRole('OWNER', 'PARTNER', 'TEACHER'),
   const student = await reachableStudent(req.user, req.params.id)
   if (!student) return res.status(404).json({ error: 'Student not found' })
 
-  const { resetCounter, held, packageStartedAt, ...data } = parsed.data
+  const { resetCounter, held, packageStartedAt, paidAmount, paidNote, ...data } = parsed.data
+  // Which card a student pays to is the owner's call alone.
+  if (req.user.role !== 'OWNER') { delete data.payToTrialCard; delete data.payCardId }
   // A date is the start of that day in Moscow time, where the school counts.
   if (packageStartedAt !== undefined) data.packageStartedAt = packageStartedAt ? new Date(`${packageStartedAt}T00:00:00+03:00`) : null
   if (resetCounter) { data.packageStartedAt = new Date(); data.heldAdjust = 0 }
@@ -345,7 +369,54 @@ billingRouter.patch('/students/:id', requireRole('OWNER', 'PARTNER', 'TEACHER'),
   if (data.lessonsPaid > 0) { data.free = false; data.trialAccessUntil = null }
 
   const updated = await prisma.user.update({ where: { id: student.id }, data, select: STUDENT_SELECT })
+  // A payment for the history: a new package (another start day) with
+  // lessons in it, or more lessons in the current one.
+  const before = student.lessonsPaid ?? 0
+  const after = updated.lessonsPaid ?? 0
+  const newPackage = (resetCounter || packageStartedAt !== undefined) && String(updated.packageStartedAt) !== String(student.packageStartedAt)
+  const lessons = newPackage ? after : after - before
+  if (lessons > 0) {
+    const auto = updated.priceAmount != null ? updated.priceAmount * lessons : null
+    await prisma.paymentRecord.create({
+      data: {
+        studentId: student.id, kind: 'package', lessons,
+        amountCents: paidAmount ?? auto, currency: updated.priceCurrency,
+        card: await cardLabel(student.id), note: paidNote?.trim() || null, byUserId: req.user.id
+      }
+    })
+  }
   res.json({ student: await withPackage(updated) })
+})
+
+// The student's payments, newest first: packages set by staff, Stripe
+// purchases, the student's own «I have paid». A student with a package
+// from before the history existed shows that package as one line.
+billingRouter.get('/students/:id/payments', requireRole('OWNER', 'PARTNER', 'TEACHER'), async (req, res) => {
+  const student = await reachableStudent(req.user, req.params.id)
+  if (!student) return res.status(404).json({ error: 'Student not found' })
+  const [records, stripe] = await Promise.all([
+    prisma.paymentRecord.findMany({ where: { studentId: student.id }, orderBy: { createdAt: 'desc' }, take: 200 }),
+    prisma.offerPurchase.findMany({ where: { userId: student.id }, orderBy: { createdAt: 'desc' } })
+  ])
+  const byIds = [...new Set(records.map((r) => r.byUserId).filter(Boolean))]
+  const names = Object.fromEntries((await prisma.user.findMany({ where: { id: { in: byIds } }, select: { id: true, name: true } })).map((u) => [u.id, u.name]))
+  const plans = Object.fromEntries(OFFER_PLANS.map((p) => [p.id, p.name]))
+  const payments = [
+    ...records.map((r) => ({ id: r.id, kind: r.kind, at: r.createdAt, lessons: r.lessons, amountCents: r.amountCents, currency: r.currency, card: r.card, note: r.note, by: names[r.byUserId] ?? null })),
+    ...stripe.map((p) => ({ id: p.id, kind: 'stripe', at: p.createdAt, lessons: p.lessons || null, amountCents: p.amountCents, currency: p.currency, card: 'Stripe (online)', note: `${plans[p.plan] ?? p.plan}${p.rub ? ` · ${p.rub.toLocaleString('ru-RU')} ₽` : ''}`, by: null }))
+  ].sort((a, b) => new Date(b.at) - new Date(a.at))
+  if (!payments.some((p) => p.kind !== 'reported') && student.lessonsPaid > 0) {
+    payments.push({ id: 'current', kind: 'current', at: student.packageStartedAt, lessons: student.lessonsPaid, amountCents: student.priceAmount != null ? student.priceAmount * student.lessonsPaid : null, currency: student.priceCurrency, card: await cardLabel(student.id), note: null, by: null })
+  }
+  res.json({ payments })
+})
+
+// A line entered by mistake.
+billingRouter.delete('/students/:id/payments/:recordId', requireRole('OWNER'), async (req, res) => {
+  const student = await reachableStudent(req.user, req.params.id)
+  if (!student) return res.status(404).json({ error: 'Student not found' })
+  await prisma.paymentRecord.deleteMany({ where: { id: req.params.recordId, studentId: student.id } })
+  res.json({ ok: true })
 })
 
 billingRouter.patch('/school', requireRole('OWNER'), async (req, res) => {

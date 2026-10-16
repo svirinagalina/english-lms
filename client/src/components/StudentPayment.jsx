@@ -120,6 +120,39 @@ export default function StudentPayment({ lessonsOnly = false }) {
     <section>
       <h2>Payment</h2>
 
+      {/* First thing on the page: after paying, one press tells the school. */}
+      <div className="paid-report notice">
+        {reported ? (
+          <p className="muted">
+            {needsEmail
+              ? `Спасибо! Вы сообщили об оплате ${new Date(reported).toLocaleString()}. Как только она придёт, на почту придёт приглашение на платформу.`
+              : `You told your teacher about a payment on ${new Date(reported).toLocaleString()}. They will set your new lessons once it arrives.`}
+          </p>
+        ) : (
+          <>
+            <p className="muted" style={{ marginBottom: 8 }}>
+              {needsEmail
+                ? 'После оплаты нажмите «I have paid». Как только оплата придёт, на вашу почту придёт приглашение на платформу — придумаете пароль и будете входить сами.'
+                : 'After paying, let your teacher know — they confirm and add the lessons.'}
+            </p>
+            {needsEmail && (
+              <input type="email" placeholder="Ваша почта" value={payEmail} onChange={(e) => setPayEmail(e.target.value)} maxLength={200} style={{ width: '100%', marginBottom: 8 }} />
+            )}
+            {reportError && <div className="error">{reportError}</div>}
+            <div className="row-actions">
+              <input
+                placeholder="Optional note, e.g. “paid 8 lessons by card”"
+                value={note}
+                onChange={(e) => setNote(e.target.value)}
+                maxLength={300}
+                style={{ flex: 1, minWidth: 220 }}
+              />
+              <button onClick={() => report()} disabled={reporting}>{reporting ? 'Sending…' : 'I have paid'}</button>
+            </div>
+          </>
+        )}
+      </div>
+
       {trial && (
         <div className="trial-offer">
           <div className="row-main">
@@ -247,37 +280,6 @@ export default function StudentPayment({ lessonsOnly = false }) {
         </div>
       )}
 
-      <div className="paid-report">
-        {reported ? (
-          <p className="muted">
-            {needsEmail
-              ? `Спасибо! Вы сообщили об оплате ${new Date(reported).toLocaleString()}. Как только она придёт, на почту придёт приглашение на платформу.`
-              : `You told your teacher about a payment on ${new Date(reported).toLocaleString()}. They will set your new lessons once it arrives.`}
-          </p>
-        ) : (
-          <>
-            <p className="muted" style={{ marginBottom: 8 }}>
-              {needsEmail
-                ? 'После оплаты нажмите «I have paid». Как только оплата придёт, на вашу почту придёт приглашение на платформу — придумаете пароль и будете входить сами.'
-                : 'After paying, let your teacher know — they confirm and add the lessons.'}
-            </p>
-            {needsEmail && (
-              <input type="email" placeholder="Ваша почта" value={payEmail} onChange={(e) => setPayEmail(e.target.value)} maxLength={200} style={{ width: '100%', marginBottom: 8 }} />
-            )}
-            {reportError && <div className="error">{reportError}</div>}
-            <div className="row-actions">
-              <input
-                placeholder="Optional note, e.g. “paid 8 lessons by card”"
-                value={note}
-                onChange={(e) => setNote(e.target.value)}
-                maxLength={300}
-                style={{ flex: 1, minWidth: 220 }}
-              />
-              <button onClick={() => report()} disabled={reporting}>{reporting ? 'Sending…' : 'I have paid'}</button>
-            </div>
-          </>
-        )}
-      </div>
     </section>
   )
 }

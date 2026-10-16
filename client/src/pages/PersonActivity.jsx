@@ -51,7 +51,7 @@ export default function PersonActivity() {
     mistakes: progress,
     progress,
     vocabulary: progress,
-    billing: student ? '/billing' : null,
+    billing: room ? `/classroom/${room.id}?payment=1` : null,
     report: reports[0]?.generated ? `/report/${reports[0].id}` : null
   })[section] ?? (student ? cabinet : null)
 
