@@ -122,8 +122,7 @@ export default function Billing() {
       </Panel>
 
       {(user.role === 'OWNER' || user.role === 'PARTNER') && (
-        <section>
-          <h2>Bank transfer details</h2>
+        <Panel id="billing:cards" title="Cards and bank details" hint="numbers and names of the cards; each student's card is chosen in their cabinet">
           <p className="muted">Shown only to signed-in students of your school.</p>
           <form onSubmit={saveDetails} className="details-form">
             <h3 style={{ margin: '8px 0 4px' }}>{details.cardName || MAIN_CARD_NAME}</h3>
@@ -195,7 +194,7 @@ export default function Billing() {
               {saved && <span className="muted">Saved</span>}
             </div>
           </form>
-        </section>
+        </Panel>
       )}
       <SiteFooter />
     </div>

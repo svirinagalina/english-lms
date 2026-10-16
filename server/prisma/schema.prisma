@@ -83,6 +83,9 @@ model User {
   payToTrialCard Boolean?
   // One of the school's extra cards (extraPaymentCards[].id); wins over payToTrialCard.
   payCardId      String?
+  // How many lessons the student's next package is (set by the school; the
+  // student sees it with the total on their Payment page).
+  packageSize    Int?
 
   // Signed up by themselves (the app, /signup), no teacher yet: the free tier
   // — about 30% of grammar and vocabulary, the trainer's trial, a board to

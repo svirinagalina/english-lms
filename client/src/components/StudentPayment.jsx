@@ -76,7 +76,7 @@ export default function StudentPayment({ lessonsOnly = false }) {
 
   if (!billing) return null
 
-  const { priceAmount, priceCurrency, paymentLink, paymentDetails, trial } = billing
+  const { priceAmount, priceCurrency, paymentLink, paymentDetails, trial, packageSize } = billing
   const pkg = billing.package
   const nothingConfigured = !trial && priceAmount == null && !paymentLink && !paymentDetails && pkg?.lessonsPaid == null
   if (nothingConfigured) return null
@@ -227,6 +227,9 @@ export default function StudentPayment({ lessonsOnly = false }) {
           <div>
             {priceAmount != null && (
               <strong>{formatPrice(priceAmount, priceCurrency)} per lesson</strong>
+            )}
+            {packageSize > 0 && (
+              <div>Package: <strong>{packageSize} lessons</strong>{priceAmount != null ? ` — ${formatPrice(priceAmount * packageSize, priceCurrency)}` : ''}</div>
             )}
             <div><PackageBadge pkg={pkg} /></div>
             {pkg?.lessonsPaid != null && pkg.remaining <= 0 && priceAmount != null && (

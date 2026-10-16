@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { api } from '../api'
 import { useAuth } from '../AuthContext'
 import EditableName from './EditableName'
-import { MAIN_CARD_NAME, TRIAL_CARD_NAME, parseDetails, parseExtraCards, formatCard } from '../utils/paymentDetails'
+import { MAIN_CARD_NAME, TRIAL_CARD_NAME, parseDetails, parseExtraCards } from '../utils/paymentDetails'
 
 // Everything about a student's lessons and money in one place, every field
 // open: paid, held, left, the day the package counts from, the price, the
@@ -28,6 +28,7 @@ export default function StudentSettings({ studentId, onChanged, focus = false })
     setStudent(student)
     setForm({
       paid: student.package.lessonsPaid ?? '',
+      size: student.packageSize ?? '',
       held: student.package.held,
       heldTouched: false,
       from: dayOf(student.package.startedAt),
@@ -46,13 +47,16 @@ export default function StudentSettings({ studentId, onChanged, focus = false })
   useEffect(() => { if (focus && form) ref.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }) }, [focus, Boolean(form)])
   useEffect(() => {
     api.schoolPaymentDetails().then(({ paymentDetails, trialPaymentDetails, extraPaymentCards }) => {
-      const label = (name, fallback, card) => `${name || fallback}${card ? ` · ${formatCard(card).slice(-4)}` : ''}`
+      // Only the cards' names here (Galina card, Maxim card…); the numbers live on the Payments page.
+      const label = (name, fallback) => name || fallback
       const main = parseDetails(paymentDetails)
       const trial = parseDetails(trialPaymentDetails)
       setCards({
-        main: label(main.cardName, MAIN_CARD_NAME, main.card),
-        trial: label(trial.cardName, TRIAL_CARD_NAME, trial.card),
-        extra: parseExtraCards(extraPaymentCards).filter((c) => c.id && c.card).map((c) => ({ id: c.id, label: label(c.name, 'Card', c.card) }))
+        main: label(main.cardName, MAIN_CARD_NAME),
+        trial: label(trial.cardName, TRIAL_CARD_NAME),
+        // Without a number the after-trial card falls back to the main one (as the server does).
+        trialReady: Boolean(trial.card),
+        extra: parseExtraCards(extraPaymentCards).filter((c) => c.id && c.card).map((c) => ({ id: c.id, label: label(c.name, 'Card') }))
       })
     }).catch(() => {})
   }, [])
@@ -77,6 +81,7 @@ export default function StudentSettings({ studentId, onChanged, focus = false })
       const fromChanged = form.from !== dayOf(student.package.startedAt)
       await api.updateStudentBilling(studentId, {
         lessonsPaid: form.paid === '' ? null : Number(form.paid),
+        packageSize: form.size === '' ? null : Number(form.size),
         ...(fromChanged ? { packageStartedAt: form.from || null } : {}),
         // Held as typed; after only a new start date it is recounted from the calls.
         ...(form.heldTouched || !fromChanged ? { held: Number(form.held) || 0 } : {}),
@@ -105,6 +110,18 @@ export default function StudentSettings({ studentId, onChanged, focus = false })
         </div>
         {student.paymentReportedAt && <span className="paid-badge active">Says paid {new Date(student.paymentReportedAt).toLocaleDateString()}</span>}
       </div>
+      {(() => {
+        // What the student sees on their Payment page, in one line.
+        const price = student.priceAmount != null ? student.priceAmount / 100 : null
+        const money = (v) => new Intl.NumberFormat('ru-RU', { style: 'currency', currency: student.priceCurrency || 'RUB', maximumFractionDigits: 2 }).format(v)
+        const card = (student.payCardId && cards.extra.find((c) => c.id === student.payCardId)?.label) || (student.paysTrialCard && cards.trialReady ? cards.trial : cards.main)
+        const parts = [
+          price != null ? `${money(price)} per lesson` : 'no price set',
+          student.packageSize ? `package of ${student.packageSize} lessons${price != null ? ` = ${money(price * student.packageSize)}` : ''}` : 'no package size set',
+          `card: ${card ?? '—'}`
+        ]
+        return <p className="ss-summary"><strong>{student.name} sees:</strong> {parts.join(' · ')}</p>
+      })()}
       <form onSubmit={save}>
         <div className="ss-grid">
           <label>Lessons paid<input type="number" min="0" max="500" value={form.paid} onChange={set('paid')} placeholder="not set" /></label>
@@ -119,9 +136,10 @@ export default function StudentSettings({ studentId, onChanged, focus = false })
               </select>
             </span>
           </label>
-          <label>Rubles go to
+          <label>Package to pay (lessons)<input type="number" min="1" max="500" value={form.size} onChange={set('size')} placeholder="e.g. 8" /></label>
+          <label>Card (rubles)
             <select value={form.card} onChange={set('card')} disabled={!isOwner} title={isOwner ? undefined : 'Only the administrator changes the card'}>
-              <option value="auto">Automatic: {student.paysTrialCard ? `${cards.trial} (came from the landing)` : cards.main}</option>
+              <option value="auto">Automatic ({student.paysTrialCard ? `${cards.trial}, came from the landing` : cards.main})</option>
               <option value="school">{cards.main}</option>
               <option value="trial">{cards.trial}</option>
               {cards.extra.map((c) => <option key={c.id} value={`extra:${c.id}`}>{c.label}</option>)}

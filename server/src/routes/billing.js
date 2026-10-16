@@ -27,6 +27,8 @@ const billingSchema = z.object({
   priceCurrency: z.enum(['RUB', 'USD', 'EUR']),
   paymentLink: httpsUrl.nullable(),
   lessonsPaid: z.number().int().min(0).max(500).nullable(),
+  // The package the student is asked to pay for next (lessons).
+  packageSize: z.number().int().min(1).max(500).nullable(),
   // Count lessons from now on (a new package), instead of continuing the old count.
   resetCounter: z.boolean(),
   // Lessons held in this package, as the owner corrects it by hand.
@@ -52,7 +54,7 @@ const detailsSchema = z.object({
 const STUDENT_SELECT = {
   id: true, name: true, email: true,
   priceAmount: true, priceCurrency: true, paymentLink: true,
-  lessonsPaid: true, packageStartedAt: true, heldAdjust: true, paymentReportedAt: true, payToTrialCard: true, payCardId: true
+  lessonsPaid: true, packageStartedAt: true, heldAdjust: true, paymentReportedAt: true, payToTrialCard: true, payCardId: true, packageSize: true
 }
 
 export const countedCalls = (student) => prisma.session.count({
@@ -271,6 +273,7 @@ billingRouter.get('/me', async (req, res) => {
       priceAmount: view.priceAmount,
       priceCurrency: view.priceCurrency,
       paymentLink: view.paymentLink,
+      packageSize: view.packageSize,
       package: view.package,
       paymentReportedAt: view.paymentReportedAt,
       paymentDetails: studentDetails(school, user, view.paysTrialCard),
