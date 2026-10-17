@@ -1,7 +1,7 @@
 import { prisma } from './db.js'
 import { botOn, botOnSince, botSince, botToken, bookingUrl, sendTo, once, wasSent, esc, packageMark, onLinked, appUrl } from './telegram.js'
 import { confirmBooking } from './booking.js'
-import { maySeeStudent, siteStudentIds, paysMaximCard } from './partnerScope.js'
+import { maySeeStudent, siteStudentIds } from './partnerScope.js'
 import { OFFER_PLANS, DISCOUNT_DAYS } from './offer.js'
 import { countedCalls } from './routes/billing.js'
 import { generateRecurringInstances } from './routes/personal.js'
@@ -39,12 +39,15 @@ const SOLO = OFFER_PLANS.find((p) => p.id === 'solo')
 const PERSON = { id: true, name: true, role: true, schoolId: true, telegramChatId: true, viaLink: true, lessonsPaid: true, packageStartedAt: true, heldAdjust: true, telegramPaidSeen: true, inviteEmail: true, paymentReportedAt: true, trialAccessUntil: true, plan: true, planUntil: true }
 const person = (id) => (id ? prisma.user.findUnique({ where: { id }, select: PERSON }) : null)
 const owners = (schoolId) => prisma.user.findMany({ where: { schoolId, role: 'OWNER', telegramChatId: { not: null } }, select: PERSON })
-// Who hears of a student's payments, package and debt: the owner always; the
-// partner (Maxim) only for students who came from his site (partnerScope.js).
+// Who hears of a student's payment (Galina, 2026-10-17): the owner of every
+// one; the partner (Maxim) only for students who came through his landing
+// (partnerScope.js).
 async function admins(student) {
   const fromSite = await maySeeStudent({ role: 'PARTNER' }, student.id)
   return prisma.user.findMany({ where: { schoolId: student.schoolId, role: { in: fromSite ? ['OWNER', 'PARTNER'] : ['OWNER'] }, telegramChatId: { not: null } }, select: PERSON })
 }
+// Used-up packages and debts go to the owner only, for every student.
+const ownerOnly = (student) => owners(student.schoolId)
 const teachersOf = async (studentId) => (await prisma.teacherStudent.findMany({ where: { studentId }, select: { teacher: { select: PERSON } } })).map((l) => l.teacher)
 
 const lessonUrl = (token) => `${appUrl()}/lesson/${token}`
@@ -289,16 +292,13 @@ async function reports() {
 
 async function payments() {
   const since = botSince()
-  // Packages: only students who came from Maxim's landing (Galina, 2026-10-16).
-  const site = await siteStudentIds()
-  // «Я оплатил» from any student (Galina, 2026-10-16): the owner hears of
-  // every one; the partner (Maxim) only when the student pays to his card.
+  // «Я оплатил» and lessons added, for every student: the owner hears of
+  // each one; the partner only of students from his landing (admins()).
   const reported = await prisma.user.findMany({ where: { role: 'STUDENT', paymentReportedAt: { gte: since, gt: new Date(Date.now() - 2 * 24 * HOUR) } }, select: PERSON })
   for (const student of reported) {
     const record = await prisma.paymentRecord.findFirst({ where: { studentId: student.id, kind: 'reported' }, orderBy: { createdAt: 'desc' }, select: { lessons: true, card: true, note: true } })
     const room = await prisma.classroom.findFirst({ where: { studentId: student.id }, orderBy: { createdAt: 'desc' }, select: { id: true } })
-    const roles = (await paysMaximCard(student.id)) ? ['OWNER', 'PARTNER'] : ['OWNER']
-    const recipients = await prisma.user.findMany({ where: { schoolId: student.schoolId, role: { in: roles }, telegramChatId: { not: null } }, select: PERSON })
+    const recipients = await admins(student)
     const text = [
       `💳 Ученик ${esc(student.name)} нажал «I have paid».`,
       record?.lessons ? `Уроков: ${record.lessons}` : null,
@@ -311,9 +311,20 @@ async function payments() {
         [[{ text: 'Открыть оплату ученика', url: room ? `${appUrl()}/classroom/${room.id}?payment=1` : `${appUrl()}/billing` }]]))
     }
   }
+  // A card payment that adds no lessons (the Solo plan: the platform for a
+  // month) — the package check below would never see it.
+  const plans = await prisma.offerPurchase.findMany({ where: { lessons: 0, createdAt: { gte: since, gt: new Date(Date.now() - 2 * 24 * HOUR) } } })
+  for (const p of plans) {
+    const student = await person(p.userId)
+    if (!student) continue
+    for (const admin of await admins(student)) {
+      await once(`solo:${p.id}:${admin.id}`, () => sendTo(admin, `✅ Оплата картой онлайн: ${esc(student.name)} — тариф «${esc(p.plan)}», ${(p.amountCents / 100).toFixed(2)} ${esc(p.currency)}. Доступ к платформе открыт автоматически.`))
+    }
+  }
   // Lessons added (by hand after a transfer, or a payment from Advent's site):
   // every student's package is compared with what the bot saw last time.
-  const students = await prisma.user.findMany({ where: { role: 'STUDENT', id: { in: site } }, select: PERSON })
+  const site = new Set(await siteStudentIds())
+  const students = await prisma.user.findMany({ where: { role: 'STUDENT' }, select: PERSON })
   for (const student of students) {
     const mark = packageMark(student)
     if (mark === student.telegramPaidSeen) continue
@@ -329,7 +340,7 @@ async function payments() {
       await sendTo(admin, `✅ Оплата засчитана: ${esc(student.name)}${teacher ? ` (преподаватель ${esc(teacher.name)})` : ''} — уроков в пакете: ${student.lessonsPaid}.`)
     }
     // A student from a trial: the end of the trial's path — sign up and wait for the teacher.
-    if (student.viaLink && student.telegramChatId && Number(oldLessons) === 0) {
+    if (site.has(student.id) && student.viaLink && student.telegramChatId && Number(oldLessons) === 0) {
       await sendTo(student, [
         `Спасибо за оплату! ✅ Оплачено уроков: ${student.lessonsPaid}.`,
         student.inviteEmail
@@ -374,7 +385,10 @@ async function timetable() {
 
 async function packages() {
   const since = botSince()
-  const students = await prisma.user.findMany({ where: { role: 'STUDENT', id: { in: await siteStudentIds() }, lessonsPaid: { gt: 0 } }, select: PERSON })
+  // Every student's package; the reminder to pay goes only to students from
+  // the landing (as before), the notice of it only to the owner.
+  const site = new Set(await siteStudentIds())
+  const students = await prisma.user.findMany({ where: { role: 'STUDENT', lessonsPaid: { gt: 0 } }, select: PERSON })
   for (const student of students) {
     const held = (await countedCalls(student)) + (student.heldAdjust ?? 0)
     if (held < student.lessonsPaid) continue
@@ -387,14 +401,14 @@ async function packages() {
     if (held === student.lessonsPaid) {
       if (!fresh) { await once(`pkgend:${pkg}`, async () => true); continue }
       await once(`pkgend:${pkg}`, async () => {
-        if (student.telegramChatId) {
+        if (site.has(student.id) && student.telegramChatId) {
           await sendTo(student, [
             'Спасибо, что занимаетесь с нами! 🌿',
             `Уроки этого пакета закончились — вы прошли все ${student.lessonsPaid}.`,
             'Чтобы занятия шли без перерыва, оплатите, пожалуйста, следующий пакет — расписание сохранится.'
           ].join('\n'), [[{ text: 'Оплатить', url: await payUrl(student) }]])
         }
-        for (const admin of await admins(student)) await sendTo(admin, `📦 Пакет закончился: ${who} — проведено ${held} из ${student.lessonsPaid}. Ждём следующую оплату.`)
+        for (const admin of await ownerOnly(student)) await sendTo(admin, `📦 Пакет закончился: ${who} — проведено ${held} из ${student.lessonsPaid}. Ждём следующую оплату.`)
         return true
       })
     } else {
@@ -402,7 +416,7 @@ async function packages() {
       const debt = held - student.lessonsPaid
       if (!fresh) { await once(`debt:${pkg}:${debt}`, async () => true); continue }
       await once(`debt:${pkg}:${debt}`, async () => {
-        for (const admin of await admins(student)) {
+        for (const admin of await ownerOnly(student)) {
           await sendTo(admin, `⚠️ Задолженность: ${who} — проведено ${held}, оплачено ${student.lessonsPaid}. Долг: ${debt} ${debt === 1 ? 'урок' : debt < 5 ? 'урока' : 'уроков'}.`, [[{ text: 'Открыть оплаты', url: `${appUrl()}/billing` }]])
         }
         return true

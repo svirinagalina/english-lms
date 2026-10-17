@@ -147,7 +147,8 @@ export async function grantCourse({ course, email, name, source }) {
 const loadCourse = (id) => prisma.course.findUnique({ where: { id }, include: { skillset: true } })
 
 async function tellOwners(schoolId, { title, body, url, email }) {
-  const owners = await prisma.user.findMany({ where: { schoolId, role: { in: ['OWNER', 'PARTNER'] } }, select: { id: true, email: true, telegramChatId: true } })
+  // Course sales are Galina's: the owner only (2026-10-17).
+  const owners = await prisma.user.findMany({ where: { schoolId, role: 'OWNER' }, select: { id: true, email: true, telegramChatId: true } })
   if (email) await email(owners.map((o) => o.email)).catch(() => {})
   notify(owners.map((o) => o.id), { title, body, url }).catch(() => {})
   for (const owner of owners) sendTo(owner, `<b>${esc(title)}</b>\n${esc(body)}`, [[{ text: 'Открыть курс', url: `${APP_URL()}${url}` }]]).catch(() => {})
