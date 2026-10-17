@@ -52,6 +52,7 @@ import { loadBotSettings } from './telegram.js'
 import { startBotJobs } from './bot.js'
 import { bookingRouter, startBookingJobs } from './booking.js'
 import { trialContactsRouter, startArchiveJobs } from './trialArchive.js'
+import { startFreeCleanup } from './freeCleanup.js'
 import { adventSyncRouter, startSyncJobs } from './adventSync.js'
 import { startWelcomeJobs } from './afterPayment.js'
 import { flushDocuments } from './docStore.js'
@@ -191,6 +192,7 @@ startPurchaseJobs()
 startBotJobs()
 startBookingJobs()
 startArchiveJobs()
+startFreeCleanup()
 startSyncJobs()
 startWelcomeJobs()
 
