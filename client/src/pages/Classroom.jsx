@@ -18,6 +18,7 @@ import PendingTrialReports from '../components/PendingTrialReports'
 import ActivityHeatmap from '../components/ActivityHeatmap'
 import TrainerProgress from '../components/TrainerProgress'
 import StudentSettings from '../components/StudentSettings'
+import StudentActivitySummary from '../components/StudentActivitySummary'
 import StudentTeachers from '../components/StudentTeachers'
 
 // A student from a trial lesson link has no email or password yet. The
@@ -491,7 +492,7 @@ export default function Classroom() {
 
       {!isPersonal && (
         <Panel id={`room:activity:${id}`} title="Activity">
-          <ActivityHeatmap studentId={isStaff ? classroom.student.id : null} />
+          {isStaff ? <StudentActivitySummary studentId={classroom.student.id} /> : <ActivityHeatmap />}
         </Panel>
       )}
 

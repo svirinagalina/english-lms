@@ -1874,3 +1874,5 @@ a:hover .gs-arrow { transform: translateX(5px); }
 .homework-docs li a { font-weight: 600; }
 .homework-doc-actions { margin-left: auto; display: flex; gap: 6px; }
 .homework-doc-actions button { margin: 0; padding: 4px 10px; }
+.activity-summary p { margin: 0 0 8px; }
+.activity-summary .activity-tags { justify-content: flex-start; margin-bottom: 8px; }
