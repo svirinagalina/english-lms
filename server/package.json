@@ -7,7 +7,9 @@
     "start": "node --env-file=.env src/index.js",
     "migrate": "prisma migrate dev",
     "generate": "prisma generate",
-    "studio": "prisma studio"
+    "studio": "prisma studio",
+    "test": "node --test \"test/*.test.js\"",
+    "test:setup": "createdb english_lms_test; DATABASE_URL=postgresql://$USER@localhost:5432/english_lms_test prisma migrate deploy"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.125.0",
