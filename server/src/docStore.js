@@ -1,5 +1,6 @@
 import { z } from 'zod'
 import { prisma } from './db.js'
+import { debouncedSaver } from './saver.js'
 
 // A writing document is a list of runs. Base text is what stands; "ins"
 // and "del" are the teacher's tracked changes until accepted or rejected.
@@ -24,7 +25,6 @@ export const runsSchema = z.array(runSchema).max(5000).refine(
 )
 
 const docs = new Map()
-const saveTimers = new Map()
 
 // A key is a classroom id (its one Writing document) or "hw:<id>" for a
 // homework document.
@@ -56,30 +56,19 @@ export async function loadDocument(classroomId) {
   return runs
 }
 
-async function save(classroomId) {
-  saveTimers.delete(classroomId)
+const saver = debouncedSaver('document', async (classroomId) => {
   const runs = docs.get(classroomId)
   if (!runs) return
-  try {
-    const hwId = homeworkId(classroomId)
-    if (hwId) await prisma.homeworkDoc.update({ where: { id: hwId }, data: { runs } })
-    else await prisma.document.update({ where: { classroomId }, data: { runs } })
-  } catch (error) {
-    console.error(`Failed to save document ${classroomId}:`, error.message)
-  }
-}
+  const hwId = homeworkId(classroomId)
+  if (hwId) await prisma.homeworkDoc.update({ where: { id: hwId }, data: { runs } })
+  else await prisma.document.update({ where: { classroomId }, data: { runs } })
+}, SAVE_DELAY_MS)
 
-function scheduleSave(classroomId) {
-  clearTimeout(saveTimers.get(classroomId))
-  saveTimers.set(classroomId, setTimeout(() => save(classroomId), SAVE_DELAY_MS))
-}
+const scheduleSave = (classroomId) => saver.schedule(classroomId)
 
 // Writes every document still waiting for its save (server shutdown).
-export async function flushDocuments() {
-  const pending = [...saveTimers.keys()]
-  for (const id of pending) clearTimeout(saveTimers.get(id))
-  await Promise.all(pending.map(save))
-}
+export const flushDocuments = () => saver.flush()
+export const failingDocumentSaves = () => saver.failing()
 
 export function replaceDocument(classroomId, runs) {
   docs.set(classroomId, runs)
@@ -88,8 +77,7 @@ export function replaceDocument(classroomId, runs) {
 
 // Forgets a deleted homework document without saving it back.
 export function dropDocument(key) {
-  clearTimeout(saveTimers.get(key))
-  saveTimers.delete(key)
+  saver.cancel(key)
   docs.delete(key)
 }
 
@@ -97,7 +85,7 @@ export function dropDocument(key) {
 // the next open reads the database (a document moved to another cabinet).
 export async function settleDocuments(...classroomIds) {
   for (const id of classroomIds) {
-    if (saveTimers.has(id)) { clearTimeout(saveTimers.get(id)); await save(id) }
+    await saver.settle(id)
     docs.delete(id)
   }
 }

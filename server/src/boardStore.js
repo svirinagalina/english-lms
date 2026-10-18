@@ -1,5 +1,6 @@
 import { z } from 'zod'
 import { prisma } from './db.js'
+import { debouncedSaver } from './saver.js'
 
 const MAX_ELEMENTS = 5000
 const SAVE_DELAY_MS = 1500
@@ -50,7 +51,6 @@ export function tidyElement(raw) {
 }
 
 const boards = new Map()
-const saveTimers = new Map()
 
 export async function loadBoard(boardId) {
   if (boards.has(boardId)) return boards.get(boardId)
@@ -61,29 +61,18 @@ export async function loadBoard(boardId) {
   return elements
 }
 
-async function save(boardId) {
-  saveTimers.delete(boardId)
+const saver = debouncedSaver('board', async (boardId) => {
   const elements = boards.get(boardId)
   if (!elements) return
-  try {
-    await prisma.board.update({ where: { id: boardId }, data: { elements } })
-  } catch (error) {
-    console.error('Failed to save board', boardId, error.message)
-  }
-}
+  await prisma.board.update({ where: { id: boardId }, data: { elements } })
+}, SAVE_DELAY_MS)
 
-function scheduleSave(boardId) {
-  clearTimeout(saveTimers.get(boardId))
-  saveTimers.set(boardId, setTimeout(() => save(boardId), SAVE_DELAY_MS))
-}
+const scheduleSave = (boardId) => saver.schedule(boardId)
 
 // Writes every board still waiting for its save — called when the server
 // is shutting down, so the last strokes before a deploy are not lost.
-export async function flushBoards() {
-  const pending = [...saveTimers.keys()]
-  for (const id of pending) clearTimeout(saveTimers.get(id))
-  await Promise.all(pending.map(save))
-}
+export const flushBoards = () => saver.flush()
+export const failingBoardSaves = () => saver.failing()
 
 export async function addElement(boardId, element) {
   const elements = await loadBoard(boardId)

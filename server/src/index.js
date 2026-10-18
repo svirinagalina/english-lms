@@ -44,7 +44,7 @@ import { rateLimit, breakerStatus } from './resilience.js'
 import { stripeWebhook, plansRouter, loadSubscriptionSettings } from './subscriptions.js'
 import { startPlanSweep } from './plans.js'
 import { setupSignaling } from './signaling.js'
-import { flushBoards } from './boardStore.js'
+import { flushBoards, failingBoardSaves } from './boardStore.js'
 import { adventWebhook, lessonLinkRouter, startAdventJobs } from './adventLessons.js'
 import { startPurchaseJobs } from './purchases.js'
 import { telegramRouter } from './routes/telegram.js'
@@ -55,7 +55,7 @@ import { trialContactsRouter, startArchiveJobs } from './trialArchive.js'
 import { startFreeCleanup } from './freeCleanup.js'
 import { adventSyncRouter, startSyncJobs } from './adventSync.js'
 import { startWelcomeJobs } from './afterPayment.js'
-import { flushDocuments } from './docStore.js'
+import { flushDocuments, failingDocumentSaves } from './docStore.js'
 
 const app = express()
 const httpServer = createServer(app)
@@ -118,7 +118,8 @@ app.use('/api/advent-sync', adventSyncRouter)
 app.get('/api/health', async (req, res) => {
   try {
     await Promise.race([prisma.$queryRaw`SELECT 1`, new Promise((_, reject) => setTimeout(() => reject(new Error('database timeout')), 3000))])
-    res.json({ ok: true, breakers: breakerStatus().filter((b) => b.open).map((b) => b.name) })
+    // unsaved: boards/documents whose last write failed and is being retried.
+    res.json({ ok: true, breakers: breakerStatus().filter((b) => b.open).map((b) => b.name), unsaved: failingBoardSaves() + failingDocumentSaves() })
   } catch (error) {
     res.status(503).json({ ok: false, error: error.message })
   }

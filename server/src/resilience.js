@@ -62,26 +62,31 @@ const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms))
 export async function guardedFetch(name, url, init = {}, { timeoutMs = 10_000, retries } = {}) {
   const method = (init.method ?? 'GET').toUpperCase()
   const attempts = 1 + (retries ?? (method === 'GET' ? 1 : 0))
-  return breaker(name).run(async () => {
-    let lastError
-    for (let attempt = 0; attempt < attempts; attempt++) {
-      if (attempt) await sleep(300 * attempt + Math.random() * 300)
-      try {
-        const response = await fetch(url, { ...init, signal: init.signal ?? AbortSignal.timeout(timeoutMs) })
-        if (response.status >= 500 || response.status === 429) {
-          lastError = new Error(`${name} answered ${response.status}`)
-          lastError.response = response
-          continue
+  try {
+    return await breaker(name).run(async () => {
+      let lastError
+      for (let attempt = 0; attempt < attempts; attempt++) {
+        if (attempt) await sleep(300 * attempt + Math.random() * 300)
+        try {
+          const response = await fetch(url, { ...init, signal: init.signal ?? AbortSignal.timeout(timeoutMs) })
+          if (response.status >= 500 || response.status === 429) {
+            lastError = new Error(`${name} answered ${response.status}`)
+            lastError.response = response
+            continue
+          }
+          return response
+        } catch (error) {
+          lastError = error
         }
-        return response
-      } catch (error) {
-        lastError = error
       }
-    }
-    // The last 5xx/429 is still a response the caller may want to read.
-    if (lastError?.response) return lastError.response
-    throw lastError
-  })
+      throw lastError
+    })
+  } catch (error) {
+    // A 5xx/429 after the last attempt counts as a failure for the breaker
+    // (thrown above), but it is still a response the caller may want to read.
+    if (error?.response) return error.response
+    throw error
+  }
 }
 
 // --- Rate limiting ---------------------------------------------------------------
