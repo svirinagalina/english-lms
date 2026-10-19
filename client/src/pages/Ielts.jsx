@@ -12,6 +12,7 @@ import '../styles/ielts.css'
 import { api } from '../api'
 import { parseDetails, formatCard } from '../utils/paymentDetails'
 import LandingDemo from '../components/LandingDemo'
+import LandingFooter from '../components/LandingFooter'
 
 // "Курс подготовки к IELTS и TOEFL" — built from Galina's Figma layout
 // (Advent Academy (New), «Полная стр десктоп»): Mulish, green #14453f,
@@ -624,24 +625,7 @@ export default function Ielts() {
       {buying && <BuyDialog courseId={ex.courseId} exam={exam} onClose={() => setBuying(false)} />}
       {paidSession && <PaidBanner sessionId={paidSession} onClose={() => { setPaidSession(null); window.history.replaceState(null, '', '/ielts') }} />}
 
-      <footer className="iel-foot iel-wrap">
-        <div className="iel-foot-bar">
-          <div className="iel-foot-brand">
-            <img src={img('logo.svg')} alt="Advent Academy" />
-            <span>© {new Date().getFullYear()}. Advent Academy.<br />All rights reserved</span>
-          </div>
-          <nav className="iel-foot-links">
-            <a href="/ielts" onClick={(e) => { e.preventDefault(); chooseExam('ielts'); window.scrollTo(0, 0) }}>IELTS</a>
-            <a href="/ielts?exam=toefl" onClick={(e) => { e.preventDefault(); chooseExam('toefl'); window.scrollTo(0, 0) }}>TOEFL</a>
-            <a href="#contact">Контакты</a>
-            <a href={SITE}>Общий английский</a>
-            <a href="/privacy.html">Политика конфиденциальности</a>
-            <a href={SITE}>Учебник</a>
-          </nav>
-          <img className="iel-foot-polaroid" src={img('harvard.jpg')} alt="" aria-hidden="true" />
-          <img className="iel-foot-mark" src={img('chevron-white.svg')} alt="" aria-hidden="true" />
-        </div>
-      </footer>
+      <LandingFooter exam={exam} onExam={chooseExam} site={SITE} telegram={TELEGRAM} instagram={INSTAGRAM} />
     </div>
   )
 }

@@ -1,0 +1,23 @@
+/* Footer of the IELTS / TOEFL landing (LandingFooter.jsx). */
+.lf { position: relative; margin-top: 60px; background: #14453f; color: #fcfbf6; border-radius: 28px 28px 0 0; overflow: hidden; font-family: 'Mulish', system-ui, sans-serif; }
+.lf-top { display: grid; grid-template-columns: 1.4fr repeat(4, minmax(0, 1fr)); gap: 30px; padding-top: 64px; padding-bottom: 40px; }
+.lf-brand { display: flex; flex-direction: column; gap: 18px; align-items: flex-start; }
+.lf-brand img { width: 150px; }
+.lf-brand p { font-size: 15px; line-height: 1.45; opacity: .75; max-width: 280px; }
+.lf-up { background: none; border: 0; padding: 0; color: #ffd5ed; font: 800 15px 'Mulish', sans-serif; cursor: pointer; }
+.lf-up:hover { text-decoration: underline; }
+.lf-col { display: flex; flex-direction: column; gap: 12px; }
+.lf-col h3 { margin: 0 0 6px; font-size: 13px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; color: #ffd5ed; }
+.lf-col a { position: relative; width: fit-content; font-size: 15px; opacity: .8; transition: opacity .2s, transform .2s; }
+.lf-col a::after { content: ''; position: absolute; left: 0; bottom: -2px; width: 100%; height: 1px; background: #ffd5ed; transform: scaleX(0); transform-origin: left; transition: transform .25s ease; }
+.lf-col a:hover, .lf-col a.on { opacity: 1; transform: translateX(3px); }
+.lf-col a:hover::after, .lf-col a.on::after { transform: scaleX(1); }
+.lf-bottom { display: flex; justify-content: space-between; gap: 20px; flex-wrap: wrap; padding-top: 20px; padding-bottom: 10px; border-top: 1px solid rgba(255, 213, 237, .18); font-size: 13px; opacity: .7; }
+.lf-flags { letter-spacing: .12em; text-transform: uppercase; font-weight: 700; }
+.lf-land { position: relative; height: clamp(200px, 26vw, 380px); margin-top: 10px; cursor: crosshair; }
+.lf-terrain { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+@media (max-width: 900px) {
+  .lf { border-radius: 20px 20px 0 0; }
+  .lf-top { grid-template-columns: 1fr 1fr; padding-top: 44px; }
+  .lf-brand { grid-column: 1 / -1; }
+}

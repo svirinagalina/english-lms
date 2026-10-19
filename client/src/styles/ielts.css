@@ -302,7 +302,7 @@
 .iel-hero { --mx: 0; --my: 0; }
 @media (prefers-reduced-motion: no-preference) {
   .iel-collage > * { translate: calc(var(--mx) * var(--k, 14px) * -1) calc(var(--my) * var(--k, 14px) * -1); transition: translate .6s cubic-bezier(.2, .7, .2, 1); }
-  .iel-star { --k: 10px; animation: iel-spin 28s linear infinite; }
+  .iel-star { --k: 10px; }
   .iel-polaroid { --k: 18px; }
   .iel-suitcase { --k: 30px; animation: iel-bob 6s ease-in-out infinite; }
   .iel-tickets { --k: 40px; animation: iel-bob 7s ease-in-out -2s infinite; }
@@ -317,9 +317,18 @@
   .iel-note.rv.in { transform: rotate(var(--tilt)); }
 }
 @keyframes iel-bob { 50% { transform: translateY(-10px) rotate(-1.5deg); } }
-@keyframes iel-spin { from { transform: rotate(24deg); } to { transform: rotate(384deg); } }
 @keyframes iel-rise { from { opacity: 0; transform: translateY(24px); } }
 @keyframes iel-pop { from { opacity: 0; transform: scale(.6); } }
 .iel-plan { transition: transform .25s ease, box-shadow .25s ease; }
 .iel-plan:hover { transform: translateY(-6px); box-shadow: 0 22px 40px rgba(20, 69, 63, .14); }
 @media (max-width: 720px) { .iel-hero-cta .iel-row { flex-direction: column; align-items: stretch; } }
+
+/* The star spins only while the pointer is on it. The hero text sits above
+   the collage, so only its own controls catch the pointer. */
+.iel-hero-body { pointer-events: none; }
+.iel-hero-body > * { pointer-events: auto; }
+.iel-collage .iel-star { pointer-events: auto; cursor: pointer; }
+@media (prefers-reduced-motion: no-preference) {
+  .iel-collage .iel-star:hover { animation: iel-star-spin 2.4s linear infinite; }
+}
+@keyframes iel-star-spin { from { transform: rotate(24deg); } to { transform: rotate(384deg); } }
