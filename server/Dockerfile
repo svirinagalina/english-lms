@@ -21,5 +21,9 @@ EXPOSE 4010
 HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \
   CMD wget -qO- http://127.0.0.1:4010/api/health >/dev/null || exit 1
 
-# exec: node becomes the main process and receives the stop signal itself.
-CMD ["sh", "-c", "./node_modules/.bin/prisma migrate deploy && exec node src/index.js"]
+# Not root: the app only writes to the uploads volume (owned by uid 1000).
+USER node
+
+# Migrations run before this in the lms-migrate service (docker-compose on
+# srv3); node is the main process and receives the stop signal itself.
+CMD ["node", "src/index.js"]
