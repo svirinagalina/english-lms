@@ -11,6 +11,7 @@ import '@fontsource/mulish/latin-800.css'
 import '../styles/ielts.css'
 import { api } from '../api'
 import { parseDetails, formatCard } from '../utils/paymentDetails'
+import LandingDemo from '../components/LandingDemo'
 
 // "Курс подготовки к IELTS и TOEFL" — built from Galina's Figma layout
 // (Advent Academy (New), «Полная стр десктоп»): Mulish, green #14453f,
@@ -167,7 +168,7 @@ const EXAMS = {
 }
 const examFromUrl = () => (new URLSearchParams(window.location.search).get('exam') === 'toefl' ? 'toefl' : 'ielts')
 
-const MENU = [['Почему мы', '#why'], ['Преподаватели', '#teachers'], ['Как проходят занятия', '#lessons'], ['Тарифы', '#tariffs'], ['Отзывы', '#reviews'], ['Вопросы', '#faq']]
+const MENU = [['Попробовать задание', '#try'], ['Почему мы', '#why'], ['Преподаватели', '#teachers'], ['Как проходят занятия', '#lessons'], ['Тарифы', '#tariffs'], ['Отзывы', '#reviews'], ['Вопросы', '#faq']]
 
 // «Купить»: Stripe (the price converted to euros, access opens by itself)
 // or a rouble transfer to the school's card + «Я оплатил(а)».
@@ -337,6 +338,33 @@ export default function Ielts() {
     window.history.replaceState(null, '', url.pathname + url.search + url.hash)
   }
 
+  // Blocks rise into place as they scroll into view (not with reduced motion).
+  const rootRef = useRef(null)
+  useEffect(() => {
+    const root = rootRef.current
+    if (!root || window.matchMedia('(prefers-reduced-motion: reduce)').matches || !('IntersectionObserver' in window)) return undefined
+    const targets = root.querySelectorAll('.iel h2, .iel-why-grid li, .iel-note, .iel-teacher, .iel-platform, .iel-trail li, .iel-lesson-extras p, .ty-board, .iel-acc-item, .iel-plan, .iel-review, .iel-form, .iel-sections-head')
+    const io = new IntersectionObserver((entries) => {
+      for (const e of entries) if (e.isIntersecting) { e.target.classList.add('in'); io.unobserve(e.target) }
+    }, { rootMargin: '0px 0px -8% 0px' })
+    targets.forEach((el) => {
+      if (el.classList.contains('in')) return
+      const siblings = [...el.parentElement.children].filter((c) => c.tagName === el.tagName)
+      el.style.setProperty('--d', `${Math.min(siblings.indexOf(el), 5) * 70}ms`)
+      el.classList.add('rv')
+      io.observe(el)
+    })
+    return () => io.disconnect()
+  }, [exam])
+  // The hero collage leans gently after the pointer.
+  const heroRef = useRef(null)
+  const onHeroMove = (e) => {
+    const r = heroRef.current?.getBoundingClientRect()
+    if (!r) return
+    heroRef.current.style.setProperty('--mx', ((e.clientX - r.left) / r.width - 0.5).toFixed(3))
+    heroRef.current.style.setProperty('--my', ((e.clientY - r.top) / r.height - 0.5).toFixed(3))
+  }
+
   const goToForm = (interest) => {
     if (interest) setForm((f) => (f.comment.trim() ? f : { ...f, comment: `Интересует: ${interest}` }))
     document.getElementById('contact')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
@@ -363,8 +391,8 @@ export default function Ielts() {
   const field = (key) => ({ value: form[key], onChange: (e) => setForm({ ...form, [key]: e.target.value }) })
 
   return (
-    <div className="iel">
-      <section className="iel-hero">
+    <div className="iel" ref={rootRef}>
+      <section className="iel-hero" ref={heroRef} onPointerMove={onHeroMove}>
         <header className="iel-head iel-wrap">
           <Link to="/author" className="iel-logo" aria-label="Advent Academy"><img src={img('logo.svg')} alt="Advent Academy" /></Link>
           <div className="iel-head-actions">
@@ -400,7 +428,10 @@ export default function Ielts() {
           <h1>{ex.h1}</h1>
           <div className="iel-hero-cta">
             <p>Оставь заявку на пробный период и начни обучение уже сегодня</p>
-            <button type="button" className="iel-btn pink big" onClick={() => goToForm()}>Оставить заявку</button>
+            <div className="iel-row">
+              <button type="button" className="iel-btn pink big" onClick={() => goToForm()}>Оставить заявку</button>
+              <a className="iel-btn iel-ghost light big" href="#try">Попробовать задание ↓</a>
+            </div>
           </div>
         </div>
       </section>
@@ -475,6 +506,8 @@ export default function Ielts() {
         </div>
         <img className="iel-torn bottom" src={img('torn-edge.png')} alt="" aria-hidden="true" />
       </section>
+
+      <LandingDemo exam={exam} />
 
       <section className="iel-wrap iel-sections">
         <div className="iel-sections-head">

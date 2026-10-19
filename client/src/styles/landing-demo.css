@@ -1,0 +1,149 @@
+/* «Попробуй прямо сейчас» on the IELTS / TOEFL landing (LandingDemo.jsx).
+   Brand: green #14453f, pink #ffd5ed, cream #fcfbf6, Mulish, paper collage. */
+.ty { padding: 120px 0 40px; }
+.ty-head { position: relative; display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 420px); gap: 30px; align-items: end; margin-bottom: 40px; }
+.ty-kicker { display: inline-block; margin-bottom: 14px; padding: 6px 14px; border-radius: 999px; background: var(--p); font-weight: 800; font-size: 14px; letter-spacing: .04em; text-transform: uppercase; }
+.ty-head p { font-size: 19px; line-height: 1.4; }
+.ty-star { position: absolute; right: -10px; top: -60px; width: 90px; pointer-events: none; }
+
+.ty-board { display: grid; grid-template-columns: 300px minmax(0, 1fr); gap: 22px; align-items: stretch; }
+.ty-tabs { display: flex; flex-direction: column; gap: 10px; }
+.ty-tabs button {
+  display: flex; flex-direction: column; gap: 4px; text-align: left; cursor: pointer;
+  padding: 16px 18px; border: 1px solid var(--g); border-radius: 14px; background: var(--b); color: var(--g);
+  font: 800 19px/1.2 'Mulish', sans-serif; transition: background .2s, transform .2s, box-shadow .2s;
+}
+.ty-tabs button small { font-size: 12px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; opacity: .65; }
+.ty-tabs button:hover { transform: translateX(4px); }
+.ty-tabs button.on { background: var(--g); color: var(--b); box-shadow: 0 14px 30px rgba(20, 69, 63, .22); }
+.ty-tabs button.on small { color: var(--p); opacity: 1; }
+
+.ty-card {
+  position: relative; min-height: 440px; padding: 34px 38px; border-radius: 22px; background: #fff;
+  border: 1px solid var(--g); box-shadow: 10px 10px 0 var(--p); display: flex; flex-direction: column; gap: 18px;
+  animation: ty-in .45s cubic-bezier(.2, .7, .2, 1) both;
+}
+@keyframes ty-in { from { opacity: 0; transform: translateY(14px); } }
+.ty-task { font-size: 17px; line-height: 1.45; color: rgba(20, 69, 63, .85); max-width: 720px; }
+.ty-text { font-size: 19px; line-height: 1.9; }
+.ty-quote { padding: 16px 20px; border-left: 4px solid var(--p); background: var(--b); border-radius: 0 12px 12px 0; line-height: 1.6; font-size: 17px; }
+
+/* Complete the Words */
+.ty-gap { white-space: nowrap; font-weight: 700; }
+.ty-gap input {
+  font: 700 19px ui-monospace, Menlo, monospace; color: var(--g); padding: 0 2px; margin: 0;
+  border: 0; border-bottom: 2px solid var(--g); background: rgba(255, 213, 237, .45); border-radius: 4px 4px 0 0; outline: none;
+}
+.ty-gap input:focus { background: var(--p); }
+.ty-gap.ok input { border-color: #2f8a4d; background: rgba(47, 138, 77, .14); }
+.ty-gap.bad input { border-color: #c0392b; background: rgba(192, 57, 43, .12); }
+.ty-gap small { margin-left: 4px; font-size: 13px; color: #c0392b; }
+
+/* Choices */
+.ty-q { display: flex; flex-direction: column; gap: 10px; }
+.ty-q + .ty-q { padding-top: 14px; border-top: 1px dashed rgba(20, 69, 63, .25); }
+.ty-q-text { font-weight: 800; font-size: 17px; }
+.ty-options { display: flex; flex-wrap: wrap; gap: 8px; }
+.ty-option {
+  padding: 10px 16px; border-radius: 12px; border: 1px solid var(--g); background: var(--b); color: var(--g);
+  font: 700 16px 'Mulish', sans-serif; cursor: pointer; transition: background .15s, transform .15s;
+}
+.ty-option:hover:not(:disabled) { transform: translateY(-2px); }
+.ty-option.on { background: var(--p); }
+.ty-option.ok { background: #d9f2df; border-color: #2f8a4d; }
+.ty-option.bad { background: #fbdcd8; border-color: #c0392b; text-decoration: line-through; }
+.ty-why { font-size: 15px; line-height: 1.45; padding: 10px 14px; border-radius: 10px; background: rgba(255, 213, 237, .5); }
+
+.ty-result { margin-top: auto; display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
+.ty-score { font-weight: 800; font-size: 18px; }
+.ty-score.good { padding: 6px 14px; border-radius: 999px; background: var(--p); }
+
+/* Player */
+.ty-player { display: flex; align-items: center; gap: 16px; padding: 12px 18px 12px 12px; border-radius: 999px; background: var(--g); color: var(--b); max-width: 560px; }
+.ty-play { flex: none; width: 52px; height: 52px; border-radius: 50%; border: 0; background: var(--p); cursor: pointer; display: grid; place-items: center; transition: transform .15s; }
+.ty-play:hover { transform: scale(1.06); }
+.ty-tri { width: 0; height: 0; margin-left: 4px; border-left: 16px solid var(--g); border-top: 10px solid transparent; border-bottom: 10px solid transparent; }
+.ty-pause { width: 16px; height: 18px; border-left: 5px solid var(--g); border-right: 5px solid var(--g); }
+.ty-wave { flex: 1; display: flex; align-items: center; gap: 3px; height: 34px; }
+.ty-wave i { flex: 1; background: rgba(255, 213, 237, .45); border-radius: 2px; }
+.ty-player.playing .ty-wave i { background: var(--p); animation: ty-wave 1s ease-in-out infinite; animation-delay: calc(var(--i) * -70ms); }
+@keyframes ty-wave { 50% { transform: scaleY(.35); } }
+.ty-player-label { font-size: 14px; font-weight: 700; white-space: nowrap; }
+
+/* Form completion */
+.ty-form { display: grid; gap: 10px; max-width: 520px; padding: 18px 20px; border-radius: 14px; background: var(--b); border: 1px dashed var(--g); }
+.ty-form-title { font-weight: 800; letter-spacing: .02em; }
+.ty-form label { display: grid; grid-template-columns: 1fr 160px; gap: 10px; align-items: center; font-size: 15px; }
+.ty-form input { height: 38px; padding: 0 10px; border-radius: 8px; border: 1px solid var(--g); background: #fff; font: 700 16px 'Mulish', sans-serif; color: var(--g); }
+.ty-form label.ok input { border-color: #2f8a4d; background: #d9f2df; }
+.ty-form label.bad input { border-color: #c0392b; background: #fbdcd8; }
+.ty-form small { grid-column: 2; color: #c0392b; font-weight: 700; }
+
+/* Review before / after */
+.ty-switch { display: inline-flex; padding: 4px; border-radius: 12px; background: var(--b); border: 1px solid var(--g); align-self: flex-start; }
+.ty-switch button { padding: 9px 16px; border: 0; border-radius: 9px; background: transparent; font: 800 15px 'Mulish', sans-serif; color: var(--g); cursor: pointer; }
+.ty-switch button.on { background: var(--g); color: var(--b); }
+.ty-paper { padding: 18px 22px; border-radius: 6px; background: var(--b) url('/ielts/paper-grid.png') center / cover; box-shadow: 0 10px 24px rgba(20, 69, 63, .12); transform: rotate(-.4deg); }
+.ty-paper .ty-text { font-size: 17px; line-height: 1.75; }
+.ty-paper-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; font-weight: 800; font-size: 14px; letter-spacing: .03em; text-transform: uppercase; }
+.ty-badge { padding: 4px 12px; border-radius: 999px; background: var(--g); color: var(--b); font-size: 20px; text-transform: none; transition: background .3s; }
+.ty-paper.after .ty-badge { background: var(--p); color: var(--g); }
+.ty-badge small { font-size: 12px; opacity: .8; }
+.ty-paper mark { background: var(--p); color: inherit; border-radius: 3px; padding: 0 2px; }
+.ty-paper del { color: #c0392b; text-decoration-thickness: 2px; margin-right: 4px; }
+.ty-paper ins { text-decoration: none; background: #d9f2df; border-radius: 3px; padding: 0 2px; }
+.ty-notes { list-style: none; padding: 0; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px 14px; }
+.ty-notes li { position: relative; padding: 8px 12px 8px 30px; border-radius: 10px; background: rgba(255, 213, 237, .45); font-size: 14px; line-height: 1.35; animation: ty-in .4s both; }
+.ty-notes li::before { content: '✓'; position: absolute; left: 11px; top: 8px; font-weight: 800; }
+.ty-hint { font-size: 14px; opacity: .7; }
+
+/* Adaptive test */
+.ty-slider { display: flex; flex-direction: column; gap: 10px; max-width: 520px; font-size: 17px; }
+.ty-slider input { accent-color: var(--g); width: 100%; }
+.ty-path { display: grid; grid-template-columns: 170px 120px minmax(0, 260px); align-items: center; }
+.ty-node { display: flex; flex-direction: column; gap: 2px; padding: 14px 16px; border-radius: 14px; border: 1px solid var(--g); font-weight: 800; background: var(--b); transition: all .35s; }
+.ty-node small { font-weight: 600; font-size: 13px; opacity: .75; }
+.ty-node.on { background: var(--g); color: var(--b); box-shadow: 6px 6px 0 var(--p); }
+.ty-node.off { opacity: .4; transform: scale(.96); }
+.ty-branches { display: flex; flex-direction: column; gap: 38px; }
+.ty-arrows { width: 120px; height: 160px; }
+.ty-arrows path { fill: none; stroke: rgba(20, 69, 63, .2); stroke-width: 3; stroke-dasharray: 6 6; transition: stroke .3s; }
+.ty-arrows path.on { stroke: var(--g); stroke-dasharray: none; }
+.ty-verdict { font-size: 17px; line-height: 1.45; padding: 12px 16px; border-radius: 12px; background: rgba(255, 213, 237, .5); }
+
+/* Cue card */
+.ty-cue { display: flex; gap: 30px; align-items: center; flex-wrap: wrap; }
+.ty-cue-card { flex: 1; min-width: 260px; max-width: 460px; display: flex; flex-direction: column; gap: 6px; padding: 22px 24px; background: var(--b) url('/ielts/paper-grid.png') center / cover; border-radius: 6px; transform: rotate(-1deg); box-shadow: 0 10px 24px rgba(20, 69, 63, .12); font-size: 16px; }
+.ty-cue-card b { font-size: 19px; }
+.ty-cue-card ul { margin: 0; padding-left: 20px; }
+.ty-ring { position: relative; width: 170px; height: 170px; }
+.ty-ring svg { width: 100%; height: 100%; transform: rotate(-90deg); }
+.ty-ring circle { fill: none; stroke: rgba(20, 69, 63, .12); stroke-width: 8; }
+.ty-ring .ty-ring-fg { stroke: var(--g); stroke-linecap: round; stroke-dasharray: 276.5; stroke-dashoffset: calc(276.5 * (1 - var(--share))); transition: stroke-dashoffset 1s linear; }
+.ty-ring-text { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; font-size: 34px; font-weight: 800; font-variant-numeric: tabular-nums; }
+.ty-ring-text small { font-size: 13px; font-weight: 700; opacity: .7; }
+
+@media (max-width: 900px) {
+  .ty { padding-top: 80px; }
+  .ty-head { grid-template-columns: 1fr; }
+  .ty-star { display: none; }
+  .ty-board { grid-template-columns: 1fr; }
+  .ty-tabs { flex-direction: row; overflow-x: auto; scrollbar-width: none; margin-inline: -20px; padding: 4px 20px 10px; }
+  .ty-tabs button { flex: 0 0 auto; font-size: 16px; padding: 12px 14px; }
+  .ty-tabs button:hover { transform: none; }
+  .ty-card { padding: 22px 18px; min-height: 0; box-shadow: 6px 6px 0 var(--p); }
+  .ty-text { font-size: 17px; }
+  .ty-notes { grid-template-columns: 1fr; }
+  .ty-path { grid-template-columns: 1fr; gap: 10px; }
+  .ty-arrows { display: none; }
+  .ty-branches { gap: 10px; }
+  .ty-form label { grid-template-columns: 1fr; gap: 4px; }
+  .ty-form small { grid-column: 1; }
+  .ty-player-label { display: none; }
+}
+.ty-slider input[type='range'] {
+  -webkit-appearance: none; appearance: none; width: 100%; max-width: none; height: 10px; padding: 0; margin: 4px 0;
+  border: 0; border-radius: 999px; background: linear-gradient(90deg, var(--g) calc(var(--v, 70) * 1%), var(--p) 0); cursor: pointer;
+}
+.ty-slider input[type='range']::-webkit-slider-thumb { -webkit-appearance: none; width: 26px; height: 26px; border-radius: 50%; background: var(--b); border: 4px solid var(--g); box-shadow: 0 4px 10px rgba(20, 69, 63, .25); }
+.ty-slider input[type='range']::-moz-range-thumb { width: 20px; height: 20px; border-radius: 50%; background: var(--b); border: 4px solid var(--g); }
