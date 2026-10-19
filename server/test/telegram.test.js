@@ -3,7 +3,7 @@
 import { test, before, after } from 'node:test'
 import assert from 'node:assert/strict'
 import http from 'node:http'
-import { migrate, seed, startServer, prisma } from './helpers.js'
+import { migrate, seed, startServer, prisma, client, signedIn } from './helpers.js'
 
 let server, school, fake
 
@@ -43,6 +43,11 @@ function fakeTelegram() {
         await new Promise((r) => setTimeout(r, 30))
       }
       throw new Error(`No answer to "${text}"`)
+    },
+    // The last full message (text + buttons) the bot sent to this chat.
+    last(chatId) {
+      const mine = sent.filter((m) => String(m.chat_id) === String(chatId))
+      return mine[mine.length - 1]
     }
   }
 }
@@ -113,4 +118,72 @@ test('a code only works in the chat it was asked from', async () => {
 test('at most 3 codes an hour for one address', async () => {
   for (let i = 0; i < 3; i++) await fake.say(1007 + i, 'student2@test.com')
   assert.match(await fake.say(1010, 'student2@test.com'), /Слишком много попыток/)
+})
+
+// --- Students without email: invited and signed in through the bot -----------
+
+const loginTokenOf = (message) => {
+  const url = message.reply_markup.inline_keyboard[0][0].url
+  return url.split('/tg-login/')[1]
+}
+
+test('a Telegram invitation makes the account in the bot and signs in by a one-time link', async () => {
+  const teacher = await signedIn(server.base, school.people.teacher)
+  const created = await teacher.post('/api/invites', { name: 'Маша', role: 'STUDENT', telegram: true })
+  assert.equal(created.status, 201)
+  assert.match(created.body.invite.link, /^https:\/\/t\.me\/test_school_bot\?start=i_/)
+  const token = created.body.invite.link.split('start=i_')[1]
+
+  // The web join page sends people to Telegram instead.
+  assert.equal((await client(server.base).get(`/api/invites/token/${token}`)).status, 409)
+
+  assert.match(await fake.say(2001, `/start i_${token}`), /Аккаунт «Маша» создан/)
+  const masha = await prisma.user.findFirst({ where: { name: 'Маша' } })
+  assert.equal(masha.role, 'STUDENT')
+  assert.equal(masha.telegramChatId, '2001')
+  assert.match(masha.email, /@telegram\.invalid$/)
+  assert.ok(await prisma.teacherStudent.findFirst({ where: { teacherId: school.people.teacher.id, studentId: masha.id } }), 'linked to the teacher')
+
+  const message = fake.last(2001)
+  assert.equal(message.reply_markup.inline_keyboard[0][0].text, 'Войти на платформу')
+  const loginToken = loginTokenOf(message)
+
+  const browser = client(server.base)
+  const login = await browser.post(`/api/auth/telegram-login/${loginToken}`)
+  assert.equal(login.status, 200)
+  assert.equal(login.body.user.name, 'Маша')
+  assert.equal((await browser.get('/api/auth/me')).body.user.id, masha.id)
+  // Once only.
+  assert.equal((await client(server.base).post(`/api/auth/telegram-login/${loginToken}`)).status, 410)
+
+  // Opening the invitation again does not make a second account.
+  assert.match(await fake.say(2001, `/start i_${token}`), /уже создан/)
+  assert.equal(await prisma.user.count({ where: { name: 'Маша' } }), 1)
+  // …and from someone else's Telegram it is refused.
+  assert.match(await fake.say(2002, `/start i_${token}`), /уже использовано/)
+})
+
+test('two children on one Telegram: /login gives a button for each', async () => {
+  const teacher = await signedIn(server.base, school.people.teacher)
+  for (const name of ['Петя', 'Ваня']) {
+    const { body } = await teacher.post('/api/invites', { name, role: 'STUDENT', telegram: true })
+    await fake.say(2101, `/start ${body.invite.link.split('start=')[1]}`)
+  }
+  await fake.say(2101, '/login')
+  const buttons = fake.last(2101).reply_markup.inline_keyboard.map((row) => row[0].text)
+  assert.deepEqual(buttons, ['Войти как Петя', 'Войти как Ваня'])
+})
+
+test('/login on a Telegram with no student explains what to do', async () => {
+  assert.match(await fake.say(2201, '/login'), /не привязан ни один ученик/)
+})
+
+test('a forged or used login link signs nobody in', async () => {
+  assert.equal((await client(server.base).post('/api/auth/telegram-login/forged-token')).status, 410)
+})
+
+test('only new students can be invited through Telegram', async () => {
+  const owner = await signedIn(server.base, school.people.owner)
+  assert.equal((await owner.post('/api/invites', { name: 'Новый учитель', role: 'TEACHER', telegram: true })).status, 400)
+  assert.equal((await owner.post('/api/invites', { name: 'Без почты', role: 'STUDENT' })).status, 400)
 })

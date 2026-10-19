@@ -6,6 +6,7 @@ import { logSignup } from './diag.js'
 import { createHash, randomBytes } from 'crypto'
 import { hashPassword, verifyPassword, issueToken, clearToken, requireAuth, mustSignUp, trialOver, completeSignup } from '../auth.js'
 import { mailEnabled, sendPasswordResetEmail, sendVerifyEmail } from '../mailer.js'
+import { startLink, useLoginToken } from '../telegram.js'
 
 export const authRouter = Router()
 
@@ -207,6 +208,20 @@ authRouter.post('/login', async (req, res) => {
 
   if (!user.emailVerified) return res.status(403).json({ error: 'Сначала подтвердите почту — мы отправили вам письмо со ссылкой.', unverified: true, email: user.email })
 
+  issueToken(res, user)
+  res.json({ user: publicUser(user) })
+})
+
+// «Войти через Telegram» on the sign-in page: the bot sends the login buttons.
+authRouter.get('/telegram', (req, res) => {
+  res.json({ link: startLink('login') })
+})
+
+// A one-time link from the bot (/login): signs that student in.
+authRouter.post('/telegram-login/:token', async (req, res) => {
+  const userId = useLoginToken(req.params.token)
+  const user = userId ? await prisma.user.findUnique({ where: { id: userId } }) : null
+  if (!user) return res.status(410).json({ error: 'Ссылка устарела или уже использована. Нажмите /login в боте, чтобы получить новую.' })
   issueToken(res, user)
   res.json({ user: publicUser(user) })
 })

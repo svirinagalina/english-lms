@@ -14,12 +14,14 @@ export default function Login() {
   const [registrationOpen, setRegistrationOpen] = useState(false)
   const [signupOpen, setSignupOpen] = useState(false)
   const [unverified, setUnverified] = useState('')
+  const [telegramLink, setTelegramLink] = useState(null)
 
   useEffect(() => {
     api.registrationStatus()
       .then(({ open }) => setRegistrationOpen(open))
       .catch(() => setRegistrationOpen(false))
     api.signupStatus().then(({ open }) => setSignupOpen(open)).catch(() => setSignupOpen(false))
+    api.telegramLoginLink().then(({ link }) => setTelegramLink(link)).catch(() => {})
   }, [])
 
   const handleSubmit = async (event) => {
@@ -60,6 +62,11 @@ export default function Login() {
         />
         <button type="submit" disabled={busy}>{busy ? 'Входим…' : 'Войти'}</button>
         <p className="muted"><Link to="/forgot">Забыли пароль?</Link></p>
+        {telegramLink && (
+          <a className="button-link" href={telegramLink} target="_blank" rel="noreferrer">
+            Войти через Telegram
+          </a>
+        )}
         {signupOpen && !registrationOpen && (
           <p className="muted">
             Впервые здесь? <Link to="/signup">Создать аккаунт бесплатно</Link>

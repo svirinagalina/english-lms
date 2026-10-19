@@ -5,6 +5,7 @@ import { z } from 'zod'
 import { prisma } from '../db.js'
 import { hashPassword, issueToken, requireAuth, requireRole, isAdmin } from '../auth.js'
 import { sendInviteEmail, mailEnabled } from '../mailer.js'
+import { startLink } from '../telegram.js'
 
 export const invitesRouter = Router()
 
@@ -12,8 +13,11 @@ const INVITE_DAYS = 14
 
 const inviteSchema = z.object({
   name: z.string().min(2).max(100),
-  email: z.string().trim().toLowerCase().email(),
+  email: z.string().trim().toLowerCase().email().optional(),
   role: z.enum(['TEACHER', 'STUDENT']),
+  // No email: the invitation is a link to the school's Telegram bot, which
+  // makes the account and signs the student in (students only).
+  telegram: z.boolean().optional(),
   // Which teacher the invited student will be linked to. Defaults to the inviter.
   teacherId: z.string().optional(),
   // A student already here from a trial lesson link: the invitation gives
@@ -34,7 +38,9 @@ const inviteView = (invite, origin) => ({
   expiresAt: invite.expiresAt,
   acceptedAt: invite.acceptedAt,
   teacher: invite.invitedBy ? { id: invite.invitedBy.id, name: invite.invitedBy.name } : undefined,
-  link: `${origin}/join/${invite.token}`
+  viaTelegram: invite.viaTelegram,
+  // A Telegram invitation opens the bot; the account is made there.
+  link: invite.viaTelegram ? startLink(`i_${invite.token}`) : `${origin}/join/${invite.token}`
 })
 
 const originOf = (req) => process.env.CLIENT_ORIGIN ?? `${req.protocol}://${req.get('host')}`
@@ -53,6 +59,7 @@ invitesRouter.get('/token/:token', async (req, res) => {
   if (!invite) return res.status(404).json({ error: 'Invitation not found' })
   if (invite.acceptedAt) return res.status(410).json({ error: 'This invitation has already been used' })
   if (invite.expiresAt < new Date()) return res.status(410).json({ error: 'This invitation has expired' })
+  if (invite.viaTelegram) return res.status(409).json({ error: 'Это приглашение открывается в Telegram', telegramLink: startLink(`i_${invite.token}`) })
 
   res.json({
     invite: {
@@ -75,6 +82,7 @@ invitesRouter.post('/token/:token/accept', async (req, res) => {
   if (!invite) return res.status(404).json({ error: 'Invitation not found' })
   if (invite.acceptedAt) return res.status(410).json({ error: 'This invitation has already been used' })
   if (invite.expiresAt < new Date()) return res.status(410).json({ error: 'This invitation has expired' })
+  if (invite.viaTelegram) return res.status(409).json({ error: 'Это приглашение открывается в Telegram' })
 
   const existing = await prisma.user.findUnique({ where: { email: invite.email } })
   if (existing && existing.id !== invite.userId) return res.status(409).json({ error: 'An account with this email already exists' })
@@ -159,10 +167,19 @@ invitesRouter.post('/', requireRole('OWNER', 'TEACHER'), async (req, res) => {
     return res.status(400).json({ error: 'Invalid data', details: parsed.error.flatten().fieldErrors })
   }
 
-  const { name, email, role, teacherId, userId } = parsed.data
+  const { name, role, teacherId, userId, telegram } = parsed.data
+  let { email } = parsed.data
 
   if (role === 'TEACHER' && !isAdmin(req.user)) {
     return res.status(403).json({ error: 'Only the school owner can invite teachers' })
+  }
+  if (telegram) {
+    if (role !== 'STUDENT' || userId) return res.status(400).json({ error: 'Через Telegram можно пригласить только нового ученика' })
+    if (!startLink('x')) return res.status(400).json({ error: 'Бот школы не подключён: Settings → Telegram bot' })
+    // A placeholder address: the account signs in through the bot.
+    email = `tg-${randomBytes(6).toString('hex')}@telegram.invalid`
+  } else if (!email) {
+    return res.status(400).json({ error: 'Invalid data', details: { email: ['Required'] } })
   }
 
   let trialAccount = null
@@ -202,12 +219,14 @@ invitesRouter.post('/', requireRole('OWNER', 'TEACHER'), async (req, res) => {
       expiresAt,
       schoolId: req.user.schoolId,
       invitedById: inviterId,
-      userId: trialAccount?.id ?? null
+      userId: trialAccount?.id ?? null,
+      viaTelegram: Boolean(telegram)
     },
     include: { invitedBy: { select: { id: true, name: true } } }
   })
 
   const view = inviteView(invite, originOf(req))
+  if (invite.viaTelegram) return res.status(201).json({ invite: view, delivery: { sent: false, telegram: true } })
 
   const delivery = await sendInviteEmail({
     to: invite.email,
@@ -238,6 +257,7 @@ invitesRouter.post('/:id/resend', requireRole('OWNER', 'TEACHER'), async (req, r
     }
   })
   if (!invite) return res.status(404).json({ error: 'Invitation not found' })
+  if (invite.viaTelegram) return res.status(400).json({ error: 'У этого приглашения нет почты — отправьте ссылку в Telegram сами' })
 
   const delivery = await sendInviteEmail({
     to: invite.email,

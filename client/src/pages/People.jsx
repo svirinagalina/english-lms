@@ -12,6 +12,8 @@ import { TeacherEditor } from '../components/StudentTeachers'
 
 function InviteForm({ role, teachers, currentUserId, onInvited, trialStudents = [] }) {
   const [form, setForm] = useState({ name: '', email: '', teacherId: currentUserId })
+  // A student without email: the invitation is a link to the school's bot.
+  const [byTelegram, setByTelegram] = useState(false)
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
   // A student from a trial (no email yet) is invited as that same account:
@@ -26,7 +28,7 @@ function InviteForm({ role, teachers, currentUserId, onInvited, trialStudents = 
     try {
       const result = await api.createInvite({
         name: trial ? (trial.name.length >= 2 ? trial.name : `${trial.name} (ученик)`) : form.name,
-        email: form.email,
+        ...(byTelegram && !trial ? { telegram: true } : { email: form.email }),
         role,
         ...(trial ? { userId: trial.id } : role === 'STUDENT' ? { teacherId: form.teacherId } : {})
       })
@@ -67,13 +69,21 @@ function InviteForm({ role, teachers, currentUserId, onInvited, trialStudents = 
           required
         />
       )}
-      <input
-        type="email"
-        placeholder="Email"
-        value={form.email}
-        onChange={(e) => setForm({ ...form, email: e.target.value })}
-        required
-      />
+      {!(byTelegram && !trial) && (
+        <input
+          type="email"
+          placeholder="Email"
+          value={form.email}
+          onChange={(e) => setForm({ ...form, email: e.target.value })}
+          required
+        />
+      )}
+      {role === 'STUDENT' && !trial && (
+        <label className="muted" style={{ display: 'flex', gap: 6, alignItems: 'center', flex: '0 0 auto', width: 'auto', whiteSpace: 'nowrap' }} title="Ссылка откроет бота школы: он создаст аккаунт, вход — кнопкой в боте">
+          <input type="checkbox" checked={byTelegram} onChange={(e) => setByTelegram(e.target.checked)} style={{ width: 'auto', flex: '0 0 auto', minWidth: 0 }} />
+          Нет почты — через Telegram
+        </label>
+      )}
       {role === 'STUDENT' && teachers.length > 1 && (
         <select
           value={form.teacherId}
@@ -248,7 +258,7 @@ export default function People() {
   }, [])
 
   const handleInvited = async (result) => {
-    setDelivery(result?.delivery ?? null)
+    setDelivery(result?.delivery?.telegram ? { ...result.delivery, link: result.invite.link } : result?.delivery ?? null)
     await refresh()
     if (result?.delivery?.sent) setTimeout(() => setDelivery(null), 5000)
   }
@@ -556,7 +566,14 @@ export default function People() {
         </div>
       )}
 
-      {delivery && (
+      {delivery?.telegram && (
+        <div className="notice">
+          Приглашение создано. Отправьте ученику (или родителю) эту ссылку в Telegram — бот создаст аккаунт, а войти на платформу можно будет кнопкой в боте:{' '}
+          <code className="invite-link">{delivery.link}</code>{' '}
+          <button type="button" className="link-button" onClick={() => navigator.clipboard?.writeText(delivery.link)}>Копировать</button>
+        </div>
+      )}
+      {delivery && !delivery.telegram && (
         <div className={delivery.sent ? 'notice' : 'error'}>
           {delivery.sent
             ? 'Invitation email sent.'
@@ -609,12 +626,12 @@ export default function People() {
                   <div>
                     <strong>{invite.name}</strong>
                     <div className="muted">
-                      {invite.email} · {invite.role.toLowerCase()}
+                      {invite.viaTelegram ? 'через Telegram' : invite.email} · {invite.role.toLowerCase()}
                       {invite.teacher && ` · with ${invite.teacher.name}`}
                     </div>
                   </div>
                   <div className="row-actions">
-                    {mail.enabled && (
+                    {mail.enabled && !invite.viaTelegram && (
                       <button className="ghost" onClick={() => resend(invite)} disabled={resending === invite.id}>
                         {resending === invite.id ? 'Sending…' : 'Resend email'}
                       </button>

@@ -369,6 +369,10 @@ model Invite {
   // Inviting a student who already has an account from a trial lesson link:
   // accepting gives that account the email and password (board and history stay).
   userId     String?
+  // A student without email: the link opens the school's Telegram bot, which
+  // makes the account there (email is a placeholder ending in .invalid) and
+  // signs them in with one-time links (telegram.js).
+  viaTelegram Boolean @default(false)
 
   schoolId String
   school   School @relation(fields: [schoolId], references: [id], onDelete: Cascade)

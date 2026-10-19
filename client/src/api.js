@@ -42,6 +42,8 @@ export const api = {
   resetInfo: (token) => request(`/auth/reset/${token}`),
   resetPassword: (token, password) => request(`/auth/reset/${token}`, { method: 'POST', body: { password } }),
   me: () => request('/auth/me'),
+  telegramLoginLink: () => request('/auth/telegram'),
+  telegramLogin: (token) => request(`/auth/telegram-login/${token}`, { method: 'POST' }),
   version: () => request('/version'),
   registrationStatus: () => request('/auth/registration-status'),
   signupStatus: (from) => request(`/auth/signup-status${from ? `?from=${from}` : ''}`),
