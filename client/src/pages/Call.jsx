@@ -132,6 +132,8 @@ export default function Call() {
   const availOutRef = useRef(null)
   peersRef.current = peers
   const [screenStream, setScreenStream] = useState(null)
+  // A note when a shared screen goes out without its sound (see shareScreen).
+  const [screenSoundNote, setScreenSoundNote] = useState('')
   // Blur is on from the start; it can be switched off in the call.
   // What stands behind the person: nothing, a blur, or one of the pictures.
   // Off by default on phones, weak computers (2–4 cores) and any browser
@@ -1604,7 +1606,7 @@ export default function Call() {
   const swapOutgoingVideo = async (track) => {
     if (sfuRef.current && track) {
       const isScreen = track === screenStreamRef.current?.getVideoTracks()[0]
-      await (isScreen ? sfuRef.current.setScreen(track) : sfuRef.current.setVideo(track)).catch((err) => console.error('Media server: video not sent', err))
+      await (isScreen ? sfuRef.current.setScreen(track, screenStreamRef.current?.getAudioTracks()[0] ?? null) : sfuRef.current.setVideo(track)).catch((err) => console.error('Media server: video not sent', err))
     }
     for (const pc of Object.values(connectionsRef.current)) {
       const sender = pc.getSenders().find((s) => s.track?.kind === 'video')
@@ -1617,6 +1619,7 @@ export default function Call() {
     screenStreamRef.current = null
     await sfuRef.current?.setScreen(null).catch(() => {})
     stream?.getTracks().forEach((t) => t.stop())
+    setScreenSoundNote('')
     setScreenStream(null)
     await swapOutgoingVideo(outgoingCameraTrack())
     socketRef.current?.emit('screen-share-stop')
@@ -1626,8 +1629,22 @@ export default function Call() {
     try {
       // A Retina screen at full size is ~5K pixels a frame: heavy to send and
       // no sharper for the viewer. Full HD at 15 fps, tuned for crisp text.
-      const stream = await navigator.mediaDevices.getDisplayMedia({ video: { width: { max: 1920 }, height: { max: 1080 }, frameRate: { max: 15 } }, audio: false })
+      // With sound: Chrome/Edge offer "Also share tab audio" for a tab (and
+      // system sound for the whole screen on Windows), so a video or a
+      // listening exercise played there reaches the others. Kept raw — echo
+      // cancelling and noise suppression would eat the music. Only the media
+      // server carries it (sfu.js); a direct call shares the picture only.
+      const stream = await navigator.mediaDevices.getDisplayMedia({
+        video: { width: { max: 1920 }, height: { max: 1080 }, frameRate: { max: 15 } },
+        audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false },
+        systemAudio: 'include'
+      })
       const screenTrack = stream.getVideoTracks()[0]
+      const screenSound = stream.getAudioTracks()[0]
+      setScreenSoundNote(!screenSound
+        ? 'Your screen is shared without sound. To let the others hear a video or a recording, share a browser tab and keep “Also share tab audio” on.'
+        : sfuRef.current ? '' : 'The others see your screen but do not hear its sound in this call.')
+      report(token, 'screen.share', screenSound ? 'with sound' : 'no sound', { surface: screenTrack?.getSettings?.().displaySurface ?? null, sfu: Boolean(sfuRef.current) })
       if (screenTrack && 'contentHint' in screenTrack) screenTrack.contentHint = 'detail'
       screenStreamRef.current = stream
       setScreenStream(stream)
@@ -1908,6 +1925,12 @@ export default function Call() {
         <div className="banner warning">
           {mediaWarning}
           <button className="banner-close" onClick={() => setWarningHidden(true)} title="Hide">×</button>
+        </div>
+      )}
+      {screenSoundNote && (
+        <div className="banner warning">
+          {screenSoundNote}
+          <button className="banner-close" onClick={() => setScreenSoundNote('')} title="Hide">×</button>
         </div>
       )}
       {echoWarning && (

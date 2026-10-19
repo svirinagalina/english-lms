@@ -1,4 +1,4 @@
-import { ParticipantEvent, Room, RoomEvent, Track, VideoPresets, VideoQuality } from 'livekit-client'
+import { AudioPresets, ParticipantEvent, Room, RoomEvent, Track, VideoPresets, VideoQuality } from 'livekit-client'
 
 // Calls through the media server (LiveKit on srv3, see server/src/sfu.js):
 // each person sends their sound and picture once, to the server, which
@@ -18,13 +18,43 @@ export async function joinSfu({ url, token, onStream, onLeft, onState }) {
 
   const update = (participant) => {
     const tracks = []
-    participant.trackPublications.forEach((pub) => { if (pub.isSubscribed && pub.track?.mediaStreamTrack) tracks.push(pub.track.mediaStreamTrack) })
+    // A shared screen's sound is played on its own (below), not in the tile.
+    participant.trackPublications.forEach((pub) => { if (pub.isSubscribed && pub.track?.mediaStreamTrack && pub.source !== Track.Source.ScreenShareAudio) tracks.push(pub.track.mediaStreamTrack) })
     // A new MediaStream each time: adding a track to an existing one from
     // script fires no 'addtrack', and the tile listens for a changed stream.
     onStream(participant.identity, participant.name || 'Participant', tracks.length ? new MediaStream(tracks) : null)
   }
   room.on(RoomEvent.TrackSubscribed, (_track, _pub, participant) => update(participant))
   room.on(RoomEvent.TrackUnsubscribed, (_track, _pub, participant) => update(participant))
+  // The sound of someone's shared tab (a video, a listening exercise): played
+  // as it is, in a hidden <audio> of its own — never through the denoiser,
+  // which takes music and recordings for noise. A browser that blocked the
+  // autoplay gets it on the next click or key anywhere on the page.
+  const screenAudio = new Map()
+  const retryPlay = () => screenAudio.forEach((el) => el.play().catch(() => {}))
+  window.addEventListener('pointerdown', retryPlay)
+  window.addEventListener('keydown', retryPlay)
+  room.on(RoomEvent.TrackSubscribed, (track, pub) => {
+    if (pub.source !== Track.Source.ScreenShareAudio) return
+    const el = track.attach()
+    el.style.display = 'none'
+    document.body.appendChild(el)
+    screenAudio.set(pub.trackSid, el)
+    el.play().catch(() => {})
+  })
+  // LiveKit has already detached the element by now: it is removed by key.
+  room.on(RoomEvent.TrackUnsubscribed, (track, pub) => {
+    if (pub.source !== Track.Source.ScreenShareAudio) return
+    track.detach()
+    screenAudio.get(pub.trackSid)?.remove()
+    screenAudio.delete(pub.trackSid)
+  })
+  room.on(RoomEvent.Disconnected, () => {
+    screenAudio.forEach((el) => el.remove())
+    screenAudio.clear()
+    window.removeEventListener('pointerdown', retryPlay)
+    window.removeEventListener('keydown', retryPlay)
+  })
   // Someone gone from the media room (left, or an old copy of a person who
   // reconnected, removed by the server): their tile goes too. Clearing only
   // the picture left an empty "second Oleg" on the teacher's screen.
@@ -48,7 +78,7 @@ export async function joinSfu({ url, token, onStream, onLeft, onState }) {
 
   await room.connect(url, token, { autoSubscribe: true })
 
-  const pubs = { audio: null, video: null, screen: null }
+  const pubs = { audio: null, video: null, screen: null, screenAudio: null }
   // LiveKit mutes a publication by itself when its track ends — and the old
   // microphone track is stopped right around a swap (the denoiser giving way
   // to the plain microphone). The microphone publication then stayed muted:
@@ -92,8 +122,19 @@ export async function joinSfu({ url, token, onStream, onLeft, onState }) {
     // small simulcast layers) instead of going out in the camera's place at
     // the camera's 450 kbps and size, which made text unreadable. The camera
     // is taken off meanwhile, so the others still get one picture from us.
-    setScreen: async (track) => {
+    // `audioTrack`: the shared tab's sound, published beside it untouched
+    // (no echo cancelling, no voice coding: the music preset).
+    setScreen: async (track, audioTrack = null) => {
       if (room.state === 'disconnected') return
+      if (pubs.screenAudio?.track && pubs.screenAudio.track.mediaStreamTrack !== audioTrack) {
+        await room.localParticipant.unpublishTrack(pubs.screenAudio.track, false).catch(() => {})
+        pubs.screenAudio = null
+      }
+      if (track && audioTrack && !pubs.screenAudio) {
+        pubs.screenAudio = await room.localParticipant.publishTrack(audioTrack, {
+          source: Track.Source.ScreenShareAudio, audioPreset: AudioPresets.music, dtx: false, red: false
+        }).catch((err) => { console.error('Media server: screen sound not sent', err); return null })
+      }
       if (track) {
         if (pubs.screen?.track?.mediaStreamTrack === track) return
         if (pubs.screen?.track) await room.localParticipant.unpublishTrack(pubs.screen.track, false).catch(() => {})
