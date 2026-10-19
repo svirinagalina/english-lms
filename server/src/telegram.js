@@ -1,6 +1,7 @@
 import crypto from 'crypto'
 import { prisma } from './db.js'
 import { encrypt, decrypt, supportContact } from './settings.js'
+import { sendTelegramCodeEmail, mailEnabled } from './mailer.js'
 
 // The school's own Telegram bot (Galina, 2026-10-13: the platform sends every
 // message itself instead of Advent's bot). The owner pastes the token from
@@ -191,8 +192,8 @@ async function handleStart(message, param) {
   if (!param) {
     const known = await prisma.user.findFirst({ where: { telegramChatId: chatId }, select: { name: true } })
     return reply(chatId, known
-      ? `Вы подключены, ${esc(known.name)} ✅ Сюда приходят напоминания об уроках.`
-      : 'Здравствуйте! Это бот школы Advent Academy. Чтобы получать напоминания об уроках, откройте свою ссылку на урок и нажмите там «Напоминания в Telegram».')
+      ? `Вы подключены, ${esc(known.name)} ✅ Сюда приходят напоминания об уроках.\n\nЧтобы подключить ещё один аккаунт (например, второго ребёнка), напишите его почту.`
+      : CONNECT_HELP)
   }
   if (param.startsWith('co_') && hooks.onCourseStart) {
     const text = await hooks.onCourseStart({ chatId, orderId: param.slice(3), username: message.from?.username ?? null }).catch((error) => { console.error('[telegram] course', error.message); return null })
@@ -203,6 +204,12 @@ async function handleStart(message, param) {
   if (!found.userId) return reply(chatId, 'Сначала откройте ссылку на урок и введите своё имя, потом снова нажмите «Напоминания в Telegram».')
   const user = await prisma.user.findUnique({ where: { id: found.userId } })
   if (!user) return reply(chatId, 'Ссылка не подошла.')
+  return linkChat(message, user, found.lesson)
+}
+
+// Connects this chat to the user: reminders and messages start coming here.
+async function linkChat(message, user, lesson = null) {
+  const chatId = String(message.chat.id)
   const updated = await prisma.user.update({
     where: { id: user.id },
     data: {
@@ -217,7 +224,68 @@ async function handleStart(message, param) {
   await reply(chatId, staff
     ? `Готово, ${esc(user.name)}! Сюда будут приходить новые пробные уроки, напоминания и оплаты учеников.`
     : `Готово, ${esc(user.name)}! Сюда будут приходить напоминания об уроках, отчёт и всё важное. Ничего нажимать не нужно.`)
-  if (hooks.onLinked) await hooks.onLinked(updated, found.lesson).catch((error) => console.error('[telegram] linked', error.message))
+  if (hooks.onLinked) await hooks.onLinked(updated, lesson).catch((error) => console.error('[telegram] linked', error.message))
+}
+
+// --- Connecting from Telegram itself -------------------------------------------
+// Someone finds the bot on their own: they write the email they sign in with,
+// a 6-digit code goes to that address, they send the code back — connected.
+// The code proves the address is theirs; the bot answers the same whether
+// the email exists or not, so it can't be used to find out who is a student.
+
+const CONNECT_HELP = 'Здравствуйте! Это бот школы Advent Academy.\n\nЧтобы получать сюда напоминания об уроках, напишите почту, с которой вы входите на платформу, — я пришлю на неё код.\n\nЕсли вы записались на пробный урок и почты на платформе у вас нет, откройте ссылку на урок и нажмите там «Напоминания в Telegram».'
+const EMAIL = /^[^@\s]+@[^@\s]+\.[^@\s]+$/
+const CODE_TTL_MS = 15 * 60_000
+const CODE_TRIES = 5
+const pendingCodes = new Map() // chatId → { userId, hash, expires, tries }
+const codeRequests = new Map() // "chat:<id>" | "email:<address>" → request times
+const hashCode = (code) => crypto.createHash('sha256').update(code).digest()
+
+// At most 3 codes an hour per chat and per address.
+function mayRequestCode(key) {
+  const hour = Date.now() - 60 * 60_000
+  const recent = (codeRequests.get(key) ?? []).filter((t) => t > hour)
+  if (recent.length >= 3) return false
+  codeRequests.set(key, [...recent, Date.now()])
+  return true
+}
+
+async function handleEmail(message, email) {
+  const chatId = String(message.chat.id)
+  email = email.toLowerCase()
+  if (!mayRequestCode(`chat:${chatId}`) || !mayRequestCode(`email:${email}`)) {
+    return reply(chatId, 'Слишком много попыток. Попробуйте через час.')
+  }
+  const user = email.endsWith('.invalid') ? null : await prisma.user.findUnique({ where: { email }, select: { id: true, name: true, email: true } })
+  if (user) {
+    const code = String(crypto.randomInt(0, 1_000_000)).padStart(6, '0')
+    pendingCodes.set(chatId, { userId: user.id, hash: hashCode(code), expires: Date.now() + CODE_TTL_MS, tries: 0 })
+    const sent = await sendTelegramCodeEmail({ to: user.email, name: user.name, code })
+    // Local development without a mail service: the code is in the server log.
+    if (!sent.sent && !mailEnabled() && process.env.NODE_ENV !== 'production') console.log(`[telegram] code for ${email}: ${code}`)
+  }
+  return reply(chatId, `Если <b>${esc(email)}</b> есть на платформе, туда пришло письмо с кодом из 6 цифр. Отправьте код сюда.\n\nПисьма нет — проверьте «Спам» или напишите почту ещё раз.`)
+}
+
+async function handleCode(message, code) {
+  const chatId = String(message.chat.id)
+  const pending = pendingCodes.get(chatId)
+  if (!pending || pending.expires < Date.now()) {
+    pendingCodes.delete(chatId)
+    return reply(chatId, 'Код устарел. Напишите почту ещё раз — пришлю новый.')
+  }
+  if (!crypto.timingSafeEqual(hashCode(code), pending.hash)) {
+    pending.tries += 1
+    if (pending.tries >= CODE_TRIES) {
+      pendingCodes.delete(chatId)
+      return reply(chatId, 'Код не подошёл несколько раз. Напишите почту ещё раз — пришлю новый.')
+    }
+    return reply(chatId, 'Код не подошёл. Проверьте цифры в письме.')
+  }
+  pendingCodes.delete(chatId)
+  const user = await prisma.user.findUnique({ where: { id: pending.userId } })
+  if (!user) return reply(chatId, 'Аккаунт не найден. Напишите почту ещё раз.')
+  return linkChat(message, user)
 }
 
 // «Подтверждаю» under a new trial lesson: only its teacher's chat counts.
@@ -253,8 +321,12 @@ async function handleUpdate(update) {
   if (start) return handleStart(message, start[1])
   if (/^\/stop\b/.test(text)) {
     await prisma.user.updateMany({ where: { telegramChatId: String(message.chat.id) }, data: { telegramChatId: null } })
-    return reply(message.chat.id, 'Отключено, сообщений больше не будет. Подключиться снова можно кнопкой на платформе.')
+    return reply(message.chat.id, 'Отключено, сообщений больше не будет. Чтобы подключиться снова, напишите сюда свою почту.')
   }
+  if (EMAIL.test(text)) return handleEmail(message, text)
+  if (/^\d{6}$/.test(text.replace(/\s/g, '')) && pendingCodes.has(String(message.chat.id))) return handleCode(message, text.replace(/\s/g, ''))
+  const known = await prisma.user.findFirst({ where: { telegramChatId: String(message.chat.id) }, select: { id: true } })
+  if (!known) return reply(message.chat.id, CONNECT_HELP)
   const help = supportContact()
   return reply(message.chat.id, `Я присылаю напоминания и не читаю сообщения.${help ? ` По любым вопросам: ${esc(help)}` : ''}`)
 }

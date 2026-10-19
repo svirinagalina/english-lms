@@ -71,7 +71,7 @@ export async function seed() {
 
 // The real server (src/index.js) on a free port, with only the settings it
 // needs — no API keys from .env reach it.
-export async function startServer() {
+export async function startServer(extraEnv = {}) {
   const port = 41000 + Math.floor(Math.random() * 2000)
   const child = spawn(process.execPath, ['src/index.js'], {
     cwd: serverDir,
@@ -83,7 +83,8 @@ export async function startServer() {
       JWT_SECRET: 'test-secret',
       PORT: String(port),
       CLIENT_ORIGIN: 'http://localhost:5173',
-      UPLOAD_DIR: mkdtempSync(path.join(tmpdir(), 'lms-test-uploads-'))
+      UPLOAD_DIR: mkdtempSync(path.join(tmpdir(), 'lms-test-uploads-')),
+      ...extraEnv
     },
     stdio: ['ignore', 'pipe', 'pipe']
   })
@@ -105,6 +106,8 @@ export async function startServer() {
 
   return {
     base,
+    // Everything the server printed so far.
+    output: () => output,
     stop: () => new Promise((resolve) => {
       if (child.exitCode !== null) return resolve()
       child.once('exit', resolve)

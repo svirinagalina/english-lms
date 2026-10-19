@@ -164,6 +164,21 @@ export function sendPasswordResetEmail({ to, name, link }) {
   return send({ to, subject: 'Reset your Advent Academy password', html, text })
 }
 
+// The code someone types into the school's Telegram bot to connect it to
+// their account (telegram.js, connecting from Telegram itself).
+export function sendTelegramCodeEmail({ to, name, code }) {
+  const html = `
+<div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;max-width:520px;margin:0 auto;padding:32px 24px;color:#14453f">
+  <div style="font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:#b5539a;font-weight:700">Advent Academy</div>
+  <h1 style="font-size:20px;margin:8px 0 16px">${escapeHtml(name)}, ваш код для Telegram</h1>
+  <p style="font-size:32px;letter-spacing:.2em;font-weight:700;margin:0 0 16px">${escapeHtml(code)}</p>
+  <p style="font-size:15px;line-height:1.55;margin:0 0 24px">Отправьте этот код боту школы в Telegram, и туда начнут приходить напоминания об уроках. Код действует 15 минут.</p>
+  <p style="font-size:13px;color:#666;line-height:1.5;margin:0">Если вы не просили код, просто проигнорируйте это письмо — без кода никто не подключится к вашему аккаунту.</p>
+</div>`
+  const text = `${name}, ваш код для Telegram: ${code}\nОтправьте его боту школы. Код действует 15 минут. Если вы не просили код, проигнорируйте письмо.`
+  return send({ to, subject: `Код для Telegram: ${code} — Advent Academy`, html, text })
+}
+
 // The link that confirms a new account's address.
 export function sendVerifyEmail({ to, name, link }) {
   const html = `
