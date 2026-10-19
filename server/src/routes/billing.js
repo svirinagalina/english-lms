@@ -2,7 +2,7 @@ import { Router } from 'express'
 import { z } from 'zod'
 import { prisma } from '../db.js'
 import { requireAuth, requireRole, isAdmin } from '../auth.js'
-import { studentScope, isSiteStudent } from '../partnerScope.js'
+import { studentScope, isSiteStudent, limitedToSite } from '../partnerScope.js'
 import { sendPaymentReportedEmail } from '../mailer.js'
 import { offerLinks, stripeKey } from '../settings.js'
 import { OFFER_PLANS, discountActive } from '../offer.js'
@@ -415,6 +415,47 @@ billingRouter.get('/students/:id/payments', requireRole('OWNER', 'PARTNER', 'TEA
     payments.push({ id: 'current', kind: 'current', at: student.packageStartedAt, lessons: student.lessonsPaid, amountCents: student.priceAmount != null ? student.priceAmount * student.lessonsPaid : null, currency: student.priceCurrency, card: await cardLabel(student.id), note: null, by: null })
   }
   res.json({ payments })
+})
+
+// Every payment of the last `days` (default 30) in one list, newest first:
+// packages set by staff, «I have paid», online lesson purchases and course
+// sales (Payments → Recent payments). The partner sees only the site's
+// students, and no course sales.
+billingRouter.get('/recent', requireRole('OWNER'), async (req, res) => {
+  const days = Math.min(365, Math.max(1, Number(req.query.days) || 30))
+  const since = new Date(Date.now() - days * 24 * 60 * 60 * 1000)
+  const students = await prisma.user.findMany({
+    where: { schoolId: req.user.schoolId, role: 'STUDENT', ...(await studentScope(req.user)) },
+    select: { id: true, name: true }
+  })
+  const ids = students.map((s) => s.id)
+  const names = Object.fromEntries(students.map((s) => [s.id, s.name]))
+  const [records, stripe, courses] = await Promise.all([
+    prisma.paymentRecord.findMany({ where: { studentId: { in: ids }, createdAt: { gte: since } }, orderBy: { createdAt: 'desc' }, take: 500 }),
+    prisma.offerPurchase.findMany({ where: { userId: { in: ids }, createdAt: { gte: since } }, orderBy: { createdAt: 'desc' }, take: 500 }),
+    limitedToSite(req.user)
+      ? []
+      : prisma.courseOrder.findMany({
+          where: { createdAt: { gte: since }, status: { not: 'dismissed' }, course: { skillset: { schoolId: req.user.schoolId } } },
+          include: { course: { select: { title: true } } },
+          orderBy: { createdAt: 'desc' },
+          take: 500
+        })
+  ])
+  const byIds = [...new Set(records.map((r) => r.byUserId).filter(Boolean))]
+  const staff = Object.fromEntries((await prisma.user.findMany({ where: { id: { in: byIds } }, select: { id: true, name: true } })).map((u) => [u.id, u.name]))
+  const plans = Object.fromEntries(OFFER_PLANS.map((p) => [p.id, p.name]))
+  const payments = [
+    ...records.map((r) => ({ id: r.id, kind: r.kind, at: r.createdAt, studentId: r.studentId, who: names[r.studentId], lessons: r.lessons, amountCents: r.amountCents, currency: r.currency, card: r.card, note: r.note, by: staff[r.byUserId] ?? null })),
+    ...stripe.map((p) => ({ id: p.id, kind: 'stripe', at: p.createdAt, studentId: p.userId, who: names[p.userId], lessons: p.lessons || null, amountCents: p.amountCents, currency: p.currency, card: 'Stripe (online)', note: `${plans[p.plan] ?? p.plan}${p.rub ? ` · ${p.rub.toLocaleString('ru-RU')} ₽` : ''}`, by: null })),
+    ...courses.map((o) => ({
+      id: o.id, kind: 'course', at: o.createdAt, studentId: o.userId, who: o.name, lessons: null,
+      amountCents: o.amountCents ?? o.rub * 100, currency: o.amountCents != null ? o.currency ?? 'EUR' : 'RUB',
+      card: o.method === 'stripe' ? 'Stripe (online)' : 'Transfer',
+      note: `${o.course.title}${o.status === 'pending' ? ' · waiting for access' : ''}`, by: null
+    }))
+  ].sort((a, b) => new Date(b.at) - new Date(a.at))
+  res.json({ days, payments })
 })
 
 // A line entered by mistake.

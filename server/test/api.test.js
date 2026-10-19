@@ -168,3 +168,28 @@ test("the partner does not see the school's own students (only the Advent site's
   const people = new Set((await as.partner.get('/api/users')).body.people.map((p) => p.id))
   assert.ok(!people.has(school.people.student.id))
 })
+
+// --- Recent payments ------------------------------------------------------------
+
+test('recent payments: the owner sees the school, teachers and students cannot open it', async () => {
+  const { student, studentB } = school.people
+  // A package from another school must not show up.
+  await prisma.paymentRecord.create({ data: { studentId: studentB.id, kind: 'package', lessons: 4 } })
+  await prisma.paymentRecord.create({ data: { studentId: student.id, kind: 'reported', lessons: 8 } })
+
+  const res = await as.owner.get('/api/billing/recent')
+  assert.equal(res.status, 200)
+  const mine = res.body.payments.filter((p) => p.studentId === student.id)
+  assert.ok(mine.some((p) => p.kind === 'package' && p.lessons === 8 && p.who === 'student'), 'the package set by the teacher is listed')
+  assert.ok(mine.some((p) => p.kind === 'reported'))
+  assert.ok(!res.body.payments.some((p) => p.studentId === studentB.id))
+  const dates = res.body.payments.map((p) => new Date(p.at).getTime())
+  assert.deepEqual(dates, [...dates].sort((a, b) => b - a), 'newest first')
+
+  assert.equal((await as.teacher.get('/api/billing/recent')).status, 403)
+  assert.equal((await as.student.get('/api/billing/recent')).status, 403)
+  // The partner sees only the site's students — none here.
+  const partner = await as.partner.get('/api/billing/recent')
+  assert.equal(partner.status, 200)
+  assert.equal(partner.body.payments.length, 0)
+})

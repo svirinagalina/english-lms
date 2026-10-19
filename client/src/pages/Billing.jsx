@@ -10,6 +10,7 @@ import StudentPayment from '../components/StudentPayment'
 import { isNativeApp } from '../utils/native'
 import { PackageBadge } from '../components/PackageBadge'
 import PersonLink from '../components/PersonLink'
+import RecentPayments from '../components/RecentPayments'
 
 const formatPrice = (amount, currency) =>
   new Intl.NumberFormat(undefined, { style: 'currency', currency }).format(amount / 100)
@@ -79,6 +80,12 @@ export default function Billing() {
       <Nav title="Payments" />
 
       {error && <div className="error">{error}</div>}
+
+      {(user.role === 'OWNER' || user.role === 'PARTNER') && (
+        <Panel id="billing:recent" title="Recent payments" hint="every payment of the school in one list">
+          <RecentPayments />
+        </Panel>
+      )}
 
       <Panel id="billing:students" title="Students" count={students.length} defaultOpen>
         <p className="muted" style={{ marginBottom: 10 }}>
