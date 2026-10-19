@@ -58,7 +58,7 @@ function PeerVideo({ stream, name, muted, denoised, onBlocked, unlockTick, getPe
       const track = stream.getAudioTracks()[0]
       if (!track || cleanedRef.current) return
       try {
-        const cleaned = await denoiseTrack(track)
+        const cleaned = await denoiseTrack(track, { boost: false })
         if (gone || stream.getAudioTracks()[0] !== track) { cleaned.stop(); return }
         cleanedRef.current = cleaned
         const audio = audioRef.current

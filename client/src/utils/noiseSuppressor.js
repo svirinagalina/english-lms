@@ -15,17 +15,100 @@ let gtcrnBinary = null
 let contextPromise = null
 let audioContext = null
 
+// Before the denoiser: quiet microphones are brought up to a normal speaking
+// level. Many students' laptops deliver speech at -50..-70 dBFS (a survey of
+// October's lessons: one person in nine), which the denoiser and the gate
+// then treated as noise and sent as silence. The speaking level is learned
+// from the blocks clearly above the room's noise floor; the gain only ever
+// raises (up to +30 dB; the browser's own AGC handles loud ones), climbs
+// slowly, drops at once before a sample would clip, and stops short of
+// lifting the room's noise above -45 dBFS, so the denoiser still has
+// something it can remove. It reports what it does once a second.
+const BOOST_SOURCE = `
+class LevelBoost extends AudioWorkletProcessor {
+  constructor(options) {
+    super()
+    const o = options.processorOptions || {}
+    this.target = Math.pow(10, (o.targetDb ?? -26) / 20)
+    this.maxGain = Math.pow(10, (o.maxDb ?? 30) / 20)
+    this.noiseCeil = Math.pow(10, (o.noiseCeilDb ?? -45) / 20)
+    this.bps = sampleRate / 128
+    this.floor = null
+    this.speech = 0
+    this.speechBlocks = 0
+    this.gain = 1
+    this.up = Math.pow(10, 6 / 20 / this.bps)
+    this.down = Math.pow(10, -20 / 20 / this.bps)
+    this.reportIn = 0
+  }
+  process(inputs, outputs) {
+    const input = inputs[0]
+    const output = outputs[0]
+    if (!input || !input[0] || !output || !output[0]) return true
+    const x = input[0]
+    let sum = 0
+    let peak = 0
+    for (let i = 0; i < x.length; i++) { const v = x[i]; sum += v * v; const a = v < 0 ? -v : v; if (a > peak) peak = a }
+    const rms = Math.sqrt(sum / x.length)
+    // Noise floor: starts at the first block heard, follows quiet blocks down
+    // quickly, creeps up 2 dB a second. Blocks under -100 dBFS are gaps in
+    // the stream (digital silence), not the room: they would drag the floor
+    // down until noise passed for speech, so they are left out of both.
+    const heard = rms > 1e-5
+    if (heard) {
+      if (this.floor === null) this.floor = rms
+      else if (rms < this.floor) this.floor += (rms - this.floor) * 0.1
+      else this.floor *= Math.pow(10, 2 / 20 / this.bps)
+    }
+    // Speech: 12 dB over the floor. A running mean at first, then ~2 s.
+    if (heard && rms > this.floor * 4) {
+      this.speechBlocks++
+      const a = 1 / Math.min(this.speechBlocks, 2 * this.bps)
+      this.speech += (rms - this.speech) * a
+    }
+    let wanted = 1
+    if (this.speechBlocks > 0.5 * this.bps && this.speech > 0) {
+      wanted = Math.min(this.maxGain, this.target / this.speech, this.noiseCeil / this.floor)
+      if (wanted < 1) wanted = 1
+    }
+    if (wanted > this.gain) this.gain = Math.min(wanted, this.gain * this.up)
+    else this.gain = Math.max(wanted, this.gain * this.down)
+    if (peak * this.gain > 0.9) this.gain = Math.max(1, 0.9 / peak)
+    for (let c = 0; c < output.length; c++) {
+      const src = input[c] || x
+      const dst = output[c]
+      for (let i = 0; i < dst.length; i++) dst[i] = src[i] * this.gain
+    }
+    if (--this.reportIn <= 0) {
+      this.reportIn = this.bps
+      this.port.postMessage({ gainDb: 20 * Math.log10(this.gain), floorDb: this.floor ? 20 * Math.log10(this.floor) : null, speechDb: this.speech > 0 ? 20 * Math.log10(this.speech) : null })
+    }
+    return true
+  }
+}
+registerProcessor('level-boost', LevelBoost)
+`
+
 // A gentle gate after the denoiser: what it leaves of a fan or a hiss sits
 // around -60 dBFS, faint but audible with a phone at the ear in a quiet
 // room. Below the threshold the gain eases to zero; a voice opens it in a
 // few milliseconds and keeps it open through the pauses between words.
+// The threshold follows what the denoiser leaves of the room: 12 dB over
+// that floor, between -62 and -48 dBFS. A noisy residue (the fan) keeps it
+// at -48 as before; a quiet room lets a soft voice through.
 const GATE_SOURCE = `
 class QuietGate extends AudioWorkletProcessor {
   constructor(options) {
     super()
     const o = options.processorOptions || {}
-    this.open = Math.pow(10, (o.openDb ?? -48) / 20)
-    this.close = Math.pow(10, (o.closeDb ?? -54) / 20)
+    this.maxOpen = Math.pow(10, (o.openDb ?? -48) / 20)
+    this.minOpen = Math.pow(10, (o.minOpenDb ?? -62) / 20)
+    this.closeRatio = Math.pow(10, ((o.closeDb ?? -54) - (o.openDb ?? -48)) / 20)
+    this.open = this.maxOpen
+    this.close = this.maxOpen * this.closeRatio
+    this.floor = this.maxOpen / 4
+    this.floorUp = Math.pow(10, 2 / 20 / (sampleRate / 128))
+    this.reportIn = 0
     this.holdBlocks = Math.ceil((o.holdMs ?? 400) * sampleRate / 1000 / 128)
     this.attack = Math.exp(-1 / (sampleRate / 128 * (o.attackMs ?? 5) / 1000))
     this.release = Math.exp(-1 / (sampleRate / 128 * (o.releaseMs ?? 150) / 1000))
@@ -58,6 +141,15 @@ class QuietGate extends AudioWorkletProcessor {
     let sum = 0
     for (let i = 0; i < x.length; i++) sum += x[i] * x[i]
     const rms = Math.sqrt(sum / x.length)
+    const level = rms > 1e-6 ? rms : 1e-6
+    if (level < this.floor) this.floor += (level - this.floor) * 0.1
+    else this.floor *= this.floorUp
+    this.open = Math.min(this.maxOpen, Math.max(this.minOpen, this.floor * 4))
+    this.close = this.open * this.closeRatio
+    if (--this.reportIn <= 0) {
+      this.reportIn = sampleRate / 128
+      this.port.postMessage({ openDb: 20 * Math.log10(this.open) })
+    }
     const typing = this.keyBlocks > 0
     if (typing) this.keyBlocks--
     const threshold = typing ? this.typingOpen : this.open
@@ -83,7 +175,9 @@ class QuietGate extends AudioWorkletProcessor {
 }
 registerProcessor('quiet-gate', QuietGate)
 `
-const gateModuleUrl = typeof Blob !== 'undefined' ? URL.createObjectURL(new Blob([GATE_SOURCE], { type: 'application/javascript' })) : null
+const moduleUrl = (src) => typeof Blob !== 'undefined' ? URL.createObjectURL(new Blob([src], { type: 'application/javascript' })) : null
+const gateModuleUrl = moduleUrl(GATE_SOURCE)
+const boostModuleUrl = moduleUrl(BOOST_SOURCE)
 
 // RNNoise works on 48 kHz mono frames; the context is pinned to that rate
 // and the browser resamples the microphone into it.
@@ -123,7 +217,7 @@ async function context() {
         loadRnnoise({ url: wasmUrl, simdUrl: simdWasmUrl }),
         loadGtcrn({ url: gtcrnWasmUrl })
       ])
-      await Promise.all([ctx.audioWorklet.addModule(workletUrl), ctx.audioWorklet.addModule(gtcrnWorkletUrl), ctx.audioWorklet.addModule(gateModuleUrl)])
+      await Promise.all([ctx.audioWorklet.addModule(workletUrl), ctx.audioWorklet.addModule(gtcrnWorkletUrl), ctx.audioWorklet.addModule(gateModuleUrl), ctx.audioWorklet.addModule(boostModuleUrl)])
       return ctx
     })().catch((err) => { contextPromise = null; throw err })
   }
@@ -136,17 +230,19 @@ export const isDenoiserSupported = () =>
 
 // Returns a cleaned audio track derived from `micTrack`, plus meters and stop().
 // Without an engine named, GTCRN is tried first and RNNoise if it fails.
-export async function denoiseTrack(micTrack, { engine } = {}) {
-  if (engine) return buildDenoiser(micTrack, engine)
+// `boost: false` leaves out the level boost (incoming audio: the sender's
+// own chain already set its level).
+export async function denoiseTrack(micTrack, { engine, boost = true } = {}) {
+  if (engine) return buildDenoiser(micTrack, engine, boost)
   try {
-    return await buildDenoiser(micTrack, 'gtcrn')
+    return await buildDenoiser(micTrack, 'gtcrn', boost)
   } catch (err) {
     console.warn('GTCRN denoiser unavailable, using RNNoise:', err)
-    return buildDenoiser(micTrack, 'rnnoise')
+    return buildDenoiser(micTrack, 'rnnoise', boost)
   }
 }
 
-async function buildDenoiser(micTrack, engine) {
+async function buildDenoiser(micTrack, engine, boost = true) {
   const ctx = await context()
   if (ctx.state !== 'running') await ctx.resume()
   if (ctx.state !== 'running') throw new Error('the audio engine is paused by the browser')
@@ -160,9 +256,13 @@ async function buildDenoiser(micTrack, engine) {
   const node = engine === 'gtcrn'
     ? new GtcrnWorkletNode(ctx, { wasmBinary: gtcrnBinary, maxChannels: 1 })
     : new RnnoiseWorkletNode(ctx, { wasmBinary, maxChannels: 1 })
-  const gate = new AudioWorkletNode(ctx, 'quiet-gate', { processorOptions: { openDb: -48, closeDb: -54, holdMs: 400 } })
+  const gate = new AudioWorkletNode(ctx, 'quiet-gate', { processorOptions: { openDb: -48, minOpenDb: -62, closeDb: -54, holdMs: 400 } })
+  const booster = boost ? new AudioWorkletNode(ctx, 'level-boost', { processorOptions: { targetDb: -26, maxDb: 30, noiseCeilDb: -45 } }) : null
   const destination = ctx.createMediaStreamDestination()
-  for (const n of [source, node, gate, destination]) {
+  const tuning = { boostDb: 0, floorDb: null, speechDb: null, gateDb: -48 }
+  if (booster) booster.port.onmessage = (e) => { tuning.boostDb = e.data.gainDb; tuning.floorDb = e.data.floorDb; tuning.speechDb = e.data.speechDb }
+  gate.port.onmessage = (e) => { tuning.gateDb = e.data.openDb }
+  for (const n of [source, booster, node, gate, destination].filter(Boolean)) {
     try { n.channelCount = 1; n.channelCountMode = 'explicit' } catch { /* a browser that will not let this be set keeps its default */ }
   }
   // Meters on both sides of the denoiser, so a silent output can be noticed.
@@ -170,7 +270,7 @@ async function buildDenoiser(micTrack, engine) {
   const cleanMeter = ctx.createAnalyser(); cleanMeter.fftSize = 512
   const outMeter = ctx.createAnalyser(); outMeter.fftSize = 512
   source.connect(rawMeter)
-  source.connect(node)
+  if (booster) { source.connect(booster); booster.connect(node) } else source.connect(node)
   node.connect(cleanMeter) // the denoiser's own output, before the gate: the watchdog judges this
   node.connect(gate)
   gate.connect(outMeter)
@@ -191,11 +291,13 @@ async function buildDenoiser(micTrack, engine) {
     track,
     engine,
     levels: () => ({ raw: rms(rawMeter), clean: rms(cleanMeter), out: rms(outMeter), state: ctx.state }),
+    // What the level boost and the gate settled on (dB), for the diag log.
+    tuning: () => ({ ...tuning }),
     resume: () => ctx.resume().catch(() => {}),
     keystroke: () => gate.port.postMessage(1),
     stop() {
       ctx.removeEventListener('statechange', onState)
-      try { source.disconnect(); node.disconnect(); gate.disconnect(); node.destroy?.() } catch { /* already gone */ }
+      try { source.disconnect(); booster?.disconnect(); node.disconnect(); gate.disconnect(); node.destroy?.() } catch { /* already gone */ }
       track.stop()
     }
   }

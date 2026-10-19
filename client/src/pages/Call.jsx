@@ -3,6 +3,7 @@ import { Link, Navigate, useNavigate, useParams, useSearchParams } from 'react-r
 import { io } from 'socket.io-client'
 import { useAuth } from '../AuthContext'
 import { api } from '../api'
+import MicCheck from '../components/MicCheck'
 import VideoGrid from '../components/VideoGrid'
 import Controls from '../components/Controls'
 import Reactions from '../components/Reactions'
@@ -278,7 +279,8 @@ export default function Call() {
           senderLabels: senders.map((t) => t?.label?.slice(0, 18) ?? 'none').join(','),
           streamAudio: localStreamRef.current?.getAudioTracks().map((t) => t.label.slice(0, 18)).join(',') ?? '',
           sentLevel: sent?.level ?? null, sentEnergy: sent?.energy ?? null, sentTrack: sent?.id ?? null, cleanedId: cleaned.track.id.slice(0, 8),
-          micOn: micOnRef.current, micMuted: rawMicRef.current?.muted ?? null
+          micOn: micOnRef.current, micMuted: rawMicRef.current?.muted ?? null,
+          ...Object.fromEntries(Object.entries(cleaned.tuning?.() ?? {}).map(([k, v]) => [k, v == null ? null : Number(v.toFixed(1))]))
         })
       }
       if (state !== 'running') { cleaned.resume(); return }
@@ -600,6 +602,27 @@ export default function Call() {
   const [previewTry, setPreviewTry] = useState(0)
   const [previewError, setPreviewError] = useState('')
   const [cameraProblem, setCameraProblem] = useState('') // sound works, the camera does not
+  // The join screen's microphone check (MicCheck): a picked microphone
+  // replaces the preview's audio track, and the call goes on with it.
+  const [previewMicKey, setPreviewMicKey] = useState(0)
+  const micCheckRef = useRef(null)
+  const choosePreviewMic = async (id, how) => {
+    const raw = previewRawRef.current
+    if (!raw || !id) return
+    try {
+      const next = await navigator.mediaDevices.getUserMedia({ audio: { ...AUDIO_CONSTRAINTS, deviceId: { exact: id } } })
+      const track = next.getAudioTracks()[0]
+      raw.getAudioTracks().forEach((t) => { raw.removeTrack(t); t.stop() })
+      track.enabled = micOnRef.current
+      raw.addTrack(track)
+      micChosenRef.current = id
+      setMicId(id)
+      setPreviewMicKey((n) => n + 1)
+      report(token, 'mic.switch', `preview ${how}: ${track.label?.slice(0, 40) ?? id.slice(0, 8)}`)
+    } catch (err) {
+      report(token, 'mic.switch', `preview ${how} failed`, { name: err?.name ?? null })
+    }
+  }
   useEffect(() => {
     if (!user || !call || joined) return
     let disposed = false
@@ -1825,6 +1848,15 @@ export default function Call() {
             )}
             {blurStatus && <span className="preview-note">{blurStatus}</span>}
           </div>
+          {previewState === 'ready' && (
+            <MicCheck
+              stream={previewRawRef.current}
+              streamKey={previewMicKey}
+              currentId={micId || previewRawRef.current?.getAudioTracks()[0]?.getSettings?.().deviceId || ''}
+              onChoose={choosePreviewMic}
+              onResult={(r) => { micCheckRef.current = r }}
+            />
+          )}
           <>
               <div className="more-label">Background</div>
               <div className="bg-picker">
@@ -1837,7 +1869,12 @@ export default function Call() {
                 ))}
               </div>
           </>
-          <button onClick={() => { primeDenoiser(); setJoined(true) }} autoFocus>Join call</button>
+          <button onClick={() => {
+            primeDenoiser()
+            const r = micCheckRef.current
+            if (r) report(token, 'mic.check', r.verdict, { bestDb: r.bestDb, mic: previewRawRef.current?.getAudioTracks()[0]?.label?.slice(0, 40) ?? null })
+            setJoined(true)
+          }} autoFocus>Join call</button>
           <Link className="ghost button" to="/classroom">Back</Link>
           <Link className="muted check-link" to="/audio-check">Check my microphone and noise removal</Link>
         </div>

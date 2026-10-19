@@ -1070,6 +1070,18 @@ button.play-word, button.play-word.small { padding: 0; }
   background: rgba(15, 55, 49, 0.85); font-size: 13px; color: var(--text); text-align: center;
 }
 .join-card .bg-picker { grid-template-columns: repeat(3, 1fr); }
+/* Microphone check under the own picture (MicCheck.jsx). */
+.mic-check { display: grid; gap: 8px; margin: 10px 0 4px; }
+.mic-check-bar { height: 8px; border-radius: 4px; background: rgba(252, 251, 246, 0.12); overflow: hidden; }
+.mic-check-bar span { display: block; height: 100%; background: var(--muted); transition: width 80ms linear; }
+.mic-check.ok .mic-check-bar span { background: #6ee7a8; }
+.mic-check.quiet .mic-check-bar span, .mic-check.unheard .mic-check-bar span { background: #fbbf24; }
+.mic-check-text { margin: 0; font-size: 13px; color: var(--muted); }
+.mic-check.ok .mic-check-text { color: #6ee7a8; }
+.mic-check.quiet .mic-check-text, .mic-check.unheard .mic-check-text { color: #fcd34d; }
+.mic-check.dead .mic-check-text { color: #fca5a5; }
+.mic-check-row { display: flex; gap: 8px; flex-wrap: wrap; }
+.mic-check-row select { flex: 1 1 200px; min-width: 0; }
 .link-button { background: none; border: none; padding: 0; color: var(--accent); font: inherit; text-decoration: underline; cursor: pointer; }
 @media (max-width: 720px) { .video-tile.preview { aspect-ratio: 1 / 1; } .join-card { padding: 24px 20px; } }
 .more-status { font-size: 12px; color: var(--muted); text-align: center; padding: 2px 0; }
