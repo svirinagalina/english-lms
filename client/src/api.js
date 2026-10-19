@@ -308,6 +308,24 @@ export const api = {
   listSkillsets: () => request('/courses'),
   getCourse: (courseId) => request(`/courses/${courseId}/full`),
   checkCourseWriting: (blockId, answer) => request(`/courses/blocks/${blockId}/check`, { method: 'POST', body: { answer } }),
+  // TOEFL course: results, AI-scored writing/speaking, the teacher's review.
+  toeflResult: (body) => request('/toefl/results', { method: 'POST', body }),
+  toeflWrite: (body) => request('/toefl/write', { method: 'POST', body }),
+  toeflSpeak: async ({ blockId, path, task, item, blob, transcript }) => {
+    const q = new URLSearchParams({ blockId, task, item: String(item) })
+    if (path) q.set('path', path)
+    const response = await fetch(`/api/toefl/speak?${q}`, {
+      method: 'POST',
+      credentials: 'include',
+      headers: { 'Content-Type': (blob?.type || 'audio/webm').split(';')[0], 'X-Transcript': encodeURIComponent(transcript ?? '') },
+      body: blob ?? new Blob([]),
+    })
+    const data = await response.json().catch(() => ({}))
+    if (!response.ok) throw new Error(data.error ?? 'Upload failed')
+    return data
+  },
+  toeflOverview: (userId) => request(`/toefl/overview${userId ? `?userId=${encodeURIComponent(userId)}` : ''}`),
+  toeflReview: (id, body) => request(`/toefl/works/${id}`, { method: 'PATCH', body }),
 
   // Audio tracks attached to a textbook (e.g. listening-test recordings).
   textbookAudio: (id) => request(`/textbooks/${id}/audio`),

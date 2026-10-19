@@ -36,6 +36,7 @@ import { profileRouter } from './routes/profile.js'
 import { textbooksRouter } from './routes/textbooks.js'
 import { personalRouter } from './routes/personal.js'
 import { coursesRouter } from './routes/courses.js'
+import { toeflRouter } from './routes/toefl.js'
 import { pushRouter } from './routes/push.js'
 import { startPushJobs } from './push.js'
 import { loadAiSettings } from './settings.js'
@@ -102,6 +103,7 @@ app.use('/api/profile', profileRouter)
 app.use('/api/textbooks', textbooksRouter)
 app.use('/api/personal', personalRouter)
 app.use('/api/courses', coursesRouter)
+app.use('/api/toefl', toeflRouter)
 app.use('/api/push', pushRouter)
 app.use('/api/plans', plansRouter)
 app.use('/api/leads', leadsRouter)

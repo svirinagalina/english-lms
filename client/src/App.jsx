@@ -44,6 +44,7 @@ import PersonActivity from './pages/PersonActivity'
 import TrialReportsPage from './pages/TrialReportsPage'
 import Courses from './pages/Courses'
 import Course from './pages/Course'
+import ToeflResults from './pages/ToeflResults'
 import LessonLink from './pages/LessonLink'
 import TelegramLogin from './pages/TelegramLogin'
 import TrialBooking from './pages/TrialBooking'
@@ -166,6 +167,7 @@ export default function App() {
       <Route path="/classroom/:id/homework/:docId" element={<RequireAuth><HomeworkDocs /></RequireAuth>} />
       <Route path="/courses" element={<RequireAuth><Courses /></RequireAuth>} />
       <Route path="/courses/:courseId" element={<RequireAuth><Course /></RequireAuth>} />
+      <Route path="/toefl" element={<RequireAuth><ToeflResults /></RequireAuth>} />
       <Route path="/practice" element={<RequireAuth><Practice /></RequireAuth>} />
       <Route path="/trainer" element={<RequireAuth><Trainer /></RequireAuth>} />
       <Route path="/practice/mistakes" element={<RequireAuth><MistakePractice /></RequireAuth>} />

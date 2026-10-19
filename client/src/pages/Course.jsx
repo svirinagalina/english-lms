@@ -8,6 +8,7 @@ import { SiteFooter } from '../components/Brand'
 import WordCard from '../components/WordCard'
 import { isEnglishWord, wordAt } from '../utils/dictionary'
 import { speakDialogue, stopSpeaking } from '../utils/speech'
+import { ToeflSetBlock, ToeflTestBlock } from '../toefl/ToeflBlocks'
 import { RichText, ChoiceBlock, SelectTextBlock, DragWordsBlock, WordOrderBlock, GroupsBlock, WritingBlock } from '../components/CourseActivities'
 
 const TYPE_LABEL = { theory: 'Theory', practice: 'Practice', supplementary: 'Extra', lesson: 'Lesson' }
@@ -187,6 +188,8 @@ function Block({ block }) {
   if (type === 'word-order') return <WordOrderBlock payload={payload} />
   if (type === 'groups') return <GroupsBlock payload={payload} />
   if (type === 'writing') return <WritingBlock block={block} />
+  if (type === 'toefl') return <ToeflSetBlock block={block} />
+  if (type === 'toefl-test') return <ToeflTestBlock block={block} />
   if (type === 'tts') return payload.lines ? <TtsAudioBlock payload={payload} /> : <TtsScriptBlock payload={payload} />
   if (type === 'video') {
     return (
@@ -350,8 +353,10 @@ export default function Course() {
   if (error) return <div className="page"><Nav title="Courses" back="/courses" /><div className="error">{error}</div></div>
   if (!course) return <div className="centered">Loading…</div>
 
+  // TOEFL tasks put a passage and its questions side by side: a wider page.
+  const wide = course.skillset?.name === 'TOEFL'
   return (
-    <div className="page">
+    <div className={`page ${wide ? 'page-wide' : ''}`}>
       <Nav title={course.title} back="/courses" />
       {admin && <CourseSales courseId={course.id} />}
       {course.locked && (
@@ -359,6 +364,7 @@ export default function Course() {
           Курс открывается после покупки — {course.priceRub?.toLocaleString('ru-RU')} ₽. <Link to="/ielts#tariffs">Купить</Link>
         </div>
       )}
+      {course.skillset?.name === 'TOEFL' && !course.locked && <p><Link to="/toefl">{user?.role === 'STUDENT' ? 'Мои результаты TOEFL →' : 'Результаты и проверка работ TOEFL →'}</Link></p>}
       {course.accessUntil && <p className="muted">Доступ до {new Date(course.accessUntil).toLocaleDateString('ru-RU')}</p>}
 
       <div className="course-layout">

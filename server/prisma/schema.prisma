@@ -154,6 +154,8 @@ model User {
   lastSeenAt        DateTime?
   calendarEvents    UserCalendarEvent[]
   pushDevices       PushDevice[]
+  toeflWorks        ToeflWork[]
+  toeflResults      ToeflResult[]
 
   @@index([schoolId])
 }
@@ -1064,4 +1066,50 @@ model PaymentRecord {
   createdAt   DateTime @default(now())
 
   @@index([studentId, createdAt])
+}
+
+// TOEFL course (data/toefl): a written or spoken answer — an email, a
+// discussion post, an interview answer or a listen-and-repeat recording.
+// The AI scores it at once (0–5 like the ETS rubric, plus a band 1–6); the
+// student's teacher can listen/read and put their own score and comment.
+model ToeflWork {
+  id             String    @id @default(cuid())
+  userId         String
+  blockId        String
+  task           String    // email | discussion | interview | listen-repeat
+  item           Int       @default(0) // question number inside the task
+  prompt         String    // what was asked, for the reviewer
+  text           String?   // written answer, or the speech transcript
+  audioPath      String?   // /uploads/toefl/<file>
+  aiScore        Float?    // 0–5
+  aiFeedback     Json?     // { band, summary, strengths[], improve[], corrected? }
+  teacherScore   Float?
+  teacherComment String?
+  reviewedById   String?
+  reviewedAt     DateTime?
+  createdAt      DateTime  @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+  @@index([blockId])
+}
+
+// A finished TOEFL practice set or simulation test: points and the band.
+model ToeflResult {
+  id        String   @id @default(cuid())
+  userId    String
+  blockId   String
+  kind      String   // set | test
+  task      String   // the task type, or "full" for a simulation test
+  title     String
+  correct   Int
+  total     Int
+  band      Float?   // 1–6
+  detail    Json?    // per-section bands for a test
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
 }
