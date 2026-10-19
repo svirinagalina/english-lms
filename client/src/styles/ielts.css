@@ -278,3 +278,21 @@
 .iel-requisites { display: flex; flex-direction: column; gap: 4px; background: var(--p); border-radius: 16px; padding: 16px 18px; margin-bottom: 8px; font-size: 15px; }
 .iel-requisites strong { font-size: 22px; letter-spacing: .04em; }
 .iel-link { border: 0; background: none; padding: 4px 0; color: var(--g); font: 700 14px 'Mulish', sans-serif; text-decoration: underline; cursor: pointer; align-self: flex-start; }
+
+/* IELTS / TOEFL switch above the hero title. */
+.iel-exam {
+  position: relative; z-index: 4; display: inline-flex; gap: 4px; margin-top: 40px; padding: 4px;
+  border: 1px solid var(--p); border-radius: 14px; background: rgba(20, 69, 63, 0.55);
+}
+.iel-exam button {
+  height: 46px; min-width: 120px; padding: 0 22px; border: 0; border-radius: 10px; cursor: pointer;
+  font: 800 18px/1 'Mulish', sans-serif; letter-spacing: 0.04em; color: var(--b); background: transparent;
+  transition: background .15s, color .15s;
+}
+.iel-exam button:hover { background: rgba(255, 213, 237, 0.16); }
+.iel-exam button.on { background: var(--p); color: var(--g); }
+.iel-exam + h1 { margin-top: 24px; }
+@media (max-width: 720px) {
+  .iel-exam { margin-top: 28px; }
+  .iel-exam button { min-width: 0; flex: 1; height: 42px; font-size: 16px; }
+}

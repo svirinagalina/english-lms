@@ -13,7 +13,7 @@ import { sendTo, esc } from '../telegram.js'
 // a Telegram message (if they connected the school's bot).
 export const leadsRouter = Router()
 
-const SOURCES = ['ielts', 'platform']
+const SOURCES = ['ielts', 'toefl', 'platform']
 const text = (max) => z.string().trim().max(max).optional().transform((v) => v || null)
 
 const schema = z.object({
@@ -48,7 +48,7 @@ leadsRouter.post('/', rateLimit({ windowMs: 60 * 60_000, max: 8, message: 'Too m
   for (const owner of owners) sendLeadEmail({ to: owner.email, lead, link: `${origin}/people` })
   notifyLead(lead)
   const rows = [['Имя', lead.name], ['Мессенджер', lead.messenger], ['Почта', lead.email], ['Комментарий', lead.comment]].filter(([, v]) => v)
-  const message = `<b>${lead.source === 'platform' ? 'Заявка: самостоятельные занятия на платформе' : 'Заявка со страницы IELTS / TOEFL'}</b>\n${rows.map(([k, v]) => `${k}: ${esc(v)}`).join('\n')}`
+  const message = `<b>${{ platform: 'Заявка: самостоятельные занятия на платформе', toefl: 'Заявка: курс TOEFL' }[lead.source] ?? 'Заявка со страницы IELTS / TOEFL'}</b>\n${rows.map(([k, v]) => `${k}: ${esc(v)}`).join('\n')}`
   for (const owner of owners) sendTo(owner, message, [[{ text: 'Открыть заявки', url: `${origin}/people` }]]).catch(() => {})
   res.status(201).json({ ok: true })
 })

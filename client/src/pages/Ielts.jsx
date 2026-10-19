@@ -23,6 +23,9 @@ const img = (name) => `/ielts/${name}`
 // The course sold by the «Самостоятельно» tariff (price and access days are
 // set on the course page, Sales panel).
 const COURSE_ID = 'cmucp0xsi0003mm2cyuz5lv19'
+// The TOEFL iBT 2026 course (data/toefl, scripts/add-toefl-course.js), sold
+// by the same «Самостоятельно» tariff at the same price when TOEFL is chosen.
+const TOEFL_COURSE_ID = 'cmvfapmt60003lh1qg3vl3kih'
 
 const WHY = [
   'Пробные тесты для каждого тарифа перед покупкой обучения.',
@@ -114,11 +117,61 @@ const FAQ = [
   { q: 'Что входит в тариф «Самостоятельно»?', a: 'Четыре раздела (аудирование, чтение, письмо, говорение), 35 модулей информации, 20 видеоуроков, более 150 практических заданий, доступ к курсу на 4 месяца, поддержка в чате 24/7 и дополнительные авторские материалы.' }
 ]
 
+// TOEFL: what differs from the IELTS view (the rest of the page is shared).
+const TOEFL_WHY = [
+  'Курс полностью под новый формат TOEFL iBT 2026: шкала 1–6, адаптивные Reading и Listening.',
+  'ИИ сразу оценивает письма, эссе и устные ответы, а преподаватель проверяет каждую работу.',
+  'Четыре полных пробных теста с баллом по шкале 1–6 и пересчётом в 0–120.'
+]
+
+const TOEFL_SECTIONS = [
+  { title: 'Вводная часть: что изменилось в 2026 году', text: 'С 21 января 2026 года TOEFL iBT стал короче, получил новые задания и шкалу 1–6, а Reading и Listening стали адаптивными. Разбираем структуру экзамена, систему оценивания и то, как распределить подготовку.' },
+  { title: 'Раздел 1: Reading', text: 'Complete the Words, Read in Daily Life, Read an Academic Passage: теория и стратегии к каждому типу вопросов, по 6 тренировочных наборов с таймером и разбором каждого ответа.' },
+  { title: 'Раздел 2: Listening', text: 'Listen and Choose a Response, Conversation, Announcement, Academic Talk. Аудио записано живыми голосами с американским, британским, австралийским и канадским акцентом, как на экзамене. Запись звучит один раз.' },
+  { title: 'Раздел 3: Writing', text: 'Build a Sentence, Write an Email (7 минут) и Academic Discussion (10 минут). ИИ ставит балл по критериям экзамена и показывает ошибки с исправленным вариантом, преподаватель проверяет работу и оставляет комментарий.' },
+  { title: 'Раздел 4: Speaking', text: 'Listen and Repeat и Take an Interview: запись ответа прямо на платформе, таймер как на экзамене, автоматическая оценка и проверка преподавателем.' },
+  { title: 'Пробные тесты', text: 'Четыре полных адаптивных теста: второй модуль Reading и Listening становится сложнее или легче в зависимости от первого. В конце — балл по каждому разделу, общий балл по шкале 1–6 и примерный пересчёт в 0–120.' }
+]
+
+const TOEFL_FEATURES = [
+  'все 12 типов заданий нового TOEFL iBT 2026',
+  '4 раздела (Reading, Listening, Writing, Speaking)',
+  '72 тренировочных набора в режимах «Тест» и «Обучение»',
+  '4 адаптивных пробных теста с баллом 1–6',
+  'ИИ-проверка писем, эссе и устных ответов',
+  'аудио с живыми голосами и разными акцентами',
+  'теория и стратегии к каждому типу заданий',
+  'доступ к курсу 4 месяца',
+  'поддержка в чате 24/7'
+]
+
+const TOEFL_FAQ = [
+  { q: 'Что изменилось в TOEFL с 2026 года?', a: 'С 21 января 2026 года экзамен стал короче, появились новые задания (Complete the Words, Build a Sentence, Listen and Repeat, интервью и др.), Reading и Listening стали адаптивными, а баллы выставляются по шкале 1–6. До 2028 года в сертификате также указывают примерный балл по старой шкале 0–120. Курс полностью построен на новом формате.' },
+  FAQ[0],
+  FAQ[1],
+  { q: 'Можно ли сначала попробовать?', a: 'Да. Оставьте заявку — мы откроем пробный доступ и подскажем, с чего начать. Пробный тест покажет ваш текущий балл по шкале 1–6.' },
+  { q: 'Что входит в тариф «Самостоятельно»?', a: 'Все 12 типов заданий нового TOEFL iBT, теория и стратегии к каждому, 72 тренировочных набора, 4 адаптивных пробных теста, ИИ-проверка письма и речи, доступ к курсу на 4 месяца и поддержка в чате 24/7.' }
+]
+
+const EXAMS = {
+  ielts: {
+    label: 'IELTS', source: 'ielts', courseId: COURSE_ID, why: WHY, sections: SECTIONS, features: BASE_FEATURES, faq: FAQ,
+    title: 'Курс подготовки к IELTS и TOEFL — Advent Academy',
+    h1: 'Получи 7+ баллов на IELTS или 94+ на TOEFL за 2−4 месяца подготовки'
+  },
+  toefl: {
+    label: 'TOEFL', source: 'toefl', courseId: TOEFL_COURSE_ID, why: TOEFL_WHY, sections: TOEFL_SECTIONS, features: TOEFL_FEATURES, faq: TOEFL_FAQ,
+    title: 'Курс подготовки к TOEFL iBT 2026 — Advent Academy',
+    h1: 'Подготовься к новому TOEFL iBT 2026 и получи 4.5+ (≈ 94+ из 120) за 2−4 месяца'
+  }
+}
+const examFromUrl = () => (new URLSearchParams(window.location.search).get('exam') === 'toefl' ? 'toefl' : 'ielts')
+
 const MENU = [['Почему мы', '#why'], ['Преподаватели', '#teachers'], ['Как проходят занятия', '#lessons'], ['Тарифы', '#tariffs'], ['Отзывы', '#reviews'], ['Вопросы', '#faq']]
 
 // «Купить»: Stripe (the price converted to euros, access opens by itself)
 // or a rouble transfer to the school's card + «Я оплатил(а)».
-function BuyDialog({ onClose }) {
+function BuyDialog({ courseId, exam, onClose }) {
   const [shop, setShop] = useState(null)
   const [error, setError] = useState('')
   const [way, setWay] = useState(null) // null | 'transfer'
@@ -128,7 +181,7 @@ function BuyDialog({ onClose }) {
   const [form, setForm] = useState({ name: '', email: '', messenger: '', website: '' })
 
   useEffect(() => {
-    api.courseShop(COURSE_ID).then(setShop).catch((err) => setError(err.message))
+    api.courseShop(courseId).then(setShop).catch((err) => setError(err.message))
     const onKey = (e) => { if (e.key === 'Escape') onClose() }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
@@ -137,7 +190,7 @@ function BuyDialog({ onClose }) {
   const payByCard = async () => {
     setBusy(true); setError('')
     try {
-      const { url } = await api.courseCheckout(COURSE_ID)
+      const { url } = await api.courseCheckout(courseId)
       window.location.href = url
     } catch (err) { setError(err.message); setBusy(false) }
   }
@@ -145,7 +198,7 @@ function BuyDialog({ onClose }) {
     event.preventDefault()
     setBusy(true); setError('')
     try {
-      setDone(await api.courseTransfer(COURSE_ID, form))
+      setDone(await api.courseTransfer(courseId, form))
     } catch (err) { setError(err.message) }
     setBusy(false)
   }
@@ -157,7 +210,7 @@ function BuyDialog({ onClose }) {
     <div className="iel-modal" role="dialog" aria-modal="true" aria-label="Покупка курса" onClick={(e) => { if (e.target === e.currentTarget) onClose() }}>
       <div className="iel-modal-card">
         <button type="button" className="iel-modal-x" aria-label="Закрыть" onClick={onClose}>×</button>
-        <h3>Тариф «Самостоятельно»</h3>
+        <h3>Тариф «Самостоятельно»{exam === 'toefl' ? ' · TOEFL' : ''}</h3>
         {shop && <p className="iel-price">{shop.priceRub.toLocaleString('ru-RU')} ₽</p>}
         <p className="iel-modal-lead">Доступ к курсу на платформе на {months} {months === 1 ? 'месяц' : months < 5 ? 'месяца' : 'месяцев'}. После оплаты на почту придёт письмо со входом.</p>
         {!shop && !error && <p>Загружаем…</p>}
@@ -273,7 +326,16 @@ export default function Ielts() {
   const [buying, setBuying] = useState(false)
   const [paidSession, setPaidSession] = useState(() => new URLSearchParams(window.location.search).get('session_id'))
 
-  useEffect(() => { document.title = 'Курс подготовки к IELTS и TOEFL — Advent Academy' }, [])
+  const [exam, setExam] = useState(examFromUrl)
+  const ex = EXAMS[exam]
+  useEffect(() => { document.title = ex.title }, [ex])
+  // IELTS / TOEFL switch: the address keeps the choice, so a TOEFL link can be shared.
+  const chooseExam = (next) => {
+    setExam(next)
+    const url = new URL(window.location.href)
+    if (next === 'toefl') url.searchParams.set('exam', 'toefl'); else url.searchParams.delete('exam')
+    window.history.replaceState(null, '', url.pathname + url.search + url.hash)
+  }
 
   const goToForm = (interest) => {
     if (interest) setForm((f) => (f.comment.trim() ? f : { ...f, comment: `Интересует: ${interest}` }))
@@ -291,7 +353,7 @@ export default function Ielts() {
     if (state.busy) return
     setState({ busy: true, done: false, error: '' })
     try {
-      await api.sendLead({ source: 'ielts', ...form })
+      await api.sendLead({ source: ex.source, ...form })
       setState({ busy: false, done: true, error: '' })
       setForm({ name: '', messenger: '', email: '', comment: '', website: '' })
     } catch (err) {
@@ -330,7 +392,12 @@ export default function Ielts() {
         <div className="iel-hero-body iel-wrap">
           <img className="iel-avatar" src={img('galina.jpg')} alt="" />
           <img className="iel-plane-trail" src={img('plane-trail.svg')} alt="" aria-hidden="true" />
-          <h1>Получи 7+ баллов на IELTS или 94+ на TOEFL за 2−4 месяца подготовки</h1>
+          <div className="iel-exam" role="tablist" aria-label="Экзамен">
+            {Object.entries(EXAMS).map(([key, e]) => (
+              <button key={key} type="button" role="tab" aria-selected={exam === key} className={exam === key ? 'on' : ''} onClick={() => chooseExam(key)}>{e.label}</button>
+            ))}
+          </div>
+          <h1>{ex.h1}</h1>
           <div className="iel-hero-cta">
             <p>Оставь заявку на пробный период и начни обучение уже сегодня</p>
             <button type="button" className="iel-btn pink big" onClick={() => goToForm()}>Оставить заявку</button>
@@ -342,7 +409,7 @@ export default function Ielts() {
         <h2>Почему мы?</h2>
         <img className="iel-doodle smile" src={img('heart.svg')} alt="" aria-hidden="true" />
         <ul className="iel-why-grid">
-          {WHY.map((t) => <li key={t}><img src={img('chevron.svg')} alt="" aria-hidden="true" />{t}</li>)}
+          {ex.why.map((t) => <li key={t}><img src={img('chevron.svg')} alt="" aria-hidden="true" />{t}</li>)}
         </ul>
       </section>
 
@@ -417,7 +484,7 @@ export default function Ielts() {
             <a className="iel-btn iel-ghost small" href="#tariffs">Купить раздел курса</a>
           </div>
         </div>
-        <Accordion items={SECTIONS} />
+        <Accordion key={exam} items={ex.sections} />
       </section>
 
       <section className="iel-wrap iel-tariffs" id="tariffs">
@@ -426,7 +493,7 @@ export default function Ielts() {
           <article className="iel-plan">
             <h3>Самостоятельно</h3>
             <p className="iel-price">19 000 ₽</p>
-            <Bullets items={BASE_FEATURES} />
+            <Bullets items={ex.features} />
             <div className="iel-plan-foot">
               <strong className="iel-demo">демо-версия курса на 7 дней</strong>
               <button type="button" className="iel-btn pink" onClick={() => setBuying(true)}>Купить</button>
@@ -442,11 +509,11 @@ export default function Ielts() {
               <b>+ всё из тарифа «Самостоятельно»</b>
               <span>В дополнение ко всем индивидуальным занятиям вы получаете доступ к платформе со всеми материалами базового тарифа.</span>
             </div>
-            <Bullets items={['индивидуальные занятия по индивидуальной программе', ...BASE_FEATURES]} />
+            <Bullets items={['индивидуальные занятия по индивидуальной программе', ...ex.features]} />
             <PriceTable rows={CURATOR_PRICES} />
             <div className="iel-plan-foot">
               <strong className="iel-demo">демо-версия курса на 7 дней</strong>
-              <button type="button" className="iel-btn iel-ghost" onClick={() => goToForm('тариф «С куратором»')}>Оставить заявку</button>
+              <button type="button" className="iel-btn iel-ghost" onClick={() => goToForm(`${ex.label}, тариф «С куратором»`)}>Оставить заявку</button>
             </div>
           </article>
 
@@ -458,11 +525,11 @@ export default function Ielts() {
               <b>+ всё из тарифа «Самостоятельно»</b>
               <span>В дополнение ко всем индивидуальным занятиям вы получаете доступ к платформе со всеми материалами базового тарифа.</span>
             </div>
-            <Bullets items={['индивидуальные занятия лично с Галиной Свириной', ...BASE_FEATURES]} />
+            <Bullets items={['индивидуальные занятия лично с Галиной Свириной', ...ex.features]} />
             <PriceTable rows={PREMIUM_PRICES} />
             <div className="iel-plan-foot">
               <strong className="iel-demo">демо-версия курса на 7 дней</strong>
-              <button type="button" className="iel-btn pink" onClick={() => goToForm('тариф «Премиум» с Галиной Свириной')}>Оставить заявку</button>
+              <button type="button" className="iel-btn pink" onClick={() => goToForm(`${ex.label}, тариф «Премиум» с Галиной Свириной`)}>Оставить заявку</button>
             </div>
           </article>
         </div>
@@ -493,7 +560,7 @@ export default function Ielts() {
 
       <section className="iel-wrap iel-faq" id="faq">
         <h2>FAQ</h2>
-        <Accordion items={FAQ} />
+        <Accordion key={exam} items={ex.faq} />
         <button type="button" className="iel-btn pink" onClick={() => goToForm()}>Начать обучение</button>
       </section>
 
@@ -521,7 +588,7 @@ export default function Ielts() {
         </div>
       </section>
 
-      {buying && <BuyDialog onClose={() => setBuying(false)} />}
+      {buying && <BuyDialog courseId={ex.courseId} exam={exam} onClose={() => setBuying(false)} />}
       {paidSession && <PaidBanner sessionId={paidSession} onClose={() => { setPaidSession(null); window.history.replaceState(null, '', '/ielts') }} />}
 
       <footer className="iel-foot iel-wrap">
@@ -531,7 +598,8 @@ export default function Ielts() {
             <span>© {new Date().getFullYear()}. Advent Academy.<br />All rights reserved</span>
           </div>
           <nav className="iel-foot-links">
-            <Link to="/ielts">IELTS / TOEFL</Link>
+            <a href="/ielts" onClick={(e) => { e.preventDefault(); chooseExam('ielts'); window.scrollTo(0, 0) }}>IELTS</a>
+            <a href="/ielts?exam=toefl" onClick={(e) => { e.preventDefault(); chooseExam('toefl'); window.scrollTo(0, 0) }}>TOEFL</a>
             <a href="#contact">Контакты</a>
             <a href={SITE}>Общий английский</a>
             <a href="/privacy.html">Политика конфиденциальности</a>

@@ -121,8 +121,8 @@ export function sendPaymentReportedEmail({ to, studentName, note }) {
 }
 
 // A request from a form on the website: the owner gets the contacts at once.
-const LEAD_TITLES = { ielts: 'New request from the IELTS / TOEFL page', platform: 'New request: self-study on the platform' }
-const LEAD_SUBJECTS = { ielts: 'IELTS / TOEFL request', platform: 'Platform request' }
+const LEAD_TITLES = { ielts: 'New request from the IELTS / TOEFL page', toefl: 'New request: the TOEFL course', platform: 'New request: self-study on the platform' }
+const LEAD_SUBJECTS = { ielts: 'IELTS / TOEFL request', toefl: 'TOEFL request', platform: 'Platform request' }
 export function sendLeadEmail({ to, lead, link }) {
   const title = LEAD_TITLES[lead.source] ?? LEAD_TITLES.ielts
   const rows = [['Name', lead.name], ['Messenger', lead.messenger], ['Email', lead.email], ['Comment', lead.comment]].filter(([, v]) => v)

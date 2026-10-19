@@ -681,7 +681,7 @@ export default function People() {
                   <div>
                     <strong>{lead.name}</strong>
                     <div className="muted">
-                      {[lead.messenger, lead.email].filter(Boolean).join(' · ')} · {new Date(lead.createdAt).toLocaleString()} · {lead.source === 'platform' ? 'platform, self-study' : 'IELTS / TOEFL'}
+                      {[lead.messenger, lead.email].filter(Boolean).join(' · ')} · {new Date(lead.createdAt).toLocaleString()} · {{ platform: 'platform, self-study', toefl: 'TOEFL' }[lead.source] ?? 'IELTS / TOEFL'}
                     </div>
                     {lead.comment && <div style={{ marginTop: 6 }}>{lead.comment}</div>}
                   </div>
