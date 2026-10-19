@@ -11,8 +11,9 @@ import PersonLink from '../components/PersonLink'
 import { TeacherEditor } from '../components/StudentTeachers'
 
 function InviteForm({ role, teachers, currentUserId, onInvited, trialStudents = [] }) {
-  const [form, setForm] = useState({ name: '', email: '', teacherId: currentUserId })
-  // A student without email: the invitation is a link to the school's bot.
+  const [form, setForm] = useState({ name: '', email: '', telegram: '', teacherId: currentUserId })
+  // A student without email is invited by their Telegram: the link is sent
+  // there by hand, and they pick a login instead.
   const [byTelegram, setByTelegram] = useState(false)
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
@@ -28,11 +29,11 @@ function InviteForm({ role, teachers, currentUserId, onInvited, trialStudents = 
     try {
       const result = await api.createInvite({
         name: trial ? (trial.name.length >= 2 ? trial.name : `${trial.name} (ученик)`) : form.name,
-        ...(byTelegram && !trial ? { telegram: true } : { email: form.email }),
+        ...(byTelegram && !trial ? { telegram: form.telegram } : { email: form.email }),
         role,
         ...(trial ? { userId: trial.id } : role === 'STUDENT' ? { teacherId: form.teacherId } : {})
       })
-      setForm({ name: '', email: '', teacherId: currentUserId })
+      setForm({ name: '', email: '', telegram: '', teacherId: currentUserId })
       setTrial(null)
       onInvited(result)
     } catch (err) {
@@ -69,7 +70,22 @@ function InviteForm({ role, teachers, currentUserId, onInvited, trialStudents = 
           required
         />
       )}
-      {!(byTelegram && !trial) && (
+      {role === 'STUDENT' && !trial && (
+        <select value={byTelegram ? 'telegram' : 'email'} onChange={(e) => setByTelegram(e.target.value === 'telegram')} style={{ flex: '0 0 auto', width: 'auto' }} title="Как связаться с учеником">
+          <option value="email">Email</option>
+          <option value="telegram">Telegram</option>
+        </select>
+      )}
+      {byTelegram && !trial ? (
+        <input
+          placeholder="@telegram"
+          value={form.telegram}
+          onChange={(e) => setForm({ ...form, telegram: e.target.value.trim() })}
+          pattern="@?[A-Za-z0-9_]{4,32}"
+          title="Ник в Telegram, например @masha"
+          required
+        />
+      ) : (
         <input
           type="email"
           placeholder="Email"
@@ -77,12 +93,6 @@ function InviteForm({ role, teachers, currentUserId, onInvited, trialStudents = 
           onChange={(e) => setForm({ ...form, email: e.target.value })}
           required
         />
-      )}
-      {role === 'STUDENT' && !trial && (
-        <label className="muted" style={{ display: 'flex', gap: 6, alignItems: 'center', flex: '0 0 auto', width: 'auto', whiteSpace: 'nowrap' }} title="Ссылка откроет бота школы: он создаст аккаунт, вход — кнопкой в боте">
-          <input type="checkbox" checked={byTelegram} onChange={(e) => setByTelegram(e.target.checked)} style={{ width: 'auto', flex: '0 0 auto', minWidth: 0 }} />
-          Нет почты — через Telegram
-        </label>
       )}
       {role === 'STUDENT' && teachers.length > 1 && (
         <select
@@ -499,7 +509,7 @@ export default function People() {
                   {person.trialReportPending && cabinets[0] && (
                     <Link className="activity-tag bad" style={{ marginLeft: 8 }} to={`/classroom/${cabinets[0].id}?trial=1`} title="The trial lesson is over; its report hasn't been sent">report not sent</Link>
                   )}
-                  <div className="muted">{person.email}</div>
+                  <div className="muted">{person.username ? `логин ${person.username}${person.contact ? ` · ${person.contact}` : ""}` : person.email}</div>
                   <div className="muted">
                     {person.teachers?.length
                       ? `Studies with: ${person.teachers.map((t) => t.name).join(', ')}`
@@ -568,9 +578,10 @@ export default function People() {
 
       {delivery?.telegram && (
         <div className="notice">
-          Приглашение создано. Отправьте ученику (или родителю) эту ссылку в Telegram — бот создаст аккаунт, а войти на платформу можно будет кнопкой в боте:{' '}
+          Приглашение создано. Перешлите эту ссылку ученику в Telegram {delivery.telegram} — по ней он придумает логин и пароль:{' '}
           <code className="invite-link">{delivery.link}</code>{' '}
-          <button type="button" className="link-button" onClick={() => navigator.clipboard?.writeText(delivery.link)}>Копировать</button>
+          <button type="button" className="link-button" onClick={() => navigator.clipboard?.writeText(delivery.link)}>Копировать</button>{' · '}
+          <a href={`https://t.me/${delivery.telegram.replace(/^@/, '')}`} target="_blank" rel="noreferrer">Открыть чат с {delivery.telegram}</a>
         </div>
       )}
       {delivery && !delivery.telegram && (
@@ -626,7 +637,7 @@ export default function People() {
                   <div>
                     <strong>{invite.name}</strong>
                     <div className="muted">
-                      {invite.viaTelegram ? 'через Telegram' : invite.email} · {invite.role.toLowerCase()}
+                      {invite.viaTelegram ? `Telegram ${invite.telegram ?? ''}` : invite.email} · {invite.role.toLowerCase()}
                       {invite.teacher && ` · with ${invite.teacher.name}`}
                     </div>
                   </div>
@@ -635,6 +646,9 @@ export default function People() {
                       <button className="ghost" onClick={() => resend(invite)} disabled={resending === invite.id}>
                         {resending === invite.id ? 'Sending…' : 'Resend email'}
                       </button>
+                    )}
+                    {invite.viaTelegram && invite.telegram && (
+                      <a className="button-link" style={{ marginTop: 0 }} href={`https://t.me/${invite.telegram.replace(/^@/, '')}`} target="_blank" rel="noreferrer">Открыть чат</a>
                     )}
                     <button onClick={() => copyLink(invite)}>
                       {copied === invite.id ? 'Copied' : 'Copy link'}

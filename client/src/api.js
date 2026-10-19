@@ -85,8 +85,8 @@ export const api = {
   resendInvite: (id) => request(`/invites/${id}/resend`, { method: 'POST' }),
   mailStatus: () => request('/invites/mail-status'),
   getInvite: (token) => request(`/invites/token/${token}`),
-  acceptInvite: (token, password) =>
-    request(`/invites/token/${token}/accept`, { method: 'POST', body: { password } }),
+  acceptInvite: (token, password, login) =>
+    request(`/invites/token/${token}/accept`, { method: 'POST', body: { password, ...(login ? { login } : {}) } }),
 
   myBilling: () => request('/billing/me'),
   billingStudents: () => request('/billing/students'),

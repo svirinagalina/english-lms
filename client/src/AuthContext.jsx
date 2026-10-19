@@ -43,8 +43,8 @@ export function AuthProvider({ children }) {
     setUser(user)
   }
 
-  const acceptInvite = async (token, password) => {
-    await api.acceptInvite(token, password)
+  const acceptInvite = async (token, password, login) => {
+    await api.acceptInvite(token, password, login)
     const { user } = await api.me()
     setUser(user)
   }

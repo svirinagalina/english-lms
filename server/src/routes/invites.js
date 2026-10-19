@@ -5,7 +5,6 @@ import { z } from 'zod'
 import { prisma } from '../db.js'
 import { hashPassword, issueToken, requireAuth, requireRole, isAdmin } from '../auth.js'
 import { sendInviteEmail, mailEnabled } from '../mailer.js'
-import { startLink } from '../telegram.js'
 
 export const invitesRouter = Router()
 
@@ -15,9 +14,9 @@ const inviteSchema = z.object({
   name: z.string().min(2).max(100),
   email: z.string().trim().toLowerCase().email().optional(),
   role: z.enum(['TEACHER', 'STUDENT']),
-  // No email: the invitation is a link to the school's Telegram bot, which
-  // makes the account and signs the student in (students only).
-  telegram: z.boolean().optional(),
+  // No email: the student's Telegram (@name). The teacher sends the link
+  // there; accepting asks for a login and a password (students only).
+  telegram: z.string().trim().regex(/^@?[A-Za-z0-9_]{4,32}$/).optional(),
   // Which teacher the invited student will be linked to. Defaults to the inviter.
   teacherId: z.string().optional(),
   // A student already here from a trial lesson link: the invitation gives
@@ -26,7 +25,9 @@ const inviteSchema = z.object({
 })
 
 const acceptSchema = z.object({
-  password: z.string().min(8).max(200)
+  password: z.string().min(8).max(200),
+  // A Telegram invitation: the login the student picks (letters, digits, . _ -).
+  login: z.string().trim().toLowerCase().regex(/^[a-z0-9._-]{3,32}$/).optional()
 })
 
 const inviteView = (invite, origin) => ({
@@ -39,8 +40,8 @@ const inviteView = (invite, origin) => ({
   acceptedAt: invite.acceptedAt,
   teacher: invite.invitedBy ? { id: invite.invitedBy.id, name: invite.invitedBy.name } : undefined,
   viaTelegram: invite.viaTelegram,
-  // A Telegram invitation opens the bot; the account is made there.
-  link: invite.viaTelegram ? startLink(`i_${invite.token}`) : `${origin}/join/${invite.token}`
+  telegram: invite.telegram,
+  link: `${origin}/join/${invite.token}`
 })
 
 const originOf = (req) => process.env.CLIENT_ORIGIN ?? `${req.protocol}://${req.get('host')}`
@@ -59,12 +60,13 @@ invitesRouter.get('/token/:token', async (req, res) => {
   if (!invite) return res.status(404).json({ error: 'Invitation not found' })
   if (invite.acceptedAt) return res.status(410).json({ error: 'This invitation has already been used' })
   if (invite.expiresAt < new Date()) return res.status(410).json({ error: 'This invitation has expired' })
-  if (invite.viaTelegram) return res.status(409).json({ error: 'Это приглашение открывается в Telegram', telegramLink: startLink(`i_${invite.token}`) })
 
   res.json({
     invite: {
       name: invite.name,
-      email: invite.email,
+      // A Telegram invitation has no email: the page asks for a login.
+      email: invite.viaTelegram ? null : invite.email,
+      needsLogin: invite.viaTelegram,
       role: invite.role,
       schoolName: invite.school.name,
       invitedBy: invite.invitedBy.name
@@ -75,6 +77,7 @@ invitesRouter.get('/token/:token', async (req, res) => {
 invitesRouter.post('/token/:token/accept', async (req, res) => {
   const parsed = acceptSchema.safeParse(req.body)
   if (!parsed.success) {
+    if (parsed.error.issues.some((i) => i.path[0] === 'login')) return res.status(400).json({ error: 'Логин: от 3 до 32 латинских букв, цифр, точек, _ или -' })
     return res.status(400).json({ error: 'Password must be at least 8 characters' })
   }
 
@@ -82,7 +85,12 @@ invitesRouter.post('/token/:token/accept', async (req, res) => {
   if (!invite) return res.status(404).json({ error: 'Invitation not found' })
   if (invite.acceptedAt) return res.status(410).json({ error: 'This invitation has already been used' })
   if (invite.expiresAt < new Date()) return res.status(410).json({ error: 'This invitation has expired' })
-  if (invite.viaTelegram) return res.status(409).json({ error: 'Это приглашение открывается в Telegram' })
+  let username = null
+  if (invite.viaTelegram) {
+    username = parsed.data.login
+    if (!username) return res.status(400).json({ error: 'Придумайте логин' })
+    if (await prisma.user.findUnique({ where: { username } })) return res.status(409).json({ error: 'Такой логин уже занят — придумайте другой' })
+  }
 
   const existing = await prisma.user.findUnique({ where: { email: invite.email } })
   if (existing && existing.id !== invite.userId) return res.status(409).json({ error: 'An account with this email already exists' })
@@ -105,7 +113,10 @@ invitesRouter.post('/token/:token/accept', async (req, res) => {
   const user = await prisma.$transaction(async (tx) => {
     const created = await tx.user.create({
       data: {
-        email: invite.email,
+        // A Telegram invitation: the login stands in for the email.
+        email: username ? `${username}@login.invalid` : invite.email,
+        username,
+        messenger: invite.telegram ?? undefined,
         name: invite.name,
         passwordHash,
         role: invite.role,
@@ -129,7 +140,7 @@ invitesRouter.post('/token/:token/accept', async (req, res) => {
   })
 
   // Their Advent trainer account, set up straight away (same email).
-  if (user.role === 'STUDENT') enrollStudent(user.email, user.name)
+  if (user.role === 'STUDENT' && !username) enrollStudent(user.email, user.name)
 
   issueToken(res, user)
   res.status(201).json({
@@ -175,8 +186,7 @@ invitesRouter.post('/', requireRole('OWNER', 'TEACHER'), async (req, res) => {
   }
   if (telegram) {
     if (role !== 'STUDENT' || userId) return res.status(400).json({ error: 'Через Telegram можно пригласить только нового ученика' })
-    if (!startLink('x')) return res.status(400).json({ error: 'Бот школы не подключён: Settings → Telegram bot' })
-    // A placeholder address: the account signs in through the bot.
+    // A placeholder until the student picks a login (never mailed: .invalid).
     email = `tg-${randomBytes(6).toString('hex')}@telegram.invalid`
   } else if (!email) {
     return res.status(400).json({ error: 'Invalid data', details: { email: ['Required'] } })
@@ -220,13 +230,14 @@ invitesRouter.post('/', requireRole('OWNER', 'TEACHER'), async (req, res) => {
       schoolId: req.user.schoolId,
       invitedById: inviterId,
       userId: trialAccount?.id ?? null,
-      viaTelegram: Boolean(telegram)
+      viaTelegram: Boolean(telegram),
+      telegram: telegram ? `@${telegram.replace(/^@/, '')}` : null
     },
     include: { invitedBy: { select: { id: true, name: true } } }
   })
 
   const view = inviteView(invite, originOf(req))
-  if (invite.viaTelegram) return res.status(201).json({ invite: view, delivery: { sent: false, telegram: true } })
+  if (invite.viaTelegram) return res.status(201).json({ invite: view, delivery: { sent: false, telegram: invite.telegram } })
 
   const delivery = await sendInviteEmail({
     to: invite.email,

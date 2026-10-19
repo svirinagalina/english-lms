@@ -193,3 +193,47 @@ test('recent payments: the owner sees the school, teachers and students cannot o
   assert.equal(partner.status, 200)
   assert.equal(partner.body.payments.length, 0)
 })
+
+// --- Students without email, invited by Telegram --------------------------------
+
+test('a Telegram invitation: the student picks a login and signs in with it', async () => {
+  const created = await as.teacher.post('/api/invites', { name: 'Маша', role: 'STUDENT', telegram: '@masha_tg' })
+  assert.equal(created.status, 201)
+  assert.equal(created.body.invite.telegram, '@masha_tg')
+  const token = created.body.invite.link.split('/join/')[1]
+
+  const page = await client(server.base).get(`/api/invites/token/${token}`)
+  assert.equal(page.body.invite.needsLogin, true)
+  assert.equal(page.body.invite.email, null)
+
+  const browser = client(server.base)
+  assert.equal((await browser.post(`/api/invites/token/${token}/accept`, { password: 'masha-pass-1' })).status, 400, 'a login is required')
+  assert.equal((await browser.post(`/api/invites/token/${token}/accept`, { password: 'masha-pass-1', login: 'Ма ша' })).status, 400, 'latin letters only')
+  const accepted = await browser.post(`/api/invites/token/${token}/accept`, { password: 'masha-pass-1', login: 'Masha2015' })
+  assert.equal(accepted.status, 201)
+
+  const masha = await prisma.user.findUnique({ where: { username: 'masha2015' } })
+  assert.equal(masha.role, 'STUDENT')
+  assert.equal(masha.messenger, '@masha_tg')
+  assert.ok(await prisma.teacherStudent.findFirst({ where: { teacherId: school.people.teacher.id, studentId: masha.id } }), 'linked to the inviting teacher')
+
+  const again = client(server.base)
+  const login = await again.login('masha2015', 'masha-pass-1')
+  assert.equal(login.status, 200)
+  assert.equal(login.body.user.username, 'masha2015')
+  assert.equal((await again.login('MASHA2015', 'masha-pass-1')).status, 200, 'the login is not case-sensitive')
+  assert.equal((await client(server.base).login('masha2015', 'wrong-pass')).status, 401)
+})
+
+test('a login can be taken only once', async () => {
+  const { body } = await as.teacher.post('/api/invites', { name: 'Другая Маша', role: 'STUDENT', telegram: 'other_masha' })
+  const token = body.invite.link.split('/join/')[1]
+  const res = await client(server.base).post(`/api/invites/token/${token}/accept`, { password: 'another-pass', login: 'masha2015' })
+  assert.equal(res.status, 409)
+})
+
+test('Telegram invitations are for new students only', async () => {
+  assert.equal((await as.owner.post('/api/invites', { name: 'Учитель', role: 'TEACHER', telegram: '@teacher_tg' })).status, 400)
+  assert.equal((await as.owner.post('/api/invites', { name: 'Без контакта', role: 'STUDENT' })).status, 400)
+  assert.equal((await as.owner.post('/api/invites', { name: 'Плохой ник', role: 'STUDENT', telegram: '@a b' })).status, 400)
+})

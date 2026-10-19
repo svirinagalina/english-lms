@@ -47,6 +47,9 @@ model User {
   id           String   @id @default(cuid())
   courseAccess CourseAccess[]
   email        String   @unique
+  // A student invited by Telegram (no email) signs in with a login they chose;
+  // their email is then a placeholder "<login>@login.invalid" (never mailed).
+  username     String?  @unique
   passwordHash String
   name         String
   role         Role
@@ -369,10 +372,10 @@ model Invite {
   // Inviting a student who already has an account from a trial lesson link:
   // accepting gives that account the email and password (board and history stay).
   userId     String?
-  // A student without email: the link opens the school's Telegram bot, which
-  // makes the account there (email is a placeholder ending in .invalid) and
-  // signs them in with one-time links (telegram.js).
+  // A student without email, invited by their Telegram: the teacher sends the
+  // link there by hand; accepting asks for a login instead of using an email.
   viaTelegram Boolean @default(false)
+  telegram    String?
 
   schoolId String
   school   School @relation(fields: [schoolId], references: [id], onDelete: Cascade)

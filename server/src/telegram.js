@@ -197,7 +197,6 @@ async function handleStart(message, param) {
       ? `Вы подключены, ${esc(known.name)} ✅ Сюда приходят напоминания об уроках.\n\nЧтобы подключить ещё один аккаунт (например, второго ребёнка), напишите его почту.`
       : CONNECT_HELP)
   }
-  if (param.startsWith('i_')) return handleInvite(message, param.slice(2))
   if (param === 'login') return sendLoginLinks(chatId)
   if (param.startsWith('co_') && hooks.onCourseStart) {
     const text = await hooks.onCourseStart({ chatId, orderId: param.slice(3), username: message.from?.username ?? null }).catch((error) => { console.error('[telegram] course', error.message); return null })
@@ -212,7 +211,7 @@ async function handleStart(message, param) {
 }
 
 // Connects this chat to the user: reminders and messages start coming here.
-async function linkChat(message, user, lesson = null, { quiet = false } = {}) {
+async function linkChat(message, user, lesson = null) {
   const chatId = String(message.chat.id)
   const updated = await prisma.user.update({
     where: { id: user.id },
@@ -225,56 +224,25 @@ async function linkChat(message, user, lesson = null, { quiet = false } = {}) {
     }
   })
   const staff = user.role !== 'STUDENT'
-  if (!quiet) await reply(chatId, staff
+  await reply(chatId, staff
     ? `Готово, ${esc(user.name)}! Сюда будут приходить новые пробные уроки, напоминания и оплаты учеников.`
     : `Готово, ${esc(user.name)}! Сюда будут приходить напоминания об уроках, отчёт и всё важное. Ничего нажимать не нужно.`)
   if (hooks.onLinked) await hooks.onLinked(updated, lesson).catch((error) => console.error('[telegram] linked', error.message))
 }
 
-// --- Students without email: invited and signed in through the bot -------------
-// The teacher's invitation (Invite.viaTelegram) is t.me/<bot>?start=i_<token>.
-// Start makes the student's account (a placeholder .invalid email, a random
-// password nobody knows), links it to the teacher and to this chat. Signing
-// in is /login (or the button): a one-time link, 10 minutes, per student on
-// this chat — a parent with two children gets a button for each.
+// --- Signing in from the bot ------------------------------------------------------
+// /login (the bot's menu, «войти», or «Войти через Telegram» on the sign-in
+// page): a one-time link, 10 minutes, for each student on this chat — a
+// parent with two children gets a button for each. Staff can't sign in this way.
 
 const LOGIN_TTL_MS = 10 * 60_000
 const loginTokens = new Map() // token → { userId, expires }
-
-async function handleInvite(message, token) {
-  const chatId = String(message.chat.id)
-  const invite = await prisma.invite.findUnique({ where: { token } })
-  if (!invite || !invite.viaTelegram) return reply(chatId, 'Приглашение не найдено. Попросите учителя прислать ссылку ещё раз.')
-  if (invite.acceptedAt) {
-    const made = await prisma.user.findUnique({ where: { email: invite.email } })
-    if (made?.telegramChatId === chatId) return sendLoginLinks(chatId, `Аккаунт «${esc(made.name)}» уже создан.`)
-    return reply(chatId, 'Это приглашение уже использовано. Если это ваш аккаунт, нажмите /login в том Telegram, где его создавали, или попросите учителя прислать новое приглашение.')
-  }
-  if (invite.expiresAt < new Date()) return reply(chatId, 'Срок приглашения истёк. Попросите учителя прислать новое.')
-
-  const user = await prisma.$transaction(async (tx) => {
-    const created = await tx.user.create({
-      data: {
-        email: invite.email,
-        name: invite.name,
-        passwordHash: crypto.randomBytes(32).toString('hex'),
-        role: 'STUDENT',
-        schoolId: invite.schoolId
-      }
-    })
-    await tx.teacherStudent.create({ data: { teacherId: invite.invitedById, studentId: created.id } })
-    await tx.invite.update({ where: { id: invite.id }, data: { acceptedAt: new Date() } })
-    return created
-  })
-  await linkChat(message, user, null, { quiet: true })
-  return sendLoginLinks(chatId, `Готово! Аккаунт «${esc(user.name)}» создан ✅\nСюда будут приходить напоминания об уроках.`)
-}
 
 // The buttons that sign this chat's students in.
 async function sendLoginLinks(chatId, intro = null) {
   const students = await prisma.user.findMany({ where: { telegramChatId: String(chatId), role: 'STUDENT' }, select: { id: true, name: true }, orderBy: { createdAt: 'asc' } })
   if (!students.length) {
-    return reply(chatId, `${intro ? `${intro}\n\n` : ''}К этому Telegram не привязан ни один ученик. Учитель может прислать вам приглашение в Telegram, или напишите сюда почту, с которой входите на платформу.`)
+    return reply(chatId, `${intro ? `${intro}\n\n` : ''}К этому Telegram не привязан ни один ученик. Войдите на платформу и нажмите Profile → Connect Telegram, или напишите сюда почту, с которой входите.`)
   }
   const now = Date.now()
   for (const [token, entry] of loginTokens) if (entry.expires < now) loginTokens.delete(token)

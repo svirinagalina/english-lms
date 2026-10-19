@@ -47,8 +47,11 @@ export default function Login() {
         <h1>Вход</h1>
         {error && <div className="error">{error}</div>}
         <input
-          type="email"
-          placeholder="Почта"
+          type="text"
+          inputMode="email"
+          autoCapitalize="none"
+          autoComplete="username"
+          placeholder="Почта или логин"
           value={email}
           onChange={(e) => setEmail(e.target.value)}
           required

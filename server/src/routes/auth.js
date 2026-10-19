@@ -23,8 +23,9 @@ const signupSchema = z.object({
   password: z.string().min(8).max(200)
 })
 
+// `email` is an email, or the login of a student invited by Telegram.
 const loginSchema = z.object({
-  email: z.string().trim().toLowerCase().email(),
+  email: z.string().trim().toLowerCase().min(1).max(200),
   password: z.string().min(1)
 })
 
@@ -40,6 +41,7 @@ const publicUser = (user) => ({
   id: user.id,
   name: user.name,
   email: user.email,
+  username: user.username ?? null,
   role: user.role,
   schoolId: user.schoolId,
   avatar: user.avatar ?? null,
@@ -199,7 +201,7 @@ authRouter.post('/login', async (req, res) => {
     return res.status(429).json({ error: 'Too many attempts. Please wait 15 minutes and try again.' })
   }
 
-  const user = await prisma.user.findUnique({ where: { email } })
+  const user = await prisma.user.findUnique({ where: email.includes('@') ? { email } : { username: email } })
   if (!user || !(await verifyPassword(password, user.passwordHash))) {
     for (const key of keys) loginFailures.set(key, [...failuresFor(key), Date.now()])
     return res.status(401).json({ error: 'Неверная почта или пароль' })

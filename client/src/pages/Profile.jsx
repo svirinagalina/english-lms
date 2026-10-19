@@ -107,10 +107,17 @@ export default function Profile() {
             <span>Name</span>
             <input value={name} onChange={(e) => setName(e.target.value)} required maxLength={120} />
           </label>
-          <label className="field">
-            <span>Email (you sign in with it)</span>
-            <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} required maxLength={200} />
-          </label>
+          {user.username ? (
+            <label className="field">
+              <span>Логин (вы входите по нему)</span>
+              <input value={user.username} disabled />
+            </label>
+          ) : (
+            <label className="field">
+              <span>Email (you sign in with it)</span>
+              <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} required maxLength={200} />
+            </label>
+          )}
 
           <h2 style={{ marginTop: 8 }}>About me</h2>
           <label className="field">

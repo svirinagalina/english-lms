@@ -16,6 +16,8 @@ const personView = (user) => ({
   id: user.id,
   name: user.name,
   email: user.email,
+  // Invited by Telegram: signs in with this login, the email is a placeholder.
+  username: user.username ?? null,
   role: user.role,
   createdAt: user.createdAt,
   priceAmount: user.priceAmount,
@@ -40,7 +42,7 @@ const personView = (user) => ({
 })
 
 const SELECT = {
-  id: true, name: true, email: true, role: true, createdAt: true,
+  id: true, name: true, email: true, username: true, role: true, createdAt: true,
   priceAmount: true, priceCurrency: true, paymentLink: true, paidUntil: true,
   free: true, viaLink: true, trialRequestedAt: true, trialRequestNote: true, messenger: true, phone: true,
   studentLinks: { include: { teacher: { select: { id: true, name: true } } } },
