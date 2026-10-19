@@ -332,3 +332,16 @@
   .iel-collage .iel-star:hover { animation: iel-star-spin 9s linear infinite; }
 }
 @keyframes iel-star-spin { from { transform: rotate(24deg); } to { transform: rotate(384deg); } }
+
+/* Hero CTAs sit under the lead text, clear of the collage; the outline
+   button has a solid green fill so the suitcase never shows through it. */
+.iel-hero-cta { flex-direction: column; align-items: flex-start; gap: 18px; }
+.iel-hero-cta .iel-btn.iel-ghost.light { background: var(--g); }
+.iel-hero-cta .iel-btn.iel-ghost.light:hover { background: #1b5650; }
+.iel-hero-cta .iel-btn.big { min-width: 230px; }
+@media (max-width: 720px) { .iel-hero-cta { align-items: stretch; } }
+
+/* The plane's flight from the photo to the polaroid (HeroFlight.jsx). */
+.iel-flight { position: absolute; left: 0; top: 0; z-index: 4; pointer-events: none; overflow: visible; }
+.iel-hero:has(.iel-flight) .iel-plane-trail { display: none; }
+.iel-avatar { cursor: pointer; }

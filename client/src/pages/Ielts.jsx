@@ -13,6 +13,7 @@ import { api } from '../api'
 import { parseDetails, formatCard } from '../utils/paymentDetails'
 import LandingDemo from '../components/LandingDemo'
 import LandingFooter from '../components/LandingFooter'
+import HeroFlight from '../components/HeroFlight'
 
 // "Курс подготовки к IELTS и TOEFL" — built from Galina's Figma layout
 // (Advent Academy (New), «Полная стр десктоп»): Mulish, green #14453f,
@@ -359,6 +360,9 @@ export default function Ielts() {
   }, [exam])
   // The hero collage leans gently after the pointer.
   const heroRef = useRef(null)
+  const avatarRef = useRef(null)
+  const polaroidRef = useRef(null)
+  const [flight, setFlight] = useState(0) // bump to fly again
   const onHeroMove = (e) => {
     const r = heroRef.current?.getBoundingClientRect()
     if (!r) return
@@ -411,15 +415,17 @@ export default function Ielts() {
         <div className="iel-collage" aria-hidden="true">
           <img className="iel-grid-paper" src={img('grid-torn.png')} alt="" />
           <img className="iel-star" src={img('star.svg')} alt="" />
-          <div className="iel-polaroid">
+          <div className="iel-polaroid" ref={polaroidRef}>
             <img src={img('harvard.jpg')} alt="" />
           </div>
           <img className="iel-suitcase" src={img('suitcase.png')} alt="" />
           <img className="iel-tickets" src={img('tickets.png')} alt="" />
         </div>
 
+        <HeroFlight heroRef={heroRef} avatarRef={avatarRef} targetRef={polaroidRef} replay={flight} />
+
         <div className="iel-hero-body iel-wrap">
-          <img className="iel-avatar" src={img('galina.jpg')} alt="" />
+          <img className="iel-avatar" ref={avatarRef} src={img('galina.jpg')} alt="" onMouseEnter={() => setFlight((n) => n + 1)} />
           <img className="iel-plane-trail" src={img('plane-trail.svg')} alt="" aria-hidden="true" />
           <div className="iel-exam" role="tablist" aria-label="Экзамен">
             {Object.entries(EXAMS).map(([key, e]) => (
