@@ -329,6 +329,6 @@
 .iel-hero-body > * { pointer-events: auto; }
 .iel-collage .iel-star { pointer-events: auto; cursor: pointer; }
 @media (prefers-reduced-motion: no-preference) {
-  .iel-collage .iel-star:hover { animation: iel-star-spin 2.4s linear infinite; }
+  .iel-collage .iel-star:hover { animation: iel-star-spin 9s linear infinite; }
 }
 @keyframes iel-star-spin { from { transform: rotate(24deg); } to { transform: rotate(384deg); } }
