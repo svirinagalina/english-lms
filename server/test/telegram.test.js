@@ -3,7 +3,7 @@
 import { test, before, after } from 'node:test'
 import assert from 'node:assert/strict'
 import http from 'node:http'
-import { migrate, seed, startServer, prisma, client } from './helpers.js'
+import { migrate, seed, startServer, prisma, client, signedIn } from './helpers.js'
 
 let server, school, fake
 
@@ -154,4 +154,33 @@ test('staff cannot sign in through the bot', async () => {
 
 test('a forged login link signs nobody in', async () => {
   assert.equal((await client(server.base).post('/api/auth/telegram-login/forged-token')).status, 410)
+})
+
+// --- A parent sees the children's lessons ------------------------------------
+
+test('a parent connects two children by their links and sees both in «Мои уроки»', async () => {
+  const { student, student2, teacher } = school.people
+  const owner = await signedIn(server.base, school.people.owner)
+  const linkFor = async (who) => (await owner.get(`/api/billing/students/${who.id}/telegram-link`)).body.link
+
+  const first = await linkFor(student)
+  assert.match(first, /^https:\/\/t\.me\/test_school_bot\?start=u_/)
+  // A teacher gets the link only for their own students.
+  const asTeacher = await signedIn(server.base, teacher)
+  assert.equal((await asTeacher.get(`/api/billing/students/${student.id}/telegram-link`)).status, 200)
+  assert.equal((await asTeacher.get(`/api/billing/students/${student2.id}/telegram-link`)).status, 404)
+
+  assert.match(await fake.say(2401, `/start ${first.split('start=')[1]}`), /Готово, student!/)
+  await fake.say(2401, `/start ${(await linkFor(student2)).split('start=')[1]}`)
+
+  await prisma.user.update({ where: { id: student.id }, data: { lessonsPaid: 8, heldAdjust: 3, packageStartedAt: null } })
+  await prisma.user.update({ where: { id: student2.id }, data: { lessonsPaid: 4, heldAdjust: 5, packageStartedAt: null } })
+  const answer = await fake.say(2401, '/lessons')
+  assert.match(answer, /<b>student<\/b>: проведено 3 из 8 — осталось <b>5<\/b>/)
+  assert.match(answer, /<b>student2<\/b>: проведено 5 из 4 — долг 1 урок/)
+  assert.match(await fake.say(2401, 'Мои уроки'), /Уроки/)
+})
+
+test('«Мои уроки» on a Telegram with no student', async () => {
+  assert.match(await fake.say(2501, '/lessons'), /не привязан ни один ученик/)
 })

@@ -1,5 +1,5 @@
 import { prisma } from './db.js'
-import { botOn, botOnSince, botSince, botToken, bookingUrl, sendTo, once, wasSent, esc, packageMark, onLinked, appUrl } from './telegram.js'
+import { botOn, botOnSince, botSince, botToken, bookingUrl, sendTo, once, wasSent, esc, packageMark, onLinked, onLessonsRequest, appUrl } from './telegram.js'
 import { confirmBooking } from './booking.js'
 import { maySeeStudent, siteStudentIds } from './partnerScope.js'
 import { OFFER_PLANS, DISCOUNT_DAYS } from './offer.js'
@@ -105,6 +105,31 @@ async function noticeToTeacher(lesson, teacher) {
 
 // A student connected the bot from their lesson link: the booking at once.
 // A booking made on the platform is confirmed by this very Start.
+// /lessons («Мои уроки»): the package of every student on this chat — a
+// parent with two children connected to one Telegram sees both.
+const lessonWord = (n) => { const a = Math.abs(n) % 100, b = a % 10; return a > 10 && a < 20 ? 'уроков' : b === 1 ? 'урок' : b >= 2 && b <= 4 ? 'урока' : 'уроков' }
+onLessonsRequest(async (chatId) => {
+  const students = await prisma.user.findMany({
+    where: { telegramChatId: chatId, role: 'STUDENT' },
+    select: { id: true, name: true, lessonsPaid: true, packageStartedAt: true, heldAdjust: true },
+    orderBy: { createdAt: 'asc' }
+  })
+  if (!students.length) return 'К этому Telegram не привязан ни один ученик. Попросите школу прислать ссылку для подключения.'
+  const lines = []
+  for (const student of students) {
+    const held = (await countedCalls(student)) + (student.heldAdjust ?? 0)
+    const since = student.packageStartedAt ? ` (пакет с ${new Date(student.packageStartedAt).toLocaleDateString('ru-RU', { timeZone: 'Europe/Moscow' })})` : ''
+    if (student.lessonsPaid == null) {
+      lines.push(`<b>${esc(student.name)}</b>: проведено ${held} ${lessonWord(held)}, пакет пока не оплачен`)
+      continue
+    }
+    const left = student.lessonsPaid - held
+    const state = left > 0 ? `осталось <b>${left}</b>` : left === 0 ? 'пакет закончился' : `долг ${-left} ${lessonWord(left)}`
+    lines.push(`<b>${esc(student.name)}</b>: проведено ${held} из ${student.lessonsPaid}${since} — ${state}`)
+  }
+  return `📚 Уроки\n\n${lines.join('\n')}`
+})
+
 onLinked(async (user, lesson) => {
   if (!lesson || user.role !== 'STUDENT' || lesson.studentUserId !== user.id) return
   let fresh = await prisma.adventLesson.findUnique({ where: { id: lesson.id } })

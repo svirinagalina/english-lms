@@ -121,6 +121,7 @@ export const api = {
   reportPayment: (note, email, lessons) => request('/billing/me/paid', { method: 'POST', body: { note, ...(email ? { email } : {}), ...(lessons ? { lessons } : {}) } }),
   paymentSeen: (id) => request(`/billing/students/${id}/seen`, { method: 'POST' }),
   studentPayments: (id) => request(`/billing/students/${id}/payments`),
+  studentTelegramLink: (id) => request(`/billing/students/${id}/telegram-link`),
   recentPayments: (days) => request(`/billing/recent?days=${days}`),
   deleteStudentPayment: (id, recordId) => request(`/billing/students/${id}/payments/${recordId}`, { method: 'DELETE' }),
   updateStudentBilling: (id, body) => request(`/billing/students/${id}`, { method: 'PATCH', body }),

@@ -23,6 +23,8 @@ export default function StudentSettings({ studentId, onChanged, focus = false })
   const [error, setError] = useState('')
   const [saved, setSaved] = useState('')
   const [payments, setPayments] = useState(null)
+  // The student's personal bot link, for a parent's Telegram.
+  const [botLink, setBotLink] = useState(null)
 
   const load = () => api.billingStudent(studentId).then(({ student }) => {
     setStudent(student)
@@ -211,6 +213,19 @@ export default function StudentSettings({ studentId, onChanged, focus = false })
             <button type="button" disabled={!addTeacher || busy} onClick={() => run(async () => { await api.linkStudent(addTeacher, studentId); setAddTeacher('') }, 'Teacher added ✓')}>Add</button>
           </>
         )}
+      </div>
+      <div className="ss-teachers">
+        <span className="muted">Бот для родителя:</span>
+        <button type="button" className="ghost" disabled={busy} onClick={async () => {
+          try {
+            const { link } = await api.studentTelegramLink(studentId)
+            setBotLink(link)
+            await navigator.clipboard?.writeText(link).catch(() => {})
+          } catch (err) { setError(err.message) }
+        }} title="Отправьте эту ссылку маме или папе: Start в их Telegram подключит этого ученика — напоминания и «Мои уроки» (сколько уроков осталось). Для второго ребёнка — его ссылка, тот же Telegram.">
+          {botLink ? 'Скопировано ✓' : 'Скопировать ссылку'}
+        </button>
+        {botLink && <code className="invite-link">{botLink}</code>}
       </div>
       {error && <div className="error">{error}</div>}
     </section>

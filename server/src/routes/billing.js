@@ -8,6 +8,7 @@ import { offerLinks, stripeKey } from '../settings.js'
 import { OFFER_PLANS, discountActive } from '../offer.js'
 import { guardedFetch } from '../resilience.js'
 import { creditOfferPurchase } from '../purchases.js'
+import { userStartLink } from '../telegram.js'
 
 export const billingRouter = Router()
 
@@ -456,6 +457,17 @@ billingRouter.get('/recent', requireRole('OWNER'), async (req, res) => {
     }))
   ].sort((a, b) => new Date(b.at) - new Date(a.at))
   res.json({ days, payments })
+})
+
+// The student's personal link to the school's bot, for a parent: Start in
+// their Telegram connects this student there (reminders, /lessons). Several
+// children can be connected to one parent's Telegram this way.
+billingRouter.get('/students/:id/telegram-link', requireRole('OWNER', 'PARTNER', 'TEACHER'), async (req, res) => {
+  const student = await reachableStudent(req.user, req.params.id)
+  if (!student) return res.status(404).json({ error: 'Student not found' })
+  const link = userStartLink(student.id)
+  if (!link) return res.status(400).json({ error: 'Бот школы не подключён: Settings → Telegram bot' })
+  res.json({ link })
 })
 
 // A line entered by mistake.

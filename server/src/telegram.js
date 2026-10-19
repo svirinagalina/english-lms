@@ -75,7 +75,7 @@ export async function loadBotSettings() {
     try { state.username = (await tg('getMe')).username } catch (error) { console.error('[telegram] getMe', error.message) }
   }
   // The bot's menu: signing in to the platform is one tap away.
-  if (botToken()) tg('setMyCommands', { commands: [{ command: 'login', description: 'Войти на платформу' }] }).catch(() => {})
+  if (botToken()) tg('setMyCommands', { commands: [{ command: 'lessons', description: 'Мои уроки' }, { command: 'login', description: 'Войти на платформу' }] }).catch(() => {})
   startPolling()
 }
 
@@ -183,7 +183,9 @@ async function whoStarts(param) {
 const reply = (chatId, text) => tg('sendMessage', { chat_id: chatId, text, parse_mode: 'HTML', disable_web_page_preview: true })
   .catch((error) => console.error('[telegram] reply', error.message))
 
-const hooks = { onLinked: null, onCourseStart: null }
+const hooks = { onLinked: null, onCourseStart: null, onLessons: null }
+// bot.js: /lessons — the text with every student's package on this chat.
+export const onLessonsRequest = (fn) => { hooks.onLessons = fn }
 // coursePurchases.js: a course buyer connects to get the access link here.
 export const onCourseStart = (fn) => { hooks.onCourseStart = fn }
 // bot.js sends the lesson's confirmation right after a student connects.
@@ -226,7 +228,7 @@ async function linkChat(message, user, lesson = null) {
   const staff = user.role !== 'STUDENT'
   await reply(chatId, staff
     ? `Готово, ${esc(user.name)}! Сюда будут приходить новые пробные уроки, напоминания и оплаты учеников.`
-    : `Готово, ${esc(user.name)}! Сюда будут приходить напоминания об уроках, отчёт и всё важное. Ничего нажимать не нужно.`)
+    : `Готово, ${esc(user.name)}! Сюда будут приходить напоминания об уроках, отчёт и всё важное. Сколько уроков осталось — команда /lessons.`)
   if (hooks.onLinked) await hooks.onLinked(updated, lesson).catch((error) => console.error('[telegram] linked', error.message))
 }
 
@@ -357,6 +359,10 @@ async function handleUpdate(update) {
   const start = text.match(/^\/start(?:@\w+)?(?:\s+(\S+))?/)
   if (start) return handleStart(message, start[1])
   if (/^\/login\b/.test(text) || /^войти$/i.test(text)) return sendLoginLinks(message.chat.id)
+  if ((/^\/lessons\b/.test(text) || /^(мои )?уроки$/i.test(text)) && hooks.onLessons) {
+    const answer = await hooks.onLessons(String(message.chat.id)).catch((error) => { console.error('[telegram] lessons', error.message); return null })
+    return reply(message.chat.id, answer ?? 'Не получилось посчитать уроки, попробуйте ещё раз чуть позже.')
+  }
   if (/^\/stop\b/.test(text)) {
     await prisma.user.updateMany({ where: { telegramChatId: String(message.chat.id) }, data: { telegramChatId: null } })
     return reply(message.chat.id, 'Отключено, сообщений больше не будет. Чтобы подключиться снова, напишите сюда свою почту.')
