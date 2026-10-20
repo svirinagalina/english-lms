@@ -1,5 +1,6 @@
 import { Fragment, useState } from 'react'
 import { api } from '../api'
+import { useAnswerKey } from '../utils/answerKey'
 
 // Lesson blocks imported from Edvibe (scripts/import-edvibe.js): formatted
 // theory and the interactive exercise types. Text arrives with only <b>, <i>
@@ -46,6 +47,7 @@ function Actions({ checked, canCheck, onCheck, onReset, score }) {
 export function ChoiceBlock({ payload }) {
   const [picked, setPicked] = useState({})
   const [checked, setChecked] = useState(false)
+  const key = useAnswerKey()
   const gradable = payload.questions.filter((q) => q.correct.length)
   const right = gradable.filter((q) => q.correct.includes(picked[payload.questions.indexOf(q)])).length
   return (
@@ -60,7 +62,7 @@ export function ChoiceBlock({ payload }) {
               const isWrong = checked && picked[qi] === oi && q.correct.length && !q.correct.includes(oi)
               return (
                 <button key={oi} disabled={checked}
-                  className={`course-option ${picked[qi] === oi ? 'selected' : ''} ${isRight ? 'correct' : ''} ${isWrong ? 'wrong' : ''}`}
+                  className={`course-option ${picked[qi] === oi ? 'selected' : ''} ${isRight ? 'correct' : ''} ${isWrong ? 'wrong' : ''} ${key && q.correct.includes(oi) ? 'key' : ''}`}
                   onClick={() => setPicked({ ...picked, [qi]: oi })}>{opt}</button>
               )
             })}
@@ -78,6 +80,7 @@ export function ChoiceBlock({ payload }) {
 export function SelectTextBlock({ payload }) {
   const [picked, setPicked] = useState({})
   const [checked, setChecked] = useState(false)
+  const showKey = useAnswerKey()
   let total = 0
   let right = 0
   const texts = payload.texts.map((t, ti) => (
@@ -91,11 +94,14 @@ export function SelectTextBlock({ payload }) {
           const state = checked && p.correct !== null ? (Number(value) === p.correct && value !== '' ? 'correct' : 'wrong') : ''
           if (p.correct !== null) { total++; if (state === 'correct') right++ }
           return (
-            <select key={pi} className={`course-inline-select ${state}`} value={value} disabled={checked}
-              onChange={(e) => setPicked({ ...picked, [key]: e.target.value })}>
-              <option value="">…</option>
-              {p.options.map((o, oi) => <option key={oi} value={oi}>{o}</option>)}
-            </select>
+            <Fragment key={pi}>
+              <select className={`course-inline-select ${state}`} value={value} disabled={checked}
+                onChange={(e) => setPicked({ ...picked, [key]: e.target.value })}>
+                <option value="">…</option>
+                {p.options.map((o, oi) => <option key={oi} value={oi}>{o}</option>)}
+              </select>
+              {showKey && p.correct !== null && <small className="answer-key">{p.options[p.correct]}</small>}
+            </Fragment>
           )
         })}
       </div>
@@ -117,6 +123,7 @@ export function DragWordsBlock({ payload }) {
   const [filled, setFilled] = useState({}) // gap → bank index
   const [held, setHeld] = useState(null) // bank index picked up by tap
   const [checked, setChecked] = useState(false)
+  const key = useAnswerKey()
   const used = new Set(Object.values(filled))
   const place = (gap, bankIndex) => {
     if (checked || bankIndex == null) return
@@ -151,6 +158,7 @@ export function DragWordsBlock({ payload }) {
               onClick={() => (held != null ? place(p.gap, held) : b != null && clear(p.gap))}>
               {b != null ? payload.bank[b] : ' '}
               {checked && state === 'wrong' && <small className="course-gap-answer"> {payload.answers[p.gap]}</small>}
+              {key && !(checked && state === 'wrong') && <small className="answer-key">{payload.answers[p.gap]}</small>}
             </span>
           )
         })}
@@ -165,6 +173,7 @@ export function DragWordsBlock({ payload }) {
 export function WordOrderBlock({ payload }) {
   const [built, setBuilt] = useState(() => payload.items.map(() => []))
   const [checked, setChecked] = useState(false)
+  const key = useAnswerKey()
   const isRight = (item, i) => built[i].map((k) => item.shown[k]).join(' ') === item.words.join(' ')
   const right = payload.items.filter(isRight).length
   const update = (i, change) => setBuilt((all) => all.map((b, j) => (j === i ? change(b) : b)))
@@ -185,6 +194,7 @@ export function WordOrderBlock({ payload }) {
             ))}
           </div>
           {checked && !isRight(item, i) && <div className="muted">Answer: {item.words.join(' ')}</div>}
+          {key && !(checked && !isRight(item, i)) && <div className="answer-key">Answer: {item.words.join(' ')}</div>}
         </div>
       ))}
       <Actions checked={checked} canCheck={built.some((b) => b.length)} onCheck={() => setChecked(true)}
@@ -198,6 +208,7 @@ export function GroupsBlock({ payload }) {
   const [where, setWhere] = useState({}) // bank index → group index
   const [held, setHeld] = useState(null)
   const [checked, setChecked] = useState(false)
+  const key = useAnswerKey()
   const groupOf = (w) => payload.groups.findIndex((g) => g.words.some((x) => norm(x) === norm(w)))
   const put = (i, g) => { if (checked || i == null) return; setWhere({ ...where, [i]: g }); setHeld(null) }
   const back = (i) => { if (checked) return; const next = { ...where }; delete next[i]; setWhere(next) }
@@ -219,6 +230,7 @@ export function GroupsBlock({ payload }) {
             onDrop={(e) => { e.preventDefault(); put(Number(e.dataTransfer.getData('text/plain')), gi) }}
             onClick={() => held != null && put(held, gi)}>
             <strong>{g.name}</strong>
+            {key && <div className="answer-key">{g.words.join(', ')}</div>}
             <div className="course-word-bank">
               {payload.bank.map((w, i) => where[i] === gi && (
                 <button key={i} className={`course-chip ${checked ? (groupOf(w) === gi ? 'correct' : 'wrong') : ''}`}
@@ -244,6 +256,7 @@ export function WritingBlock({ block }) {
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
   const [showKey, setShowKey] = useState(false)
+  const teacherKey = useAnswerKey()
   const check = async () => {
     setBusy(true); setError('')
     try { setResult(await api.checkCourseWriting(block.id, answer)) } catch (err) { setError(err.message) } finally { setBusy(false) }
@@ -267,7 +280,7 @@ export function WritingBlock({ block }) {
           {!result.correct && result.corrected && <div className="course-writing-fixed"><RichText text={result.corrected} /></div>}
         </div>
       )}
-      {showKey && <div className="course-text muted" style={{ marginTop: 8 }}><RichText text={payload.key} /></div>}
+      {(showKey || teacherKey) && payload.key && <div className={`course-text ${teacherKey ? 'answer-key' : 'muted'}`} style={{ marginTop: 8 }}><RichText text={payload.key} /></div>}
     </div>
   )
 }

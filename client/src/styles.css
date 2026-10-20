@@ -1893,3 +1893,10 @@ a:hover .gs-arrow { transform: translateX(5px); }
 .recent-payments-bar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-bottom: 10px; }
 .recent-payments-scroll { overflow-x: auto; }
 .recent-payments .ss-pay-table { min-width: 560px; }
+
+/* A teacher's answer key on course pages (Course.jsx, "Hide answers"). */
+.answer-key { color: #7fd88f; font-size: 13px; font-weight: 600; }
+small.answer-key, span.answer-key { margin-left: 4px; }
+div.answer-key { margin-top: 4px; }
+.course-option.key { border-color: #7fd88f; border-style: dashed; }
+.answers-toggle { margin: 0 0 12px; width: auto; align-self: flex-start; }

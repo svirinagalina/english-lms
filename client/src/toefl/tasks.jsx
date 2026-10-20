@@ -1,6 +1,7 @@
 import { Fragment, useMemo, useRef, useState } from 'react'
 import { api } from '../api'
 import { RichText } from '../components/CourseActivities'
+import { useAnswerKey } from '../utils/answerKey'
 import { AiResult, Listen, TimerBadge, useCountdown, useRecorder, shuffled, seedOf, fmtTime } from './shared'
 
 // The TOEFL 2026 task types. Every task takes:
@@ -23,6 +24,7 @@ function Nav({ index, count, setIndex, onSubmit, submitLabel = 'Submit answers' 
 }
 
 function Options({ q, picked, onPick, reveal }) {
+  const key = useAnswerKey()
   return (
     <div className="course-exercise-options">
       {q.options.map((opt, oi) => {
@@ -30,7 +32,7 @@ function Options({ q, picked, onPick, reveal }) {
         const wrong = reveal && picked === oi && oi !== q.answer
         return (
           <button key={oi} type="button" disabled={reveal}
-            className={`course-option ${picked === oi ? 'selected' : ''} ${right ? 'correct' : ''} ${wrong ? 'wrong' : ''}`}
+            className={`course-option ${picked === oi ? 'selected' : ''} ${right ? 'correct' : ''} ${wrong ? 'wrong' : ''} ${key && oi === q.answer ? 'key' : ''}`}
             onClick={() => onPick(oi)}>{String.fromCharCode(65 + oi)}. {opt}</button>
         )
       })}
@@ -47,6 +49,7 @@ function Explain({ q }) {
 export function QuestionSet({ p, mode, onDone }) {
   const listening = Boolean(p.script || p.audio)
   const test = mode === 'test'
+  const key = useAnswerKey()
   const [heard, setHeard] = useState(!listening || !test)
   const [index, setIndex] = useState(0)
   const [picked, setPicked] = useState({})
@@ -72,7 +75,7 @@ export function QuestionSet({ p, mode, onDone }) {
         {listening ? (
           <div className="toefl-stimulus">
             {p.context && <p className="muted">{p.context}</p>}
-            <Listen script={p.script} audio={p.audio} once={test} onEnded={() => setHeard(true)} showScript={!test || finished} />
+            <Listen script={p.script} audio={p.audio} once={test} onEnded={() => setHeard(true)} showScript={!test || finished || key} />
           </div>
         ) : (
           <div className="toefl-passage">
@@ -81,12 +84,12 @@ export function QuestionSet({ p, mode, onDone }) {
           </div>
         )}
         <div className="toefl-questions">
-          {!heard ? <p className="muted">The questions appear after the audio.</p> : (
+          {!heard && !key ? <p className="muted">The questions appear after the audio.</p> : (
             <>
               <div className="course-exercise-q">{index + 1}. {q.question}</div>
               <Options q={q} picked={picked[index]} reveal={reveal} onPick={(oi) => setPicked({ ...picked, [index]: oi })} />
               {!test && !reveal && <button type="button" className="ghost" disabled={picked[index] == null} onClick={() => setChecked({ ...checked, [index]: true })}>Check</button>}
-              {reveal && <Explain q={q} />}
+              {(reveal || key) && <Explain q={q} />}
               <Nav index={index} count={qs.length} setIndex={setIndex} onSubmit={finished ? null : submit} submitLabel={test ? 'Submit answers' : 'Finish'} />
             </>
           )}
@@ -121,6 +124,7 @@ export function CompleteWords({ p, mode, onDone }) {
   const gaps = parts.filter((x) => typeof x !== 'string')
   const [typed, setTyped] = useState({})
   const [finished, setFinished] = useState(false)
+  const key = useAnswerKey()
   const isRight = (g) => (typed[g.n] ?? '').trim().toLowerCase() === g.rest.toLowerCase()
   const submit = () => {
     if (finished) return
@@ -142,6 +146,7 @@ export function CompleteWords({ p, mode, onDone }) {
               autoCapitalize="off" autoCorrect="off" spellCheck={false}
               onChange={(e) => setTyped({ ...typed, [x.n]: e.target.value.replace(/\s/g, '') })} />
             {finished && !isRight(x) && <small className="toefl-cw-key">{x.word}</small>}
+            {key && !(finished && !isRight(x)) && <small className="answer-key">{x.rest}</small>}
           </span>
         ))}
       </div>
@@ -159,6 +164,7 @@ export function ChooseResponse({ p, mode, onDone }) {
   const [checked, setChecked] = useState({})
   const [finished, setFinished] = useState(false)
   const items = p.items
+  const key = useAnswerKey()
   const submit = () => {
     if (finished) return
     setFinished(true)
@@ -176,12 +182,12 @@ export function ChooseResponse({ p, mode, onDone }) {
       <div className="toefl-questions">
         <div className="course-exercise-q">{index + 1}.</div>
         <Listen key={index} audio={q.audio} script={q.prompt} once={test} label="Play the speaker" onEnded={() => setHeard({ ...heard, [index]: true })} />
-        {(reveal || !test) && <p className="muted">“{q.prompt}”</p>}
-        {(heard[index] || !test || reveal) && (
+        {(reveal || !test || key) && <p className="muted">“{q.prompt}”</p>}
+        {(heard[index] || !test || reveal || key) && (
           <Options q={q} picked={picked[index]} reveal={reveal} onPick={(oi) => setPicked({ ...picked, [index]: oi })} />
         )}
         {!test && !reveal && <button type="button" className="ghost" disabled={picked[index] == null} onClick={() => setChecked({ ...checked, [index]: true })}>Check</button>}
-        {reveal && <Explain q={q} />}
+        {(reveal || key) && <Explain q={q} />}
         <Nav index={index} count={items.length} setIndex={setIndex} onSubmit={finished ? null : submit} submitLabel={test ? 'Submit answers' : 'Finish'} />
       </div>
     </div>
@@ -197,6 +203,7 @@ export function BuildSentence({ p, mode, onDone }) {
   const [built, setBuilt] = useState(() => items.map(() => []))
   const [checked, setChecked] = useState({})
   const [finished, setFinished] = useState(false)
+  const key = useAnswerKey()
   const bank = useMemo(() => items.map((it) => {
     const all = [...it.chunks, ...(it.distractor ? [it.distractor] : [])]
     const out = shuffled(all, seedOf(it.chunks.join(' ')))
@@ -240,7 +247,8 @@ export function BuildSentence({ p, mode, onDone }) {
         </div>
         {!test && !reveal && <button type="button" className="ghost" disabled={!built[index].length} onClick={() => setChecked({ ...checked, [index]: true })}>Check</button>}
         {reveal && !isRight(index) && <div className="muted">Answer: {it.prefix ? `${it.prefix} ` : ''}{it.chunks.join(' ')}{it.end ?? '.'}</div>}
-        {reveal && it.explain && <div className="toefl-explain"><RichText text={it.explain} /></div>}
+        {key && !(reveal && !isRight(index)) && <div className="answer-key">Answer: {it.prefix ? `${it.prefix} ` : ''}{it.chunks.join(' ')}{it.end ?? '.'}</div>}
+        {(reveal || key) && it.explain && <div className="toefl-explain"><RichText text={it.explain} /></div>}
         <Nav index={index} count={items.length} setIndex={setIndex} onSubmit={finished ? null : submit} submitLabel={test ? 'Submit answers' : 'Finish'} />
       </div>
     </div>
@@ -269,6 +277,7 @@ export function WriteTask({ p, ctx, mode, onDone, quiet = false }) {
   }
   const left = useCountdown(test ? p.timeSec ?? 0 : 0, test && !result, submit)
   const email = p.task === 'email'
+  const key = useAnswerKey()
   return (
     <div className="toefl-task">
       <div className="toefl-task-bar">
@@ -301,7 +310,7 @@ export function WriteTask({ p, ctx, mode, onDone, quiet = false }) {
           </div>
           {error && <div className="error">{error}</div>}
           {result && !quiet && <AiResult ai={result.ai} aiOff={result.aiOff} />}
-          {result && !quiet && !test && p.sample && <details><summary>Sample answer</summary><div className="course-text">{p.sample}</div></details>}
+          {((result && !quiet && !test) || key) && p.sample && <details><summary>Sample answer</summary><div className="course-text">{p.sample}</div></details>}
           {result && quiet && <div className="notice">Saved. Your score will be in the results.</div>}
         </div>
       </div>

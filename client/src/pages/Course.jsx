@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { Link, useParams, useSearchParams } from 'react-router-dom'
 import { useAuth } from '../AuthContext'
+import { AnswerKeyContext, useAnswerKey } from '../utils/answerKey'
 import Panel from '../components/Panel'
 import { api } from '../api'
 import Nav from '../components/Nav'
@@ -111,6 +112,7 @@ function TtsScriptBlock({ payload }) {
 
 function Exercise({ exercise }) {
   const { payload } = exercise
+  const key = useAnswerKey()
   const [selected, setSelected] = useState(null)
   const [answer, setAnswer] = useState('')
   const [checked, setChecked] = useState(false)
@@ -131,7 +133,7 @@ function Exercise({ exercise }) {
             return (
               <button
                 key={opt}
-                className={`course-option ${selected === opt ? 'selected' : ''} ${isCorrectOpt ? 'correct' : ''} ${isWrongPick ? 'wrong' : ''}`}
+                className={`course-option ${selected === opt ? 'selected' : ''} ${isCorrectOpt ? 'correct' : ''} ${isWrongPick ? 'wrong' : ''} ${key && opt === payload.correctAnswer ? 'key' : ''}`}
                 onClick={() => !checked && setSelected(opt)}
                 disabled={checked}
               >
@@ -159,6 +161,7 @@ function Exercise({ exercise }) {
         ) : (
           <span className={`course-feedback ${correct ? 'ok' : 'bad'}`}>{correct ? 'Correct!' : `Answer: ${payload.answer}`}</span>
         )}
+        {key && !checked && <span className="answer-key">{payload.answer}</span>}
       </div>
     </div>
   )
@@ -324,6 +327,11 @@ export default function Course() {
   const [error, setError] = useState('')
   const contentRef = useRef(null)
   const [wordCard, setWordCard] = useState(null)
+  // Teachers see every answer on the page; the button hides them (e.g. while
+  // the page is shown to a student). Remembered per browser.
+  const staff = Boolean(user) && user.role !== 'STUDENT'
+  const [answersHidden, setAnswersHidden] = useState(() => { try { return localStorage.getItem('course.hideAnswers') === '1' } catch { return false } })
+  const toggleAnswers = () => setAnswersHidden((h) => { try { localStorage.setItem('course.hideAnswers', h ? '0' : '1') } catch { /* private mode */ } return !h })
 
   useEffect(() => {
     api.getCourse(courseId).then(setCourse).catch((err) => setError(err.message))
@@ -391,16 +399,19 @@ export default function Course() {
             <>
               <h2>{lesson.position}. {lesson.title}</h2>
               <p className="muted" style={{ marginTop: -12 }}>Double-click any word to hear it and add it to your vocabulary.</p>
+              {staff && <button type="button" className="ghost answers-toggle" onClick={toggleAnswers}>{answersHidden ? 'Show answers' : 'Hide answers'}</button>}
               {lesson.blocks.length === 0 && lesson.exercises.length === 0 && (
                 <p className="muted">No material for this lesson yet.</p>
               )}
-              {lesson.blocks.map((block) => <Block key={block.id} block={block} />)}
-              {lesson.exercises.length > 0 && (
-                <div className="course-block">
-                  <strong>Practice</strong>
-                  {lesson.exercises.map((ex) => <Exercise key={ex.id} exercise={ex} />)}
-                </div>
-              )}
+              <AnswerKeyContext.Provider value={staff && !answersHidden}>
+                {lesson.blocks.map((block) => <Block key={block.id} block={block} />)}
+                {lesson.exercises.length > 0 && (
+                  <div className="course-block">
+                    <strong>Practice</strong>
+                    {lesson.exercises.map((ex) => <Exercise key={ex.id} exercise={ex} />)}
+                  </div>
+                )}
+              </AnswerKeyContext.Provider>
             </>
           ) : (
             <p className="muted">Select a lesson.</p>
