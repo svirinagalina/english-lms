@@ -182,7 +182,10 @@ export default function VideoGrid({
   connectionsRef,
   sfuRef
 }) {
-  const sharingPeer = Object.values(peers).find((p) => p.sharing && p.stream) ?? null
+  // Through the media server a shared screen arrives as a stream of its own
+  // (`screen`) and the camera stays in the tile; on a direct call the screen
+  // comes in the camera's place.
+  const sharingPeer = Object.values(peers).find((p) => p.screen) ?? Object.values(peers).find((p) => p.sharing && p.stream) ?? null
   const drawing = useRef(false)
   const lastPoint = useRef(null)
   // On a phone, the camera tiles float over the board and cost real space —
@@ -258,7 +261,7 @@ export default function VideoGrid({
       {boardMode && <div className="board-area">{board}</div>}
       {sharingPeer && !screenStream && (
         <div className="screen-area">
-          <RemoteScreen stream={sharingPeer.stream} name={sharingPeer.name} unlockTick={unlockTick} />
+          <RemoteScreen stream={sharingPeer.screen ?? sharingPeer.stream} name={sharingPeer.name} unlockTick={unlockTick} />
         </div>
       )}
       {screenStream && (

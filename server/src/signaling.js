@@ -361,7 +361,9 @@ const PARTNER_BLOCKED_EVENTS = new Set(['call:start', 'drawing', 'board:add', 'b
       // The teacher's current board/document is offered to staff joining
       // later; a student starts on their own (the client opens it).
       const lead = user.role !== 'STUDENT'
-      if (typeof ack === 'function') ack({ peers, sfu, name: socket.data.name, boardId: lead ? roomBoards.get(roomId) ?? null : null, docId: lead ? roomDocs.get(roomId) ?? null : null })
+      const roomDoc = lead ? roomDocs.get(roomId) ?? null : null
+      const docId = roomDoc && await accessibleClassroom(user, roomDoc) ? roomDoc : null
+      if (typeof ack === 'function') ack({ peers, sfu, name: socket.data.name, boardId: lead ? roomBoards.get(roomId) ?? null : null, docId })
     })
 
     socket.on('call:start', async (ack) => {
@@ -543,8 +545,9 @@ const PARTNER_BLOCKED_EVENTS = new Set(['call:start', 'drawing', 'board:add', 'b
     })
 
     // --- Writing documents ---------------------------------------------------
-    // One per classroom. Opened in a call, it is shared with everyone there;
-    // otherwise only the classroom's own teacher and student may open it.
+    // One per classroom. Only the classroom's own teacher and student (and the
+    // school's admins) may open it — in a call too: a colleague in someone
+    // else's call never gets their students' writing (Galina, 2026-10-20).
 
     const docAllowed = async (classroomId) => {
       if (typeof classroomId !== 'string') return false
@@ -553,13 +556,7 @@ const PARTNER_BLOCKED_EVENTS = new Set(['call:start', 'drawing', 'board:add', 'b
         const hw = await prisma.homeworkDoc.findUnique({ where: { id: classroomId.slice(HOMEWORK_PREFIX.length) }, select: { classroomId: true } })
         return Boolean(hw && await accessibleClassroom(user, hw.classroomId))
       }
-      // A student's writing is theirs alone; a student opens only their own.
-      if (user.role === 'STUDENT') return Boolean(await accessibleClassroom(user, classroomId))
-      const { roomId } = socket.data
-      if (socket.data.classroomId === classroomId) return true
-      if (roomId && roomDocs.get(roomId) === classroomId) return true
-      const classroom = await accessibleClassroom(user, classroomId)
-      return Boolean(classroom)
+      return Boolean(await accessibleClassroom(user, classroomId))
     }
 
     socket.on('doc:open', async (classroomId, options, ack) => {

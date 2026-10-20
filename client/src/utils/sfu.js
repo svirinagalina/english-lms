@@ -18,11 +18,18 @@ export async function joinSfu({ url, token, onStream, onLeft, onState }) {
 
   const update = (participant) => {
     const tracks = []
-    // A shared screen's sound is played on its own (below), not in the tile.
-    participant.trackPublications.forEach((pub) => { if (pub.isSubscribed && pub.track?.mediaStreamTrack && pub.source !== Track.Source.ScreenShareAudio) tracks.push(pub.track.mediaStreamTrack) })
+    let screen = null
+    // A shared screen's sound is played on its own (below), not in the tile;
+    // the screen itself comes as a stream of its own, so the person's camera
+    // stays in their tile while they share.
+    participant.trackPublications.forEach((pub) => {
+      if (!pub.isSubscribed || !pub.track?.mediaStreamTrack || pub.source === Track.Source.ScreenShareAudio) return
+      if (pub.source === Track.Source.ScreenShare) screen = pub.track.mediaStreamTrack
+      else tracks.push(pub.track.mediaStreamTrack)
+    })
     // A new MediaStream each time: adding a track to an existing one from
     // script fires no 'addtrack', and the tile listens for a changed stream.
-    onStream(participant.identity, participant.name || 'Participant', tracks.length ? new MediaStream(tracks) : null)
+    onStream(participant.identity, participant.name || 'Participant', tracks.length ? new MediaStream(tracks) : null, screen ? new MediaStream([screen]) : null)
   }
   room.on(RoomEvent.TrackSubscribed, (_track, _pub, participant) => update(participant))
   room.on(RoomEvent.TrackUnsubscribed, (_track, _pub, participant) => update(participant))
@@ -88,11 +95,8 @@ export async function joinSfu({ url, token, onStream, onLeft, onState }) {
   room.localParticipant.on(ParticipantEvent.TrackMuted, (pub) => {
     if (pub.kind === Track.Kind.Audio && pub === pubs.audio && pub.track?.mediaStreamTrack?.readyState === 'live') pub.unmute().catch(() => {})
   })
-  let cameraWhileSharing = null
   const publish = async (kind, track) => {
     if (!track || room.state === 'disconnected') return
-    // While the screen is shown the camera is not sent; it comes back from here.
-    if (kind === 'video' && pubs.screen) { cameraWhileSharing = track; return }
     const pub = pubs[kind]
     if (pub?.track) {
       if (pub.track.mediaStreamTrack !== track) await pub.track.replaceTrack(track, true)
@@ -121,7 +125,8 @@ export async function joinSfu({ url, token, onStream, onLeft, onState }) {
     // The screen as its own publication: sharp (up to 1080p, ~2.5 Mbps, no
     // small simulcast layers) instead of going out in the camera's place at
     // the camera's 450 kbps and size, which made text unreadable. The camera
-    // is taken off meanwhile, so the others still get one picture from us.
+    // keeps going beside it (Galina, 2026-10-20: the teacher's face must not
+    // disappear while she shows her screen).
     // `audioTrack`: the shared tab's sound, published beside it untouched
     // (no echo cancelling, no voice coding: the music preset).
     setScreen: async (track, audioTrack = null) => {
@@ -138,11 +143,6 @@ export async function joinSfu({ url, token, onStream, onLeft, onState }) {
       if (track) {
         if (pubs.screen?.track?.mediaStreamTrack === track) return
         if (pubs.screen?.track) await room.localParticipant.unpublishTrack(pubs.screen.track, false).catch(() => {})
-        if (pubs.video?.track) {
-          cameraWhileSharing = pubs.video.track.mediaStreamTrack
-          await room.localParticipant.unpublishTrack(pubs.video.track, false).catch(() => {})
-          pubs.video = null
-        }
         pubs.screen = await room.localParticipant.publishTrack(track, {
           source: Track.Source.ScreenShare, simulcast: false,
           videoEncoding: { maxBitrate: 2_500_000, maxFramerate: 15 }, degradationPreference: 'maintain-resolution'
@@ -151,9 +151,6 @@ export async function joinSfu({ url, token, onStream, onLeft, onState }) {
       }
       if (pubs.screen?.track) await room.localParticipant.unpublishTrack(pubs.screen.track, false).catch(() => {})
       pubs.screen = null
-      const camera = cameraWhileSharing
-      cameraWhileSharing = null
-      if (camera?.readyState === 'live') await publish('video', camera)
     },
     muteVideo: () => pubs.video?.mute(),
     audioTrack: () => pubs.audio?.track?.mediaStreamTrack ?? null,

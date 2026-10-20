@@ -816,7 +816,7 @@ export default function Call() {
           const sfu = await joinSfu({
             url: access.url,
             token: access.token,
-            onStream: (identity, name, stream) => setPeers((prev) => (!prev[identity] && !stream ? prev : { ...prev, [identity]: { ...(prev[identity] ?? { name, muted: false }), stream } })),
+            onStream: (identity, name, stream, screen) => setPeers((prev) => (!prev[identity] && !stream && !screen ? prev : { ...prev, [identity]: { ...(prev[identity] ?? { name, muted: false }), stream, screen } })),
             onLeft: (identity) => setPeers((prev) => { if (!prev[identity]) return prev; const next = { ...prev }; delete next[identity]; return next }),
             onState: (state, info) => {
               if (state === 'connected') wasConnected = true
@@ -843,8 +843,10 @@ export default function Call() {
           sfuRef.current = sfu
           const audio = localStreamRef.current?.getAudioTracks()[0]
           if (audio) await sfu.setAudio(audio)
-          const video = screenStreamRef.current?.getVideoTracks()[0] ?? (cameraOnRef.current ? outgoingCameraTrack() : null)
+          const video = cameraOnRef.current ? outgoingCameraTrack() : null
           if (video) await sfu.setVideo(video)
+          const screen = screenStreamRef.current?.getVideoTracks()[0]
+          if (screen) await sfu.setScreen(screen, screenStreamRef.current?.getAudioTracks()[0] ?? null)
           setMediaWarning((w) => (w === SFU_TROUBLE ? '' : w))
           report(token, 'sfu.on', 'connected', { ms: Math.round(performance.now() - t0), peers: peerCount, attempt })
         } catch (err) {
@@ -1019,7 +1021,7 @@ export default function Call() {
     if (!out) return
     blurOutRef.current = null
     blurStreamRef.current = null
-    if (!screenStreamRef.current) swapOutgoingVideo(localStreamRef.current?.getVideoTracks()[0])
+    swapOutgoingVideo(localStreamRef.current?.getVideoTracks()[0])
     out.track.stop()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isBlurEnabled])
@@ -1122,7 +1124,7 @@ export default function Call() {
           track.enabled = localStreamRef.current?.getVideoTracks()[0]?.enabled ?? true
           out = blurOutRef.current = { canvas: outCanvas, track }
           blurStreamRef.current = outStream
-          if (!screenStreamRef.current) swapOutgoingVideo(track)
+          swapOutgoingVideo(track)
         }
       }
       if (out) {
@@ -1290,7 +1292,7 @@ export default function Call() {
     const live = stream.getVideoTracks().find((t) => t.readyState === 'live')
     if (live) {
       live.enabled = true
-      if (sfuRef.current && !screenStreamRef.current) sfuRef.current.setVideo(outgoingCameraTrack()).catch(() => {})
+      if (sfuRef.current) sfuRef.current.setVideo(outgoingCameraTrack()).catch(() => {})
       return
     }
     cameraBusyRef.current = true
@@ -1300,8 +1302,8 @@ export default function Call() {
       if (!cameraOnRef.current) { track.stop(); return }
       stream.addTrack(track)
       if (localVideoRef.current) { localVideoRef.current.srcObject = stream; localVideoRef.current.play().catch(() => {}) }
-      if (!blurOutRef.current && !screenStreamRef.current) await swapOutgoingVideo(track)
-      else if (sfuRef.current && !screenStreamRef.current) await sfuRef.current.setVideo(outgoingCameraTrack()).catch(() => {})
+      if (!blurOutRef.current) await swapOutgoingVideo(track)
+      else if (sfuRef.current) await sfuRef.current.setVideo(outgoingCameraTrack()).catch(() => {})
     } catch (err) {
       cameraOnRef.current = false
       setCameraOn(false)
@@ -1601,13 +1603,17 @@ export default function Call() {
     }
   }
 
-  // The screen goes out in place of the camera on every connection (no
-  // renegotiation needed); the camera comes back when sharing stops.
+  // Through the media server the screen goes out beside the camera, so the
+  // others keep seeing the sharer's face. On a direct call it goes out in
+  // place of the camera (no renegotiation needed); the camera comes back
+  // when sharing stops.
   const swapOutgoingVideo = async (track) => {
+    const isScreen = Boolean(track) && track === screenStreamRef.current?.getVideoTracks()[0]
     if (sfuRef.current && track) {
-      const isScreen = track === screenStreamRef.current?.getVideoTracks()[0]
       await (isScreen ? sfuRef.current.setScreen(track, screenStreamRef.current?.getAudioTracks()[0] ?? null) : sfuRef.current.setVideo(track)).catch((err) => console.error('Media server: video not sent', err))
     }
+    // A camera change while the screen is shown waits for the share to end.
+    if (!isScreen && screenStreamRef.current) { limitVideoRef.current?.(); return }
     for (const pc of Object.values(connectionsRef.current)) {
       const sender = pc.getSenders().find((s) => s.track?.kind === 'video')
       if (sender && track) await sender.replaceTrack(track).catch(() => {})
@@ -1724,7 +1730,10 @@ export default function Call() {
   // board, else those of the students present.
   const writingChoices = (() => {
     const seen = new Map()
-    const add = (classroomId, label) => { if (classroomId && !seen.has(classroomId)) seen.set(classroomId, label) }
+    // A teacher is offered only her own students' writing, never a
+    // colleague's, even in the colleague's call (Galina, 2026-10-20).
+    const mine = (classroomId) => !isStaff || boards.some((b) => b.classroomId === classroomId && b.teacherId === user.id)
+    const add = (classroomId, label) => { if (classroomId && !seen.has(classroomId) && mine(classroomId)) seen.set(classroomId, label) }
     // A board assigned to Natalia and Alex offers exactly their two
     // writings — not the whole roster, and not just the one student the
     // call happened to be started from.
@@ -1745,12 +1754,8 @@ export default function Call() {
       if (board) add(board.classroomId, board.student)
     }
     if (!isStaff) for (const b of boards) if (b.studentId === user.id) add(b.classroomId, 'My writing')
-    // Nothing contextual (no student here yet): offer my students' writing
-    // (everyone's only if I have none — an admin running someone else's call).
-    if (!seen.size && isStaff) {
-      const mine = boards.filter((b) => b.studentId && b.teacherId === user.id)
-      for (const b of (mine.length ? mine : boards.filter((b) => b.studentId))) add(b.classroomId, b.student)
-    }
+    // Nothing contextual (no student here yet): offer my students' writing.
+    if (!seen.size && isStaff) for (const b of boards) if (b.studentId) add(b.classroomId, b.student)
     return [...seen].map(([id, label]) => ({ id, label }))
   })()
   const openWriting = (id) => setWritingId(id)
