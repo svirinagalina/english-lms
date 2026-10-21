@@ -72,7 +72,8 @@ export async function seed() {
 // The real server (src/index.js) on a free port, with only the settings it
 // needs — no API keys from .env reach it.
 export async function startServer(extraEnv = {}) {
-  const port = 41000 + Math.floor(Math.random() * 2000)
+  // The browser tests (e2e/) need a known port for the client's proxy.
+  const port = Number(extraEnv.PORT) || 41000 + Math.floor(Math.random() * 2000)
   const child = spawn(process.execPath, ['src/index.js'], {
     cwd: serverDir,
     env: {
