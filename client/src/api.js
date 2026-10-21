@@ -116,6 +116,7 @@ export const api = {
   enterLessonLink: (token, name) => request(`/lesson-link/${encodeURIComponent(token)}/enter`, { method: 'POST', body: { name } }),
   eurRate: () => request('/billing/rates'),
   checkout: (plan) => request('/billing/checkout', { method: 'POST', body: { plan } }),
+  packageCheckout: () => request('/billing/me/package-checkout', { method: 'POST' }),
   verifyCheckout: (sessionId) => request(`/billing/checkout/verify?session_id=${encodeURIComponent(sessionId)}`),
   saveStripeKey: (key) => request('/settings/stripe', { method: 'PUT', body: { key } }),
   reportPayment: (note, email, lessons) => request('/billing/me/paid', { method: 'POST', body: { note, ...(email ? { email } : {}), ...(lessons ? { lessons } : {}) } }),

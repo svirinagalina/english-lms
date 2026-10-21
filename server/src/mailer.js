@@ -105,19 +105,21 @@ export function sendInviteEmail({ to, name, inviterName, schoolName, role, link 
 }
 
 // A student says they have paid: their teachers get a short note.
-export function sendPaymentReportedEmail({ to, studentName, note }) {
+// `intro` replaces the «I have paid» sentence for payments the platform saw
+// itself (Stripe): the note is then the whole message.
+export function sendPaymentReportedEmail({ to, studentName, note, intro }) {
   const html = `
 <div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;max-width:520px;margin:0 auto;padding:32px 24px;color:#1a1a1a">
-  <h1 style="font-size:20px;margin:0 0 16px">${escapeHtml(studentName)} reports a payment</h1>
+  <h1 style="font-size:20px;margin:0 0 16px">${intro ? `${escapeHtml(intro)}: ${escapeHtml(studentName)}` : `${escapeHtml(studentName)} reports a payment`}</h1>
   <p style="font-size:15px;line-height:1.55;margin:0 0 16px">
-    ${escapeHtml(studentName)} pressed “I have paid” on the platform${note ? ` and wrote: <em>${escapeHtml(note)}</em>` : ''}.
+    ${intro ? escapeHtml(note) : `${escapeHtml(studentName)} pressed “I have paid” on the platform${note ? ` and wrote: <em>${escapeHtml(note)}</em>` : ''}.`}
   </p>
   <p style="font-size:15px;line-height:1.55;margin:0 0 16px">
     Check the money has arrived, then set the new package in Payments.
   </p>
 </div>`
-  const text = `${studentName} pressed "I have paid" on the platform${note ? `: ${note}` : ''}. Check the payment, then set the new package in Payments.`
-  return send({ to, subject: `${studentName} reports a payment`, html, text })
+  const text = intro ? `${note}\n\nCheck the payment, then set the new package in Payments.` : `${studentName} pressed "I have paid" on the platform${note ? `: ${note}` : ''}. Check the payment, then set the new package in Payments.`
+  return send({ to, subject: intro ? `${intro}: ${studentName}` : `${studentName} reports a payment`, html, text })
 }
 
 // A request from a form on the website: the owner gets the contacts at once.

@@ -174,10 +174,10 @@ export default function StudentSettings({ studentId, onChanged, focus = false })
             <thead><tr><th>Date</th><th>What</th><th>Lessons</th><th>Amount</th><th>Card</th><th /></tr></thead>
             <tbody>
               {payments.map((p) => (
-                <tr key={p.id} className={p.kind === 'reported' ? 'muted' : ''}>
+                <tr key={p.id} className={['reported', 'stripe-link'].includes(p.kind) ? 'muted' : ''}>
                   <td>{p.at ? new Date(p.at).toLocaleDateString('ru-RU') : '—'}</td>
                   <td>
-                    {{ package: 'Package', stripe: 'Paid online', reported: 'Student: «I have paid»', current: 'Current package' }[p.kind] ?? p.kind}
+                    {{ package: 'Package', stripe: 'Paid online', 'stripe-link': 'Stripe link — lessons not added', reported: 'Student: «I have paid»', current: 'Current package' }[p.kind] ?? p.kind}
                     {p.by ? <span className="muted"> · {p.by}</span> : null}
                     {p.note ? <div className="muted">{p.note}</div> : null}
                   </td>

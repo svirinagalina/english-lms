@@ -7,7 +7,7 @@ import { sendPaymentReportedEmail } from '../mailer.js'
 import { offerLinks, stripeKey } from '../settings.js'
 import { OFFER_PLANS, discountActive } from '../offer.js'
 import { guardedFetch } from '../resilience.js'
-import { creditOfferPurchase } from '../purchases.js'
+import { creditStripeSession } from '../purchases.js'
 import { userStartLink } from '../telegram.js'
 
 export const billingRouter = Router()
@@ -199,8 +199,58 @@ billingRouter.get('/checkout/verify', async (req, res) => {
     if (session.client_reference_id !== req.user.id) return res.status(404).json({ error: 'Not your payment' })
     const paid = session.payment_status === 'paid'
     // Credited here or by the webhook, whichever comes first (once).
-    const credit = paid ? await creditOfferPurchase(session) : null
+    const credit = paid ? await creditStripeSession(session) : null
     res.json({ paid, credited: Boolean(credit), amount: session.amount_total / 100, currency: session.currency })
+  } catch (error) {
+    res.status(502).json({ error: `Stripe: ${error.message}` })
+  }
+})
+
+// The package a student can pay for online, at the price their teacher set:
+// the package size (else the last package's lessons) × the lesson price.
+// A rouble price is paid in euros at today's Bank of Russia rate, like the
+// trial plans. Null when Stripe or the price is not set.
+async function packageOffer(student) {
+  const lessons = student.packageSize ?? (student.lessonsPaid > 0 ? student.lessonsPaid : null)
+  if (!stripeKey() || !(student.priceAmount > 0) || !lessons) return null
+  const amountCents = student.priceAmount * lessons
+  const currency = student.priceCurrency ?? 'RUB'
+  if (currency !== 'RUB') return { lessons, amountCents, currency, chargeCents: amountCents, chargeCurrency: currency }
+  const rate = await eurRate()
+  return { lessons, amountCents, currency, chargeCents: Math.ceil((amountCents / rate.rate)), chargeCurrency: 'EUR', rate }
+}
+
+// A student pays for their next package: Stripe Checkout with the sum filled
+// in. The lessons are added when Stripe says it is paid (verify below, or the
+// sweep in purchases.js), and the teachers and owners are told.
+billingRouter.post('/me/package-checkout', async (req, res) => {
+  if (req.user.role !== 'STUDENT') return res.status(403).json({ error: 'Students only' })
+  const student = await prisma.user.findUnique({ where: { id: req.user.id }, select: { ...STUDENT_SELECT } })
+  let offer
+  try { offer = await packageOffer(student) } catch { return res.status(502).json({ error: 'The exchange rate is unavailable right now, try again in a minute' }) }
+  if (!offer) return res.status(400).json({ error: 'Online payment is not set up for you — use the details below' })
+  const origin = process.env.CLIENT_ORIGIN ?? `${req.protocol}://${req.get('host')}`
+  const price = new Intl.NumberFormat('ru-RU', { style: 'currency', currency: offer.currency }).format(offer.amountCents / 100)
+  try {
+    const session = await stripeCall('/checkout/sessions', {
+      mode: 'payment',
+      'line_items[0][price_data][currency]': offer.chargeCurrency.toLowerCase(),
+      'line_items[0][price_data][unit_amount]': String(offer.chargeCents),
+      'line_items[0][price_data][product_data][name]': `Advent Academy — ${offer.lessons} ${offer.lessons === 1 ? 'урок' : offer.lessons < 5 ? 'урока' : 'уроков'}`,
+      'line_items[0][price_data][product_data][description]': offer.rate ? `${price} по курсу ЦБ РФ ${offer.rate.rate} ₽/€ на ${offer.rate.date}` : price,
+      'line_items[0][quantity]': '1',
+      ...(/\.invalid$/i.test(student.email ?? '') ? {} : { customer_email: student.email }),
+      client_reference_id: student.id,
+      'metadata[kind]': 'package',
+      'metadata[studentId]': student.id,
+      'metadata[lessons]': String(offer.lessons),
+      'metadata[price]': String(student.priceAmount),
+      'metadata[currency]': offer.currency,
+      ...(offer.currency === 'RUB' ? { 'metadata[rub]': String(Math.round(offer.amountCents / 100)) } : {}),
+      success_url: `${origin}/billing?paid=1&session_id={CHECKOUT_SESSION_ID}`,
+      cancel_url: `${origin}/billing?paid=0`
+    })
+    res.json({ url: session.url })
   } catch (error) {
     res.status(502).json({ error: `Stripe: ${error.message}` })
   }
@@ -278,6 +328,7 @@ billingRouter.get('/me', async (req, res) => {
       package: view.package,
       paymentReportedAt: view.paymentReportedAt,
       paymentDetails: studentDetails(school, user, view.paysTrialCard),
+      packageCheckout: await packageOffer(student).catch(() => null),
       schoolName: school.name,
       trial: trial ? { reportId: trial.id, publishedAt: trial.publishedAt, level: trial.generated?.level ?? null, links: offerLinks(), purchased: await paidBefore(user.id) } : null
     }
@@ -407,7 +458,7 @@ billingRouter.get('/students/:id/payments', requireRole('OWNER', 'PARTNER', 'TEA
   ])
   const byIds = [...new Set(records.map((r) => r.byUserId).filter(Boolean))]
   const names = Object.fromEntries((await prisma.user.findMany({ where: { id: { in: byIds } }, select: { id: true, name: true } })).map((u) => [u.id, u.name]))
-  const plans = Object.fromEntries(OFFER_PLANS.map((p) => [p.id, p.name]))
+  const plans = { ...Object.fromEntries(OFFER_PLANS.map((p) => [p.id, p.name])), package: 'Пакет уроков' }
   const payments = [
     ...records.map((r) => ({ id: r.id, kind: r.kind, at: r.createdAt, lessons: r.lessons, amountCents: r.amountCents, currency: r.currency, card: r.card, note: r.note, by: names[r.byUserId] ?? null })),
     ...stripe.map((p) => ({ id: p.id, kind: 'stripe', at: p.createdAt, lessons: p.lessons || null, amountCents: p.amountCents, currency: p.currency, card: 'Stripe (online)', note: `${plans[p.plan] ?? p.plan}${p.rub ? ` · ${p.rub.toLocaleString('ru-RU')} ₽` : ''}`, by: null }))
@@ -445,7 +496,7 @@ billingRouter.get('/recent', requireRole('OWNER'), async (req, res) => {
   ])
   const byIds = [...new Set(records.map((r) => r.byUserId).filter(Boolean))]
   const staff = Object.fromEntries((await prisma.user.findMany({ where: { id: { in: byIds } }, select: { id: true, name: true } })).map((u) => [u.id, u.name]))
-  const plans = Object.fromEntries(OFFER_PLANS.map((p) => [p.id, p.name]))
+  const plans = { ...Object.fromEntries(OFFER_PLANS.map((p) => [p.id, p.name])), package: 'Пакет уроков' }
   const payments = [
     ...records.map((r) => ({ id: r.id, kind: r.kind, at: r.createdAt, studentId: r.studentId, who: names[r.studentId], lessons: r.lessons, amountCents: r.amountCents, currency: r.currency, card: r.card, note: r.note, by: staff[r.byUserId] ?? null })),
     ...stripe.map((p) => ({ id: p.id, kind: 'stripe', at: p.createdAt, studentId: p.userId, who: names[p.userId], lessons: p.lessons || null, amountCents: p.amountCents, currency: p.currency, card: 'Stripe (online)', note: `${plans[p.plan] ?? p.plan}${p.rub ? ` · ${p.rub.toLocaleString('ru-RU')} ₽` : ''}`, by: null })),

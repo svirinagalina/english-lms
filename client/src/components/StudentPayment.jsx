@@ -37,6 +37,8 @@ export default function StudentPayment({ lessonsOnly = false }) {
       api.verifyCheckout(sessionId).then((r) => {
         setPaidResult(r)
         if (r.paid) setReported(new Date().toISOString())
+        // The lessons are in already: show the new package.
+        if (r.credited) api.myBilling().then(({ billing }) => setBilling(billing)).catch(() => {})
         // A trial-link student who has just paid chooses an email and a password next.
         if (r.paid && user?.viaLink) setTimeout(() => window.location.assign('/finish-signup'), 2500)
       }).catch((err) => setPaidResult({ paid: false, error: err.message }))
@@ -64,6 +66,19 @@ export default function StudentPayment({ lessonsOnly = false }) {
     }
   }
 
+  // The next package at the teacher's price, through Stripe Checkout: the
+  // platform sees the payment and adds the lessons itself.
+  const payPackage = async () => {
+    setPaying('package'); setPayError('')
+    try {
+      const { url } = await api.packageCheckout()
+      window.location.assign(url)
+    } catch (err) {
+      setPayError(err.message)
+      setPaying('')
+    }
+  }
+
   useEffect(() => {
     api.myBilling().then(({ billing }) => {
       setBilling(billing)
@@ -76,7 +91,10 @@ export default function StudentPayment({ lessonsOnly = false }) {
 
   if (!billing) return null
 
-  const { priceAmount, priceCurrency, paymentLink, paymentDetails, trial, packageSize } = billing
+  const { priceAmount, priceCurrency, paymentLink, paymentDetails, trial, packageSize, packageCheckout } = billing
+  // Online payment for the package, when the teacher set a price (not after a trial: the offer's plans are for that).
+  const online = !trial ? packageCheckout : null
+  const onlineLabel = online && `Pay ${online.lessons} ${online.lessons === 1 ? 'lesson' : 'lessons'} online — ${formatPrice(online.chargeCents, online.chargeCurrency)}`
   const pkg = billing.package
   const nothingConfigured = !trial && priceAmount == null && !paymentLink && !paymentDetails && pkg?.lessonsPaid == null
   if (nothingConfigured) return null
@@ -243,12 +261,23 @@ export default function StudentPayment({ lessonsOnly = false }) {
             )}
           </div>
 
-          {paymentLink && (
+          {online ? (
+            <button onClick={payPackage} disabled={paying === 'package'}>{paying === 'package' ? 'Opening the payment…' : onlineLabel}</button>
+          ) : paymentLink && (
             <a className="button" href={paymentLink} target="_blank" rel="noopener noreferrer">
               Pay now
             </a>
           )}
         </div>
+      )}
+      {!trial && online?.rate && (
+        <p className="muted small-hint">{formatPrice(online.amountCents, online.currency)} at the Bank of Russia rate {online.rate.rate} ₽/€ for {online.rate.date}. The lessons are added as soon as the payment goes through.</p>
+      )}
+      {!trial && payError && <div className="error">{payError}</div>}
+      {!trial && paidResult && (
+        paidResult.paid
+          ? <div className="notice">Payment received — thank you! {paidResult.credited ? 'The lessons are in your package.' : 'Your lessons will be added shortly.'}</div>
+          : <div className="error">{paidResult.error ? `Could not check the payment: ${paidResult.error}` : 'The payment was not completed. Please try again.'}</div>
       )}
 
       {trial && pkg && (
@@ -278,7 +307,9 @@ export default function StudentPayment({ lessonsOnly = false }) {
                   <span className="pay-label">Online, in euro</span>
                   <span className="muted">Card or Apple/Google Pay, secure page</span>
                 </div>
-                <a className="button" href={details.link} target="_blank" rel="noreferrer">Pay online</a>
+                {online
+                  ? <button onClick={payPackage} disabled={paying === 'package'}>{paying === 'package' ? 'Opening…' : 'Pay online'}</button>
+                  : <a className="button" href={details.link} target="_blank" rel="noreferrer">Pay online</a>}
               </div>
             )}
             {details.note && <p className="muted pay-note">{details.note}</p>}
