@@ -452,8 +452,14 @@ async function payments() {
       await sendTo(admin, `✅ Оплата засчитана: ${esc(student.name)}${teacher ? ` (преподаватель ${esc(teacher.name)})` : ''} — уроков в пакете: ${student.lessonsPaid}.`)
     }
     await tellTeachers(student, `✅ Оплата пришла: ${esc(student.name)} — уроков в пакете: ${student.lessonsPaid}. Можно заниматься.`, told)
+    // Every other student (or the parent on their chat) hears that the
+    // payment is in (Galina, 2026-10-21): lessons only, no sums.
+    const trialThanks = site.has(student.id) && student.viaLink && Number(oldLessons) === 0
+    if (student.telegramChatId && !trialThanks) {
+      await sendTo(student, `✅ Оплата получена, спасибо! ${esc(student.name)} — в пакете ${student.lessonsPaid} ${lessonWord(student.lessonsPaid)}.\nСколько осталось — команда /lessons.`)
+    }
     // A student from a trial: the end of the trial's path — sign up and wait for the teacher.
-    if (site.has(student.id) && student.viaLink && student.telegramChatId && Number(oldLessons) === 0) {
+    if (trialThanks && student.telegramChatId) {
       await sendTo(student, [
         `Спасибо за оплату! ✅ Оплачено уроков: ${student.lessonsPaid}.`,
         student.inviteEmail

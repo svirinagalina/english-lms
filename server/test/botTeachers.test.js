@@ -112,3 +112,18 @@ test('every connected teacher gets the «Отметить урок» hint once; 
   assert.equal(sent.filter((m) => m.chat_id === '7101').length, 1)
   assert.ok(earlier)
 })
+
+test('a student with the bot hears that the payment is in — lessons only, once', async () => {
+  const { student } = school.people
+  await prisma.user.update({ where: { id: student.id }, data: { telegramChatId: '7004' } })
+  await runBotOnce() // remembers the current package
+  sent.length = 0
+  await prisma.user.update({ where: { id: student.id }, data: { lessonsPaid: 8, packageStartedAt: new Date(Date.now() - 30_000), heldAdjust: 0 } })
+  await runBotOnce()
+  const mine = sent.filter((m) => m.chat_id === '7004')
+  assert.equal(mine.length, 1)
+  assert.match(mine[0].text, /Оплата получена, спасибо! student — в пакете 8 уроков/)
+  assert.doesNotMatch(mine[0].text, /₽|€|RUB|EUR|карт/i)
+  await runBotOnce()
+  assert.equal(sent.filter((m) => m.chat_id === '7004').length, 1)
+})
