@@ -113,7 +113,7 @@ export async function accessibleClassroom(user, classroomId) {
     include: {
       teacher: { select: { id: true, name: true } },
       student: {
-        select: { id: true, name: true, lessonsPaid: true, packageStartedAt: true, heldAdjust: true, viaLink: true, trialAccessUntil: true }
+        select: { id: true, name: true, lessonsPaid: true, packageStartedAt: true, heldAdjust: true, viaLink: true, offline: true, trialAccessUntil: true }
       }
     }
   })
@@ -316,7 +316,7 @@ classroomsRouter.get('/:id', async (req, res) => {
     classroom: {
       id: classroom.id,
       teacher: classroom.teacher,
-      student: classroom.student ? { id: classroom.student.id, name: classroom.student.name, ...(req.user.role !== 'STUDENT' ? { viaLink: classroom.student.viaLink, trialAccessUntil: classroom.student.trialAccessUntil } : {}) } : null,
+      student: classroom.student ? { id: classroom.student.id, name: classroom.student.name, ...(req.user.role !== 'STUDENT' ? { viaLink: classroom.student.viaLink, offline: classroom.student.offline, trialAccessUntil: classroom.student.trialAccessUntil } : {}) } : null,
       // The student's own contact details, for the teacher.
       contacts: req.user.role !== 'STUDENT' && classroom.student
         ? await prisma.user.findUnique({ where: { id: classroom.student.id }, select: { email: true, phone: true, messenger: true, birthday: true, city: true, timezone: true, about: true } })
@@ -328,6 +328,7 @@ classroomsRouter.get('/:id', async (req, res) => {
         startedAt: session.startedAt,
         endedAt: session.endedAt,
         counted: session.counted,
+        manual: session.manual,
         note: session.note,
         minutes: session.endedAt
           ? Math.max(1, Math.round((session.endedAt - session.startedAt) / 60000))
@@ -578,6 +579,33 @@ classroomsRouter.delete('/:id/homework-docs/:docId', requireRole('OWNER', 'PARTN
 const sessionPatchSchema = z.object({
   counted: z.boolean().optional(),
   note: z.string().max(500).nullable().optional()
+})
+
+// A lesson held outside the platform (Zoom, in person…), marked by the
+// teacher afterwards: it uses up the package like a call would.
+const manualSessionSchema = z.object({
+  startedAt: z.string().datetime(),
+  minutes: z.number().int().min(5).max(600),
+  note: z.string().max(500).optional()
+})
+
+classroomsRouter.post('/:id/sessions', requireRole('OWNER', 'TEACHER'), async (req, res) => {
+  const classroom = await accessibleClassroom(req.user, req.params.id)
+  if (!classroom) return res.status(404).json({ error: 'Classroom not found' })
+  if (!classroom.studentId) return res.status(400).json({ error: 'A test room has no student' })
+  const parsed = manualSessionSchema.safeParse(req.body)
+  if (!parsed.success) return res.status(400).json({ error: 'Invalid data' })
+  const startedAt = new Date(parsed.data.startedAt)
+  if (startedAt > new Date(Date.now() + 12 * 60 * 60 * 1000)) return res.status(400).json({ error: 'A lesson can be marked only once it has been held' })
+  const session = await prisma.session.create({
+    data: {
+      classroomId: classroom.id, manual: true, counted: true, startedAt,
+      endedAt: new Date(startedAt.getTime() + parsed.data.minutes * 60000),
+      note: parsed.data.note?.trim() || null
+    },
+    select: { id: true }
+  })
+  res.status(201).json({ session })
 })
 
 classroomsRouter.patch('/:id/sessions/:sessionId', requireRole('OWNER', 'TEACHER'), async (req, res) => {

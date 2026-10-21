@@ -13,6 +13,35 @@ import Panel from '../components/Panel'
 import Textbooks from '../components/Textbooks'
 import PersonLink from '../components/PersonLink'
 
+// A student who studies with the teacher somewhere else (Zoom, in person):
+// added without an invitation, only to mark lessons held and keep count of
+// payments. Opens the new cabinet, where lessons are marked.
+function AddOfflineStudent() {
+  const navigate = useNavigate()
+  const [name, setName] = useState('')
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState('')
+  const add = async (event) => {
+    event.preventDefault()
+    setBusy(true); setError('')
+    try {
+      const { classroomId } = await api.createOfflineStudent({ name })
+      navigate(`/classroom/${classroomId}`)
+    } catch (err) {
+      setError(err.message)
+      setBusy(false)
+    }
+  }
+  return (
+    <form className="inline-form" onSubmit={add} style={{ marginTop: 12 }}>
+      <input placeholder="Ученик без приглашения — имя" value={name} onChange={(e) => setName(e.target.value)} minLength={2} required
+        title="Для учёта уроков, проведённых в другом месте (Zoom и т.п.): без почты, ученик не входит на платформу" />
+      <button type="submit" disabled={busy}>{busy ? 'Adding…' : 'Add for lesson count'}</button>
+      {error && <div className="error" style={{ width: '100%' }}>{error}</div>}
+    </form>
+  )
+}
+
 export default function Classrooms() {
   const { user } = useAuth()
   const navigate = useNavigate()
@@ -168,6 +197,7 @@ export default function Classrooms() {
         )}
 
         {studentList(own)}
+        {(user.role === 'TEACHER' || user.role === 'OWNER') && <AddOfflineStudent />}
       </Panel>}
 
       {isAdmin && others.length > 0 && (

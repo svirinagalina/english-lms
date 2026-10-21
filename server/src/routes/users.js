@@ -1,7 +1,8 @@
 import { Router } from 'express'
+import { randomBytes } from 'crypto'
 import { prisma } from '../db.js'
 import { limitedToSite, peopleScope, siteStudentIds, maySeeStudent } from '../partnerScope.js'
-import { requireAuth, requireRole, isAdmin } from '../auth.js'
+import { requireAuth, requireRole, isAdmin, hashPassword } from '../auth.js'
 import { enrollStudent, moveStudent, unenrollStudent } from '../advent.js'
 import { loadBoard } from '../boardStore.js'
 import { ensureClassroom, carryStudentOver } from './classrooms.js'
@@ -28,6 +29,8 @@ const personView = (user) => ({
   free: user.free,
   // Came by a trial booking, no email and password yet (the invite form offers them).
   viaLink: user.viaLink,
+  // Only for counting lessons held elsewhere: no email, never signs in.
+  offline: user.offline,
   trialRequestedAt: user.trialRequestedAt,
   trialRequestNote: user.trialRequestNote,
   plan: user.plan && user.planUntil && new Date(user.planUntil) > new Date() ? { id: user.plan, until: user.planUntil, source: user.planSource } : null,
@@ -44,7 +47,7 @@ const personView = (user) => ({
 const SELECT = {
   id: true, name: true, email: true, username: true, role: true, createdAt: true,
   priceAmount: true, priceCurrency: true, paymentLink: true, paidUntil: true,
-  free: true, viaLink: true, trialRequestedAt: true, trialRequestNote: true, messenger: true, phone: true,
+  free: true, viaLink: true, offline: true, trialRequestedAt: true, trialRequestNote: true, messenger: true, phone: true,
   studentLinks: { include: { teacher: { select: { id: true, name: true } } } },
   teacherLinks: { include: { student: { select: { id: true, name: true } } } },
   studentClassrooms: { select: { id: true, teacherId: true, _count: { select: { sessions: true, boards: true, sharedBoards: true } } } }
@@ -198,6 +201,33 @@ usersRouter.get('/:id/lessons', requireRole('OWNER'), async (req, res) => {
   })
 
   res.json({ teacher, lessons })
+})
+
+// A student added without an invitation, only so their teacher can keep count
+// of lessons held elsewhere (Zoom…) and of what was paid: no email, no
+// password (a random one nobody knows), linked to the teacher, with a cabinet.
+// Inviting them later turns this same account into a real one.
+usersRouter.post('/offline-students', requireRole('OWNER', 'TEACHER'), async (req, res) => {
+  const name = typeof req.body?.name === 'string' ? req.body.name.trim().slice(0, 80) : ''
+  if (name.length < 2) return res.status(400).json({ error: 'Enter the student\'s name' })
+  let teacherId = req.user.id
+  if (req.body?.teacherId && req.body.teacherId !== req.user.id) {
+    if (!isAdmin(req.user)) return res.status(403).json({ error: 'Only the owner adds students for another teacher' })
+    const teacher = await prisma.user.findFirst({ where: { id: req.body.teacherId, schoolId: req.user.schoolId, role: { in: ['OWNER', 'PARTNER', 'TEACHER'] } }, select: { id: true } })
+    if (!teacher) return res.status(404).json({ error: 'Teacher not found' })
+    teacherId = teacher.id
+  }
+  const student = await prisma.user.create({
+    data: {
+      name, role: 'STUDENT', schoolId: req.user.schoolId, offline: true,
+      email: `offline-${randomBytes(6).toString('hex')}@offline.invalid`,
+      passwordHash: await hashPassword(randomBytes(24).toString('base64url'))
+    },
+    select: { id: true, name: true }
+  })
+  await prisma.teacherStudent.create({ data: { teacherId, studentId: student.id } })
+  const classroom = await ensureClassroom(teacherId, student.id, req.user.schoolId)
+  res.status(201).json({ student, classroomId: classroom.id })
 })
 
 usersRouter.post('/links', requireRole('OWNER'), async (req, res) => {

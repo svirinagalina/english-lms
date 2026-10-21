@@ -102,6 +102,9 @@ model User {
   // Made for a lesson booked on the Advent site: signs in by its lesson link
   // (no password of its own until they set one with "Forgot password").
   viaLink          Boolean   @default(false)
+  // Added by a teacher only to keep count of lessons held elsewhere (Zoom…):
+  // no email or password, never signs in, until invited like a trial student.
+  offline          Boolean   @default(false)
   // After a trial booked on the Advent site: everything is open until then;
   // afterwards a lesson-link account must sign up (email + password) and,
   // without paid lessons, is on the free tier.
@@ -520,6 +523,8 @@ model Session {
   // count takes the group once (Galina, 2026-10-15: every student of the
   // group is charged, whether they came or not).
   callId  String?
+  // Marked as held by the teacher by hand (a lesson given outside the platform).
+  manual  Boolean @default(false)
 
   classroomId String
   classroom   Classroom @relation(fields: [classroomId], references: [id], onDelete: Cascade)

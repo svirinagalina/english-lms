@@ -15,6 +15,10 @@ function InviteForm({ role, teachers, currentUserId, onInvited, trialStudents = 
   // A student without email is invited by their Telegram: the link is sent
   // there by hand, and they pick a login instead.
   const [byTelegram, setByTelegram] = useState(false)
+  // Or no invitation at all: a student kept only to count lessons held
+  // elsewhere (Zoom…) and payments; invited later from their cabinet.
+  const [noInvite, setNoInvite] = useState(false)
+  const navigate = useNavigate()
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
   // A student from a trial (no email yet) is invited as that same account:
@@ -27,6 +31,11 @@ function InviteForm({ role, teachers, currentUserId, onInvited, trialStudents = 
     setError('')
     setBusy(true)
     try {
+      if (noInvite && !trial) {
+        const { classroomId } = await api.createOfflineStudent({ name: form.name, teacherId: form.teacherId })
+        navigate(`/classroom/${classroomId}`)
+        return
+      }
       const result = await api.createInvite({
         name: trial ? (trial.name.length >= 2 ? trial.name : `${trial.name} (ученик)`) : form.name,
         ...(byTelegram && !trial ? { telegram: form.telegram } : { email: form.email }),
@@ -46,19 +55,24 @@ function InviteForm({ role, teachers, currentUserId, onInvited, trialStudents = 
   return (
     <form className="inline-form" onSubmit={submit}>
       {error && <div className="error" style={{ width: '100%' }}>{error}</div>}
-      {fromTrial.length > 0 && !trial && (
+      {noInvite && !trial && (
         <div className="muted" style={{ width: '100%' }}>
-          Ученики этого учителя с пробного урока, ещё без почты — если приглашаете одного из них, выберите его:{' '}
+          Ученик появится у учителя без почты и пароля и не будет входить на платформу. В его кабинете учитель отмечает проведённые уроки (Lessons held → Mark a lesson held), а в Payments ведётся оплата. Пригласить его на платформу можно позже, из кабинета.
+        </div>
+      )}
+      {fromTrial.length > 0 && !trial && !noInvite && (
+        <div className="muted" style={{ width: '100%' }}>
+          Ученики этого учителя ещё без почты (с пробного урока или добавленные без приглашения) — если приглашаете одного из них, выберите его:{' '}
           {fromTrial.map((s) => (
             <button key={s.id} type="button" className="ghost" style={{ margin: '4px 6px 0 0' }} onClick={() => setTrial(s)}>
-              {s.name} · пробный {new Date(s.createdAt).toLocaleDateString()}
+              {s.name} · {s.offline ? 'без приглашения' : `пробный ${new Date(s.createdAt).toLocaleDateString()}`}
             </button>
           ))}
         </div>
       )}
       {trial && (
         <div className="notice" style={{ width: '100%' }}>
-          Приглашение уйдёт ученику с пробного <strong>{trial.name}</strong> — его доска и история останутся, второго аккаунта не будет.{' '}
+          Приглашение уйдёт ученику <strong>{trial.name}</strong> — его доска, уроки и оплаты останутся, второго аккаунта не будет.{' '}
           <button type="button" className="link-button" onClick={() => setTrial(null)}>Это другой человек</button>
         </div>
       )}
@@ -71,12 +85,13 @@ function InviteForm({ role, teachers, currentUserId, onInvited, trialStudents = 
         />
       )}
       {role === 'STUDENT' && !trial && (
-        <select value={byTelegram ? 'telegram' : 'email'} onChange={(e) => setByTelegram(e.target.value === 'telegram')} style={{ flex: '0 0 auto', width: 'auto' }} title="Как связаться с учеником">
+        <select value={noInvite ? 'none' : byTelegram ? 'telegram' : 'email'} onChange={(e) => { setByTelegram(e.target.value === 'telegram'); setNoInvite(e.target.value === 'none') }} style={{ flex: '0 0 auto', width: 'auto' }} title="Как связаться с учеником">
           <option value="email">Email</option>
           <option value="telegram">Telegram</option>
+          <option value="none">Без приглашения — только учёт уроков</option>
         </select>
       )}
-      {byTelegram && !trial ? (
+      {noInvite && !trial ? null : byTelegram && !trial ? (
         <input
           placeholder="@telegram"
           value={form.telegram}
@@ -108,7 +123,7 @@ function InviteForm({ role, teachers, currentUserId, onInvited, trialStudents = 
         </select>
       )}
       <button type="submit" disabled={busy}>
-        {busy ? 'Creating…' : `Invite ${role === 'TEACHER' ? 'teacher' : 'student'}`}
+        {busy ? 'Creating…' : noInvite && !trial ? 'Add student' : `Invite ${role === 'TEACHER' ? 'teacher' : 'student'}`}
       </button>
     </form>
   )
@@ -619,7 +634,7 @@ export default function People() {
         <p className="muted" style={{ marginBottom: 10 }}>
           The student is linked to the teacher you pick and will see that teacher's lessons.
         </p>
-        <InviteForm role="STUDENT" teachers={teachers} currentUserId={user.id} onInvited={handleInvited} trialStudents={people.filter((p) => p.role === 'STUDENT' && p.viaLink)} />
+        <InviteForm role="STUDENT" teachers={teachers} currentUserId={user.id} onInvited={handleInvited} trialStudents={people.filter((p) => p.role === 'STUDENT' && (p.viaLink || p.offline))} />
       </Panel>
 
       {invites.length > 0 && (

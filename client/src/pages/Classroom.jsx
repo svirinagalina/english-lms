@@ -24,6 +24,46 @@ import StudentTeachers from '../components/StudentTeachers'
 // A student from a trial lesson link has no email or password yet. The
 // teacher invites them as before — the invitation goes to the same account,
 // so the trial board, words and mistakes stay theirs.
+// A lesson held outside the platform (Zoom, in person…), marked afterwards:
+// it uses up the package like a call. Defaults to the last full hour, 60 min.
+const localInput = (date) => new Date(date.getTime() - date.getTimezoneOffset() * 60000).toISOString().slice(0, 16)
+function MarkLesson({ classroomId, onMarked }) {
+  const [open, setOpen] = useState(false)
+  const [when, setWhen] = useState('')
+  const [minutes, setMinutes] = useState(60)
+  const [note, setNote] = useState('')
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState('')
+  const start = () => {
+    const hour = new Date(); hour.setMinutes(0, 0, 0); hour.setHours(hour.getHours() - 1)
+    setWhen(localInput(hour)); setMinutes(60); setNote(''); setError(''); setOpen(true)
+  }
+  const save = async (event) => {
+    event.preventDefault()
+    setBusy(true); setError('')
+    try {
+      await api.markSession(classroomId, { startedAt: new Date(when).toISOString(), minutes: Number(minutes), ...(note.trim() ? { note: note.trim() } : {}) })
+      setOpen(false)
+      await onMarked()
+    } catch (err) {
+      setError(err.message)
+    } finally {
+      setBusy(false)
+    }
+  }
+  if (!open) return <button className="ghost" onClick={start} style={{ marginBottom: 10 }}>+ Mark a lesson held</button>
+  return (
+    <form className="inline-form" onSubmit={save} style={{ marginBottom: 12 }}>
+      <input type="datetime-local" value={when} onChange={(e) => setWhen(e.target.value)} max={localInput(new Date())} required title="When the lesson started" />
+      <input type="number" min="5" max="600" value={minutes} onChange={(e) => setMinutes(e.target.value)} required style={{ width: 90, flex: '0 0 auto' }} title="Minutes" />
+      <input placeholder="Note (Zoom, topic…)" value={note} onChange={(e) => setNote(e.target.value)} maxLength={500} />
+      <button type="submit" disabled={busy}>{busy ? 'Saving…' : 'Save'}</button>
+      <button type="button" className="ghost" onClick={() => setOpen(false)}>Cancel</button>
+      {error && <div className="error" style={{ width: '100%' }}>{error}</div>}
+    </form>
+  )
+}
+
 function InviteTrialStudent({ student }) {
   const [email, setEmail] = useState('')
   const [busy, setBusy] = useState(false)
@@ -40,10 +80,14 @@ function InviteTrialStudent({ student }) {
   const until = student.trialAccessUntil ? new Date(student.trialAccessUntil) : null
   return (
     <section className="trial-invite">
-      <strong>Ученик с пробного урока — без почты и пароля</strong>
+      <strong>{student.offline ? 'Ученик без приглашения — только учёт уроков' : 'Ученик с пробного урока — без почты и пароля'}</strong>
       <p className="muted">
-        {until && until > new Date() ? `Полный доступ по ссылке до ${until.toLocaleDateString()}. ` : until ? 'Три дня пробного доступа прошли. ' : ''}
-        Если ученик остаётся, пригласите его на платформу: придёт письмо, он придумает пароль. Доска с пробного и всё остальное останутся у него.
+        {student.offline
+          ? 'Он не входит на платформу: отмечайте проведённые уроки ниже, в Lessons held, а оплату — в Payments. Если захотите, пригласите его на платформу: придёт письмо, он придумает пароль, уроки и оплаты сохранятся.'
+          : <>
+              {until && until > new Date() ? `Полный доступ по ссылке до ${until.toLocaleDateString()}. ` : until ? 'Три дня пробного доступа прошли. ' : ''}
+              Если ученик остаётся, пригласите его на платформу: придёт письмо, он придумает пароль. Доска с пробного и всё остальное останутся у него.
+            </>}
       </p>
       {done ? (
         <p>{done.sent ? `Приглашение отправлено на ${email}.` : 'Письмо не ушло — отправьте ученику эту ссылку:'} {!done.sent && <code>{done.link}</code>}</p>
@@ -432,7 +476,7 @@ export default function Classroom() {
         </div>
       </Panel>
 
-      {isStaff && !isPersonal && classroom.student?.viaLink && <InviteTrialStudent student={classroom.student} />}
+      {isStaff && !isPersonal && (classroom.student?.viaLink || classroom.student?.offline) && <InviteTrialStudent student={classroom.student} />}
       {isStaff && !isPersonal && classroom.student && <StudentSettings studentId={classroom.student.id} onChanged={refresh} focus={searchParams.get('payment') === '1'} />}
       {['OWNER', 'PARTNER'].includes(user.role) && !isPersonal && classroom.student && (
         <StudentTeachers studentId={classroom.student.id} classroomId={id} teacherId={classroom.teacher.id} onMoved={(next) => navigate(`/classroom/${next}`)} />
@@ -545,6 +589,7 @@ export default function Classroom() {
 
       {!isPersonal && (
       <Panel id={`room:sessions:${id}`} title="Lessons held" count={classroom.sessions.length}>
+        {isStaff && user.role !== 'PARTNER' && classroom.student && <MarkLesson classroomId={id} onMarked={refresh} />}
         {classroom.sessions.length === 0 && <p className="muted">No lessons yet.</p>}
         <div className="list">
           {classroom.sessions.map((session) => (
@@ -553,6 +598,8 @@ export default function Classroom() {
                 <strong>{new Date(session.startedAt).toLocaleString()}</strong>
                 <div className="muted">
                   {session.endedAt ? `${session.minutes} min` : 'in progress'}
+                  {session.manual && ' · marked by hand'}
+                  {session.note && ` · ${session.note}`}
                   {!session.counted && ' · not counted'}
                 </div>
               </div>

@@ -100,7 +100,7 @@ invitesRouter.post('/token/:token/accept', async (req, res) => {
   // The trial-link account takes the email and the password.
   if (invite.userId) {
     const user = await prisma.$transaction(async (tx) => {
-      const updated = await tx.user.update({ where: { id: invite.userId }, data: { email: invite.email, passwordHash, viaLink: false } })
+      const updated = await tx.user.update({ where: { id: invite.userId }, data: { email: invite.email, passwordHash, viaLink: false, offline: false } })
       await tx.teacherStudent.upsert({ where: { teacherId_studentId: { teacherId: invite.invitedById, studentId: updated.id } }, create: { teacherId: invite.invitedById, studentId: updated.id }, update: {} })
       await tx.invite.update({ where: { id: invite.id }, data: { acceptedAt: new Date() } })
       return updated
@@ -194,7 +194,7 @@ invitesRouter.post('/', requireRole('OWNER', 'TEACHER'), async (req, res) => {
 
   let trialAccount = null
   if (userId) {
-    trialAccount = await prisma.user.findFirst({ where: { id: userId, schoolId: req.user.schoolId, role: 'STUDENT', viaLink: true } })
+    trialAccount = await prisma.user.findFirst({ where: { id: userId, schoolId: req.user.schoolId, role: 'STUDENT', OR: [{ viaLink: true }, { offline: true }] } })
     if (!trialAccount) return res.status(404).json({ error: 'Student not found' })
     if (!isAdmin(req.user) && !(await prisma.teacherStudent.findFirst({ where: { teacherId: req.user.id, studentId: userId } }))) return res.status(404).json({ error: 'Student not found' })
   }

@@ -81,6 +81,7 @@ export const api = {
 
   listInvites: () => request('/invites'),
   createInvite: (body) => request('/invites', { method: 'POST', body }),
+  createOfflineStudent: (body) => request('/users/offline-students', { method: 'POST', body }),
   deleteInvite: (id) => request(`/invites/${id}`, { method: 'DELETE' }),
   resendInvite: (id) => request(`/invites/${id}/resend`, { method: 'POST' }),
   mailStatus: () => request('/invites/mail-status'),
@@ -262,6 +263,7 @@ export const api = {
     request(`/classrooms/${id}/boards/${boardId}/assign`, { method: 'POST', body: { targetClassroomId, attach } }),
   deleteBoard: (id, boardId) =>
     request(`/classrooms/${id}/boards/${boardId}`, { method: 'DELETE' }),
+  markSession: (id, body) => request(`/classrooms/${id}/sessions`, { method: 'POST', body }),
   updateSession: (id, sessionId, body) =>
     request(`/classrooms/${id}/sessions/${sessionId}`, { method: 'PATCH', body }),
   deleteSession: (id, sessionId) =>
