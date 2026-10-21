@@ -297,7 +297,7 @@ authRouter.post('/reset/:token', async (req, res) => {
   const passwordHash = await hashPassword(password)
   const user = await prisma.$transaction(async (tx) => {
     // The reset link came by email, so the address is confirmed too.
-    const updated = await tx.user.update({ where: { id: reset.userId }, data: { passwordHash, emailVerified: true } })
+    const updated = await tx.user.update({ where: { id: reset.userId }, data: { passwordHash, emailVerified: true, sessionVersion: { increment: 1 } } })
     await tx.passwordReset.update({ where: { id: reset.id }, data: { usedAt: new Date() } })
     // Any other outstanding links for this account die with this one.
     await tx.passwordReset.updateMany({ where: { userId: reset.userId, usedAt: null }, data: { usedAt: new Date() } })

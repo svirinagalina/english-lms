@@ -1,6 +1,6 @@
 import jwt from 'jsonwebtoken'
 import { prisma } from './db.js'
-import { PARTNER_READ_ONLY } from './auth.js'
+import { PARTNER_READ_ONLY, sameSession } from './auth.js'
 import { accessibleClassroom } from './routes/classrooms.js'
 import {
   elementSchema,
@@ -203,9 +203,9 @@ export function setupSignaling(io) {
         const payload = jwt.verify(token, process.env.JWT_SECRET)
         const user = await prisma.user.findUnique({
           where: { id: payload.sub },
-          select: { id: true, role: true, schoolId: true, free: true }
+          select: { id: true, role: true, schoolId: true, free: true, sessionVersion: true }
         })
-        if (user) {
+        if (user && sameSession(payload, user)) {
           socket.data.user = user
           return next()
         }

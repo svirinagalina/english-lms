@@ -51,6 +51,8 @@ model User {
   // their email is then a placeholder "<login>@login.invalid" (never mailed).
   username     String?  @unique
   passwordHash String
+  // Raised when the password changes: sign-in cookies made before stop working.
+  sessionVersion Int    @default(0)
   name         String
   role         Role
   createdAt    DateTime @default(now())

@@ -5,7 +5,7 @@ import { mkdir, writeFile, unlink } from 'fs/promises'
 import { randomBytes } from 'crypto'
 import { fileURLToPath } from 'url'
 import { prisma } from '../db.js'
-import { requireAuth, hashPassword, verifyPassword, clearToken } from '../auth.js'
+import { requireAuth, hashPassword, verifyPassword, clearToken, issueToken } from '../auth.js'
 import { moveStudent, unenrollStudent } from '../advent.js'
 import { sendTrialRequestEmail } from '../mailer.js'
 import { notifyTrialRequest } from '../push.js'
@@ -65,11 +65,13 @@ profileRouter.patch('/', async (req, res) => {
   const data = {}
   if (name) data.name = name
   if (email) data.email = email
-  if (newPassword) data.passwordHash = await hashPassword(newPassword)
+  // A new password ends every other sign-in; this one gets a fresh cookie below.
+  if (newPassword) { data.passwordHash = await hashPassword(newPassword); data.sessionVersion = { increment: 1 } }
   for (const field of DETAIL_FIELDS) {
     if (parsed.data[field] !== undefined) data[field] = parsed.data[field] || null
   }
   const updated = await prisma.user.update({ where: { id: user.id }, data })
+  if (newPassword) issueToken(res, updated)
   if (user.role === 'STUDENT' && updated.email !== user.email) moveStudent(user.email, updated.email, updated.name)
   res.json({ user: view(updated), details: details(updated) })
 })

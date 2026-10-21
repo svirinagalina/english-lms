@@ -11,7 +11,8 @@ export const verifyPassword = (password, hash) => bcrypt.compare(password, hash)
 
 export function issueToken(res, user) {
   const token = jwt.sign(
-    { sub: user.id, role: user.role, schoolId: user.schoolId },
+    // sv: the password generation it was made in (sessionVersion).
+    { sub: user.id, role: user.role, schoolId: user.schoolId, sv: user.sessionVersion ?? 0 },
     process.env.JWT_SECRET,
     { expiresIn: '7d' }
   )
@@ -39,11 +40,16 @@ export async function userFromCookie(req) {
   } catch {
     return null
   }
-  return prisma.user.findUnique({
+  const user = await prisma.user.findUnique({
     where: { id: payload.sub },
-    select: { id: true, role: true, schoolId: true, free: true, plan: true, planUntil: true, viaLink: true, trialAccessUntil: true, lessonsPaid: true }
+    select: { id: true, role: true, schoolId: true, free: true, plan: true, planUntil: true, viaLink: true, trialAccessUntil: true, lessonsPaid: true, sessionVersion: true }
   })
+  return user && sameSession(payload, user) ? user : null
 }
+
+// A cookie made before the last password change no longer signs anyone in
+// (cookies from before sessionVersion existed carry none and count as 0).
+export const sameSession = (payload, user) => (payload.sv ?? 0) === user.sessionVersion
 
 // A trial-link account (no email/password of its own) that now has paid
 // lessons: it becomes a real student — everything waits for the email and the
