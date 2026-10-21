@@ -99,10 +99,28 @@ function measureWidth(text, size, bold, italic) {
   return (base * size) / REFERENCE_SIZE
 }
 
+// A line can have its own size: {{size:28}} at its very start. Without one
+// it takes the element's fontSize. The marker is never drawn or edited.
+const LINE_SIZE = /^\{\{size:(\d+(?:\.\d+)?)\}\}/
+function splitLineSize(line, base) {
+  const m = line.match(LINE_SIZE)
+  return m ? { size: Number(m[1]), body: line.slice(m[0].length) } : { size: base, body: line }
+}
+const roundSize = (size) => Math.round(size * 10) / 10
+const withLineSize = (body, size, base) => (Math.abs(size - base) < 0.05 ? body : `{{size:${roundSize(size)}}}${body}`)
+// Every line back to the element's own size.
+const stripLineSizes = (text) => String(text ?? '').split('\n').map((line) => line.replace(LINE_SIZE, '')).join('\n')
+// A resize scales the lines' own sizes along with the element's.
+const scaleLineSizes = (text, factor) => String(text ?? '').split('\n').map((line) => {
+  const m = line.match(LINE_SIZE)
+  return m ? `{{size:${roundSize(Number(m[1]) * factor)}}}${line.slice(m[0].length)}` : line
+}).join('\n')
+
 // "a **b** c" → [{text:'a ', bold:false}, {text:'b', bold:true}, {text:' c', bold:false}]
 // Markup: **bold**, __italic__, ~~struck through~~ and {{#rrggbb:coloured}} spans, nestable.
 const COLOR_OPEN = /^\{\{(#[0-9a-fA-F]{6}):/
 function textRuns(line) {
+  line = line.replace(LINE_SIZE, '')
   const runs = []
   let bold = false
   let italic = false
@@ -155,17 +173,21 @@ function wordUnderPoint(element, px, py) {
   const originX = element.x + (note ? NOTE_PAD : 0)
   const originY = element.y + (note ? NOTE_PAD : 0)
   const lines = textLines(note ? { text: element.text, fontSize: size, w: Math.max(20, element.w - 2 * NOTE_PAD) } : element)
-  const row = Math.floor((py - originY) / (size * LINE_HEIGHT))
-  const runs = lines[row]
-  if (!runs) return null
+  let top = originY
+  const runs = lines.find((line) => {
+    top += line.size * LINE_HEIGHT
+    return py < top
+  })
+  if (!runs || py < originY) return null
+  const lineSize = runs.size
   let x = originX
   for (const run of runs) {
-    const w = measureWidth(run.text, size, run.bold, run.italic)
+    const w = measureWidth(run.text, lineSize, run.bold, run.italic)
     if (px >= x && px <= x + w) {
       // Walk the characters of this run to the one under the point.
       let acc = x
       for (let i = 0; i < run.text.length; i++) {
-        const cw = measureWidth(run.text[i], size, run.bold, run.italic)
+        const cw = measureWidth(run.text[i], lineSize, run.bold, run.italic)
         if (px <= acc + cw) return wordAt(run.text, i)?.word ?? null
         acc += cw
       }
@@ -183,18 +205,75 @@ function wordUnderPoint(element, px, py) {
 
 const escapeHtml = (text) => text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
 
-function markupToHtml(text) {
-  return String(text ?? '').split('\n').map((line) =>
-    textRuns(line).map((run) => {
+// base is the element's fontSize: a line with its own size gets it as em on
+// its spans, so it scales with the editor's zoom like the rest.
+function markupToHtml(text, base = 20) {
+  return String(text ?? '').split('\n').map((line) => {
+    const { size } = splitLineSize(line, base)
+    const em = Math.abs(size - base) < 0.05 ? '' : `font-size:${size / base}em`
+    return textRuns(line).map((run) => {
       const style = [
         run.bold ? 'font-weight:700' : '',
         run.italic ? 'font-style:italic' : '',
         run.strike ? 'text-decoration:line-through' : '',
-        run.color ? `color:${inkOf(run.color)}` : ''
+        run.color ? `color:${inkOf(run.color)}` : '',
+        em
       ].filter(Boolean).join(';')
       return style ? `<span style="${style}">${escapeHtml(run.text)}</span>` : escapeHtml(run.text)
-    }).join('') || '&nbsp;'
-  ).join('<br>')
+    }).join('') || (em ? `<span style="${em}">&nbsp;</span>` : '&nbsp;')
+  }).join('<br>')
+}
+
+// The editor's text as plain characters, a <br> counting as one "\n" —
+// enough to find which lines a selection covers and to put it back.
+function editorPlain(node) {
+  if (node.nodeType === Node.TEXT_NODE) return node.textContent
+  if (node.nodeName === 'BR') return '\n'
+  let out = ''
+  for (const child of node.childNodes) out += editorPlain(child)
+  return out
+}
+function editorOffsets(root) {
+  const selection = window.getSelection()
+  if (!selection?.rangeCount || !root.contains(selection.anchorNode)) return null
+  const range = selection.getRangeAt(0)
+  const offsetOf = (node, offset) => {
+    const before = document.createRange()
+    before.selectNodeContents(root)
+    before.setEnd(node, offset)
+    return editorPlain(before.cloneContents()).length
+  }
+  return { start: offsetOf(range.startContainer, range.startOffset), end: offsetOf(range.endContainer, range.endOffset) }
+}
+function editorPoint(root, offset) {
+  let left = offset
+  let found = null
+  const walk = (node) => {
+    if (found) return
+    if (node.nodeType === Node.TEXT_NODE) {
+      if (left <= node.textContent.length) { found = { node, offset: left }; return }
+      left -= node.textContent.length
+      return
+    }
+    if (node.nodeName === 'BR') {
+      if (left === 0) { found = { node: node.parentNode, offset: [...node.parentNode.childNodes].indexOf(node) }; return }
+      left -= 1
+      return
+    }
+    for (const child of node.childNodes) walk(child)
+  }
+  walk(root)
+  return found ?? { node: root, offset: root.childNodes.length }
+}
+function setEditorOffsets(root, { start, end }) {
+  const a = editorPoint(root, start)
+  const b = editorPoint(root, end)
+  const range = document.createRange()
+  range.setStart(a.node, a.offset)
+  range.setEnd(b.node, b.offset)
+  const selection = window.getSelection()
+  selection.removeAllRanges()
+  selection.addRange(range)
 }
 
 const rgbToHex = (value) => {
@@ -205,12 +284,16 @@ const rgbToHex = (value) => {
 
 // Reads the editor DOM back into markup. baseColor is the element's own
 // colour: only other colours become {{#…}} spans.
-function htmlToMarkup(root, baseColor) {
+function htmlToMarkup(root, baseColor, baseSize = 20) {
   const runs = []
   const base = rgbToHex(inkOf(baseColor)) ?? baseColor
+  const rootPx = parseFloat(getComputedStyle(root).fontSize) || 1
   const walk = (node, style, blockStart) => {
     if (node.nodeType === Node.TEXT_NODE) {
-      if (node.textContent) runs.push({ text: node.textContent, ...style })
+      if (node.textContent) {
+        const px = parseFloat(getComputedStyle(node.parentElement).fontSize) || rootPx
+        runs.push({ text: node.textContent, ...style, size: baseSize * px / rootPx })
+      }
       return
     }
     if (node.nodeType !== Node.ELEMENT_NODE) return
@@ -236,15 +319,30 @@ function htmlToMarkup(root, baseColor) {
     for (const child of node.childNodes) walk(child, next, false)
   }
   walk(root, { bold: false, italic: false, strike: false, color: null }, true)
-  return runs.map((run) => {
-    if (run.text === '\n') return '\n'
-    let out = run.text
-    if (run.bold) out = `**${out}**`
-    if (run.italic) out = `__${out}__`
-    if (run.strike) out = `~~${out}~~`
-    if (run.color) out = `{{${run.color}:${out}}}`
-    return out
-  }).join('').replace(/\n$/, '')
+  // A line's size is the one most of its characters have: a letter typed
+  // just outside a sized span must not pull the line back to the base size.
+  const lines = [[]]
+  for (const run of runs) {
+    if (run.text === '\n') lines.push([])
+    else lines[lines.length - 1].push(run)
+  }
+  return lines.map((line) => {
+    const weight = new Map()
+    for (const run of line) {
+      const key = roundSize(run.size)
+      weight.set(key, (weight.get(key) ?? 0) + run.text.replace(/\u00a0/g, '').length + 0.001)
+    }
+    const size = [...weight].sort((a, b) => b[1] - a[1])[0]?.[0] ?? baseSize
+    const body = line.map((run) => {
+      let out = run.text
+      if (run.bold) out = `**${out}**`
+      if (run.italic) out = `__${out}__`
+      if (run.strike) out = `~~${out}~~`
+      if (run.color) out = `{{${run.color}:${out}}}`
+      return out
+    }).join('')
+    return withLineSize(body, size, baseSize)
+  }).join('\n').replace(/\n$/, '')
 }
 
 const styleOf = (run) => ({ bold: run.bold, italic: run.italic, strike: run.strike, color: run.color })
@@ -298,9 +396,13 @@ function textLines(element) {
   const cached = layoutCache.get(key)
   if (cached) return cached
   const paragraphs = String(element.text ?? '').split('\n')
-  const lines = element.w
-    ? paragraphs.flatMap((line) => wrapLine(line, size, element.w))
-    : paragraphs.map((line) => textRuns(line))
+  // Each line carries the size it is drawn at (its own, or the element's).
+  const lines = paragraphs.flatMap((paragraph) => {
+    const { size: lineSize, body } = splitLineSize(paragraph, size)
+    const wrapped = element.w ? wrapLine(body, lineSize, element.w) : [textRuns(body)]
+    for (const line of wrapped) line.size = lineSize
+    return wrapped
+  })
   if (layoutCache.size > 2000) layoutCache.clear()
   layoutCache.set(key, lines)
   return lines
@@ -308,10 +410,10 @@ function textLines(element) {
 
 function textSize(text, size, maxWidth) {
   const lines = textLines({ text, fontSize: size, w: maxWidth })
-  const widths = lines.map((runs) => runs.reduce((sum, run) => sum + measureWidth(run.text, size, run.bold, run.italic), 0))
+  const widths = lines.map((runs) => runs.reduce((sum, run) => sum + measureWidth(run.text, runs.size, run.bold, run.italic), 0))
   return {
     w: maxWidth ?? Math.max(8, ...widths),
-    h: Math.max(1, lines.length) * size * LINE_HEIGHT
+    h: Math.max(size * LINE_HEIGHT, lines.reduce((sum, line) => sum + line.size * LINE_HEIGHT, 0))
   }
 }
 
@@ -386,6 +488,7 @@ function fitElement(element, box) {
     const uniform = Math.abs(sx - sy) < 0.05
     const fontSize = Math.max(8, Math.min(MAX_FONT_SIZE, size * sy))
     const next = { ...element, x: box.x, y: box.y, fontSize }
+    if (/(^|\n)\{\{size:/.test(element.text ?? '')) next.text = scaleLineSizes(element.text, fontSize / size)
     // A pure width change sets how wide the text may run before wrapping;
     // a uniform scale keeps the wrap width in exact proportion to the font
     // (including where the font size hits its limit) so no line moves.
@@ -723,11 +826,12 @@ function drawElement(ctx, element) {
     ctx.fill()
     ctx.restore()
     ctx.textBaseline = 'top'
-    textLines({ text: element.text, fontSize: size, w: Math.max(20, box.w - 2 * NOTE_PAD) }).forEach((runs, index) => {
+    let y = box.y + NOTE_PAD
+    textLines({ text: element.text, fontSize: size, w: Math.max(20, box.w - 2 * NOTE_PAD) }).forEach((runs) => {
       let x = box.x + NOTE_PAD
-      const y = box.y + NOTE_PAD + index * size * LINE_HEIGHT
+      const lineSize = runs.size
       for (const run of runs) {
-        ctx.font = fontFor(size, run.bold, run.italic)
+        ctx.font = fontFor(lineSize, run.bold, run.italic)
         ctx.fillStyle = inkOf(run.color ?? element.color)
         ctx.fillText(run.text, x, y)
         // Advance by the width at the size actually drawn: the system font
@@ -735,9 +839,10 @@ function drawElement(ctx, element) {
         // width scaled from REFERENCE_SIZE fell short and the space where
         // one coloured or bold run meets the next vanished ("Madridfor").
         const runWidth = ctx.measureText(run.text).width
-        if (run.strike) strikeThrough(ctx, x, y, runWidth, size)
+        if (run.strike) strikeThrough(ctx, x, y, runWidth, lineSize)
         x += runWidth
       }
+      y += lineSize * LINE_HEIGHT
     })
     return
   }
@@ -776,13 +881,13 @@ function drawElement(ctx, element) {
   }
 
   if (element.type === 'text') {
-    const size = element.fontSize ?? 20
     ctx.textBaseline = 'top'
-    textLines(element).forEach((runs, index) => {
+    let y = element.y
+    textLines(element).forEach((runs) => {
       let x = element.x
-      const y = element.y + index * size * LINE_HEIGHT
+      const lineSize = runs.size
       for (const run of runs) {
-        ctx.font = fontFor(size, run.bold, run.italic)
+        ctx.font = fontFor(lineSize, run.bold, run.italic)
         ctx.fillStyle = inkOf(run.color ?? element.color)
         ctx.fillText(run.text, x, y)
         // Advance by the width at the size actually drawn: the system font
@@ -790,9 +895,10 @@ function drawElement(ctx, element) {
         // width scaled from REFERENCE_SIZE fell short and the space where
         // one coloured or bold run meets the next vanished ("Madridfor").
         const runWidth = ctx.measureText(run.text).width
-        if (run.strike) strikeThrough(ctx, x, y, runWidth, size)
+        if (run.strike) strikeThrough(ctx, x, y, runWidth, lineSize)
         x += runWidth
       }
+      y += lineSize * LINE_HEIGHT
     })
   }
 }
@@ -1141,10 +1247,22 @@ const Whiteboard = forwardRef(function Whiteboard({ socketRef, boardId, title, s
   const tipHideTimer = useRef(null)
   const tipHoverRef = useRef(false)
   const tipWordRef = useRef(null)
+  // Drops the hover card at once: a click or the editor opening means the
+  // person is working with the text, and the card would sit on top of it.
+  const hideTip = () => {
+    tipWordRef.current = null
+    tipHoverRef.current = false
+    clearTimeout(tipTimer.current)
+    clearTimeout(tipHideTimer.current)
+    setTip(null)
+  }
   const hoverDictionary = (event) => {
     if (pointerRef.current || textInput) return
     const point = toWorld(event)
-    const target = [...elementsRef.current].reverse().find((e) => (e.type === 'text' || e.type === 'note' || e.type === 'image') && hitTest(e, point.x, point.y))
+    const hit = [...elementsRef.current].reverse().find((e) => (e.type === 'text' || e.type === 'note' || e.type === 'image') && hitTest(e, point.x, point.y))
+    // A selected text is being worked on (moved, restyled, opened to edit),
+    // so its words show no cards; click off it and they come back.
+    const target = hit && !selectedRef.current.includes(hit.id) ? hit : null
     // An image needs OCR before it has any words at all — ocrWords starts
     // that on the first hover over it and returns null until it's done, so
     // the tip just doesn't show for the second or so that takes.
@@ -2155,6 +2273,7 @@ const Whiteboard = forwardRef(function Whiteboard({ socketRef, boardId, title, s
     if (target.type === 'note' && target.mistakeId && onMistake) { openMistakeEdit(target); return }
     if (phone) { openPhoneDraft({ mode: 'edit', element: target }); return }
     const note = target.type === 'note'
+    hideTip()
     selectedRef.current = [target.id]
     liveCreatedRef.current = null
     setTextInput({
@@ -2300,6 +2419,7 @@ const Whiteboard = forwardRef(function Whiteboard({ socketRef, boardId, title, s
   const handlePointerDown = (event) => {
     if (trackTouch(event)) return
     if (textInput) return
+    hideTip()
     // Keep receiving moves even when the pointer crosses a floating bar.
     try { event.currentTarget.setPointerCapture(event.pointerId) } catch { /* not supported */ }
     setDragging(true)
@@ -2838,7 +2958,7 @@ const Whiteboard = forwardRef(function Whiteboard({ socketRef, boardId, title, s
     liveCreatedRef.current = null
     // The DOM is the source of truth while editing; read it one last time.
     const area = textAreaRef.current
-    const latest = area ? htmlToMarkup(area, draft.color) : draft.value
+    const latest = area ? htmlToMarkup(area, draft.color, draft.fontSize) : draft.value
     setTextInput(null)
     const text = latest.replace(/\s+$/, '')
     if (phone) selectedRef.current = [] // a phone shows no selection handles
@@ -2901,7 +3021,7 @@ const Whiteboard = forwardRef(function Whiteboard({ socketRef, boardId, title, s
   const syncEditor = () => {
     const area = textAreaRef.current
     if (!area || !textInput) return
-    const value = htmlToMarkup(area, textInput.color)
+    const value = htmlToMarkup(area, textInput.color, textInput.fontSize)
     // A paste fires several input events before React has stored the new
     // element's id, so the id lives in a ref as well: one element per editor.
     const live = liveCreatedRef.current
@@ -2964,7 +3084,7 @@ const Whiteboard = forwardRef(function Whiteboard({ socketRef, boardId, title, s
           span.style && (span.style.color = '')
           span.removeAttribute?.('color')
         }
-        setTextInput({ ...textInput, color: value, value: htmlToMarkup(area, value) })
+        setTextInput({ ...textInput, color: value, value: htmlToMarkup(area, value, textInput.fontSize) })
       }
       requestAnimationFrame(() => area.focus({ preventScroll: true }))
       return
@@ -3026,14 +3146,42 @@ const Whiteboard = forwardRef(function Whiteboard({ socketRef, boardId, title, s
     // big heading must not make every later text heading-sized.
     lastFontSizeRef.current = size
     if (textInput) {
-      setTextInput({ ...textInput, fontSize: size })
-      requestAnimationFrame(() => textAreaRef.current?.focus({ preventScroll: true }))
+      const area = textAreaRef.current
+      const at = area && editorOffsets(area)
+      if (!area || !at) {
+        setTextInput({ ...textInput, fontSize: size })
+        requestAnimationFrame(() => textAreaRef.current?.focus({ preventScroll: true }))
+        return
+      }
+      // The size goes to every line the caret or highlight touches — the
+      // whole line, so a line never mixes sizes. All lines → the text's own size.
+      const base = textInput.fontSize
+      const lines = htmlToMarkup(area, textInput.color, base).split('\n')
+      const plain = editorPlain(area)
+      const from = plain.slice(0, at.start).split('\n').length - 1
+      const to = plain.slice(0, at.end).split('\n').length - 1
+      const whole = from === 0 && to >= lines.length - 1
+      const nextBase = whole ? size : base
+      const value = lines.map((line, index) => {
+        const { size: own, body } = splitLineSize(line, base)
+        return withLineSize(body, whole || (index >= from && index <= to) ? size : own, nextBase)
+      }).join('\n')
+      area.innerHTML = markupToHtml(value, nextBase)
+      // The size <select> keeps the focus until its change is over, so the
+      // caret goes back once that settles.
+      const restore = () => { area.focus({ preventScroll: true }); setEditorOffsets(area, at) }
+      restore()
+      requestAnimationFrame(restore)
+      const draft = { ...withCreated(textInput), value, fontSize: nextBase }
+      setTextInput(draft)
+      pushLive(draft, value)
+      setEditorLineSize(size)
       return
     }
     const items = selectedElements().filter((item) => item.type === 'text' || item.type === 'note')
     if (!items.length) return
     const befores = items.map((item) => structuredClone(item))
-    for (const item of items) replaceRaw({ ...item, fontSize: size })
+    for (const item of items) replaceRaw({ ...item, fontSize: size, text: stripLineSizes(item.text) })
     recordUpdates(befores)
     scheduleRender()
     bump()
@@ -3042,10 +3190,28 @@ const Whiteboard = forwardRef(function Whiteboard({ socketRef, boardId, title, s
   // The editor is filled once per opening; afterwards the DOM is the source
   // of truth and only read back. The caret goes where the click landed.
   const editorKey = textInput ? `${textInput.id ?? 'new'}:${textInput.x},${textInput.y}` : null
+  // The size box shows the size of the line the caret is on.
+  const [editorLineSize, setEditorLineSize] = useState(null)
+  const editorBase = textInput?.fontSize
+  useEffect(() => {
+    if (!editorBase) { setEditorLineSize(null); return }
+    const onSelection = () => {
+      const area = textAreaRef.current
+      const node = window.getSelection()?.anchorNode
+      if (!area || !node || !area.contains(node)) return
+      const element = node.nodeType === Node.TEXT_NODE ? node.parentElement : node
+      const px = parseFloat(getComputedStyle(element).fontSize)
+      const rootPx = parseFloat(getComputedStyle(area).fontSize)
+      if (px && rootPx) setEditorLineSize(roundSize(editorBase * px / rootPx))
+    }
+    onSelection()
+    document.addEventListener('selectionchange', onSelection)
+    return () => document.removeEventListener('selectionchange', onSelection)
+  }, [editorBase])
   useEffect(() => {
     const area = textAreaRef.current
     if (!area || !textInput) return
-    area.innerHTML = markupToHtml(textInput.value)
+    area.innerHTML = markupToHtml(textInput.value, textInput.fontSize)
     area.focus({ preventScroll: true })
     // An overflow-hidden box still scrolls to a focused child; keep it put.
     if (area.parentElement) { area.parentElement.scrollLeft = 0; area.parentElement.scrollTop = 0 }
@@ -3271,7 +3437,7 @@ const Whiteboard = forwardRef(function Whiteboard({ socketRef, boardId, title, s
   const showTextControls = Boolean(textInput) || textLike.length > 0
 
   // A corner-dragged text can have any size; the list shows it alongside the presets.
-  const currentFontSize = Math.round(textInput ? textInput.fontSize : (textLike[0]?.fontSize ?? 20))
+  const currentFontSize = Math.round(textInput ? (editorLineSize ?? textInput.fontSize) : (textLike[0]?.fontSize ?? 20))
   const fontSizeOptions = FONT_SIZES.includes(currentFontSize) ? FONT_SIZES : [...FONT_SIZES, currentFontSize].sort((a, b) => a - b)
   const selected = selectedElement()
 
