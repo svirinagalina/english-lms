@@ -101,26 +101,6 @@ function hasTwin(elements, element) {
 // rewrite them (a teacher's lesson list is built from authorId + at).
 const keepOrigin = (stored, element) => ({ ...element, authorId: stored.authorId, at: stored.at })
 
-// A student changes only what they made themselves (Galina, 2026-10-21); the
-// teacher's material they may only move (2026-10-06): x/y, and a drawn stroke
-// shifted as a whole. Elements without an author count as the teacher's.
-export function studentMayChange(stored, incoming, userId) {
-  if (!stored || stored.authorId === userId) return true
-  if (!incoming) return false
-  const keys = new Set([...Object.keys(stored), ...Object.keys(incoming)])
-  for (const key of keys) {
-    if (key === 'x' || key === 'y' || key === 'points' || key === 'authorId' || key === 'at') continue
-    if (JSON.stringify(stored[key]) !== JSON.stringify(incoming[key])) return false
-  }
-  const before = stored.points
-  const after = incoming.points
-  if (!before && !after) return true
-  if (!Array.isArray(before) || !Array.isArray(after) || before.length !== after.length || before.length < 2) return false
-  const dx = after[0] - before[0]
-  const dy = after[1] - before[1]
-  return before.every((v, i) => Math.abs(after[i] - v - (i % 2 ? dy : dx)) < 0.01)
-}
-
 export async function updateElement(boardId, element, authorId) {
   const elements = await loadBoard(boardId)
   const index = elements.findIndex((item) => item.id === element.id)
