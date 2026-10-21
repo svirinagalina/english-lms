@@ -208,6 +208,9 @@ const escapeHtml = (text) => text.replace(/&/g, '&amp;').replace(/</g, '&lt;').r
 // base is the element's fontSize: a line with its own size gets it as em on
 // its spans, so it scales with the editor's zoom like the rest.
 function markupToHtml(text, base = 20) {
+  // An empty editor gets a bare <br>: an &nbsp; there stayed in front of
+  // whatever was typed and every new text began with a space.
+  if (!String(text ?? '')) return '<br>'
   return String(text ?? '').split('\n').map((line) => {
     const { size } = splitLineSize(line, base)
     const em = Math.abs(size - base) < 0.05 ? '' : `font-size:${size / base}em`
@@ -333,6 +336,8 @@ function htmlToMarkup(root, baseColor, baseSize = 20) {
       weight.set(key, (weight.get(key) ?? 0) + run.text.replace(/\u00a0/g, '').length + 0.001)
     }
     const size = [...weight].sort((a, b) => b[1] - a[1])[0]?.[0] ?? baseSize
+    // A line that is only the &nbsp; holding an empty line open is empty.
+    if (line.length && line.every((run) => /^\u00a0*$/.test(run.text))) line = []
     const body = line.map((run) => {
       let out = run.text
       if (run.bold) out = `**${out}**`
@@ -1259,10 +1264,9 @@ const Whiteboard = forwardRef(function Whiteboard({ socketRef, boardId, title, s
   const hoverDictionary = (event) => {
     if (pointerRef.current || textInput) return
     const point = toWorld(event)
-    const hit = [...elementsRef.current].reverse().find((e) => (e.type === 'text' || e.type === 'note' || e.type === 'image') && hitTest(e, point.x, point.y))
-    // A selected text is being worked on (moved, restyled, opened to edit),
-    // so its words show no cards; click off it and they come back.
-    const target = hit && !selectedRef.current.includes(hit.id) ? hit : null
+    // A click or the editor opening drops the card (hideTip); a selected
+    // text still shows cards on hover, as before 2026-10-21.
+    const target = [...elementsRef.current].reverse().find((e) => (e.type === 'text' || e.type === 'note' || e.type === 'image') && hitTest(e, point.x, point.y))
     // An image needs OCR before it has any words at all — ocrWords starts
     // that on the first hover over it and returns null until it's done, so
     // the tip just doesn't show for the second or so that takes.
@@ -1355,6 +1359,9 @@ const Whiteboard = forwardRef(function Whiteboard({ socketRef, boardId, title, s
   // mousedown, before that blur, so the editor knows to stay open and wait
   // rather than submit/close out from under the still-in-progress pick.
   const toolbarInteractingRef = useRef(false)
+  // The size <select> must keep the focus while its dropdown is open (taking
+  // it back closed the list at once), so the caret is remembered here.
+  const sizePickRef = useRef(null)
   const [, forceRender] = useState(0)
   const bump = () => forceRender((value) => value + 1)
   // For zoom and pan: refresh the toolbar at most once per frame, not per event.
@@ -3147,7 +3154,8 @@ const Whiteboard = forwardRef(function Whiteboard({ socketRef, boardId, title, s
     lastFontSizeRef.current = size
     if (textInput) {
       const area = textAreaRef.current
-      const at = area && editorOffsets(area)
+      const at = area && (editorOffsets(area) ?? sizePickRef.current)
+      sizePickRef.current = null
       if (!area || !at) {
         setTextInput({ ...textInput, fontSize: size })
         requestAnimationFrame(() => textAreaRef.current?.focus({ preventScroll: true }))
@@ -3415,6 +3423,9 @@ const Whiteboard = forwardRef(function Whiteboard({ socketRef, boardId, title, s
     return {
       x: Math.min(Math.max(8, box.x * view.scale + view.x), Math.max(8, wrapWidth - 560)),
       y: Math.max(8, box.y * view.scale + view.y - 52),
+      // Screen-space top/bottom of what the bar is for (the open editor is measured after render).
+      boxTop: box.y * view.scale + view.y,
+      boxBottom: box.h != null ? (box.y + box.h) * view.scale + view.y : null,
       color: barColor
     }
   })()
@@ -3430,7 +3441,13 @@ const Whiteboard = forwardRef(function Whiteboard({ socketRef, boardId, title, s
     const right = Math.min(host.right, window.innerWidth) - 8
     const bottom = Math.min(host.bottom, window.innerHeight) - 8
     const dx = r.right > right ? right - r.right : r.left < host.left + 8 ? host.left + 8 - r.left : 0
-    const dy = r.bottom > bottom ? bottom - r.bottom : r.top < host.top + 8 ? host.top + 8 - r.top : 0
+    let dy = r.bottom > bottom ? bottom - r.bottom : r.top < host.top + 8 ? host.top + 8 - r.top : 0
+    // A text near the top edge: the bar would sit on its first line and eat
+    // the clicks meant for the caret, so it goes underneath instead.
+    const editor = textAreaRef.current?.getBoundingClientRect()
+    const boxTop = editor ? editor.top : host.top + (textBar?.boxTop ?? Infinity)
+    const boxBottom = editor ? editor.bottom : textBar?.boxBottom != null ? host.top + textBar.boxBottom : null
+    if (boxBottom != null && r.bottom + dy > boxTop && boxBottom + 8 + r.height <= bottom) dy = boxBottom + 8 - r.top
     if (dx || dy) bar.style.transform = `translate(${Math.round(dx)}px, ${Math.round(dy)}px)`
   })
   const textLike = textInput ? [] : selectedElements().filter((i) => i.type === 'text' || i.type === 'note')
@@ -3803,7 +3820,10 @@ const Whiteboard = forwardRef(function Whiteboard({ socketRef, boardId, title, s
             onMouseDown={(e) => {
               toolbarInteractingRef.current = true
               setTimeout(() => { toolbarInteractingRef.current = false }, 300)
-              if (e.target.tagName !== 'SELECT') e.preventDefault()
+              if (e.target.tagName === 'SELECT') {
+                const area = textAreaRef.current
+                sizePickRef.current = area ? editorOffsets(area) : null
+              } else e.preventDefault()
             }}
           >
             {showTextControls && (
@@ -3824,6 +3844,12 @@ const Whiteboard = forwardRef(function Whiteboard({ socketRef, boardId, title, s
                     className="tool"
                     value={currentFontSize}
                     onChange={(e) => setFontSize(Number(e.target.value))}
+                    onBlur={(e) => {
+                      // Closed without a pick and the click went off the text: done editing.
+                      if (!textInput || !sizePickRef.current) return
+                      sizePickRef.current = null
+                      if (!e.relatedTarget?.closest?.('.text-toolbar, .board-text-input')) submitText()
+                    }}
                     title="Text size"
                   >
                     {fontSizeOptions.map((size) => <option key={size} value={size}>{size}</option>)}
@@ -3836,11 +3862,15 @@ const Whiteboard = forwardRef(function Whiteboard({ socketRef, boardId, title, s
                 </div>
               </>
             )}
-            {!textInput && onAssist && textLike.length > 0 && (
+            {onAssist && (textInput || textLike.length > 0) && (
               <div className="text-toolbar-group">
                 <button
                   className="tool assist"
-                  onClick={() => runAssist('questions')}
+                  onClick={() => {
+                    // An open text is finished first; it stays selected, so the questions go under it.
+                    if (textInput) submitText()
+                    runAssist('questions')
+                  }}
                   disabled={Boolean(assisting) || !assistEnabled}
                   title={assistEnabled ? 'Make a practice question for each word' : 'AI assistant is not configured'}
                 >
@@ -3907,7 +3937,7 @@ const Whiteboard = forwardRef(function Whiteboard({ socketRef, boardId, title, s
               // usable relatedTarget, so toolbarInteractingRef (set
               // synchronously on the toolbar's own mousedown) is checked too.
               if (toolbarInteractingRef.current || e.relatedTarget?.closest?.('.text-toolbar')) {
-                requestAnimationFrame(() => e.target.focus({ preventScroll: true }))
+                if (!sizePickRef.current) requestAnimationFrame(() => e.target.focus({ preventScroll: true }))
                 return
               }
               submitText()
