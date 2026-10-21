@@ -44,7 +44,7 @@ npm --prefix "$PROJECT_ROOT/client" run build
 
 echo "==> Uploading server"
 rsync -az --delete -e "$SSH_CMD" \
-  --exclude node_modules --exclude .env --exclude .env.example --exclude public \
+  --exclude node_modules --exclude .env --exclude .env.example --exclude public --exclude diag --exclude uploads \
   "$PROJECT_ROOT/server/" "$REMOTE:$APP_DIR/"
 
 echo "==> Uploading built client"
