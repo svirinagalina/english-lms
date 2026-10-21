@@ -1365,7 +1365,7 @@ button.locked-row:hover { border-color: var(--accent); opacity: .8; }
 /* Course activities imported from Edvibe (CourseActivities.jsx) */
 .course-rich { white-space: normal; }
 .course-activity-title { display: block; margin-bottom: 6px; }
-.course-flow { line-height: 2.3; }
+.course-flow { line-height: 2.3; white-space: pre-line; } /* line breaks between dialogue turns */
 .course-inline-select { width: auto; min-width: 90px; padding: 2px 6px; margin: 0 3px; display: inline-block; }
 .course-inline-select.correct, .course-chip.correct, .course-gap.correct, .course-sentence.correct { border-color: #7fd88f; background: rgba(127, 216, 143, 0.15); }
 .course-inline-select.wrong, .course-chip.wrong, .course-gap.wrong, .course-sentence.wrong { border-color: #e57373; background: rgba(229, 115, 115, 0.15); }
