@@ -16,6 +16,15 @@ permissions:
   contents: read
 
 jobs:
+  # Biome (biome.json): known leftovers only warn; a new real bug — an undeclared
+  # or redeclared name, unreachable code, a duplicate key — fails the run.
+  lint:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v5
+      - run: npx --yes @biomejs/biome@2.2.4 lint --reporter=github .
+
   server:
     runs-on: ubuntu-latest
     timeout-minutes: 15
