@@ -154,9 +154,11 @@
   width: max-content;
   overflow: hidden;
   white-space: pre-wrap;
-  outline: none;
-  background: rgba(255, 255, 255, 0.95);
-  border: 1px solid var(--accent);
+  /* Typed straight on the board: no box over it, only a faint frame. */
+  outline: 1px dashed rgba(124, 92, 255, 0.45);
+  outline-offset: 3px;
+  background: transparent;
+  border: 1px solid transparent;
   border-radius: 6px;
   padding: 0;
   box-sizing: content-box;

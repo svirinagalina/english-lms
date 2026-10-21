@@ -1350,6 +1350,27 @@ const Whiteboard = forwardRef(function Whiteboard({ socketRef, boardId, title, s
     draft.id || !liveCreatedRef.current ? draft : { ...draft, ...liveCreatedRef.current, created: true }
   const editingTextRef = useRef(null)
   editingTextRef.current = textInput?.id ?? null
+  // Someone else changed the text that is open here (both sides can type in
+  // it during a lesson): their words go into the editor at once, the caret
+  // stays put, and the save afterwards builds on them instead of wiping them.
+  const remoteEditRef = useRef(null)
+  remoteEditRef.current = (element) => {
+    if (!textInput) return
+    if (!element) { liveCreatedRef.current = null; submittedRef.current = textInput; setTextInput(null); return }
+    const area = textAreaRef.current
+    const base = textInput.fontSize
+    const fontSize = element.fontSize ?? base
+    if (area && (element.text ?? '') !== htmlToMarkup(area, textInput.color, base)) {
+      clearTimeout(liveTimerRef.current) // our older unsent keystrokes would undo theirs
+      const at = document.activeElement === area ? editorOffsets(area) : null
+      area.innerHTML = markupToHtml(element.text ?? '', fontSize)
+      if (at) {
+        const length = editorPlain(area).length
+        setEditorOffsets(area, { start: Math.min(at.start, length), end: Math.min(at.end, length) })
+      }
+    }
+    setTextInput({ ...withCreated(textInput), value: element.text ?? '', fontSize, color: element.color ?? textInput.color })
+  }
   const textAreaRef = useRef(null)
   // A native <select> (the font-size picker) blurs the editor the instant
   // its dropdown opens, before onChange ever fires — and does it via a
@@ -1434,7 +1455,8 @@ const Whiteboard = forwardRef(function Whiteboard({ socketRef, boardId, title, s
       drawHandles(ctx, cropping, view.scale, '#eab308')
     } else if (toolRef.current === 'select') {
       const items = selectedElements()
-      if (items.length) {
+      // The open text shows its own faint frame; handles on top of it got in the way of the caret.
+      if (items.length && !editingId) {
         // Faint outline on each member, handles on the group as a whole.
         if (items.length > 1) {
           ctx.save()
@@ -1550,9 +1572,11 @@ const Whiteboard = forwardRef(function Whiteboard({ socketRef, boardId, title, s
     const onUpdate = (element) => {
       const index = elementsRef.current.findIndex((item) => item.id === element.id)
       if (index !== -1) elementsRef.current[index] = element
+      if (element.id === editingTextRef.current) remoteEditRef.current?.(element)
       scheduleRender()
     }
     const onDelete = (id) => {
+      if (id === editingTextRef.current) remoteEditRef.current?.(null)
       elementsRef.current = elementsRef.current.filter((item) => item.id !== id)
       selectedRef.current = selectedRef.current.filter((s) => s !== id)
       scheduleRender()
@@ -2498,9 +2522,17 @@ const Whiteboard = forwardRef(function Whiteboard({ socketRef, boardId, title, s
         const group = unionBounds(items)
         const handle = handleAt(group, point, scale)
         if (handle) {
+          // The side handles of a text sit right at its line ends: a plain
+          // click there (no drag) still opens the text, like a click inside.
+          const only = items.length === 1 && (items[0].type === 'text' || items[0].type === 'note') ? items[0] : null
+          const extra = {
+            downAt: { x: event.clientX, y: event.clientY },
+            moved: false,
+            editOnClick: only ? { target: only, clientX: event.clientX, clientY: event.clientY } : null
+          }
           pointerRef.current = isCorner(handle)
-            ? { mode: 'resize', ids: items.map((i) => i.id), corner: handle, start: group, originals: items }
-            : { mode: 'resize', ids: items.map((i) => i.id), edge: handle, start: group, originals: items }
+            ? { mode: 'resize', ids: items.map((i) => i.id), corner: handle, start: group, originals: items, ...extra }
+            : { mode: 'resize', ids: items.map((i) => i.id), edge: handle, start: group, originals: items, ...extra }
           return
         }
       }
@@ -2527,6 +2559,7 @@ const Whiteboard = forwardRef(function Whiteboard({ socketRef, boardId, title, s
         pointerRef.current = {
           mode: 'move', ids: [...selectedRef.current], last: point, originals: selectedElements().map((i) => structuredClone(i)),
           editOnClick: !boxSelect && already && selectedRef.current.length === 1 && (target.type === 'text' || target.type === 'note') ? { target, clientX: event.clientX, clientY: event.clientY } : null,
+          downAt: { x: event.clientX, y: event.clientY },
           moved: false
         }
       } else if (event.shiftKey || boxSelect) {
@@ -2689,6 +2722,9 @@ const Whiteboard = forwardRef(function Whiteboard({ socketRef, boardId, title, s
     }
 
     if (pointer.mode === 'move') {
+      // A hand never clicks perfectly still: under 5 px it is a click, and a
+      // second click on a selected text must open it, not nudge it.
+      if (!pointer.moved && pointer.downAt && Math.hypot(event.clientX - pointer.downAt.x, event.clientY - pointer.downAt.y) < 5) return
       const dx = point.x - pointer.last.x
       const dy = point.y - pointer.last.y
       if (Math.abs(dx) + Math.abs(dy) > 0) pointer.moved = true
@@ -2704,6 +2740,8 @@ const Whiteboard = forwardRef(function Whiteboard({ socketRef, boardId, title, s
     }
 
     if (pointer.mode === 'resize') {
+      if (!pointer.moved && pointer.downAt && Math.hypot(event.clientX - pointer.downAt.x, event.clientY - pointer.downAt.y) < 5) return
+      pointer.moved = true
       // Images, text and any group keep proportions; hold Shift to stretch. A lone shape is free.
       const lone = pointer.originals.length === 1 ? pointer.originals[0] : null
       const proportional = !lone || lone.type === 'image' || lone.type === 'text' || lone.type === 'sticker'
@@ -2770,7 +2808,7 @@ const Whiteboard = forwardRef(function Whiteboard({ socketRef, boardId, title, s
       return
     }
 
-    if (pointer.mode === 'move' && !pointer.moved && pointer.editOnClick) {
+    if ((pointer.mode === 'move' || pointer.mode === 'resize') && !pointer.moved && pointer.editOnClick) {
       const open = () => openEditor(pointer.editOnClick.target, { clientX: pointer.editOnClick.clientX, clientY: pointer.editOnClick.clientY })
       // A student's second click may be the start of a double-click on a
       // word: wait a moment, and let the double-click cancel the editor.
@@ -2973,7 +3011,7 @@ const Whiteboard = forwardRef(function Whiteboard({ socketRef, boardId, title, s
     clearTimeout(liveTimerRef.current)
     if (draft.id) {
       if (!text.trim() && !draft.note) { remove(draft.id); return }
-      const after = { ...draft.before, text, fontSize: draft.fontSize, color: draft.color }
+      const after = { ...liveBase(draft), text, fontSize: draft.fontSize, color: draft.color }
       if (draft.created) {
         // Born live a moment ago: finish it and record it as one addition.
         replaceRaw(after)
@@ -3001,15 +3039,6 @@ const Whiteboard = forwardRef(function Whiteboard({ socketRef, boardId, title, s
     bump()
   }
 
-  const cancelText = () => {
-    clearTimeout(liveTimerRef.current)
-    const draft = textInput && withCreated(textInput)
-    liveCreatedRef.current = null
-    if (draft?.created) removeRaw(draft.id)
-    setTextInput(null)
-    scheduleRender()
-  }
-
   // Reads the editor back into markup after any change.
   // Typing is visible to everyone as it happens: the first keystroke of a new
   // text creates the element, later ones update it (at most ~5 times a
@@ -3017,9 +3046,12 @@ const Whiteboard = forwardRef(function Whiteboard({ socketRef, boardId, title, s
   const submittedRef = useRef(null)
   const liveSentRef = useRef(0)
   const liveTimerRef = useRef(null)
+  // The element as it is on the board now: someone may have moved it while
+  // it was open, and a save must not pull it back to where it was.
+  const liveBase = (draft) => elementsRef.current.find((item) => item.id === draft.id) ?? draft.before
   const pushLive = (draft, value) => {
     if (!draft.id || !draft.before) return
-    const element = { ...draft.before, text: value, fontSize: draft.fontSize, color: draft.color }
+    const element = { ...liveBase(draft), text: value, fontSize: draft.fontSize, color: draft.color }
     const send = () => { liveSentRef.current = Date.now(); replace(element); emit('board:update', element) }
     clearTimeout(liveTimerRef.current)
     if (Date.now() - liveSentRef.current > 200) send()
@@ -3406,7 +3438,9 @@ const Whiteboard = forwardRef(function Whiteboard({ socketRef, boardId, title, s
     let box = null
     let barColor = null
     if (textInput) {
-      box = { x: textInput.x, y: textInput.y }
+      // Where the text is now: someone may have moved it while it is open.
+      const live = textInput.id && elementsRef.current.find((item) => item.id === textInput.id)
+      box = live ? { x: live.x, y: live.y } : { x: textInput.x, y: textInput.y }
       barColor = textInput.color
     } else if (tool === 'select') {
       const items = selectedElements()
@@ -3450,6 +3484,14 @@ const Whiteboard = forwardRef(function Whiteboard({ socketRef, boardId, title, s
     if (boxBottom != null && r.bottom + dy > boxTop && boxBottom + 8 + r.height <= bottom) dy = boxBottom + 8 - r.top
     if (dx || dy) bar.style.transform = `translate(${Math.round(dx)}px, ${Math.round(dy)}px)`
   })
+  // Where the open text is drawn now (it can be moved by someone else while open).
+  const editorAt = (() => {
+    if (!textInput) return null
+    const live = textInput.id && elementsRef.current.find((item) => item.id === textInput.id)
+    if (!live) return { x: textInput.x, y: textInput.y }
+    const pad = live.type === 'note' ? NOTE_PAD : 0
+    return { x: live.x + pad, y: live.y + pad }
+  })()
   const textLike = textInput ? [] : selectedElements().filter((i) => i.type === 'text' || i.type === 'note')
   const showTextControls = Boolean(textInput) || textLike.length > 0
 
@@ -3897,7 +3939,7 @@ const Whiteboard = forwardRef(function Whiteboard({ socketRef, boardId, title, s
                 )}
               </div>
             )}
-            {textInput && <span className="small-hint">⌘Enter to finish · Esc {textInput.id && !textInput.created ? 'to cancel' : 'to finish'}</span>}
+            {textInput && <span className="small-hint">⌘Enter to finish · Esc to finish</span>}
           </div>
         )}
 
@@ -3911,8 +3953,11 @@ const Whiteboard = forwardRef(function Whiteboard({ socketRef, boardId, title, s
             suppressContentEditableWarning
             spellCheck={false}
             style={{
-              left: textInput.x * view.scale + view.x - 1,
-              top: textInput.y * view.scale + view.y - 1,
+              left: editorAt.x * view.scale + view.x - 1,
+              // The canvas draws a line's letters from its very top; a browser
+              // line box adds half the extra line height above them. Lifted by
+              // that much, the words stay exactly where they were.
+              top: (editorAt.y - ((LINE_HEIGHT - 1) / 2) * Math.max(textInput.fontSize, splitLineSize(String(textInput.value ?? '').split('\n')[0], textInput.fontSize).size)) * view.scale + view.y - 1,
               fontSize: textInput.fontSize * view.scale,
               lineHeight: LINE_HEIGHT,
               color: inkOf(textInput.color),
@@ -3943,8 +3988,10 @@ const Whiteboard = forwardRef(function Whiteboard({ socketRef, boardId, title, s
               submitText()
             }}
             onKeyDown={(e) => {
-              // Esc keeps a text that was just typed and reverts edits to an existing one.
-              if (e.key === 'Escape') { e.preventDefault(); textInput.id && !textInput.created ? cancelText() : submitText() }
+              // Esc finishes and keeps what is there. Reverting an existing
+              // text undid the other side's words too (both type into one
+              // text in a lesson), and the blur afterwards saved it anyway.
+              if (e.key === 'Escape') { e.preventDefault(); submitText() }
               if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) { e.preventDefault(); submitText() }
               if (e.key === 'Enter' && !e.shiftKey && !e.metaKey && !e.ctrlKey) {
                 // A plain line break, never a nested block.

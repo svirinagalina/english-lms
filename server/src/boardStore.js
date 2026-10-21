@@ -20,7 +20,7 @@ export const elementSchema = z.object({
   y: z.number().finite().optional(),
   w: z.number().finite().optional(),
   h: z.number().finite().optional(),
-  text: z.string().max(4000).optional(),
+  text: z.string().max(40000).optional(), // a long reading with coloured words runs well past 4000 (2026-10-21)
   // Marker strokes are translucent; notes carry their own background.
   highlight: z.boolean().optional(),
   fill: colour.optional(),
