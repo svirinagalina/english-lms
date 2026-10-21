@@ -113,8 +113,9 @@ export async function saveBookingUrl(url) {
 export const esc = (s) => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
 
 // One message to a person's connected chat. `buttons` are rows of
-// { text, url } or { text, data } (data = a callback). Returns whether it went.
-export async function sendTo(user, text, buttons) {
+// { text, url } or { text, data } (data = a callback); `markup` instead sets
+// the keyboard under the text field (TEACHER_KEYBOARD). Returns whether it went.
+export async function sendTo(user, text, buttons, markup) {
   if (!user?.telegramChatId || !botToken()) return false
   // Telegram refuses buttons that don't point to a public https page.
   const rows = (buttons ?? []).map((row) => row.filter((b) => b.data || /^https:\/\//.test(b.url ?? ''))
@@ -125,7 +126,7 @@ export async function sendTo(user, text, buttons) {
       text,
       parse_mode: 'HTML',
       disable_web_page_preview: true,
-      ...(rows.length ? { reply_markup: { inline_keyboard: rows } } : {})
+      ...(markup ? { reply_markup: markup } : rows.length ? { reply_markup: { inline_keyboard: rows } } : {})
     })
     return true
   } catch (error) {
@@ -180,8 +181,15 @@ async function whoStarts(param) {
   return null
 }
 
-const reply = (chatId, text) => tg('sendMessage', { chat_id: chatId, text, parse_mode: 'HTML', disable_web_page_preview: true })
+const reply = (chatId, text, markup) => tg('sendMessage', { chat_id: chatId, text, parse_mode: 'HTML', disable_web_page_preview: true, ...(markup ? { reply_markup: markup } : {}) })
   .catch((error) => console.error('[telegram] reply', error.message))
+
+// A teacher's chat keeps one big button under the text field (Galina,
+// 2026-10-21: «прямо в боте кнопка проведения урока»): pressing it sends its
+// text, which starts the same steps as /held.
+export const HELD_BUTTON = '✅ Отметить урок'
+export const TEACHER_KEYBOARD = { keyboard: [[{ text: HELD_BUTTON }]], resize_keyboard: true, is_persistent: true }
+const teacherOnChat = (chatId) => prisma.user.findFirst({ where: { telegramChatId: String(chatId), role: { in: ['OWNER', 'TEACHER'] } }, select: { id: true, name: true } })
 
 const hooks = { onLinked: null, onCourseStart: null, onLessons: null, onHeld: null }
 // bot.js: /lessons — the text with every student's package on this chat.
@@ -197,6 +205,8 @@ export const onLinked = (fn) => { hooks.onLinked = fn }
 async function handleStart(message, param) {
   const chatId = String(message.chat.id)
   if (!param) {
+    const teacher = await teacherOnChat(chatId)
+    if (teacher) return reply(chatId, `Вы подключены, ${esc(teacher.name)} ✅\n\nПосле урока нажмите «${HELD_BUTTON}» внизу — выберите ученика и день, урок спишется с его пакета.`, TEACHER_KEYBOARD)
     const known = await prisma.user.findFirst({ where: { telegramChatId: chatId }, select: { name: true } })
     return reply(chatId, known
       ? `Вы подключены, ${esc(known.name)} ✅ Сюда приходят напоминания об уроках.\n\nЧтобы подключить ещё один аккаунт (например, второго ребёнка), напишите его почту.`
@@ -229,9 +239,10 @@ async function linkChat(message, user, lesson = null) {
     }
   })
   const staff = user.role !== 'STUDENT'
+  const teaches = user.role === 'OWNER' || user.role === 'TEACHER'
   await reply(chatId, staff
-    ? `Готово, ${esc(user.name)}! Сюда будут приходить новые пробные уроки, напоминания и оплаты учеников.`
-    : `Готово, ${esc(user.name)}! Сюда будут приходить напоминания об уроках, отчёт и всё важное. Сколько уроков осталось — команда /lessons.`)
+    ? `Готово, ${esc(user.name)}! Сюда будут приходить новые пробные уроки, напоминания и оплаты учеников.${teaches ? `\n\nПосле урока нажмите «${HELD_BUTTON}» внизу — выберите ученика и день, урок спишется с его пакета.` : ''}`
+    : `Готово, ${esc(user.name)}! Сюда будут приходить напоминания об уроках, отчёт и всё важное. Сколько уроков осталось — команда /lessons.`, teaches ? TEACHER_KEYBOARD : undefined)
   if (hooks.onLinked) await hooks.onLinked(updated, lesson).catch((error) => console.error('[telegram] linked', error.message))
 }
 
@@ -377,7 +388,7 @@ async function handleUpdate(update) {
     const answer = await hooks.onLessons(String(message.chat.id)).catch((error) => { console.error('[telegram] lessons', error.message); return null })
     return reply(message.chat.id, answer ?? 'Не получилось посчитать уроки, попробуйте ещё раз чуть позже.')
   }
-  if ((/^\/held\b/.test(text) || /^отметить( урок)?$/i.test(text)) && hooks.onHeld) {
+  if ((/^\/held\b/.test(text) || /^(✅\s*)?отметить( урок)?$/i.test(text)) && hooks.onHeld) {
     const result = await hooks.onHeld(String(message.chat.id), null).catch((error) => { console.error('[telegram] held', error.message); return null })
     if (!result) return reply(message.chat.id, 'Не получилось, попробуйте ещё раз чуть позже.')
     return sendTo({ telegramChatId: String(message.chat.id) }, result.text, result.buttons)
@@ -388,6 +399,8 @@ async function handleUpdate(update) {
   }
   if (EMAIL.test(text)) return handleEmail(message, text)
   if (/^\d{6}$/.test(text.replace(/\s/g, '')) && pendingCodes.has(String(message.chat.id))) return handleCode(message, text.replace(/\s/g, ''))
+  // Any other text from a teacher: the button again, in case it was hidden.
+  if (await teacherOnChat(message.chat.id)) return reply(message.chat.id, `Чтобы отметить проведённый урок, нажмите «${HELD_BUTTON}» внизу.`, TEACHER_KEYBOARD)
   const known = await prisma.user.findFirst({ where: { telegramChatId: String(message.chat.id) }, select: { id: true } })
   if (!known) return reply(message.chat.id, CONNECT_HELP)
   const help = supportContact()

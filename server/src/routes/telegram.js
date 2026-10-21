@@ -1,7 +1,7 @@
 import { Router } from 'express'
 import { prisma } from '../db.js'
 import { requireAuth, requireRole } from '../auth.js'
-import { botSettings, botUsername, botToken, saveBotToken, saveBotSwitch, saveBookingUrl, sendTo, userStartLink, appUrl, esc } from '../telegram.js'
+import { botSettings, botUsername, botToken, saveBotToken, saveBotSwitch, saveBookingUrl, sendTo, userStartLink, appUrl, esc, TEACHER_KEYBOARD } from '../telegram.js'
 
 // The school's Telegram bot: who is connected, the owner's settings.
 export const telegramRouter = Router()
@@ -78,7 +78,8 @@ telegramRouter.post('/broadcast', requireAuth, requireRole('OWNER'), async (req,
   const sent = []
   const missed = []
   for (const teacher of teachers) {
-    if (teacher.telegramChatId && await sendTo(teacher, esc(text))) sent.push(teacher.name)
+    // The message also brings the «Отметить урок» button under the text field.
+    if (teacher.telegramChatId && await sendTo(teacher, esc(text), null, TEACHER_KEYBOARD)) sent.push(teacher.name)
     else missed.push(teacher.name)
   }
   res.json({ sent, missed })

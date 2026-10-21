@@ -236,3 +236,22 @@ test('/held from a student or an unknown chat marks nothing', async () => {
   assert.match(await fake.say(2401, '/held'), /только преподаватели/)
   assert.match(await fake.say(2701, '/held'), /только преподаватели/)
 })
+
+test('a teacher gets the «Отметить урок» button under the text field, and it starts the steps', async () => {
+  const { teacher } = school.people
+  await prisma.user.update({ where: { id: teacher.id }, data: { telegramChatId: '2801' } })
+  assert.match(await fake.say(2801, '/start'), /Отметить урок/)
+  const keyboard = fake.last(2801).reply_markup
+  assert.deepEqual(keyboard.keyboard, [[{ text: '✅ Отметить урок' }]])
+  assert.equal(keyboard.is_persistent, true)
+  // Pressing it sends its text.
+  assert.match(await fake.say(2801, '✅ Отметить урок'), /С кем прошёл урок/)
+  // Anything else from a teacher brings the button back.
+  assert.match(await fake.say(2801, 'привет'), /нажмите «✅ Отметить урок»/)
+  assert.ok(fake.last(2801).reply_markup.keyboard)
+})
+
+test('a student does not get the teacher button', async () => {
+  await fake.say(2401, '/start')
+  assert.equal(fake.last(2401).reply_markup, undefined)
+})
