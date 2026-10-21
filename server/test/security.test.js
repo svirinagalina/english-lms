@@ -7,6 +7,7 @@ import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { existsSync, readdirSync, readFileSync } from 'node:fs'
 import { migrate, seed, startServer, signedIn, prisma } from './helpers.js'
+import { generateApiToken } from '../src/auth.js'
 
 let server, school
 const uploads = mkdtempSync(path.join(tmpdir(), 'lms-security-uploads-'))
@@ -41,13 +42,30 @@ test('textbooks are not served from uploads, whatever the spelling of the path',
   }
 })
 
-test('board pictures are still served', async () => {
-  const res = await fetch(`${server.base}/uploads/boards/picture.png`)
+test('board pictures open for someone signed in, and for nobody else', async () => {
+  const cookie = await cookieOf(school.people.student)
+  assert.equal(await (await fetch(`${server.base}/uploads/boards/picture.png`, { headers: { cookie } })).text(), 'secret')
+  for (const url of ['/uploads/boards/picture.png', '/uploads//boards/picture.png', '/uploads/%62oards/picture.png']) {
+    const res = await fetch(server.base + url)
+    assert.equal(res.status, 404, url)
+    assert.notEqual(await res.text(), 'secret', url)
+  }
+  assert.equal((await fetch(`${server.base}/uploads/boards/picture.png`, { headers: { cookie: 'lms_token=forged' } })).status, 404)
+})
+
+test('an API token (the Content tools) opens files too', async () => {
+  const { token, hash, prefix } = generateApiToken()
+  await prisma.apiToken.create({ data: { name: 'test', tokenHash: hash, prefix, userId: school.people.owner.id, schoolId: school.schoolA.id } })
+  const res = await fetch(`${server.base}/uploads/boards/picture.png`, { headers: { authorization: `Bearer ${token}` } })
   assert.equal(res.status, 200)
 })
 
+test('the bare /uploads/ address still answers (a monitor polls it)', async () => {
+  assert.notEqual((await fetch(`${server.base}/uploads/`)).status, 500)
+})
+
 test('board pictures are kept by the browser only, not by a shared cache', async () => {
-  const res = await fetch(`${server.base}/uploads/boards/picture.png`)
+  const res = await fetch(`${server.base}/uploads/boards/picture.png`, { headers: { cookie: await cookieOf(school.people.student) } })
   const cache = res.headers.get('cache-control')
   assert.match(cache, /\bprivate\b/)
   assert.doesNotMatch(cache, /\bpublic\b|immutable/)
@@ -107,6 +125,6 @@ test("an uploaded file is stored under the extension of its checked type, not th
   const { file } = await upload.json()
   const row = await prisma.contentFile.findUnique({ where: { id: file.id } })
   assert.match(row.path, /-payload\.txt$/)
-  const served = await fetch(server.base + row.path)
+  const served = await fetch(server.base + row.path, { headers: { cookie: await cookieOf(school.people.owner) } })
   assert.doesNotMatch(served.headers.get('content-type') ?? '', /html/)
 })

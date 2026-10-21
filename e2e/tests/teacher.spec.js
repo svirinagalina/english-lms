@@ -44,3 +44,26 @@ test('People is for the administrators: a teacher who opens it by address is sen
   await expect(page).not.toHaveURL(/\/people/)
   await expect(page.getByText('Not allowed')).toHaveCount(0)
 })
+
+// Files in the uploads open for people signed in to the platform only (2026-10-21).
+test("a picture the teacher put on the board opens for the student, not for a stranger", async ({ page, browser }) => {
+  const pixel = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg=='
+  await signIn(page, 'teacher')
+  const upload = await page.request.post(`/api/classrooms/${seed.rooms.student}/boards/${seed.boardId}/images`, { data: { data: pixel } })
+  expect(upload.status()).toBe(201)
+  const { src } = await upload.json()
+
+  const student = await browser.newContext()
+  const stranger = await browser.newContext()
+  try {
+    const studentPage = await student.newPage()
+    await signIn(studentPage, 'student')
+    const seen = await studentPage.request.get(src)
+    expect(seen.status()).toBe(200)
+    expect(seen.headers()['content-type']).toMatch(/image\/png/)
+    expect((await stranger.request.get(new URL(src, page.url()).href)).status()).toBe(404)
+  } finally {
+    await student.close()
+    await stranger.close()
+  }
+})

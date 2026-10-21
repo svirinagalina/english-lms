@@ -98,7 +98,7 @@ export function generateApiToken() {
   return { token, hash: hashApiToken(token), prefix: token.slice(0, 10) }
 }
 
-async function userFromBearer(req) {
+export async function userFromBearer(req) {
   const header = req.get('authorization') ?? ''
   if (!header.startsWith('Bearer ' + TOKEN_PREFIX)) return null
   const token = header.slice('Bearer '.length).trim()

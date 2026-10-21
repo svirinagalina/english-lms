@@ -11,7 +11,7 @@ import path from 'path'
 import { fileURLToPath } from 'url'
 
 import { authRouter } from './routes/auth.js'
-import { partnerReadOnly } from './auth.js'
+import { partnerReadOnly, userFromCookie, userFromBearer } from './auth.js'
 import { activityRouter } from './routes/activity.js'
 import { leadsRouter } from './routes/leads.js'
 import { courseShopRouter } from './coursePurchases.js'
@@ -154,11 +154,17 @@ const uploadDir = process.env.UPLOAD_DIR
 // hold names, devices and camera thumbnails. The folder is judged on the path
 // as the file server will resolve it — /uploads//diag/… used to slip past a
 // plain '/uploads/diag' prefix.
+// Every other file there is the school's too — board pictures, Writing
+// images, avatars, course audio, recordings — so only someone signed in (or
+// holding an API token, as the Content tools do) gets one; to anyone else it
+// does not exist (Galina, 2026-10-21). The bare /uploads/ is left alone: a
+// monitor of Maxim's polls it.
 const PRIVATE_UPLOADS = new Set(['textbooks', 'diag'])
-app.use('/uploads', (req, res, next) => {
+app.use('/uploads', async (req, res, next) => {
   let folder
   try { folder = decodeURIComponent(req.path).split(/[\\/]+/).find((part) => part && part !== '.') } catch { return res.status(400).end() }
   if (folder && PRIVATE_UPLOADS.has(folder.toLowerCase())) return res.status(404).end()
+  if (folder && !((await userFromCookie(req)) ?? (await userFromBearer(req)))) return res.status(404).end()
   next()
 })
 // Board pictures, Writing images and avatars belong to a lesson: only the
