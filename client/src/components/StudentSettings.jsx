@@ -14,6 +14,8 @@ const dayOf = (v) => (v ? new Date(v).toLocaleDateString('en-CA', { timeZone: 'E
 export default function StudentSettings({ studentId, onChanged, focus = false }) {
   const { user: me } = useAuth()
   const isOwner = me?.role === 'OWNER'
+  // Cards and payment links are for the owner and the partner, not teachers.
+  const seesRequisites = me?.role === 'OWNER' || me?.role === 'PARTNER'
   const [student, setStudent] = useState(null)
   const [form, setForm] = useState(null)
   const [allTeachers, setAllTeachers] = useState([])
@@ -48,6 +50,7 @@ export default function StudentSettings({ studentId, onChanged, focus = false })
   const ref = useRef(null)
   useEffect(() => { if (focus && form) ref.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }) }, [focus, Boolean(form)])
   useEffect(() => {
+    if (!seesRequisites) return
     api.schoolPaymentDetails().then(({ paymentDetails, trialPaymentDetails, extraPaymentCards }) => {
       // Only the cards' names here (Galina card, Maxim card…); the numbers live on the Payments page.
       const label = (name, fallback) => name || fallback
@@ -93,7 +96,7 @@ export default function StudentSettings({ studentId, onChanged, focus = false })
           payToTrialCard: form.card === 'auto' ? null : form.card === 'trial',
           payCardId: form.card.startsWith('extra:') ? form.card.slice(6) : null
         } : {}),
-        paymentLink: form.link.trim() === '' ? null : form.link.trim(),
+        ...(seesRequisites ? { paymentLink: form.link.trim() === '' ? null : form.link.trim() } : {}),
         paidAmount: amount,
         paidNote: form.note
       })
@@ -120,7 +123,7 @@ export default function StudentSettings({ studentId, onChanged, focus = false })
         const parts = [
           price != null ? `${money(price)} per lesson` : 'no price set',
           student.packageSize ? `package of ${student.packageSize} lessons${price != null ? ` = ${money(price * student.packageSize)}` : ''}` : 'no package size set',
-          `card: ${card ?? '—'}`
+          ...(seesRequisites ? [`card: ${card ?? '—'}`] : [])
         ]
         return <p className="ss-summary"><strong>{student.name} sees:</strong> {parts.join(' · ')}</p>
       })()}
@@ -139,6 +142,7 @@ export default function StudentSettings({ studentId, onChanged, focus = false })
             </span>
           </label>
           <label>Package to pay (lessons)<input type="number" min="1" max="500" value={form.size} onChange={set('size')} placeholder="e.g. 8" /></label>
+          {seesRequisites && <>
           <label>Card (rubles)
             <select value={form.card} onChange={set('card')} disabled={!isOwner} title={isOwner ? undefined : 'Only the administrator changes the card'}>
               <option value="auto">Automatic ({student.paysTrialCard ? `${cards.trial}, came from the landing` : cards.main})</option>
@@ -148,6 +152,7 @@ export default function StudentSettings({ studentId, onChanged, focus = false })
             </select>
           </label>
           <label>Payment link (card abroad)<input type="url" value={form.link} onChange={set('link')} placeholder="https://buy.stripe.com/…" /></label>
+          </>}
           <label>Amount received
             <input inputMode="decimal" value={form.amount} onChange={set('amount')} placeholder={form.price && form.paid ? `${Number(form.price.replace(',', '.')) * Number(form.paid)} (lessons × price)` : 'lessons × price'} />
           </label>
@@ -171,7 +176,7 @@ export default function StudentSettings({ studentId, onChanged, focus = false })
         {payments?.length === 0 && <p className="muted">No payments yet.</p>}
         {payments?.length > 0 && (
           <table className="ss-pay-table">
-            <thead><tr><th>Date</th><th>What</th><th>Lessons</th><th>Amount</th><th>Card</th><th /></tr></thead>
+            <thead><tr><th>Date</th><th>What</th><th>Lessons</th><th>Amount</th>{seesRequisites && <th>Card</th>}<th /></tr></thead>
             <tbody>
               {payments.map((p) => (
                 <tr key={p.id} className={['reported', 'stripe-link'].includes(p.kind) ? 'muted' : ''}>
@@ -183,7 +188,7 @@ export default function StudentSettings({ studentId, onChanged, focus = false })
                   </td>
                   <td>{p.lessons ?? '—'}</td>
                   <td>{p.amountCents != null ? new Intl.NumberFormat('ru-RU', { style: 'currency', currency: p.currency || 'RUB', maximumFractionDigits: 2 }).format(p.amountCents / 100) : '—'}</td>
-                  <td>{p.card ?? '—'}</td>
+                  {seesRequisites && <td>{p.card ?? '—'}</td>}
                   <td>{isOwner && !['stripe', 'current'].includes(p.kind) && (
                     <button type="button" className="ghost ss-x" title="Delete this line" disabled={busy}
                       onClick={() => window.confirm('Delete this line from the history? The package itself does not change.') && run(() => api.deleteStudentPayment(studentId, p.id), 'Deleted ✓')}>✕</button>

@@ -87,6 +87,15 @@ async function withPackage(student) {
   }
 }
 
+// The school's cards and payment links are for the owner and the partner
+// only (Galina, 2026-10-21: «у учителей не должны быть видны реквизиты»):
+// a teacher sees lessons, prices and amounts, never which card or link.
+function hideRequisites(user, view) {
+  if (isAdmin(user)) return view
+  const { paymentLink, payToTrialCard, payCardId, paysTrialCard, paysTrialCardAuto, ...rest } = view
+  return rest
+}
+
 // A teacher deals with their own students; the owner with everyone; the
 // partner with the students who came from his site (partnerScope.js).
 async function reachableStudent(user, id) {
@@ -383,7 +392,7 @@ billingRouter.get('/students/:id', requireRole('OWNER', 'PARTNER', 'TEACHER'), a
   const student = await reachableStudent(req.user, req.params.id)
   if (!student) return res.status(404).json({ error: 'Student not found' })
   const links = await prisma.teacherStudent.findMany({ where: { studentId: student.id }, select: { teacher: { select: { id: true, name: true } } } })
-  res.json({ student: { ...(await withPackage(student)), teachers: links.map((l) => l.teacher) } })
+  res.json({ student: { ...hideRequisites(req.user, await withPackage(student)), teachers: links.map((l) => l.teacher) } })
 })
 
 billingRouter.get('/students', requireRole('OWNER', 'PARTNER', 'TEACHER'), async (req, res) => {
@@ -397,7 +406,7 @@ billingRouter.get('/students', requireRole('OWNER', 'PARTNER', 'TEACHER'), async
     select: STUDENT_SELECT,
     orderBy: { name: 'asc' }
   })
-  res.json({ students: await Promise.all(students.map(withPackage)) })
+  res.json({ students: (await Promise.all(students.map(withPackage))).map((s) => hideRequisites(req.user, s)) })
 })
 
 billingRouter.patch('/students/:id', requireRole('OWNER', 'PARTNER', 'TEACHER'), async (req, res) => {
@@ -410,8 +419,10 @@ billingRouter.patch('/students/:id', requireRole('OWNER', 'PARTNER', 'TEACHER'),
   if (!student) return res.status(404).json({ error: 'Student not found' })
 
   const { resetCounter, held, packageStartedAt, paidAmount, paidNote, ...data } = parsed.data
-  // Which card a student pays to is the owner's call alone.
+  // Which card a student pays to is the owner's call alone; the payment link
+  // is the owner's and the partner's.
   if (req.user.role !== 'OWNER') { delete data.payToTrialCard; delete data.payCardId }
+  if (!isAdmin(req.user)) delete data.paymentLink
   // A date is the start of that day in Moscow time, where the school counts.
   if (packageStartedAt !== undefined) data.packageStartedAt = packageStartedAt ? new Date(`${packageStartedAt}T00:00:00+03:00`) : null
   if (resetCounter) { data.packageStartedAt = new Date(); data.heldAdjust = 0 }
@@ -443,7 +454,7 @@ billingRouter.patch('/students/:id', requireRole('OWNER', 'PARTNER', 'TEACHER'),
       }
     })
   }
-  res.json({ student: await withPackage(updated) })
+  res.json({ student: hideRequisites(req.user, await withPackage(updated)) })
 })
 
 // The student's payments, newest first: packages set by staff, Stripe
@@ -466,7 +477,8 @@ billingRouter.get('/students/:id/payments', requireRole('OWNER', 'PARTNER', 'TEA
   if (!payments.some((p) => p.kind !== 'reported') && student.lessonsPaid > 0) {
     payments.push({ id: 'current', kind: 'current', at: student.packageStartedAt, lessons: student.lessonsPaid, amountCents: student.priceAmount != null ? student.priceAmount * student.lessonsPaid : null, currency: student.priceCurrency, card: await cardLabel(student.id), note: null, by: null })
   }
-  res.json({ payments })
+  // Which card it went to (name and last digits) is not the teacher's business.
+  res.json({ payments: isAdmin(req.user) ? payments : payments.map((p) => ({ ...p, card: null })) })
 })
 
 // Every payment of the last `days` (default 30) in one list, newest first:
@@ -545,7 +557,7 @@ billingRouter.patch('/school', requireRole('OWNER'), async (req, res) => {
   res.json({ ok: true })
 })
 
-billingRouter.get('/school', requireRole('OWNER', 'PARTNER', 'TEACHER'), async (req, res) => {
+billingRouter.get('/school', requireRole('OWNER', 'PARTNER'), async (req, res) => {
   const school = await prisma.school.findUnique({
     where: { id: req.user.schoolId },
     select: { paymentDetails: true, trialPaymentDetails: true, extraPaymentCards: true }

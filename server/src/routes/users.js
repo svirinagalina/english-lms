@@ -79,7 +79,8 @@ usersRouter.get('/', async (req, res) => {
       where: { teacherId: req.user.id },
       include: { student: { select: SELECT } }
     })
-    return res.json({ people: links.map((link) => personView(link.student)) })
+    // No payment links for a teacher (requisites are the owner's, billing.js).
+    return res.json({ people: links.map((link) => ({ ...personView(link.student), paymentLink: undefined })) })
   }
 
   const links = await prisma.teacherStudent.findMany({
