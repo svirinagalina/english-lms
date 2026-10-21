@@ -49,6 +49,18 @@ async function admins(student) {
 // Used-up packages and debts go to the owner only, for every student.
 const ownerOnly = (student) => owners(student.schoolId)
 const teachersOf = async (studentId) => (await prisma.teacherStudent.findMany({ where: { studentId }, select: { teacher: { select: PERSON } } })).map((l) => l.teacher)
+// The student's teachers hear that lessons were paid or the package is used
+// up (Galina, 2026-10-21) — the number of lessons only, never sums or cards;
+// one who already hears it as an owner or partner is skipped. Debts stay
+// the owner's. A button opens the student's cabinet with that teacher.
+async function tellTeachers(student, text, skip = []) {
+  const skipIds = new Set(skip.map((u) => u.id))
+  for (const teacher of await teachersOf(student.id)) {
+    if (!teacher.telegramChatId || skipIds.has(teacher.id)) continue
+    const room = await prisma.classroom.findFirst({ where: { teacherId: teacher.id, studentId: student.id }, select: { id: true } })
+    await sendTo(teacher, text, room ? [[{ text: 'Открыть кабинет ученика', url: `${appUrl()}/classroom/${room.id}` }]] : [])
+  }
+}
 
 const lessonUrl = (token) => `${appUrl()}/lesson/${token}`
 // A student who came by a lesson link opens the platform through it (no password).
@@ -361,9 +373,11 @@ async function payments() {
     const more = newPackage ? student.lessonsPaid : student.lessonsPaid - Number(oldLessons)
     if (more <= 0) continue
     const teacher = (await teachersOf(student.id))[0]
-    for (const admin of await admins(student)) {
+    const told = await admins(student)
+    for (const admin of told) {
       await sendTo(admin, `✅ Оплата засчитана: ${esc(student.name)}${teacher ? ` (преподаватель ${esc(teacher.name)})` : ''} — уроков в пакете: ${student.lessonsPaid}.`)
     }
+    await tellTeachers(student, `✅ Оплата пришла: ${esc(student.name)} — уроков в пакете: ${student.lessonsPaid}. Можно заниматься.`, told)
     // A student from a trial: the end of the trial's path — sign up and wait for the teacher.
     if (site.has(student.id) && student.viaLink && student.telegramChatId && Number(oldLessons) === 0) {
       await sendTo(student, [
@@ -433,7 +447,9 @@ async function packages() {
             'Чтобы занятия шли без перерыва, оплатите, пожалуйста, следующий пакет — расписание сохранится.'
           ].join('\n'), [[{ text: 'Оплатить', url: await payUrl(student) }]])
         }
-        for (const admin of await ownerOnly(student)) await sendTo(admin, `📦 Пакет закончился: ${who} — проведено ${held} из ${student.lessonsPaid}. Ждём следующую оплату.`)
+        const told = await ownerOnly(student)
+        for (const admin of told) await sendTo(admin, `📦 Пакет закончился: ${who} — проведено ${held} из ${student.lessonsPaid}. Ждём следующую оплату.`)
+        await tellTeachers(student, `📦 Пакет закончился: ${esc(student.name)} — проведено ${held} из ${student.lessonsPaid}. Следующий урок — после оплаты, о ней придёт сообщение.`, told)
         return true
       })
     } else {
