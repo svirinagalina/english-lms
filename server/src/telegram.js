@@ -75,7 +75,7 @@ export async function loadBotSettings() {
     try { state.username = (await tg('getMe')).username } catch (error) { console.error('[telegram] getMe', error.message) }
   }
   // The bot's menu: signing in to the platform is one tap away.
-  if (botToken()) tg('setMyCommands', { commands: [{ command: 'lessons', description: 'Мои уроки' }, { command: 'login', description: 'Войти на платформу' }] }).catch(() => {})
+  if (botToken()) tg('setMyCommands', { commands: [{ command: 'lessons', description: 'Мои уроки' }, { command: 'held', description: 'Отметить проведённый урок (для преподавателей)' }, { command: 'login', description: 'Войти на платформу' }] }).catch(() => {})
   startPolling()
 }
 
@@ -183,9 +183,12 @@ async function whoStarts(param) {
 const reply = (chatId, text) => tg('sendMessage', { chat_id: chatId, text, parse_mode: 'HTML', disable_web_page_preview: true })
   .catch((error) => console.error('[telegram] reply', error.message))
 
-const hooks = { onLinked: null, onCourseStart: null, onLessons: null }
+const hooks = { onLinked: null, onCourseStart: null, onLessons: null, onHeld: null }
 // bot.js: /lessons — the text with every student's package on this chat.
 export const onLessonsRequest = (fn) => { hooks.onLessons = fn }
+// bot.js: a teacher marks a lesson held — the command (data null) and its
+// buttons (h:/hd:/hu:). Answers { text, buttons, toast, edit }.
+export const onHeldRequest = (fn) => { hooks.onHeld = fn }
 // coursePurchases.js: a course buyer connects to get the access link here.
 export const onCourseStart = (fn) => { hooks.onCourseStart = fn }
 // bot.js sends the lesson's confirmation right after a student connects.
@@ -332,6 +335,17 @@ async function handleCallback(query) {
   const data = String(query.data ?? '')
   const chatId = String(query.message?.chat?.id ?? query.from?.id ?? '')
   const answer = (text) => tg('answerCallbackQuery', { callback_query_id: query.id, text }).catch(() => {})
+  if (/^h[du]?:/.test(data) && hooks.onHeld) {
+    const result = await hooks.onHeld(chatId, data).catch((error) => { console.error('[telegram] held', error.message); return { toast: 'Не получилось, попробуйте ещё раз' } })
+    await answer(result?.toast ?? '')
+    if (result?.text) {
+      const markup = { inline_keyboard: (result.buttons ?? []).map((row) => row.map((b) => (b.data ? { text: b.text, callback_data: b.data } : { text: b.text, url: b.url }))) }
+      // The step's message changes in place; a new message if it can't.
+      const edited = result.edit !== false && await tg('editMessageText', { chat_id: chatId, message_id: query.message?.message_id, text: result.text, parse_mode: 'HTML', disable_web_page_preview: true, reply_markup: markup }).then(() => true).catch(() => false)
+      if (!edited) await sendTo({ telegramChatId: chatId }, result.text, result.buttons)
+    }
+    return
+  }
   const m = data.match(/^c:(.+)$/)
   if (!m) return answer('')
   const lesson = await prisma.adventLesson.findUnique({ where: { id: m[1] } })
@@ -362,6 +376,11 @@ async function handleUpdate(update) {
   if ((/^\/lessons\b/.test(text) || /^(мои )?уроки$/i.test(text)) && hooks.onLessons) {
     const answer = await hooks.onLessons(String(message.chat.id)).catch((error) => { console.error('[telegram] lessons', error.message); return null })
     return reply(message.chat.id, answer ?? 'Не получилось посчитать уроки, попробуйте ещё раз чуть позже.')
+  }
+  if ((/^\/held\b/.test(text) || /^отметить( урок)?$/i.test(text)) && hooks.onHeld) {
+    const result = await hooks.onHeld(String(message.chat.id), null).catch((error) => { console.error('[telegram] held', error.message); return null })
+    if (!result) return reply(message.chat.id, 'Не получилось, попробуйте ещё раз чуть позже.')
+    return sendTo({ telegramChatId: String(message.chat.id) }, result.text, result.buttons)
   }
   if (/^\/stop\b/.test(text)) {
     await prisma.user.updateMany({ where: { telegramChatId: String(message.chat.id) }, data: { telegramChatId: null } })

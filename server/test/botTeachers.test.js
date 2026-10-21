@@ -73,3 +73,23 @@ test('the package used up: the teacher hears it once; an owner who teaches gets 
   await runBotOnce()
   assert.equal(to('teacher').filter((m) => /Пакет закончился/.test(m.text)).length, 1)
 })
+
+test('lessons added to a brand-new student before the bot ever looked are announced', async () => {
+  sent.length = 0
+  // Made after the bot was connected (its "since" is now in this process).
+  const fresh = await prisma.user.create({ data: { email: 'fresh@test.com', name: 'Fresh Student', role: 'STUDENT', schoolId: school.people.teacher.schoolId, passwordHash: 'x', offline: true, createdAt: new Date(Date.now() + 60_000), lessonsPaid: 8 } })
+  await prisma.teacherStudent.create({ data: { teacherId: school.people.teacher.id, studentId: fresh.id } })
+  await runBotOnce()
+  assert.equal(to('owner').filter((m) => /Оплата засчитана: Fresh Student/.test(m.text)).length, 1)
+  assert.equal(to('teacher').filter((m) => /Оплата пришла: Fresh Student — уроков в пакете: 8/.test(m.text)).length, 1)
+  await runBotOnce()
+  assert.equal(to('owner').filter((m) => /Fresh Student/.test(m.text)).length, 1)
+})
+
+test('a student from before the bot is only remembered on the first look', async () => {
+  sent.length = 0
+  const old = await prisma.user.create({ data: { email: 'old@test.com', name: 'Old Student', role: 'STUDENT', schoolId: school.people.teacher.schoolId, passwordHash: 'x', createdAt: new Date(Date.now() - 30 * 24 * 3600_000), lessonsPaid: 8 } })
+  await prisma.teacherStudent.create({ data: { teacherId: school.people.teacher.id, studentId: old.id } })
+  await runBotOnce()
+  assert.equal(sent.filter((m) => /Old Student/.test(m.text)).length, 0)
+})

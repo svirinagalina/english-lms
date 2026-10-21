@@ -21,6 +21,8 @@ function fakeTelegram() {
       const ok = (result) => { res.setHeader('content-type', 'application/json'); res.end(JSON.stringify({ ok: true, result })) }
       if (method === 'getMe') return ok({ username: 'test_school_bot' })
       if (method === 'sendMessage') { sent.push(data); return ok({ message_id: sent.length }) }
+      // An edited step counts as the bot's answer too.
+      if (method === 'editMessageText') { sent.push({ ...data, edited: true }); return ok(true) }
       if (method === 'getUpdates') {
         const give = () => ok(queue.splice(0).filter((u) => u.update_id >= (data.offset ?? 0)))
         return queue.length ? give() : setTimeout(give, 100)
@@ -43,6 +45,18 @@ function fakeTelegram() {
         await new Promise((r) => setTimeout(r, 30))
       }
       throw new Error(`No answer to "${text}"`)
+    },
+    // Presses an inline button under a message and waits for the bot's answer.
+    async press(chatId, data) {
+      const before = sent.filter((m) => String(m.chat_id) === String(chatId)).length
+      queue.push({ update_id: nextId++, callback_query: { id: String(nextId), data, from: { id: chatId }, message: { message_id: 1, chat: { id: chatId, type: 'private' } } } })
+      const deadline = Date.now() + 5000
+      while (Date.now() < deadline) {
+        const mine = sent.filter((m) => String(m.chat_id) === String(chatId))
+        if (mine.length > before) return mine[mine.length - 1]
+        await new Promise((r) => setTimeout(r, 30))
+      }
+      throw new Error(`No answer to the button ${data}`)
     },
     // The last full message (text + buttons) the bot sent to this chat.
     last(chatId) {
@@ -183,4 +197,42 @@ test('a parent connects two children by their links and sees both in «Мои у
 
 test('«Мои уроки» on a Telegram with no student', async () => {
   assert.match(await fake.say(2501, '/lessons'), /не привязан ни один ученик/)
+})
+
+// A teacher marks a lesson held from Telegram: their students → a day → a
+// counted session in that cabinet, undoable; nobody else's students.
+test('a teacher marks a lesson held in the bot and can undo it', async () => {
+  const { teacher, student, student2 } = school.people
+  await prisma.user.update({ where: { id: teacher.id }, data: { telegramChatId: '2601' } })
+  await prisma.user.update({ where: { id: student.id }, data: { lessonsPaid: 8, heldAdjust: 0, packageStartedAt: new Date(Date.now() - 5 * 24 * 3600_000) } })
+  await prisma.session.deleteMany({ where: { classroomId: school.rooms.student.id } })
+
+  assert.match(await fake.say(2601, '/held'), /С кем прошёл урок/)
+  const buttons = fake.last(2601).reply_markup.inline_keyboard.flat()
+  assert.deepEqual(buttons.map((b) => b.text), ['student'])
+  assert.equal(buttons[0].callback_data, `h:${school.rooms.student.id}`)
+
+  const ask = await fake.press(2601, buttons[0].callback_data)
+  assert.match(ask.text, /student<\/b> — когда был урок/)
+  const done = await fake.press(2601, `hd:${school.rooms.student.id}:1`)
+  assert.match(done.text, /Урок отмечен: <b>student<\/b>/)
+  assert.match(done.text, /проведено 1 из 8 — осталось 7/)
+  const session = await prisma.session.findFirst({ where: { classroomId: school.rooms.student.id } })
+  assert.equal(session.manual, true)
+  assert.equal(session.counted, true)
+  assert.ok(Math.abs(Date.now() - 25 * 3600_000 - session.startedAt.getTime()) < 60_000)
+
+  // Another teacher's student cannot be marked from this chat.
+  const room2 = await prisma.classroom.findFirst({ where: { studentId: student2.id } })
+  await fake.press(2601, `hd:${room2.id}:0`).catch(() => null)
+  assert.equal(await prisma.session.count({ where: { classroomId: room2.id } }), 0)
+
+  const undo = await fake.press(2601, `hu:${session.id}`)
+  assert.match(undo.text, /Отметка отменена/)
+  assert.equal(await prisma.session.count({ where: { classroomId: school.rooms.student.id } }), 0)
+})
+
+test('/held from a student or an unknown chat marks nothing', async () => {
+  assert.match(await fake.say(2401, '/held'), /только преподаватели/)
+  assert.match(await fake.say(2701, '/held'), /только преподаватели/)
 })

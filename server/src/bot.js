@@ -1,5 +1,5 @@
 import { prisma } from './db.js'
-import { botOn, botOnSince, botSince, botToken, bookingUrl, sendTo, once, wasSent, esc, packageMark, onLinked, onLessonsRequest, appUrl } from './telegram.js'
+import { botOn, botOnSince, botSince, botToken, bookingUrl, sendTo, once, wasSent, esc, packageMark, onLinked, onLessonsRequest, onHeldRequest, appUrl } from './telegram.js'
 import { confirmBooking } from './booking.js'
 import { maySeeStudent, siteStudentIds } from './partnerScope.js'
 import { OFFER_PLANS, DISCOUNT_DAYS } from './offer.js'
@@ -36,7 +36,7 @@ const rub = (n) => `${n.toLocaleString('ru-RU')} ₽`
 const MENTOR = OFFER_PLANS.find((p) => p.id === 'mentor')
 const SOLO = OFFER_PLANS.find((p) => p.id === 'solo')
 
-const PERSON = { id: true, name: true, role: true, schoolId: true, telegramChatId: true, viaLink: true, lessonsPaid: true, packageStartedAt: true, heldAdjust: true, telegramPaidSeen: true, inviteEmail: true, paymentReportedAt: true, trialAccessUntil: true, plan: true, planUntil: true }
+const PERSON = { id: true, name: true, role: true, schoolId: true, telegramChatId: true, viaLink: true, lessonsPaid: true, packageStartedAt: true, heldAdjust: true, telegramPaidSeen: true, inviteEmail: true, paymentReportedAt: true, trialAccessUntil: true, plan: true, planUntil: true, createdAt: true }
 const person = (id) => (id ? prisma.user.findUnique({ where: { id }, select: PERSON }) : null)
 const owners = (schoolId) => prisma.user.findMany({ where: { schoolId, role: 'OWNER', telegramChatId: { not: null } }, select: PERSON })
 // Who hears of a student's payment (Galina, 2026-10-17): the owner of every
@@ -140,6 +140,77 @@ onLessonsRequest(async (chatId) => {
     lines.push(`<b>${esc(student.name)}</b>: проведено ${held} из ${student.lessonsPaid}${since} — ${state}`)
   }
   return `📚 Уроки\n\n${lines.join('\n')}`
+})
+
+// A teacher marks a lesson held from Telegram (Galina, 2026-10-21): /held →
+// one of their students → which day → a counted `manual` session, like
+// «Mark a lesson held» in the cabinet, with «Отменить» for a mistake (only a
+// lesson marked by hand). Only the classroom's own teacher's chat may do it.
+const DAY_NAMES = ['Сегодня', 'Вчера', 'Позавчера']
+async function heldPackageLine(studentId) {
+  const student = await prisma.user.findUnique({ where: { id: studentId }, select: { id: true, lessonsPaid: true, packageStartedAt: true, heldAdjust: true } })
+  const held = (await countedCalls(student)) + (student.heldAdjust ?? 0)
+  if (student.lessonsPaid == null) return `проведено ${held} ${lessonWord(held)}, пакет не задан`
+  const left = student.lessonsPaid - held
+  return `проведено ${held} из ${student.lessonsPaid} — ${left > 0 ? `осталось ${left}` : left === 0 ? 'пакет закончился' : `сверх пакета ${-left} ${lessonWord(left)}`}`
+}
+const teacherRoom = async (chatId, roomId) => prisma.classroom.findFirst({
+  where: { id: roomId, studentId: { not: null }, teacher: { telegramChatId: chatId, role: { in: ['OWNER', 'TEACHER'] } } },
+  select: { id: true, studentId: true, student: { select: { name: true } } }
+})
+onHeldRequest(async (chatId, data) => {
+  if (data == null) {
+    const teachers = await prisma.user.findMany({ where: { telegramChatId: chatId, role: { in: ['OWNER', 'TEACHER'] } }, select: { id: true } })
+    if (!teachers.length) return { text: 'Отмечать уроки могут только преподаватели. Подключите этот Telegram к аккаунту преподавателя: на платформе Profile → Connect Telegram.' }
+    const rooms = await prisma.classroom.findMany({
+      where: { teacherId: { in: teachers.map((t) => t.id) }, student: { role: 'STUDENT', studentLinks: { some: { teacherId: { in: teachers.map((t) => t.id) } } } } },
+      select: { id: true, student: { select: { name: true } } }
+    })
+    rooms.sort((a, b) => a.student.name.localeCompare(b.student.name, 'ru'))
+    if (!rooms.length) return { text: 'У вас пока нет учеников на платформе.' }
+    const buttons = []
+    for (let i = 0; i < rooms.length && i < 90; i += 2) buttons.push(rooms.slice(i, i + 2).map((r) => ({ text: r.student.name.slice(0, 40), data: `h:${r.id}` })))
+    return { text: 'С кем прошёл урок?', buttons }
+  }
+  const [kind, id, arg] = data.split(':')
+  if (kind === 'h') {
+    const room = await teacherRoom(chatId, id)
+    if (!room) return { toast: 'Это не ваш ученик' }
+    return {
+      text: `<b>${esc(room.student.name)}</b> — когда был урок? (засчитается 60 минут)`,
+      buttons: [DAY_NAMES.map((name, days) => ({ text: name, data: `hd:${room.id}:${days}` })), [{ text: 'Отмена', data: 'hu:-' }]]
+    }
+  }
+  if (kind === 'hd') {
+    const room = await teacherRoom(chatId, id)
+    const days = Number(arg)
+    if (!room || !(days >= 0 && days <= 2)) return { toast: 'Это не ваш ученик' }
+    // Today: the hour that has just passed; an earlier day: the same time that day.
+    const startedAt = new Date(Date.now() - days * 24 * HOUR - HOUR)
+    const dayStart = new Date(`${startedAt.toLocaleDateString('sv-SE', { timeZone: MSK })}T00:00:00+03:00`)
+    const sameDay = await prisma.session.count({ where: { classroomId: room.id, counted: true, startedAt: { gte: dayStart, lt: new Date(dayStart.getTime() + 24 * HOUR) } } })
+    const session = await prisma.session.create({ data: { classroomId: room.id, manual: true, counted: true, startedAt, endedAt: new Date(startedAt.getTime() + HOUR), note: 'Отмечен в Telegram' }, select: { id: true } })
+    return {
+      toast: 'Урок отмечен ✅',
+      text: [
+        `✅ Урок отмечен: <b>${esc(room.student.name)}</b>, ${mskDate(startedAt)}.`,
+        await heldPackageLine(room.studentId),
+        sameDay ? `⚠️ В этот день у ученика уже есть урок (${sameDay}). Если отметили по ошибке — «Отменить».` : null
+      ].filter(Boolean).join('\n'),
+      buttons: [[{ text: 'Отменить', data: `hu:${session.id}` }], [{ text: 'Открыть кабинет ученика', url: `${appUrl()}/classroom/${room.id}` }]]
+    }
+  }
+  if (kind === 'hu') {
+    if (id === '-') return { toast: 'Отменено', text: 'Ничего не отмечено.', buttons: [] }
+    const session = await prisma.session.findFirst({
+      where: { id, manual: true, classroom: { teacher: { telegramChatId: chatId } } },
+      select: { id: true, startedAt: true, classroom: { select: { studentId: true, student: { select: { name: true } } } } }
+    })
+    if (!session) return { toast: 'Этой отметки уже нет' }
+    await prisma.session.delete({ where: { id: session.id } })
+    return { toast: 'Отметка отменена', text: `Отметка отменена: <b>${esc(session.classroom.student?.name ?? '')}</b>, ${mskDate(session.startedAt)}.\n${await heldPackageLine(session.classroom.studentId)}`, buttons: [] }
+  }
+  return { toast: '' }
 })
 
 onLinked(async (user, lesson) => {
@@ -366,9 +437,12 @@ async function payments() {
     const mark = packageMark(student)
     if (mark === student.telegramPaidSeen) continue
     await prisma.user.update({ where: { id: student.id }, data: { telegramPaidSeen: mark } })
-    // The first look at someone only remembers what is there already.
-    if (student.telegramPaidSeen == null || !(student.lessonsPaid > 0)) continue
-    const [oldLessons, oldStart] = student.telegramPaidSeen.split('|')
+    // The first look at someone from before the bot only remembers what is
+    // there already. An account made since then started with nothing: lessons
+    // added within its first minute are news too (Kate mom Anna, 2026-10-21).
+    if (!(student.lessonsPaid > 0)) continue
+    if (student.telegramPaidSeen == null && !(student.createdAt > since)) continue
+    const [oldLessons, oldStart] = (student.telegramPaidSeen ?? '0|').split('|')
     const newPackage = oldStart !== mark.split('|')[1]
     const more = newPackage ? student.lessonsPaid : student.lessonsPaid - Number(oldLessons)
     if (more <= 0) continue
