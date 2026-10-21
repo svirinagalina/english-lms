@@ -26,7 +26,7 @@ export async function setUpPush(open) {
       await PushNotifications.addListener('registrationError', (error) => console.warn('Push registration failed:', error?.error ?? error))
       await PushNotifications.addListener('pushNotificationActionPerformed', ({ notification }) => {
         const url = notification?.data?.url
-        if (typeof url === 'string' && url.startsWith('/') && !url.startsWith('//')) open(url)
+        if (typeof url === 'string' && /^\/(?![\\/])/.test(url)) open(url)
       })
     }
     let { receive } = await PushNotifications.checkPermissions()

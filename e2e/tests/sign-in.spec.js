@@ -34,3 +34,25 @@ test('a page opened signed out asks to sign in', async ({ page }) => {
   await page.goto(`/classroom/${seed.rooms.student}`)
   await expect(page).toHaveURL(/\/login/)
 })
+
+test('after signing in, a link back into the site is followed', async ({ page }) => {
+  await page.goto('/login?next=/vocabulary')
+  await page.getByPlaceholder('Почта или логин').fill(seed.people.student2.email)
+  await page.getByPlaceholder('Пароль').fill(seed.password)
+  await page.getByRole('button', { name: 'Войти' }).click()
+  await expect(page).toHaveURL(/\/vocabulary$/)
+})
+
+test('after signing in, a link off the site is not followed', async ({ page }) => {
+  await page.context().clearCookies()
+  for (const next of ['//example.com', '/\\example.com', '/\\/example.com']) {
+    await page.goto(`/login?next=${encodeURIComponent(next)}`)
+    if (await page.getByPlaceholder('Пароль').isVisible()) {
+      await page.getByPlaceholder('Почта или логин').fill(seed.people.free.email)
+      await page.getByPlaceholder('Пароль').fill(seed.password)
+      await page.getByRole('button', { name: 'Войти' }).click()
+    }
+    await page.waitForLoadState('networkidle')
+    expect(new URL(page.url()).hostname, next).toBe('localhost')
+  }
+})

@@ -84,7 +84,8 @@ function LoginRoute() {
   const { user } = useAuth()
   const [params] = useSearchParams()
   const next = params.get('next')
-  const safeNext = next && next.startsWith('/') && !next.startsWith('//') ? next : '/'
+  // Our own path only: '//host' and '/\host' both lead off the site.
+  const safeNext = next && /^\/(?![\\/])/.test(next) ? next : '/'
   return user ? <Navigate to={safeNext} replace /> : <Login />
 }
 
