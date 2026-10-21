@@ -1909,3 +1909,10 @@ small.answer-key, span.answer-key { margin-left: 4px; }
 div.answer-key { margin-top: 4px; }
 .course-option.key { border-color: #7fd88f; border-style: dashed; }
 .answers-toggle { margin: 0 0 12px; width: auto; align-self: flex-start; }
+
+/* The test copy's label (App.jsx): above everything, never in the way of a click. */
+.test-copy-ribbon {
+  position: fixed; top: 0; left: 50%; transform: translateX(-50%); z-index: 10000;
+  background: #f59e0b; color: #1f1300; font: 700 11px/1 Inter, sans-serif; letter-spacing: .04em;
+  padding: 4px 10px; border-radius: 0 0 6px 6px; pointer-events: none;
+}

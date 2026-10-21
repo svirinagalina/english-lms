@@ -5,6 +5,7 @@ Galina's English-teaching platform. Production: **https://lms.advent-academy.onl
 ## Stack
 - `client/`: React 18 + Vite, plain CSS (`styles.css` + `styles/whiteboard.css`), React Router.
 - `server/`: Node/Express (ESM), Prisma/PostgreSQL, Socket.io for the whiteboard and calls.
+- Test copy (staging, 2026-10-21): https://lms-test.91-239-6-107.sslip.io — `./deploy/deploy-staging.sh` puts *this checkout* (any branch) there; own DB/uploads in `/opt/lms-staging` on srv3, Caddy block in `/opt/srv3/Caddyfile`. It has no mail/AI/Telegram/Stripe/Advent/LiveKit keys on purpose — never give it the production `.env` or a copy of the production `PlatformSetting` rows (the bot token there would make it poll the real bot). An orange «ТЕСТОВАЯ КОПИЯ» label shows on every page (`TEST_COPY` in App.jsx).
 - Deploy: `git push` then `./deploy/deploy.sh` (builds, runs prisma migrate deploy, restarts the container, health-checks). Always commit with `Co-Authored-By: Claude Sonnet 5 <noreply@anthropic.com>` (or the model name the session shows).
 
 ## Local dev

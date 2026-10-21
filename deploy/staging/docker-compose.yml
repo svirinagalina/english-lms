@@ -1,0 +1,76 @@
+# The test copy of the LMS on srv3 (Galina, 2026-10-21): new work is tried at
+# https://lms-test.91-239-6-107.sslip.io before it reaches students. Its own
+# database, uploads and diagnostics; it shares nothing with the real school.
+# Deliberately NOT given: mail (Resend), AI, Telegram, Stripe, Advent, LiveKit,
+# push keys — a test must never write to a real person or take money.
+# Lives in /opt/lms-staging (this file + .env with STAGING_DB_PASSWORD and
+# STAGING_JWT_SECRET, made on the server); deployed by deploy/deploy-staging.sh.
+name: lms-staging
+
+x-env: &env
+  DATABASE_URL: postgresql://lms:${STAGING_DB_PASSWORD}@staging-db:5432/english_lms
+  JWT_SECRET: ${STAGING_JWT_SECRET}
+  NODE_ENV: production
+  PORT: 4010
+  CLIENT_ORIGIN: https://lms-test.91-239-6-107.sslip.io
+  APP_URL: https://lms-test.91-239-6-107.sslip.io
+  UPLOAD_DIR: /app/uploads
+  DIAG_DIR: /app/diag
+
+services:
+  staging-db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    mem_limit: 256m
+    environment:
+      POSTGRES_USER: lms
+      POSTGRES_PASSWORD: ${STAGING_DB_PASSWORD}
+      POSTGRES_DB: english_lms
+    volumes:
+      - staging_db:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U lms -d english_lms"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+
+  staging-migrate:
+    build: ./app
+    image: lms-staging-app
+    command: ["./node_modules/.bin/prisma", "migrate", "deploy"]
+    restart: "no"
+    user: "1000:1000"
+    environment: *env
+    depends_on:
+      staging-db:
+        condition: service_healthy
+
+  staging-app:
+    build: ./app
+    image: lms-staging-app
+    restart: unless-stopped
+    mem_limit: 512m
+    user: "1000:1000"
+    command: ["node", "src/index.js"]
+    environment: *env
+    volumes:
+      - staging_uploads:/app/uploads
+      - staging_diag:/app/diag
+    depends_on:
+      staging-migrate:
+        condition: service_completed_successfully
+    networks:
+      default: {}
+      # srv3's Caddy reaches it as lms-staging-app:4010.
+      srv3:
+        aliases: [lms-staging-app]
+
+volumes:
+  staging_db:
+  staging_uploads:
+  staging_diag:
+
+networks:
+  srv3:
+    external: true
+    name: srv3_default

@@ -121,6 +121,10 @@ function usePush(user) {
   }, [user?.id])
 }
 
+// The test copy (deploy/staging) says so on every page, so nobody mistakes
+// it for the real school.
+const TEST_COPY = typeof window !== 'undefined' && window.location.hostname.startsWith('lms-test.')
+
 export default function App() {
   const { user, loading } = useAuth()
   const stale = useFreshBuild()
@@ -142,6 +146,7 @@ export default function App() {
       </div>
     )}
     <TrialOffer />
+    {TEST_COPY && <div className="test-copy-ribbon">ТЕСТОВАЯ КОПИЯ — не настоящая школа</div>}
     <Routes>
       <Route path="/login" element={<LoginRoute />} />
       <Route path="/signup" element={user ? <Navigate to="/" replace /> : <Signup />} />
