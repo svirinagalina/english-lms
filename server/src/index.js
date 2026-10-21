@@ -31,6 +31,7 @@ import { lessonsRouter } from './routes/lessons.js'
 import { trialsRouter } from './routes/trials.js'
 import { settingsRouter } from './routes/settings.js'
 import { diagRouter } from './routes/diag.js'
+import { serverError, droppedError } from './alerts.js'
 import { adventRouter } from './routes/advent.js'
 import { profileRouter } from './routes/profile.js'
 import { textbooksRouter } from './routes/textbooks.js'
@@ -209,10 +210,11 @@ if (process.env.NODE_ENV === 'production') {
 // Last resort for anything a route did not handle itself.
 app.use((error, req, res, next) => {
   console.error(`${req.method} ${req.originalUrl} failed:`, error)
+  serverError(req, error)
   if (res.headersSent) return next(error)
   res.status(500).json({ error: 'Something went wrong on the server. Please try again.' })
 })
-process.on('unhandledRejection', (reason) => console.error('Unhandled rejection:', reason))
+process.on('unhandledRejection', (reason) => { console.error('Unhandled rejection:', reason); droppedError(reason) })
 
 const io = new Server(httpServer, {
   cors: { origin: clientOrigin, credentials: true }

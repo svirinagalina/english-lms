@@ -1,5 +1,6 @@
 import { Router } from 'express'
 import { z } from 'zod'
+import { pageError } from '../alerts.js'
 import { requireAuth } from '../auth.js'
 import { prisma } from '../db.js'
 import path from 'path'
@@ -70,5 +71,6 @@ diagRouter.post('/', async (req, res) => {
   const line = `[diag] ${who?.name ?? req.user.id} (${req.user.role}) ${call ? `call=${call} ` : ''}${kind}${message ? `: ${message}` : ''}${details ? ' ' + JSON.stringify(details) : ''}${device ? ` | ${device}` : ''}`
   console.log(line)
   keep(line)
+  pageError({ user: req.user, name: who?.name, kind, message, details, device })
   res.json({ ok: true })
 })
