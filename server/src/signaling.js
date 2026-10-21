@@ -499,7 +499,7 @@ const PARTNER_BLOCKED_EVENTS = new Set(['call:start', 'drawing', 'board:add', 'b
 
       const element = { ...parsed.data, authorId: user.id, at: parsed.data.at ?? Date.now() }
       if (await addElement(boardId, element)) {
-        emitToWatchers(boardWatchers, boardId, socket, 'board:add', element)
+        emitToWatchers(boardWatchers, boardId, socket, 'board:add', (await loadBoard(boardId)).find((e) => e.id === element.id) ?? element)
         // A teacher's "— Homework —" heading: the students' phones hear of it.
         if (user.role !== 'STUDENT' && isHomeworkHeading(element)) {
           notifyHomeworkLater(boardId, element.id, async () => (await loadBoard(boardId)).some((e) => e.id === element.id))
@@ -522,8 +522,8 @@ const PARTNER_BLOCKED_EVENTS = new Set(['call:start', 'drawing', 'board:add', 'b
         return
       }
 
-      if (await updateElement(boardId, parsed.data)) {
-        emitToWatchers(boardWatchers, boardId, socket, 'board:update', parsed.data)
+      if (await updateElement(boardId, parsed.data, user.id)) {
+        emitToWatchers(boardWatchers, boardId, socket, 'board:update', (await loadBoard(boardId)).find((e) => e.id === parsed.data.id) ?? parsed.data)
       }
     })
 

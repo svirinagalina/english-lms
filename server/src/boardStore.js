@@ -78,7 +78,7 @@ export async function addElement(boardId, element) {
   const elements = await loadBoard(boardId)
   // The same element can arrive twice (a retry, a second tab); keep one copy.
   const index = elements.findIndex((item) => item.id === element.id)
-  if (index !== -1) elements[index] = element
+  if (index !== -1) elements[index] = keepOrigin(elements[index], element)
   else if (elements.length >= MAX_ELEMENTS) return false
   else {
     if (hasTwin(elements, element)) return false
@@ -97,15 +97,19 @@ function hasTwin(elements, element) {
   return elements.some((item) => item.id !== element.id && item.type === element.type && item.text === element.text && item.x === element.x && item.y === element.y)
 }
 
-export async function updateElement(boardId, element) {
+// Who made an element and when stay as first stored: a client's copy cannot
+// rewrite them (a teacher's lesson list is built from authorId + at).
+const keepOrigin = (stored, element) => ({ ...element, authorId: stored.authorId, at: stored.at })
+
+export async function updateElement(boardId, element, authorId) {
   const elements = await loadBoard(boardId)
   const index = elements.findIndex((item) => item.id === element.id)
   // A live update can outrun the add that created the element; accept it.
   if (index === -1) {
     if (elements.length >= MAX_ELEMENTS || hasTwin(elements, element)) return false
-    elements.push(element)
+    elements.push({ ...element, authorId, at: element.at ?? Date.now() })
   } else {
-    elements[index] = element
+    elements[index] = keepOrigin(elements[index], element)
   }
   scheduleSave(boardId)
   return true
