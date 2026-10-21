@@ -90,6 +90,17 @@ export function createEchoMeter() {
     setSelf: (track) => tap('self', track),
     setPeer: (id, track) => tap(`peer:${id}`, track),
     dropPeer: (id) => tap(`peer:${id}`, null),
+    // How loud the loudest person we hear is right now (RMS of the last
+    // 50 ms step): whether someone else is talking, for the denoiser.
+    peerLevel() {
+      let max = 0
+      for (const [key, t] of taps) {
+        if (!key.startsWith('peer:') || !t.filled) continue
+        const v = t.buf[(t.at - 1 + LEN) % LEN]
+        if (v > max) max = v
+      }
+      return max
+    },
     // For one person: { source, heard } correlations with lags in ms, and
     // how loud each side got over the window (an idle side proves nothing).
     check(id) {

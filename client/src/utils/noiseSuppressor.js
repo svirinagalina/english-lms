@@ -20,10 +20,15 @@ let audioContext = null
 // October's lessons: one person in nine), which the denoiser and the gate
 // then treated as noise and sent as silence. The speaking level is learned
 // from the blocks clearly above the room's noise floor; the gain only ever
-// raises (up to +30 dB; the browser's own AGC handles loud ones), climbs
+// raises (up to +18 dB; the browser's own AGC handles loud ones), climbs
 // slowly, drops at once before a sample would clip, and stops short of
 // lifting the room's noise above -45 dBFS, so the denoiser still has
 // something it can remove. It reports what it does once a second.
+// While someone else in the call is talking (the page says so: {far}), it
+// neither learns nor raises: what the microphone hears then is mostly their
+// voice from the speakers, and raising it sent the teacher her own voice
+// back (Galina, 2026-10-21, students on MacBook speakers). The gain drops to
+// at most +6 dB at once and comes back as it was when they stop.
 const BOOST_SOURCE = `
 class LevelBoost extends AudioWorkletProcessor {
   constructor(options) {
@@ -40,6 +45,16 @@ class LevelBoost extends AudioWorkletProcessor {
     this.up = Math.pow(10, 6 / 20 / this.bps)
     this.down = Math.pow(10, -20 / 20 / this.bps)
     this.reportIn = 0
+    this.far = false
+    this.farCap = Math.pow(10, 6 / 20)
+    this.saved = 1
+    this.port.onmessage = (e) => {
+      const far = Boolean(e.data && e.data.far)
+      if (far === this.far) return
+      this.far = far
+      if (far) { this.saved = this.gain; this.gain = Math.min(this.gain, this.farCap) }
+      else this.gain = Math.max(this.gain, this.saved)
+    }
   }
   process(inputs, outputs) {
     const input = inputs[0]
@@ -54,7 +69,7 @@ class LevelBoost extends AudioWorkletProcessor {
     // quickly, creeps up 2 dB a second. Blocks under -100 dBFS are gaps in
     // the stream (digital silence), not the room: they would drag the floor
     // down until noise passed for speech, so they are left out of both.
-    const heard = rms > 1e-5
+    const heard = rms > 1e-5 && !this.far
     if (heard) {
       if (this.floor === null) this.floor = rms
       else if (rms < this.floor) this.floor += (rms - this.floor) * 0.1
@@ -71,6 +86,7 @@ class LevelBoost extends AudioWorkletProcessor {
       wanted = Math.min(this.maxGain, this.target / this.speech, this.noiseCeil / this.floor)
       if (wanted < 1) wanted = 1
     }
+    if (this.far) wanted = Math.min(wanted, this.farCap)
     if (wanted > this.gain) this.gain = Math.min(wanted, this.gain * this.up)
     else this.gain = Math.max(wanted, this.gain * this.down)
     if (peak * this.gain > 0.9) this.gain = Math.max(1, 0.9 / peak)
@@ -81,7 +97,7 @@ class LevelBoost extends AudioWorkletProcessor {
     }
     if (--this.reportIn <= 0) {
       this.reportIn = this.bps
-      this.port.postMessage({ gainDb: 20 * Math.log10(this.gain), floorDb: this.floor ? 20 * Math.log10(this.floor) : null, speechDb: this.speech > 0 ? 20 * Math.log10(this.speech) : null })
+      this.port.postMessage({ gainDb: 20 * Math.log10(this.far ? this.saved : this.gain), floorDb: this.floor ? 20 * Math.log10(this.floor) : null, speechDb: this.speech > 0 ? 20 * Math.log10(this.speech) : null })
     }
     return true
   }
@@ -95,7 +111,9 @@ registerProcessor('level-boost', LevelBoost)
 // few milliseconds and keeps it open through the pauses between words.
 // The threshold follows what the denoiser leaves of the room: 12 dB over
 // that floor, between -62 and -48 dBFS. A noisy residue (the fan) keeps it
-// at -48 as before; a quiet room lets a soft voice through.
+// at -48 as before; a quiet room lets a soft voice through. While someone
+// else is talking ({far}) it is -48 regardless: what is left of their voice
+// after the browser's echo cancelling sits below that and stays out.
 const GATE_SOURCE = `
 class QuietGate extends AudioWorkletProcessor {
   constructor(options) {
@@ -124,7 +142,9 @@ class QuietGate extends AudioWorkletProcessor {
     this.typingOpen = Math.pow(10, -36 / 20)
     this.above = 0
     this.openFor = 0
-    this.port.onmessage = () => {
+    this.far = false
+    this.port.onmessage = (e) => {
+      if (e.data && typeof e.data === 'object') { this.far = Boolean(e.data.far); return }
       this.keyBlocks = this.keyWindow
       // A click that already began to open the gate is closed again.
       if (this.isOpen && this.openFor < this.longBlocks) { this.isOpen = false; this.hold = 0 }
@@ -144,7 +164,7 @@ class QuietGate extends AudioWorkletProcessor {
     const level = rms > 1e-6 ? rms : 1e-6
     if (level < this.floor) this.floor += (level - this.floor) * 0.1
     else this.floor *= this.floorUp
-    this.open = Math.min(this.maxOpen, Math.max(this.minOpen, this.floor * 4))
+    this.open = this.far ? this.maxOpen : Math.min(this.maxOpen, Math.max(this.minOpen, this.floor * 4))
     this.close = this.open * this.closeRatio
     if (--this.reportIn <= 0) {
       this.reportIn = sampleRate / 128
@@ -257,7 +277,9 @@ async function buildDenoiser(micTrack, engine, boost = true) {
     ? new GtcrnWorkletNode(ctx, { wasmBinary: gtcrnBinary, maxChannels: 1 })
     : new RnnoiseWorkletNode(ctx, { wasmBinary, maxChannels: 1 })
   const gate = new AudioWorkletNode(ctx, 'quiet-gate', { processorOptions: { openDb: -48, minOpenDb: -62, closeDb: -54, holdMs: 400 } })
-  const booster = boost ? new AudioWorkletNode(ctx, 'level-boost', { processorOptions: { targetDb: -26, maxDb: 30, noiseCeilDb: -45 } }) : null
+  // At most +18 dB (was +30): enough for a laptop microphone at -45 dBFS;
+  // more mostly raised the room and the other person's voice from the speakers.
+  const booster = boost ? new AudioWorkletNode(ctx, 'level-boost', { processorOptions: { targetDb: -26, maxDb: 18, noiseCeilDb: -45 } }) : null
   const destination = ctx.createMediaStreamDestination()
   const tuning = { boostDb: 0, floorDb: null, speechDb: null, gateDb: -48 }
   if (booster) booster.port.onmessage = (e) => { tuning.boostDb = e.data.gainDb; tuning.floorDb = e.data.floorDb; tuning.speechDb = e.data.speechDb }
@@ -295,6 +317,9 @@ async function buildDenoiser(micTrack, engine, boost = true) {
     tuning: () => ({ ...tuning }),
     resume: () => ctx.resume().catch(() => {}),
     keystroke: () => gate.port.postMessage(1),
+    // Someone else in the call is talking (see Call.jsx): no raising, the
+    // gate at -48 — their voice from our speakers stays out of what we send.
+    farEnd: (active) => { const m = { far: Boolean(active) }; gate.port.postMessage(m); booster?.port.postMessage(m) },
     stop() {
       ctx.removeEventListener('statechange', onState)
       try { source.disconnect(); booster?.disconnect(); node.disconnect(); gate.disconnect(); node.destroy?.() } catch { /* already gone */ }

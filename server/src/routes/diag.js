@@ -47,7 +47,9 @@ const eventSchema = z.object({
   call: z.string().max(40).optional()
 })
 
-// A person may report a burst of events, not a stream of them.
+// A person may report a burst of events, not a stream of them. A lesson
+// alone sends ~6 a minute (net.health, noise.health), so the cap is 120 per
+// 10 minutes: at 60, echo checks and anything rarer were being refused.
 const seen = new Map()
 const allowed = (userId) => {
   const now = Date.now()
@@ -55,7 +57,7 @@ const allowed = (userId) => {
   if (now - entry.since > 10 * 60 * 1000) { entry.count = 0; entry.since = now }
   entry.count += 1
   seen.set(userId, entry)
-  return entry.count <= 60
+  return entry.count <= 120
 }
 
 diagRouter.post('/', async (req, res) => {

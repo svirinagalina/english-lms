@@ -125,6 +125,7 @@ export default function Call() {
   // Echo: 'source' — our microphone sends the other person's voice back to
   // them; 'heard' — someone sends ours back to us (see utils/echoMeter.js).
   const [echoWarning, setEchoWarning] = useState(null)
+  const echoReportedRef = useRef({})
   const echoRef = useRef(null)
   const [peers, setPeers] = useState({})
   const peersRef = useRef(peers)
@@ -479,7 +480,27 @@ export default function Call() {
   useEffect(() => {
     socketRef.current?.emit('mic:state', { muted: !micOnRef.current, denoised: noiseState === 'on' })
   }, [noiseState])
+  // Safari sometimes hands out a microphone without echo cancellation even
+  // though it was asked for (Anastasia, 2026-10-21: the whole lesson sent the
+  // teacher's voice back from her MacBook speakers) — seemingly when the
+  // microphone is opened a second time. Let go of it and open it again,
+  // once; if it still comes without, tell the person to use headphones.
+  const aecRetriesRef = useRef(0)
+  const echoCancellationOff = (rawTrack) => {
+    if (rawTrack.getSettings?.().echoCancellation !== false) return false
+    if (aecRetriesRef.current >= 1) {
+      report(token, 'mic.no-aec', 'still off after reopening the microphone')
+      setEchoWarning((w) => w ?? { kind: 'no-aec' })
+      return false
+    }
+    aecRetriesRef.current += 1
+    report(token, 'mic.no-aec', 'reopening the microphone')
+    rawTrack.stop()
+    setTimeout(() => { reacquireMic() }, 300)
+    return true
+  }
   const startDenoiser = (rawTrack, isDisposed) => {
+    if (echoCancellationOff(rawTrack)) return
     if (!isDenoiserSupported()) { setNoiseState('browser'); return }
     setNoiseState('starting')
     const t0 = performance.now()
@@ -1381,16 +1402,36 @@ export default function Call() {
       for (const [id, peer] of Object.entries(peersRef.current)) {
         const r = meter.check(id)
         if (!r || (r.selfPeak < 0.02 && r.peerPeak < 0.02)) continue
-        report(token, 'echo.check', 'measured', { peer: peer?.name ?? null, ...r })
+        // The diag log takes flat values only (nested ones were refused, so
+        // not one check reached it in October), and a person has 60 events
+        // per 10 minutes: every 2 minutes per person, or at once when it
+        // looks like echo.
+        const flat = { peer: peer?.name ?? null, sourceCorr: r.source.corr, sourceLagMs: r.source.lagMs, heardCorr: r.heard.corr, heardLagMs: r.heard.lagMs, selfPeak: r.selfPeak, peerPeak: r.peerPeak }
+        const lastAt = echoReportedRef.current[id] ?? 0
+        if (Date.now() - lastAt >= 120000 || r.source.corr >= 0.6 || r.heard.corr >= 0.6) {
+          echoReportedRef.current[id] = Date.now()
+          report(token, 'echo.check', 'measured', flat)
+        }
         const s = strikes[id] ?? { source: 0, heard: 0 }
         s.source = r.source.corr >= 0.6 && r.peerPeak >= 0.02 ? s.source + 1 : 0
         s.heard = r.heard.corr >= 0.6 && r.selfPeak >= 0.02 ? s.heard + 1 : 0
         strikes[id] = s
-        if (s.source === 2) { report(token, 'echo.detected', 'source', { peer: peer?.name ?? null, ...r }); setEchoWarning((w) => w ?? { kind: 'source' }) }
-        if (s.heard === 2) { report(token, 'echo.detected', 'heard', { peer: peer?.name ?? null, ...r }); setEchoWarning((w) => w ?? { kind: 'heard', name: peer?.name ?? 'Someone' }) }
+        if (s.source === 2) { report(token, 'echo.detected', 'source', flat); setEchoWarning((w) => w ?? { kind: 'source' }) }
+        if (s.heard === 2) { report(token, 'echo.detected', 'heard', flat); setEchoWarning((w) => w ?? { kind: 'heard', name: peer?.name ?? 'Someone' }) }
       }
     }, 30000)
-    return () => { clearInterval(timer); meter.stop(); echoRef.current = null }
+    // Someone else talking (anyone we hear above ~-44 dBFS, held 700 ms for
+    // the echo's tail) — the denoiser stops raising our microphone and keeps
+    // its gate at -48 meanwhile (utils/noiseSuppressor.js).
+    let farUntil = 0
+    let far = false
+    const farTimer = setInterval(() => {
+      const now = Date.now()
+      if (meter.peerLevel() > 0.006) farUntil = now + 700
+      const next = now < farUntil
+      if (next !== far) { far = next; denoiserRef.current?.farEnd?.(far) }
+    }, 50)
+    return () => { clearInterval(timer); clearInterval(farTimer); denoiserRef.current?.farEnd?.(false); meter.stop(); echoRef.current = null }
   }, [status]) // eslint-disable-line react-hooks/exhaustive-deps
   // Which audio each person sends us, for the meter.
   useEffect(() => {
@@ -1940,7 +1981,9 @@ export default function Call() {
       )}
       {echoWarning && (
         <div className="banner warning">
-          {echoWarning.kind === 'source'
+          {echoWarning.kind === 'no-aec'
+            ? 'Your browser has switched off echo cancelling for the microphone, so the others may hear themselves. Please put on headphones (or use Chrome). / Браузер отключил подавление эха — собеседники могут слышать себя. Пожалуйста, наденьте наушники (или откройте урок в Chrome).'
+            : echoWarning.kind === 'source'
             ? 'Echo: your microphone picks up the others from your speakers and sends their voices back — they hear themselves. Please put on headphones, or turn your speakers down.'
             : `Echo: ${echoWarning.name}'s microphone sends your voice back to you. Ask them to put on headphones or turn their speakers down.`}
           <button className="banner-close" onClick={() => setEchoWarning(null)} title="Hide">×</button>
