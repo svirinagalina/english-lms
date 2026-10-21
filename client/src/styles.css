@@ -1226,6 +1226,15 @@ button.compact { padding: 6px 10px; font-size: 12px; align-self: flex-start; }
 .course-feedback.ok { color: #7fd88f; }
 .course-feedback.bad { color: #e5a5a5; }
 .course-tts-active-line { background: rgba(244, 185, 217, 0.15); border-radius: 4px; margin: 0 -6px; padding: 0 6px; }
+/* Listening courses: read along while the story plays. */
+.audiobook-controls { flex-wrap: wrap; align-items: center; margin: 8px 0 12px; }
+.audiobook-speed { display: inline-flex; align-items: center; gap: 6px; font-size: 14px; }
+.audiobook-speed select { width: auto; }
+.audiobook-text { display: flex; flex-direction: column; gap: 4px; }
+.audiobook-paragraph { display: flex; gap: 8px; align-items: flex-start; }
+.audiobook-paragraph p { margin: 6px 0; line-height: 1.65; font-size: 17px; }
+.audiobook-from { flex: 0 0 auto; margin-top: 6px; padding: 2px 7px; font-size: 11px; line-height: 1.4; background: transparent; border: 1px solid rgba(255,255,255,0.25); color: inherit; border-radius: 6px; opacity: 0.6; cursor: pointer; }
+.audiobook-from:hover { opacity: 1; }
 @media (max-width: 860px) {
   .course-layout { grid-template-columns: 1fr; }
   .course-lessons { max-height: none; }

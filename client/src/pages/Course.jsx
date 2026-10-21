@@ -12,7 +12,7 @@ import { speakDialogue, stopSpeaking } from '../utils/speech'
 import { ToeflSetBlock, ToeflTestBlock } from '../toefl/ToeflBlocks'
 import { RichText, ChoiceBlock, SelectTextBlock, DragWordsBlock, WordOrderBlock, GroupsBlock, WritingBlock } from '../components/CourseActivities'
 
-const TYPE_LABEL = { theory: 'Theory', practice: 'Practice', supplementary: 'Extra', lesson: 'Lesson' }
+const TYPE_LABEL = { theory: 'Theory', practice: 'Practice', supplementary: 'Extra', lesson: 'Lesson', detective: 'Detective story', podcast: 'Interesting facts' }
 
 // Dialogue scripts are written as "Speaker: line", one per line — used to
 // give each speaker their own voice and to show the labelled transcript in
@@ -67,6 +67,83 @@ function TtsAudioBlock({ payload }) {
           {payload.lines.map((line, i) => (
             <div key={i} className={i === index ? 'course-tts-active-line' : ''}>
               {line.speaker !== '_narrator' ? `${line.speaker}: ` : ''}{line.text}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
+// An audiobook (the Listening courses): the text by paragraph, each with its
+// own MP3, played one after another. The text stays on the page to read
+// along (double-click a word → its card, like anywhere in a course); the
+// paragraph playing is highlighted, ▶ beside a paragraph starts from there,
+// the speed is the student's, and «Hide text» turns it into pure listening.
+// A paragraph without a file (not voiced yet) is read by the browser.
+const SPEEDS = [0.75, 0.9, 1, 1.15, 1.3]
+function AudiobookBlock({ payload }) {
+  const [index, setIndex] = useState(-1) // -1 = stopped
+  const [paused, setPaused] = useState(false)
+  const [speed, setSpeed] = useState(() => { try { return Number(localStorage.getItem('audiobook.speed')) || 1 } catch { return 1 } })
+  const [hidden, setHidden] = useState(false)
+  const audioRef = useRef(null)
+  const speedRef = useRef(speed)
+  const paragraphs = payload.paragraphs ?? []
+
+  useEffect(() => () => { audioRef.current?.pause(); stopSpeaking() }, [])
+  useEffect(() => {
+    speedRef.current = speed
+    if (audioRef.current) audioRef.current.playbackRate = speed
+    try { localStorage.setItem('audiobook.speed', String(speed)) } catch { /* private mode */ }
+  }, [speed])
+
+  const playFrom = (i) => {
+    if (i >= paragraphs.length) { setIndex(-1); setPaused(false); activeAudioStop = null; return }
+    setIndex(i)
+    setPaused(false)
+    const { url, text } = paragraphs[i]
+    if (!url) {
+      speakDialogue([{ speaker: '_narrator', text }], () => playFrom(i + 1)).then((ok) => { if (!ok) playFrom(i + 1) })
+      return
+    }
+    if (!audioRef.current) audioRef.current = new Audio()
+    const audio = audioRef.current
+    audio.src = url
+    audio.playbackRate = speedRef.current
+    audio.onended = () => playFrom(i + 1)
+    audio.onerror = () => playFrom(i + 1)
+    audio.play().catch(() => setIndex(-1))
+  }
+  const stop = () => { audioRef.current?.pause(); stopSpeaking(); setIndex(-1); setPaused(false); activeAudioStop = null }
+  const start = (i = 0) => { activeAudioStop?.(); activeAudioStop = stop; stopSpeaking(); playFrom(i) }
+  const pause = () => { audioRef.current?.pause(); setPaused(true) }
+  const resume = () => { audioRef.current?.play().catch(() => {}); setPaused(false) }
+  const playing = index >= 0
+
+  return (
+    <div className="course-block audiobook">
+      {payload.title && <strong>{payload.title}</strong>}
+      <div className="row-actions audiobook-controls">
+        {!playing && <button onClick={() => start(0)}>▶ Listen</button>}
+        {playing && !paused && <button onClick={pause}>❚❚ Pause</button>}
+        {playing && paused && <button onClick={resume}>▶ Continue</button>}
+        {playing && <button className="ghost" onClick={stop}>■ Stop</button>}
+        <label className="audiobook-speed">Speed
+          <select value={speed} onChange={(e) => setSpeed(Number(e.target.value))}>
+            {SPEEDS.map((s) => <option key={s} value={s}>{s}×</option>)}
+          </select>
+        </label>
+        <button className="ghost" onClick={() => setHidden((h) => !h)}>{hidden ? 'Show text' : 'Hide text'}</button>
+      </div>
+      {hidden ? (
+        <p className="muted">Text hidden — listen first, then show it to check.{playing ? ` Paragraph ${index + 1} of ${paragraphs.length}.` : ''}</p>
+      ) : (
+        <div className="audiobook-text">
+          {paragraphs.map((p, i) => (
+            <div key={i} className={`audiobook-paragraph ${i === index ? 'course-tts-active-line' : ''}`}>
+              <button type="button" className="audiobook-from" title="Listen from here" onClick={() => start(i)}>▶</button>
+              <p>{p.text}</p>
             </div>
           ))}
         </div>
@@ -193,6 +270,7 @@ function Block({ block }) {
   if (type === 'writing') return <WritingBlock block={block} />
   if (type === 'toefl') return <ToeflSetBlock block={block} />
   if (type === 'toefl-test') return <ToeflTestBlock block={block} />
+  if (type === 'audiobook') return <AudiobookBlock payload={payload} />
   if (type === 'tts') return payload.lines ? <TtsAudioBlock payload={payload} /> : <TtsScriptBlock payload={payload} />
   if (type === 'video') {
     return (

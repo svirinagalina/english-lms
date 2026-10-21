@@ -1,8 +1,8 @@
-"""Voices TOEFL course lines with Microsoft neural voices (edge-tts).
+"""Voices TOEFL and Listening course lines with Microsoft neural voices (edge-tts).
 
 Usage: python tts_edge.py <lines.json> <out_dir>
-lines.json: [{"voice": "en-US-AvaMultilingualNeural", "text": "...", "file": "<hash>.mp3"}]
-Called by generate-toefl-audio.js; needs `pip install edge-tts`.
+lines.json: [{"voice": "en-US-AvaMultilingualNeural", "text": "...", "file": "<hash>.mp3", "rate": "-6%" (optional)}]
+Called by generate-toefl-audio.js and generate-listening-audio.js; needs `pip install edge-tts`.
 """
 import asyncio
 import json
@@ -19,7 +19,7 @@ async def one(line, out_dir, sem):
     async with sem:
         for attempt in range(4):
             try:
-                await edge_tts.Communicate(line["text"], line["voice"], volume=VOLUME).save(path + ".part")
+                await edge_tts.Communicate(line["text"], line["voice"], rate=line.get("rate", "+0%"), volume=VOLUME).save(path + ".part")
                 os.replace(path + ".part", path)
                 return True
             except Exception as err:  # network hiccups: retry a few times
