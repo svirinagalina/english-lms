@@ -30,7 +30,7 @@ export default async function globalSetup() {
   const board = await prisma.board.create({
     data: {
       title: 'Lessons', classroomId: rooms.student.id,
-      elements: [{ id: 'hello', type: 'text', x: 120, y: 120, text: 'Hello from the teacher', color: '#111111', fontSize: 28, authorId: people.teacher.id }]
+      elements: [{ id: 'hello', type: 'text', x: 120, y: 120, text: 'Hello from the teacher', color: '#111111', width: 2, fontSize: 28, authorId: people.teacher.id }]
     }
   })
   const words = await prisma.vocabSet.create({

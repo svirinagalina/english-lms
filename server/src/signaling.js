@@ -6,6 +6,7 @@ import {
   elementSchema,
   tidyElement,
   loadBoard,
+  studentMayChange,
   addElement,
   updateElement,
   deleteElement,
@@ -498,6 +499,10 @@ const PARTNER_BLOCKED_EVENTS = new Set(['call:start', 'drawing', 'board:add', 'b
       }
 
       const element = { ...parsed.data, authorId: user.id, at: parsed.data.at ?? Date.now() }
+      if (user.role === 'STUDENT') {
+        const stored = (await loadBoard(boardId)).find((e) => e.id === element.id)
+        if (stored && !studentMayChange(stored, element, user.id)) return socket.emit('board:update', stored)
+      }
       if (await addElement(boardId, element)) {
         emitToWatchers(boardWatchers, boardId, socket, 'board:add', (await loadBoard(boardId)).find((e) => e.id === element.id) ?? element)
         // A teacher's "— Homework —" heading: the students' phones hear of it.
@@ -522,6 +527,10 @@ const PARTNER_BLOCKED_EVENTS = new Set(['call:start', 'drawing', 'board:add', 'b
         return
       }
 
+      if (user.role === 'STUDENT') {
+        const stored = (await loadBoard(boardId)).find((e) => e.id === parsed.data.id)
+        if (stored && !studentMayChange(stored, parsed.data, user.id)) return socket.emit('board:update', stored)
+      }
       if (await updateElement(boardId, parsed.data, user.id)) {
         emitToWatchers(boardWatchers, boardId, socket, 'board:update', (await loadBoard(boardId)).find((e) => e.id === parsed.data.id) ?? parsed.data)
       }
@@ -530,6 +539,10 @@ const PARTNER_BLOCKED_EVENTS = new Set(['call:start', 'drawing', 'board:add', 'b
     socket.on('board:delete', async (elementId) => {
       const { boardId, roomId } = socket.data
       if (!boardId || typeof elementId !== 'string') return
+      if (user.role === 'STUDENT') {
+        const stored = (await loadBoard(boardId)).find((e) => e.id === elementId)
+        if (stored && !studentMayChange(stored, null, user.id)) return socket.emit('board:add', stored)
+      }
 
       if (await deleteElement(boardId, elementId)) {
         emitToWatchers(boardWatchers, boardId, socket, 'board:delete', elementId)

@@ -145,7 +145,12 @@ app.use('/uploads', (req, res, next) => {
   if (folder && PRIVATE_UPLOADS.has(folder.toLowerCase())) return res.status(404).end()
   next()
 })
-app.use('/uploads', express.static(uploadDir, { maxAge: '30d', immutable: true }))
+// Board pictures, Writing images and avatars belong to a lesson: only the
+// viewer's own browser keeps them, for a day — never a shared proxy cache
+// (Maxim's relay kept /uploads for 30 days when this said public).
+app.use('/uploads', express.static(uploadDir, {
+  setHeaders: (res) => res.set('Cache-Control', 'private, max-age=86400')
+}))
 
 if (process.env.NODE_ENV === 'production') {
   const clientDist = path.resolve(
