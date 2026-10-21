@@ -27,5 +27,8 @@
   },
   "devDependencies": {
     "socket.io-client": "^4.8.1"
+  },
+  "overrides": {
+    "deepmerge-ts": "^8.0.2"
   }
 }
