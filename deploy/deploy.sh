@@ -21,7 +21,7 @@ SSH_CMD="ssh -i $SSH_KEY -o BatchMode=yes -o StrictHostKeyChecking=accept-new"
 if [ "${FORCE:-0}" != "1" ]; then
   # Call pages report every 30 s with "peers":N — someone alone in a
   # forgotten tab (peers 0) is not a lesson.
-  BUSY=$($SSH_CMD "$REMOTE" 'docker exec srv3-lms-app sh -c "grep -v diag-thumb /app/uploads/diag/diag-$(date +%Y-%m).log 2>/dev/null | grep \" call=\" | tail -200"' 2>/dev/null | python3 -c '
+  BUSY=$($SSH_CMD "$REMOTE" 'docker exec srv3-lms-app sh -c "cat /app/diag/diag-$(date +%Y-%m).log /app/uploads/diag/diag-$(date +%Y-%m).log 2>/dev/null | grep -v diag-thumb | grep \" call=\" | tail -200"' 2>/dev/null | python3 -c '
 import sys, re, datetime
 now = datetime.datetime.now(datetime.timezone.utc)
 for line in sys.stdin:

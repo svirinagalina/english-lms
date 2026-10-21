@@ -7,6 +7,7 @@ dist/
 .DS_Store
 .vite/
 uploads/
+diag/
 client/public/mediapipe/wasm/
 client/public/tesseract/worker.min.js
 client/public/tesseract/core/

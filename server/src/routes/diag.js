@@ -8,12 +8,13 @@ import { fileURLToPath } from 'url'
 
 // Call diagnostics from the browser: what the noise removal and the blur
 // did on a person's device, so a failure can be read without asking them for
-// screenshots. Each line goes to the log and to a monthly file in the uploads
-// volume (UPLOAD_DIR/diag/diag-YYYY-MM.log), because a deploy recreates the
-// container and its log with it — last time the evidence of a phone's bad
-// blur was gone by the time anyone looked.
-const UPLOAD_ROOT = process.env.UPLOAD_DIR ?? path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../uploads')
-const DIAG_DIR = path.join(UPLOAD_ROOT, 'diag')
+// screenshots. Each line goes to the log and to a monthly file
+// (DIAG_DIR/diag-YYYY-MM.log), because a deploy recreates the container and
+// its log with it — last time the evidence of a phone's bad blur was gone by
+// the time anyone looked. DIAG_DIR is a volume of its own on the server, never
+// inside the served uploads: until 2026-10-21 these files sat in
+// uploads/diag and were reachable by URL.
+const DIAG_DIR = process.env.DIAG_DIR ?? path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../diag')
 let dirReady = null
 async function keep(line) {
   try {
