@@ -45,3 +45,16 @@ test('studying a word set shows a card and reveals the word on click', async ({ 
   await card.click()
   await expect(page.getByText(/^(cat|dog)$/).first()).toBeVisible()
 })
+
+test("a student's eraser leaves the teacher's material on the board", async ({ page }) => {
+  await signIn(page, 'student')
+  await page.goto(`/classroom/${seed.rooms.student}`)
+  await page.getByRole('button', { name: 'Open' }).click()
+  await expect.poll(() => inkOnBoard(page)).toBeGreaterThan(200)
+  const before = await inkOnBoard(page)
+  await page.getByRole('button', { name: 'Erase', exact: true }).click()
+  // The seeded text is drawn in the middle of the opened board.
+  await page.locator('canvas').first().click({ position: { x: 640, y: 355 } })
+  await expect(page.getByText(/You can erase only what you wrote/)).toBeVisible()
+  expect(await inkOnBoard(page)).toBeGreaterThanOrEqual(before * 0.9)
+})

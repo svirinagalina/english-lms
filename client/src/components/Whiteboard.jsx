@@ -1686,6 +1686,9 @@ const Whiteboard = forwardRef(function Whiteboard({ socketRef, boardId, title, s
   const { user: me } = useAuth()
   const ownIdsRef = useRef(new Set())
   const isOwn = (element) => Boolean(element?.id) && (ownIdsRef.current.has(element.id) || (me?.id && element.authorId === me.id))
+  // A student erases and edits only what they made; the teacher's material
+  // they may only move. The server enforces the same (studentMayChange).
+  const mayChange = (element) => !wordPicker || isOwn(element)
 
   // --- History ----------------------------------------------------------------
   //
@@ -1775,7 +1778,9 @@ const Whiteboard = forwardRef(function Whiteboard({ socketRef, boardId, title, s
 
   const remove = (ids) => {
     const gone = new Set(Array.isArray(ids) ? ids : [ids])
-    const removed = elementsRef.current.filter((item) => gone.has(item.id))
+    const chosen = elementsRef.current.filter((item) => gone.has(item.id))
+    const removed = chosen.filter(mayChange)
+    if (removed.length < chosen.length) showToast("You can erase only what you wrote — the teacher's material stays")
     if (!removed.length) return
     for (const item of removed) removeRaw(item.id)
     for (const item of removed) if (item.mistakeId && onMistakeRemoved) onMistakeRemoved(item.id)
@@ -2275,6 +2280,7 @@ const Whiteboard = forwardRef(function Whiteboard({ socketRef, boardId, title, s
   // Edit a text (or a note's text) in place: the text hides while the
   // editor sits over it. A note's editor sits inside its padding.
   const openEditor = (target, caretAt = null) => {
+    if (!mayChange(target)) return
     // A mistake note is edited as the mistake (said / should be), so the
     // board and the student's notebook stay the same thing.
     if (target.type === 'note' && target.mistakeId && onMistake) { openMistakeEdit(target); return }
@@ -2494,7 +2500,7 @@ const Whiteboard = forwardRef(function Whiteboard({ socketRef, boardId, title, s
       const items = selectedElements()
 
       // A corner handle of the selection takes priority over what is under it.
-      if (items.length) {
+      if (items.length && items.every(mayChange)) {
         const group = unionBounds(items)
         const handle = handleAt(group, point, scale)
         if (handle) {
