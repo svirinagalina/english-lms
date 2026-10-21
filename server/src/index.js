@@ -133,9 +133,18 @@ app.get('/api/version', (req, res) => res.json({ build: BUILD_ID }))
 
 const uploadDir = process.env.UPLOAD_DIR
   ?? path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../uploads')
-// Textbooks live in the uploads folder (the persistent volume) but are
-// copyrighted: they go out only through /api/textbooks/:id/file.
-app.use('/uploads/textbooks', (req, res) => res.status(404).end())
+// Folders of the uploads volume that are never served: textbooks are
+// copyrighted (they go out only through /api/textbooks/:id/file), diagnostics
+// hold names, devices and camera thumbnails. The folder is judged on the path
+// as the file server will resolve it — /uploads//diag/… used to slip past a
+// plain '/uploads/diag' prefix.
+const PRIVATE_UPLOADS = new Set(['textbooks', 'diag'])
+app.use('/uploads', (req, res, next) => {
+  let folder
+  try { folder = decodeURIComponent(req.path).split(/[\\/]+/).find((part) => part && part !== '.') } catch { return res.status(400).end() }
+  if (folder && PRIVATE_UPLOADS.has(folder.toLowerCase())) return res.status(404).end()
+  next()
+})
 app.use('/uploads', express.static(uploadDir, { maxAge: '30d', immutable: true }))
 
 if (process.env.NODE_ENV === 'production') {
