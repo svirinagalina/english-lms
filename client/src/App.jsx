@@ -175,7 +175,7 @@ export default function App() {
       <Route path="/practice/:id" element={<RequireAuth><UnitPractice /></RequireAuth>} />
       <Route path="/vocabulary" element={<RequireAuth><Vocabulary /></RequireAuth>} />
       <Route path="/vocabulary/:id" element={<RequireAuth><VocabSet /></RequireAuth>} />
-      <Route path="/people" element={<RequireAuth><People /></RequireAuth>} />
+      <Route path="/people" element={<RequireAuth roles={['OWNER', 'PARTNER']}><People /></RequireAuth>} />
       <Route path="/people/teachers/:id" element={<RequireAuth roles={['OWNER', 'PARTNER']}><TeacherLessons /></RequireAuth>} />
       <Route path="/trial-reports" element={<RequireAuth><TrialReportsPage /></RequireAuth>} />
       <Route path="/people/:id/activity" element={<RequireAuth><PersonActivity /></RequireAuth>} />

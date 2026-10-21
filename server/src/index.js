@@ -69,6 +69,21 @@ app.use(cors({ origin: clientOrigin, credentials: true }))
 app.use('/api/advent/webhook', adventWebhook)
 // Stripe signs the raw body too.
 app.use('/api/stripe/webhook', stripeWebhook)
+// A change made with the sign-in cookie must come from the platform's own
+// pages: the browser names the page's origin (Origin, else Sec-Fetch-Site),
+// so a form or script on another site cannot act as a signed-in teacher.
+// Requests without the cookie (API tokens, the bot) or not sent by a browser
+// (no Origin) are left alone; the webhooks above are mounted before this.
+const CHANGES = new Set(['POST', 'PUT', 'PATCH', 'DELETE'])
+const ownOrigin = (origin) => origin === clientOrigin ||
+  (process.env.NODE_ENV !== 'production' && /^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(origin))
+app.use('/api', (req, res, next) => {
+  if (!CHANGES.has(req.method) || !/(?:^|;\s*)lms_token=/.test(req.headers.cookie ?? '')) return next()
+  const origin = req.get('origin')
+  if (origin ? ownOrigin(origin) : req.get('sec-fetch-site') !== 'cross-site') return next()
+  console.warn(`[csrf] refused ${req.method} ${req.originalUrl} origin=${origin ?? '-'} fetch-site=${req.get('sec-fetch-site') ?? '-'}`)
+  res.status(403).json({ error: 'This request did not come from the platform' })
+})
 // Requests per address. Generous for normal use (a whole school can share
 // one address), tight where a flood costs money or guesses passwords.
 app.use('/api/auth/login', rateLimit({ windowMs: 10 * 60_000, max: 30 }))

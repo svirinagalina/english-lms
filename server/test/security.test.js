@@ -65,3 +65,48 @@ test('a diagnostic report is written outside the uploads folder', async () => {
   const publicCopy = path.join(uploads, 'diag', file)
   assert.ok(!existsSync(publicCopy) || !readFileSync(publicCopy, 'utf8').includes('test.event'))
 })
+
+// --- Requests from other sites (CSRF) -------------------------------------------
+
+async function cookieOf(person) {
+  const res = await fetch(`${server.base}/api/auth/login`, {
+    method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ email: person.email, password: 'test-password-1' })
+  })
+  return res.headers.get('set-cookie').split(';')[0]
+}
+const report = (cookie, headers = {}) => fetch(`${server.base}/api/activity`, {
+  method: 'POST', headers: { 'content-type': 'application/json', cookie, ...headers }, body: JSON.stringify({ section: 'board' })
+})
+
+test("a signed-in change sent from another site's page is refused", async () => {
+  const cookie = await cookieOf(school.people.teacher)
+  assert.equal((await report(cookie, { origin: 'https://evil.example' })).status, 403)
+  assert.equal((await report(cookie, { 'sec-fetch-site': 'cross-site' })).status, 403)
+})
+
+test("the platform's own pages, and callers that are not browsers, still work", async () => {
+  const cookie = await cookieOf(school.people.teacher)
+  assert.notEqual((await report(cookie, { origin: 'http://localhost:5173' })).status, 403)
+  assert.notEqual((await report(cookie, { 'sec-fetch-site': 'same-origin' })).status, 403)
+  assert.notEqual((await report(cookie)).status, 403)
+  // No cookie at all: nothing to forge, the normal sign-in answer.
+  assert.equal((await fetch(`${server.base}/api/activity`, { method: 'POST', headers: { origin: 'https://evil.example' } })).status, 401)
+})
+
+// --- Content uploads ----------------------------------------------------------------
+
+test("an uploaded file is stored under the extension of its checked type, not the sender's name", async () => {
+  const owner = await signedIn(server.base, school.people.owner)
+  const item = (await owner.post('/api/content/items', { title: 'Post' })).body.item
+  const upload = await fetch(`${server.base}/api/content/items/${item.id}/files`, {
+    method: 'POST',
+    headers: { cookie: await cookieOf(school.people.owner), 'content-type': 'text/plain', 'x-file-name': 'payload.html' },
+    body: '<script>alert(1)</script>'
+  })
+  assert.equal(upload.status, 201)
+  const { file } = await upload.json()
+  const row = await prisma.contentFile.findUnique({ where: { id: file.id } })
+  assert.match(row.path, /-payload\.txt$/)
+  const served = await fetch(server.base + row.path)
+  assert.doesNotMatch(served.headers.get('content-type') ?? '', /html/)
+})

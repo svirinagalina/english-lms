@@ -18,7 +18,15 @@ const UPLOAD_ROOT = process.env.UPLOAD_DIR
   ?? path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../uploads')
 // Cloudflare (in front of the site) refuses request bodies over 100 MB.
 const MAX_FILE = 100 * 1024 * 1024
-const ALLOWED_MIME = /^(image\/(png|jpeg|gif|webp|heic|heif)|video\/(mp4|quicktime|webm)|audio\/(mpeg|mp4|m4a|x-m4a|wav)|application\/pdf|text\/plain)$/
+// The stored file's extension comes from this list, never from the sender's
+// name: a file sent as text/plain but named payload.html would otherwise be
+// served as a page on the LMS's own address.
+const EXTENSION_FOR = {
+  'image/png': 'png', 'image/jpeg': 'jpg', 'image/gif': 'gif', 'image/webp': 'webp', 'image/heic': 'heic', 'image/heif': 'heif',
+  'video/mp4': 'mp4', 'video/quicktime': 'mov', 'video/webm': 'webm',
+  'audio/mpeg': 'mp3', 'audio/mp4': 'm4a', 'audio/m4a': 'm4a', 'audio/x-m4a': 'm4a', 'audio/wav': 'wav',
+  'application/pdf': 'pdf', 'text/plain': 'txt'
+}
 
 const STAGES = ['SOURCE', 'EDITING', 'READY']
 const unique = (list) => [...new Set(list ?? [])]
@@ -154,7 +162,7 @@ contentRouter.post('/items/:id/files', rawBody, async (req, res) => {
   if (!existing) return res.status(404).json({ error: 'Not found' })
 
   const mime = (req.get('content-type') ?? '').split(';')[0].trim().toLowerCase()
-  if (!ALLOWED_MIME.test(mime)) return res.status(400).json({ error: 'Unsupported file type' })
+  if (!Object.hasOwn(EXTENSION_FOR, mime)) return res.status(400).json({ error: 'Unsupported file type' })
   if (!Buffer.isBuffer(req.body) || !req.body.length) return res.status(400).json({ error: 'Empty file' })
 
   let name = 'file'
@@ -163,7 +171,7 @@ contentRouter.post('/items/:id/files', rawBody, async (req, res) => {
 
   const dir = path.join(UPLOAD_ROOT, 'content', existing.id)
   await fs.mkdir(dir, { recursive: true })
-  const stored = `${randomBytes(6).toString('hex')}-${name}`
+  const stored = `${randomBytes(6).toString('hex')}-${path.parse(name).name.slice(0, 100) || 'file'}.${EXTENSION_FOR[mime]}`
   await fs.writeFile(path.join(dir, stored), req.body)
 
   const file = await prisma.contentFile.create({

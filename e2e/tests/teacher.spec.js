@@ -37,3 +37,10 @@ test("Payments lists the teacher's own student with the lessons held", async ({ 
   await expect(page.getByText(/lessons (held|used)/)).toBeVisible()
   await expect(page.getByText(seed.people.student2.email)).toHaveCount(0)
 })
+
+test('People is for the administrators: a teacher who opens it by address is sent home', async ({ page }) => {
+  await signIn(page, 'teacher')
+  await page.goto('/people')
+  await expect(page).not.toHaveURL(/\/people/)
+  await expect(page.getByText('Not allowed')).toHaveCount(0)
+})
