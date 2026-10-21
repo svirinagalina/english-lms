@@ -87,12 +87,13 @@ async function withPackage(student) {
   }
 }
 
-// The school's cards and payment links are for the owner and the partner
-// only (Galina, 2026-10-21: «у учителей не должны быть видны реквизиты»):
-// a teacher sees lessons, prices and amounts, never which card or link.
+// Money is the owner's and the partner's only (Galina, 2026-10-21: «у
+// учителей не должны быть видны реквизиты», «суммы оплаты конечно не
+// нужно»): a teacher sees lessons paid, held and left — never a price, an
+// amount, a card or a payment link.
 function hideRequisites(user, view) {
   if (isAdmin(user)) return view
-  const { paymentLink, payToTrialCard, payCardId, paysTrialCard, paysTrialCardAuto, ...rest } = view
+  const { paymentLink, payToTrialCard, payCardId, paysTrialCard, paysTrialCardAuto, priceAmount, priceCurrency, ...rest } = view
   return rest
 }
 
@@ -422,7 +423,9 @@ billingRouter.patch('/students/:id', requireRole('OWNER', 'PARTNER', 'TEACHER'),
   // Which card a student pays to is the owner's call alone; the payment link
   // is the owner's and the partner's.
   if (req.user.role !== 'OWNER') { delete data.payToTrialCard; delete data.payCardId }
-  if (!isAdmin(req.user)) delete data.paymentLink
+  // Nor are the price and the amount received a teacher's to set.
+  if (!isAdmin(req.user)) { delete data.paymentLink; delete data.priceAmount; delete data.priceCurrency }
+  const amountGiven = isAdmin(req.user) ? paidAmount : undefined
   // A date is the start of that day in Moscow time, where the school counts.
   if (packageStartedAt !== undefined) data.packageStartedAt = packageStartedAt ? new Date(`${packageStartedAt}T00:00:00+03:00`) : null
   if (resetCounter) { data.packageStartedAt = new Date(); data.heldAdjust = 0 }
@@ -449,7 +452,7 @@ billingRouter.patch('/students/:id', requireRole('OWNER', 'PARTNER', 'TEACHER'),
     await prisma.paymentRecord.create({
       data: {
         studentId: student.id, kind: 'package', lessons,
-        amountCents: paidAmount ?? auto, currency: updated.priceCurrency,
+        amountCents: amountGiven ?? auto, currency: updated.priceCurrency,
         card: await cardLabel(student.id), note: paidNote?.trim() || null, byUserId: req.user.id
       }
     })
@@ -477,8 +480,8 @@ billingRouter.get('/students/:id/payments', requireRole('OWNER', 'PARTNER', 'TEA
   if (!payments.some((p) => p.kind !== 'reported') && student.lessonsPaid > 0) {
     payments.push({ id: 'current', kind: 'current', at: student.packageStartedAt, lessons: student.lessonsPaid, amountCents: student.priceAmount != null ? student.priceAmount * student.lessonsPaid : null, currency: student.priceCurrency, card: await cardLabel(student.id), note: null, by: null })
   }
-  // Which card it went to (name and last digits) is not the teacher's business.
-  res.json({ payments: isAdmin(req.user) ? payments : payments.map((p) => ({ ...p, card: null })) })
+  // Amounts and cards are not the teacher's business: lessons and dates only.
+  res.json({ payments: isAdmin(req.user) ? payments : payments.map((p) => ({ ...p, amountCents: null, currency: null, card: null, note: p.kind === 'stripe' ? null : p.note })) })
 })
 
 // Every payment of the last `days` (default 30) in one list, newest first:

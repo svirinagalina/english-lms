@@ -45,7 +45,7 @@ export async function creditOfferPurchase(session) {
   } catch {
     return { already: true }
   }
-  let note
+  let note, teacherNote
   const student = await prisma.user.findUnique({ where: { id: userId }, select: { id: true, name: true, schoolId: true, viaLink: true, inviteEmail: true, studentLinks: { select: { teacher: { select: { id: true, email: true } } } } } })
   if (!student) return null
   // The email they paid with: where the platform invites a trial-link student (afterPayment.js).
@@ -55,26 +55,34 @@ export async function creditOfferPurchase(session) {
     const rub = Number(session.metadata?.rub) || plan.price
     const result = await creditLessons(userId, plan.lessons, { pricePerLesson: Math.round((rub * 100) / plan.lessons), currency: 'RUB' })
     note = `Оплачено через Stripe: «${plan.name}», ${plan.lessons} уроков${result?.left ? ` (+${result.left} оставалось)` : ''} — ${((session.amount_total ?? 0) / 100).toFixed(2)} ${String(session.currency).toUpperCase()}. Уроки начислены автоматически.`
+    teacherNote = `Оплачено онлайн: ${plan.lessons} уроков${result?.left ? ` (+${result.left} оставалось)` : ''}. Уроки начислены — можно заниматься.`
   } else {
     const until = new Date(Date.now() + (plan.practiceDays ?? 31) * 86400000)
     await prisma.user.update({ where: { id: userId }, data: { free: true, trialAccessUntil: null } })
     await setPlan(userId, { plan: 'practice', planUntil: until, planSource: 'offer' })
     note = `Оплачено через Stripe: «${plan.name}» — ${((session.amount_total ?? 0) / 100).toFixed(2)} ${String(session.currency).toUpperCase()}. Платформа открыта до ${until.toLocaleDateString('ru-RU')}.`
+    teacherNote = `Оплачен доступ к платформе до ${until.toLocaleDateString('ru-RU')}.`
   }
-  await tellStaff(student, note)
+  await tellStaff(student, note, { teacherNote })
   return { credited: true, plan: plan.id, lessons: plan.lessons }
 }
 
-// The student's teachers and the school's owners hear of a payment by email
-// and push; `telegram` also sends it to the owners' Telegram (the bot sees
-// lessons being added by itself, bot.js → payments(), so a credited payment
-// does not need it).
-async function tellStaff(student, note, { intro = 'Оплата', telegram = false } = {}) {
-  const teachers = student.studentLinks?.map((l) => l.teacher) ?? []
+// The school's owners hear of a payment by email and push, with the sum;
+// `telegram` also sends it to their Telegram (the bot sees lessons being
+// added by itself, bot.js → payments(), so a credited payment does not need
+// it). The student's teachers get only `teacherNote` — lessons, never sums
+// or cards — and nothing when it is null.
+async function tellStaff(student, note, { intro = 'Оплата', telegram = false, teacherNote = null } = {}) {
   const owners = await prisma.user.findMany({ where: { schoolId: student.schoolId, role: 'OWNER' }, select: { id: true, email: true, telegramChatId: true } })
-  const emails = [...new Set([...teachers, ...owners].map((u) => u.email))]
-  if (emails.length) sendPaymentReportedEmail({ to: emails, studentName: student.name, note, intro }).catch(() => {})
-  notify([...teachers, ...owners].map((u) => u.id), { title: `${intro}: ${student.name}`, body: note, url: student.id ? `/people/${student.id}/activity` : '/billing' }).catch(() => {})
+  const ownerIds = new Set(owners.map((o) => o.id))
+  const teachers = teacherNote ? (student.studentLinks?.map((l) => l.teacher) ?? []).filter((t) => !ownerIds.has(t.id)) : []
+  const url = student.id ? `/people/${student.id}/activity` : '/billing'
+  if (owners.length) sendPaymentReportedEmail({ to: [...new Set(owners.map((u) => u.email))], studentName: student.name, note, intro }).catch(() => {})
+  notify(owners.map((u) => u.id), { title: `${intro}: ${student.name}`, body: note, url }).catch(() => {})
+  if (teachers.length) {
+    sendPaymentReportedEmail({ to: [...new Set(teachers.map((u) => u.email))], studentName: student.name, note: teacherNote, intro }).catch(() => {})
+    notify(teachers.map((u) => u.id), { title: `${intro}: ${student.name}`, body: teacherNote, url }).catch(() => {})
+  }
   if (telegram) for (const owner of owners) await sendTo(owner, `💳 ${esc(intro)}: ${esc(student.name)}\n${esc(note)}`, [[{ text: 'Открыть оплаты', url: `${appUrl()}/billing` }]])
 }
 
@@ -97,7 +105,7 @@ export async function creditPackagePurchase(session) {
   const currency = session.metadata?.currency
   const result = await creditLessons(userId, lessons, price > 0 && currency ? { pricePerLesson: price, currency } : {})
   const note = `Оплачено через Stripe: пакет ${lessons} уроков${result?.left ? ` (+${result.left} оставалось)` : ''} — ${((session.amount_total ?? 0) / 100).toFixed(2)} ${String(session.currency).toUpperCase()}. Уроки начислены автоматически.`
-  await tellStaff(student, note)
+  await tellStaff(student, note, { teacherNote: `Оплачено онлайн: ${lessons} уроков${result?.left ? ` (+${result.left} оставалось)` : ''}. Уроки начислены — можно заниматься.` })
   return { credited: true, lessons }
 }
 

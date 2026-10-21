@@ -90,14 +90,13 @@ export default function StudentSettings({ studentId, onChanged, focus = false })
         ...(fromChanged ? { packageStartedAt: form.from || null } : {}),
         // Held as typed; after only a new start date it is recounted from the calls.
         ...(form.heldTouched || !fromChanged ? { held: Number(form.held) || 0 } : {}),
-        priceAmount: price,
-        priceCurrency: form.currency,
+        ...(seesRequisites ? { priceAmount: price, priceCurrency: form.currency } : {}),
         ...(isOwner ? {
           payToTrialCard: form.card === 'auto' ? null : form.card === 'trial',
           payCardId: form.card.startsWith('extra:') ? form.card.slice(6) : null
         } : {}),
         ...(seesRequisites ? { paymentLink: form.link.trim() === '' ? null : form.link.trim() } : {}),
-        paidAmount: amount,
+        ...(seesRequisites ? { paidAmount: amount } : {}),
         paidNote: form.note
       })
       if (student.paymentReportedAt) await api.paymentSeen(studentId).catch(() => {})
@@ -121,8 +120,8 @@ export default function StudentSettings({ studentId, onChanged, focus = false })
         const money = (v) => new Intl.NumberFormat('ru-RU', { style: 'currency', currency: student.priceCurrency || 'RUB', maximumFractionDigits: 2 }).format(v)
         const card = (student.payCardId && cards.extra.find((c) => c.id === student.payCardId)?.label) || (student.paysTrialCard && cards.trialReady ? cards.trial : cards.main)
         const parts = [
-          price != null ? `${money(price)} per lesson` : 'no price set',
-          student.packageSize ? `package of ${student.packageSize} lessons${price != null ? ` = ${money(price * student.packageSize)}` : ''}` : 'no package size set',
+          ...(seesRequisites ? [price != null ? `${money(price)} per lesson` : 'no price set'] : []),
+          student.packageSize ? `package of ${student.packageSize} lessons${seesRequisites && price != null ? ` = ${money(price * student.packageSize)}` : ''}` : 'no package size set',
           ...(seesRequisites ? [`card: ${card ?? '—'}`] : [])
         ]
         return <p className="ss-summary"><strong>{student.name} sees:</strong> {parts.join(' · ')}</p>
@@ -133,14 +132,14 @@ export default function StudentSettings({ studentId, onChanged, focus = false })
           <label>Lessons held<input type="number" min="0" max="1000" value={form.held} onChange={set('held')} /></label>
           <label>Left<div className={`ss-left${left != null && left <= 0 ? ' out' : ''}`}>{left == null ? '—' : left}</div></label>
           <label>Package counts from<input type="date" value={form.from} onChange={set('from')} /></label>
-          <label>Price per lesson
+          {seesRequisites && <label>Price per lesson
             <span className="ss-price">
               <input inputMode="decimal" value={form.price} onChange={set('price')} placeholder="—" />
               <select value={form.currency} onChange={set('currency')}>
                 <option value="RUB">₽</option><option value="EUR">€</option><option value="USD">$</option>
               </select>
             </span>
-          </label>
+          </label>}
           <label>Package to pay (lessons)<input type="number" min="1" max="500" value={form.size} onChange={set('size')} placeholder="e.g. 8" /></label>
           {seesRequisites && <>
           <label>Card (rubles)
@@ -153,15 +152,15 @@ export default function StudentSettings({ studentId, onChanged, focus = false })
           </label>
           <label>Payment link (card abroad)<input type="url" value={form.link} onChange={set('link')} placeholder="https://buy.stripe.com/…" /></label>
           </>}
-          <label>Amount received
+          {seesRequisites && <label>Amount received
             <input inputMode="decimal" value={form.amount} onChange={set('amount')} placeholder={form.price && form.paid ? `${Number(form.price.replace(',', '.')) * Number(form.paid)} (lessons × price)` : 'lessons × price'} />
-          </label>
+          </label>}
           <label>Payment comment<input value={form.note} onChange={set('note')} maxLength={300} placeholder="e.g. transfer from his mother" /></label>
         </div>
         <p className="muted ss-hint">
           Paid after a lesson given on credit? Set “Package counts from” to that lesson’s day — it is then counted in the new package.
           Lessons held are counted from calls automatically; type another number to correct it.
-          A new package (or more lessons paid) goes into the payment history below, with the amount and the card.
+          A new package (or more lessons paid) goes into the payment history below{seesRequisites ? ', with the amount and the card' : ''}.
         </p>
         <div className="row-actions">
           <button type="submit" disabled={busy}>Save</button>
@@ -176,7 +175,7 @@ export default function StudentSettings({ studentId, onChanged, focus = false })
         {payments?.length === 0 && <p className="muted">No payments yet.</p>}
         {payments?.length > 0 && (
           <table className="ss-pay-table">
-            <thead><tr><th>Date</th><th>What</th><th>Lessons</th><th>Amount</th>{seesRequisites && <th>Card</th>}<th /></tr></thead>
+            <thead><tr><th>Date</th><th>What</th><th>Lessons</th>{seesRequisites && <th>Amount</th>}{seesRequisites && <th>Card</th>}<th /></tr></thead>
             <tbody>
               {payments.map((p) => (
                 <tr key={p.id} className={['reported', 'stripe-link'].includes(p.kind) ? 'muted' : ''}>
@@ -187,7 +186,7 @@ export default function StudentSettings({ studentId, onChanged, focus = false })
                     {p.note ? <div className="muted">{p.note}</div> : null}
                   </td>
                   <td>{p.lessons ?? '—'}</td>
-                  <td>{p.amountCents != null ? new Intl.NumberFormat('ru-RU', { style: 'currency', currency: p.currency || 'RUB', maximumFractionDigits: 2 }).format(p.amountCents / 100) : '—'}</td>
+                  {seesRequisites && <td>{p.amountCents != null ? new Intl.NumberFormat('ru-RU', { style: 'currency', currency: p.currency || 'RUB', maximumFractionDigits: 2 }).format(p.amountCents / 100) : '—'}</td>}
                   {seesRequisites && <td>{p.card ?? '—'}</td>}
                   <td>{isOwner && !['stripe', 'current'].includes(p.kind) && (
                     <button type="button" className="ghost ss-x" title="Delete this line" disabled={busy}

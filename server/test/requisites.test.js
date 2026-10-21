@@ -1,5 +1,5 @@
-// The school's cards and payment links are the owner's and the partner's:
-// a teacher sees lessons, prices and amounts, never which card or link.
+// Money is the owner's and the partner's: a teacher sees lessons paid, held
+// and left — never a price, an amount, a card or a payment link.
 import { test, before, after } from 'node:test'
 import assert from 'node:assert/strict'
 import { migrate, seed, startServer, signedIn, prisma } from './helpers.js'
@@ -26,29 +26,39 @@ test('a teacher cannot read the school cards', async () => {
   assert.match(JSON.stringify((await as.owner.get('/api/billing/school')).body), /2200111122223333/)
 })
 
-test('a teacher sees the student\'s lessons and price but no card or link', async () => {
+test('a teacher sees the student\'s lessons but no price, amount, card or link', async () => {
   const id = school.people.student.id
   const mine = (await as.teacher.get(`/api/billing/students/${id}`)).body.student
-  assert.equal(mine.priceAmount, 150000)
   assert.equal(mine.package.lessonsPaid, 4)
-  for (const key of ['paymentLink', 'payToTrialCard', 'payCardId', 'paysTrialCard']) assert.equal(key in mine, false, key)
+  for (const key of ['paymentLink', 'payToTrialCard', 'payCardId', 'paysTrialCard', 'priceAmount', 'priceCurrency']) assert.equal(key in mine, false, key)
   const list = (await as.teacher.get('/api/billing/students')).body.students
-  assert.equal(list.some((s) => 'paymentLink' in s), false)
+  assert.equal(list.some((s) => 'paymentLink' in s || 'priceAmount' in s), false)
   const people = (await as.teacher.get('/api/users')).body.people
-  assert.equal(people.some((p) => p.paymentLink), false)
+  assert.equal(people.some((p) => p.paymentLink || p.priceAmount), false)
+  const activity = (await as.teacher.get(`/api/activity/people/${id}`)).body
+  assert.doesNotMatch(JSON.stringify(activity), /150000|priceAmount/)
   const { payments } = (await as.teacher.get(`/api/billing/students/${id}/payments`)).body
-  assert.equal(payments[0].amountCents, 600000)
+  assert.equal(payments[0].lessons, 4)
+  assert.equal(payments[0].amountCents, null)
   assert.equal(payments[0].card, null)
+  assert.doesNotMatch(JSON.stringify(payments), /600000|3333/)
   // The owner sees them all.
   assert.equal((await as.owner.get(`/api/billing/students/${id}`)).body.student.paymentLink, 'https://buy.stripe.com/test')
+  assert.equal((await as.owner.get(`/api/billing/students/${id}`)).body.student.priceAmount, 150000)
   assert.equal((await as.owner.get(`/api/billing/students/${id}/payments`)).body.payments[0].card, 'Galina card · 3333')
+  assert.equal((await as.owner.get(`/api/billing/students/${id}/payments`)).body.payments[0].amountCents, 600000)
 })
 
-test('a teacher saving the student\'s lessons does not touch the payment link', async () => {
+test('a teacher saving the student\'s lessons touches no price, amount or link', async () => {
   const id = school.people.student.id
-  const res = await as.teacher.patch(`/api/billing/students/${id}`, { lessonsPaid: 6, paymentLink: null })
+  const res = await as.teacher.patch(`/api/billing/students/${id}`, { lessonsPaid: 10, paymentLink: null, priceAmount: 1, paidAmount: 5 })
   assert.equal(res.status, 200)
+  assert.doesNotMatch(JSON.stringify(res.body), /150000|priceAmount/)
   const user = await prisma.user.findUnique({ where: { id } })
-  assert.equal(user.lessonsPaid, 6)
+  assert.equal(user.lessonsPaid, 10)
   assert.equal(user.paymentLink, 'https://buy.stripe.com/test')
+  assert.equal(user.priceAmount, 150000)
+  // The history line gets lessons × the owner's price, not the teacher's sum.
+  const line = await prisma.paymentRecord.findFirst({ where: { studentId: id, lessons: 6 }, orderBy: { createdAt: 'desc' } })
+  assert.equal(line.amountCents, 150000 * 6)
 })

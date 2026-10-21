@@ -89,9 +89,11 @@ export default function Billing() {
 
       <Panel id="billing:students" title="Students" count={students.length} defaultOpen>
         <p className="muted" style={{ marginBottom: 10 }}>
-          Payment is per lesson: set the price and how many lessons are paid. Every call with the student uses one lesson up.
+          {user.role === 'OWNER' || user.role === 'PARTNER'
+            ? 'Payment is per lesson: set the price and how many lessons are paid. Every call with the student uses one lesson up.'
+            : 'How many lessons each student has paid for and held. Every lesson uses one up.'}
         </p>
-        {students.length === 0 && <p className="muted">No students yet — invite one in People, then set their price and lessons here.</p>}
+        {students.length === 0 && <p className="muted">No students yet.</p>}
 
         <div className="list">
           {students.map((student) => (

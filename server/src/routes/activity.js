@@ -104,9 +104,10 @@ activityRouter.get('/people/:id', requireRole('OWNER', 'PARTNER', 'TEACHER'), as
     units.set(unit.id, u)
   }
 
-  const extra = user.role === 'STUDENT' ? await studentExtras(user) : await teacherExtras(user)
+  const extra = user.role === 'STUDENT' ? await studentExtras(user, isAdmin(req.user)) : await teacherExtras(user)
   const sessions = classrooms.flatMap((c) => c.sessions)
-  const courses = (await coursesOf([user.id])).get(user.id) ?? []
+  // What a course cost is not shown to a teacher.
+  const courses = ((await coursesOf([user.id])).get(user.id) ?? []).map((c) => (isAdmin(req.user) ? c : { ...c, amount: null }))
   res.json({
     user,
     courses,
@@ -177,7 +178,7 @@ activityRouter.get('/reports', requireRole('OWNER', 'PARTNER', 'TEACHER'), async
 
 // A student's money and people: the package (paid / held since it started /
 // left), the price, "I have paid", the rouble card they see, their teachers.
-async function studentExtras(user) {
+async function studentExtras(user, admin = false) {
   const student = await prisma.user.findUnique({
     where: { id: user.id },
     select: {
@@ -191,11 +192,12 @@ async function studentExtras(user) {
   const hadTrial = await prisma.trialReport.findFirst({ where: { studentId: user.id, publishedAt: { not: null } }, select: { id: true } })
   return {
     billing: {
-      priceAmount: student.priceAmount, priceCurrency: student.priceCurrency,
+      // The price and the card: the owner's and the partner's only.
+      ...(admin ? { priceAmount: student.priceAmount, priceCurrency: student.priceCurrency } : {}),
       lessonsPaid: student.lessonsPaid, packageStartedAt: student.packageStartedAt, held,
       remaining: student.lessonsPaid == null ? null : student.lessonsPaid - held,
       paymentReportedAt: student.paymentReportedAt,
-      card: (student.payToTrialCard ?? Boolean(hadTrial)) ? 'after-trial' : 'school'
+      ...(admin ? { card: (student.payToTrialCard ?? Boolean(hadTrial)) ? 'after-trial' : 'school' } : {})
     },
     teachers: student.studentLinks.map((l) => l.teacher),
     contacts: { phone: user.phone, messenger: user.messenger, city: user.city, timezone: user.timezone },

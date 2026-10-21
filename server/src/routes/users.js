@@ -79,8 +79,8 @@ usersRouter.get('/', async (req, res) => {
       where: { teacherId: req.user.id },
       include: { student: { select: SELECT } }
     })
-    // No payment links for a teacher (requisites are the owner's, billing.js).
-    return res.json({ people: links.map((link) => ({ ...personView(link.student), paymentLink: undefined })) })
+    // No money for a teacher: prices and payment links are the owner's (billing.js).
+    return res.json({ people: links.map((link) => ({ ...personView(link.student), paymentLink: undefined, priceAmount: undefined, priceCurrency: undefined, paidUntil: undefined })) })
   }
 
   const links = await prisma.teacherStudent.findMany({
