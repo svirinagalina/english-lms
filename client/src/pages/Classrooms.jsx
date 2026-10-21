@@ -12,6 +12,7 @@ import FreeHome from '../components/FreeHome'
 import Panel from '../components/Panel'
 import Textbooks from '../components/Textbooks'
 import PersonLink from '../components/PersonLink'
+import { TelegramReminder } from '../components/TelegramConnect'
 
 // A student who studies with the teacher somewhere else (Zoom, in person):
 // added without an invitation, only to mark lessons held and keep count of
@@ -175,6 +176,8 @@ export default function Classrooms() {
 
       {user.free && <FreeHome />}
       {!isStaff && !user.free && <StudentHome classrooms={classrooms} />}
+
+      {(user.role === 'TEACHER' || user.role === 'OWNER') && <TelegramReminder />}
 
       {isStaff && (
         <input className="home-search" type="search" placeholder="Search students and boards" value={query}

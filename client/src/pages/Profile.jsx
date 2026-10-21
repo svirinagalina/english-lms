@@ -91,6 +91,8 @@ export default function Profile() {
   return (
     <div className="page">
       <Nav title="My profile" back="/classroom" />
+      {/* First on the page: it used to sit under the password form and was missed. */}
+      <TelegramConnect first />
       <section className="profile">
         <div className="profile-picture">
           <Avatar user={user} size={96} />
@@ -175,7 +177,6 @@ export default function Profile() {
           </div>
         </form>
       </section>
-      <TelegramConnect />
       {user.role === 'STUDENT' && <DeleteAccount />}
       <p className="muted" style={{ marginTop: 16 }}><a href="/privacy.html" target="_blank" rel="noopener noreferrer">Privacy policy</a></p>
     </div>
