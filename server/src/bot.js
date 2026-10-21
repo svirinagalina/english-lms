@@ -1,5 +1,5 @@
 import { prisma } from './db.js'
-import { botOn, botOnSince, botSince, botToken, bookingUrl, sendTo, once, wasSent, esc, packageMark, onLinked, onLessonsRequest, onHeldRequest, appUrl } from './telegram.js'
+import { botOn, botOnSince, botSince, botToken, bookingUrl, sendTo, once, wasSent, esc, packageMark, onLinked, onLessonsRequest, onHeldRequest, appUrl, HELD_HINT, TEACHER_KEYBOARD } from './telegram.js'
 import { confirmBooking } from './booking.js'
 import { maySeeStudent, siteStudentIds } from './partnerScope.js'
 import { OFFER_PLANS, DISCOUNT_DAYS } from './offer.js'
@@ -170,7 +170,7 @@ onHeldRequest(async (chatId, data) => {
     if (!rooms.length) return { text: 'У вас пока нет учеников на платформе.' }
     const buttons = []
     for (let i = 0; i < rooms.length && i < 90; i += 2) buttons.push(rooms.slice(i, i + 2).map((r) => ({ text: r.student.name.slice(0, 40), data: `h:${r.id}` })))
-    return { text: 'С кем прошёл урок?', buttons }
+    return { text: 'С кем прошёл урок? (Только уроки не на платформе — звонки на платформе уже засчитаны сами.)', buttons }
   }
   const [kind, id, arg] = data.split(':')
   if (kind === 'h') {
@@ -542,6 +542,17 @@ async function packages() {
 
 // --- Running -----------------------------------------------------------------
 
+// Once to every teacher who connected before the «✅ Отметить урок» hint was
+// in the welcome (Galina, 2026-10-21): what the button is for, so a lesson
+// held on the platform is not marked a second time. Teachers connecting
+// later get it in the welcome (telegram.js linkChat marks them as told).
+async function heldHint() {
+  const teachers = await prisma.user.findMany({ where: { role: 'TEACHER', telegramChatId: { not: null } }, select: PERSON })
+  for (const teacher of teachers) {
+    await once(`heldhint:v1:${teacher.id}`, () => sendTo(teacher, `Как отмечать уроки в боте\n\n${HELD_HINT}`, null, TEACHER_KEYBOARD))
+  }
+}
+
 const quietly = (name, job) => job().catch((error) => console.error(`[bot] ${name}`, error.message))
 let running = false
 async function everyMinute() {
@@ -553,6 +564,7 @@ async function everyMinute() {
     await quietly('reports', reports)
     await quietly('payments', payments)
     await quietly('timetable', timetable)
+    await quietly('heldHint', heldHint)
   } finally { running = false }
 }
 let ticks = 0

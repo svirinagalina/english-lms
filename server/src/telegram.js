@@ -188,6 +188,9 @@ const reply = (chatId, text, markup) => tg('sendMessage', { chat_id: chatId, tex
 // 2026-10-21: «прямо в боте кнопка проведения урока»): pressing it sends its
 // text, which starts the same steps as /held.
 export const HELD_BUTTON = '✅ Отметить урок'
+// What the button is for: lessons held elsewhere. A call on the platform is
+// counted by itself, so marking it here too would charge the student twice.
+export const HELD_HINT = `«${HELD_BUTTON}» внизу — для уроков, которые прошли <b>не на платформе</b> (Zoom, вживую): выберите ученика и день, урок спишется с его пакета. Уроки на платформе засчитываются сами — их отмечать не нужно, иначе спишутся два урока.`
 export const TEACHER_KEYBOARD = { keyboard: [[{ text: HELD_BUTTON }]], resize_keyboard: true, is_persistent: true }
 const teacherOnChat = (chatId) => prisma.user.findFirst({ where: { telegramChatId: String(chatId), role: { in: ['OWNER', 'TEACHER'] } }, select: { id: true, name: true } })
 
@@ -206,7 +209,7 @@ async function handleStart(message, param) {
   const chatId = String(message.chat.id)
   if (!param) {
     const teacher = await teacherOnChat(chatId)
-    if (teacher) return reply(chatId, `Вы подключены, ${esc(teacher.name)} ✅\n\nПосле урока нажмите «${HELD_BUTTON}» внизу — выберите ученика и день, урок спишется с его пакета.`, TEACHER_KEYBOARD)
+    if (teacher) return reply(chatId, `Вы подключены, ${esc(teacher.name)} ✅\n\n${HELD_HINT}`, TEACHER_KEYBOARD)
     const known = await prisma.user.findFirst({ where: { telegramChatId: chatId }, select: { name: true } })
     return reply(chatId, known
       ? `Вы подключены, ${esc(known.name)} ✅ Сюда приходят напоминания об уроках.\n\nЧтобы подключить ещё один аккаунт (например, второго ребёнка), напишите его почту.`
@@ -241,8 +244,11 @@ async function linkChat(message, user, lesson = null) {
   const staff = user.role !== 'STUDENT'
   const teaches = user.role === 'OWNER' || user.role === 'TEACHER'
   await reply(chatId, staff
-    ? `Готово, ${esc(user.name)}! Сюда будут приходить новые пробные уроки, напоминания и оплаты учеников.${teaches ? `\n\nПосле урока нажмите «${HELD_BUTTON}» внизу — выберите ученика и день, урок спишется с его пакета.` : ''}`
+    ? `Готово, ${esc(user.name)}! Сюда будут приходить новые пробные уроки, напоминания и оплаты учеников.${teaches ? `\n\n${HELD_HINT}` : ''}`
     : `Готово, ${esc(user.name)}! Сюда будут приходить напоминания об уроках, отчёт и всё важное. Сколько уроков осталось — команда /lessons.`, teaches ? TEACHER_KEYBOARD : undefined)
+  // The welcome already explained the button: the one-time notice to teachers
+  // who connected earlier (bot.js heldHint) is not needed for this one.
+  if (teaches) await prisma.pushSent.create({ data: { key: `tg:heldhint:v1:${user.id}` } }).catch(() => {})
   if (hooks.onLinked) await hooks.onLinked(updated, lesson).catch((error) => console.error('[telegram] linked', error.message))
 }
 
@@ -400,7 +406,7 @@ async function handleUpdate(update) {
   if (EMAIL.test(text)) return handleEmail(message, text)
   if (/^\d{6}$/.test(text.replace(/\s/g, '')) && pendingCodes.has(String(message.chat.id))) return handleCode(message, text.replace(/\s/g, ''))
   // Any other text from a teacher: the button again, in case it was hidden.
-  if (await teacherOnChat(message.chat.id)) return reply(message.chat.id, `Чтобы отметить проведённый урок, нажмите «${HELD_BUTTON}» внизу.`, TEACHER_KEYBOARD)
+  if (await teacherOnChat(message.chat.id)) return reply(message.chat.id, `Чтобы отметить урок, который прошёл не на платформе, нажмите «${HELD_BUTTON}» внизу. Уроки на платформе засчитываются сами.`, TEACHER_KEYBOARD)
   const known = await prisma.user.findFirst({ where: { telegramChatId: String(message.chat.id) }, select: { id: true } })
   if (!known) return reply(message.chat.id, CONNECT_HELP)
   const help = supportContact()

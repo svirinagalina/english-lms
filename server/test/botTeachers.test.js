@@ -93,3 +93,22 @@ test('a student from before the bot is only remembered on the first look', async
   await runBotOnce()
   assert.equal(sent.filter((m) => /Old Student/.test(m.text)).length, 0)
 })
+
+test('every connected teacher gets the «Отметить урок» hint once; one who connected with it in the welcome does not', async () => {
+  sent.length = 0
+  const schoolId = school.people.teacher.schoolId
+  const earlier = await prisma.user.create({ data: { email: 'hint1@test.com', name: 'Earlier Teacher', role: 'TEACHER', schoolId, passwordHash: 'x', telegramChatId: '7101' } })
+  const welcomed = await prisma.user.create({ data: { email: 'hint2@test.com', name: 'New Teacher', role: 'TEACHER', schoolId, passwordHash: 'x', telegramChatId: '7102' } })
+  await prisma.pushSent.create({ data: { key: `tg:heldhint:v1:${welcomed.id}` } })
+  await runBotOnce()
+  const mine = sent.filter((m) => m.chat_id === '7101')
+  assert.equal(mine.length, 1)
+  assert.match(mine[0].text, /не на платформе/)
+  assert.deepEqual(mine[0].reply_markup.keyboard, [[{ text: '✅ Отметить урок' }]])
+  assert.equal(sent.filter((m) => m.chat_id === '7102').length, 0)
+  // The owner is not a «teacher» here.
+  assert.equal(sent.filter((m) => m.chat_id === String(7001) && /Как отмечать/.test(m.text)).length, 0)
+  await runBotOnce()
+  assert.equal(sent.filter((m) => m.chat_id === '7101').length, 1)
+  assert.ok(earlier)
+})
