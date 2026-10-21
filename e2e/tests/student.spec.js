@@ -45,3 +45,27 @@ test('studying a word set shows a card and reveals the word on click', async ({ 
   await card.click()
   await expect(page.getByText(/^(cat|dog)$/).first()).toBeVisible()
 })
+
+// Galina, 2026-10-21: on the board a student may change anything, the
+// teacher's material included; Ctrl+Z (⌘Z) takes their last action back.
+test("a student erases the teacher's text and Ctrl+Z brings it back", async ({ page }) => {
+  const { prisma } = await import('../../server/test/helpers.js')
+  const saved = async () => (await prisma.board.findUnique({ where: { id: seed.boardId }, select: { elements: true } })).elements.some((e) => e.id === 'hello')
+  try {
+    await signIn(page, 'student')
+    await page.goto(`/classroom/${seed.rooms.student}`)
+    await page.getByRole('button', { name: 'Open' }).click()
+    await expect.poll(() => inkOnBoard(page)).toBeGreaterThan(200)
+    await page.getByRole('button', { name: 'Erase', exact: true }).click()
+    // The seeded text is drawn in the middle of the opened board.
+    await page.locator('canvas').first().click({ position: { x: 640, y: 355 } })
+    await expect.poll(() => inkOnBoard(page), { message: 'the text was not erased' }).toBeLessThan(50)
+    await expect.poll(saved, { message: 'the erase was not saved', timeout: 10_000 }).toBe(false)
+
+    await page.keyboard.press('Control+z')
+    await expect.poll(() => inkOnBoard(page), { message: 'Ctrl+Z did not bring the text back' }).toBeGreaterThan(200)
+    await expect.poll(saved, { message: 'the undo was not saved', timeout: 10_000 }).toBe(true)
+  } finally {
+    await prisma.$disconnect()
+  }
+})
