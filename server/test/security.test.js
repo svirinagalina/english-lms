@@ -128,3 +128,12 @@ test("an uploaded file is stored under the extension of its checked type, not th
   const served = await fetch(server.base + row.path, { headers: { cookie: await cookieOf(school.people.owner) } })
   assert.doesNotMatch(served.headers.get('content-type') ?? '', /html/)
 })
+
+test('no other site may frame the platform; links out carry only the origin', async () => {
+  for (const url of ['/api/health', '/api/auth/me']) {
+    const res = await fetch(server.base + url)
+    assert.equal(res.headers.get('content-security-policy'), "frame-ancestors 'self'", url)
+    assert.equal(res.headers.get('x-frame-options'), 'SAMEORIGIN', url)
+    assert.equal(res.headers.get('referrer-policy'), 'strict-origin-when-cross-origin', url)
+  }
+})

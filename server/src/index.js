@@ -66,6 +66,18 @@ app.set('trust proxy', 1)
 const clientOrigin = process.env.CLIENT_ORIGIN ?? 'http://localhost:5173'
 
 app.use(cors({ origin: clientOrigin, credentials: true }))
+// No other site may show the platform inside its own page (a hidden frame
+// that tricks someone into clicking) — Maxim confirmed on 2026-10-22 that his
+// site does not embed it. Links out (YouTube, the trainer) learn only that
+// the visitor came from the platform, not which page.
+app.use((req, res, next) => {
+  res.set({
+    'Content-Security-Policy': "frame-ancestors 'self'",
+    'X-Frame-Options': 'SAMEORIGIN',
+    'Referrer-Policy': 'strict-origin-when-cross-origin'
+  })
+  next()
+})
 // Advent's lesson webhook reads its raw body (signed), so it comes first.
 app.use('/api/advent/webhook', adventWebhook)
 // Stripe signs the raw body too.
