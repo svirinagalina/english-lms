@@ -59,12 +59,15 @@ export default function Timetable() {
         ? [...classrooms].filter((c) => c.student?.id === ids[0]).sort((a, b) => (a.former - b.former) || ((a.teacher?.id === user.id ? -1 : 0) - (b.teacher?.id === user.id ? -1 : 0)))[0]
         : null
       const board = shared ?? (ids.length ? (rowsOf(ids[0]).find((b) => b.classroomId === classroom?.id) ?? rowsOf(ids[0])[0]) : null)
-      const { call } = await api.createCall({
+      const started = await api.createCall({
         ...(classroom ? { classroomId: classroom.id } : {}),
         ...(board ? { boardId: board.id } : {}),
         title: lesson.title
       })
-      navigate(`/call/${call.token}${board ? `?board=${board.id}` : ''}`)
+      // The board the server put the call on (a trial lesson picks its own when
+      // none was chosen), so the teacher and the student open the same one.
+      const boardId = started.boardId ?? started.call.boardId ?? board?.id
+      navigate(`/call/${started.call.token}${boardId ? `?board=${boardId}` : ''}`)
     } catch (err) {
       setError(err.message)
       setStarting(null)

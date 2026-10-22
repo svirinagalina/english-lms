@@ -20,13 +20,15 @@ export async function isUnpaidLead(studentId) {
 // the student's own, or a new one), carries on an open trial from the last
 // 3 hours, makes the report the teacher fills in afterwards. Used by "Trial
 // lesson" and by any "Start lesson" for an unpaid trial student.
-export async function startTrialCall(user, classroom, origin) {
+export async function startTrialCall(user, classroom, origin, boardId = null) {
   const boards = await prisma.board.findMany({
     where: { scratch: false, OR: [{ classroomId: classroom.id }, { sharedWith: { some: { id: classroom.id } } }] },
     select: { id: true, classroomId: true },
     orderBy: { updatedAt: 'desc' }
   })
-  let board = boards.find((b) => b.classroomId !== classroom.id) ?? boards[0]
+  // The board the teacher chose (Timetable, a board's own call button) wins,
+  // as long as it is one of this student's.
+  let board = boards.find((b) => b.id === boardId) ?? boards.find((b) => b.classroomId !== classroom.id) ?? boards[0]
   if (!board) board = await prisma.board.create({ data: { classroomId: classroom.id, title: `${classroom.student.name} — lessons`, elements: [] } })
 
   // Pressing it again must not make another lesson and another empty report.

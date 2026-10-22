@@ -133,7 +133,7 @@ callsRouter.post('/', requireHost, async (req, res) => {
   if (classroomId && req.user.role !== 'STUDENT') {
     const classroom = await accessibleClassroom(req.user, classroomId)
     if (classroom?.studentId && await isUnpaidLead(classroom.studentId)) {
-      const { status, body } = await startTrialCall(req.user, classroom, originOf(req))
+      const { status, body } = await startTrialCall(req.user, classroom, originOf(req), boardId)
       return res.status(status).json({ ...body, trial: true })
     }
   }
