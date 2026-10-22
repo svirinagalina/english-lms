@@ -137,9 +137,10 @@ export default function Call() {
   const [screenSoundNote, setScreenSoundNote] = useState('')
   // Blur is on from the start; it can be switched off in the call.
   // What stands behind the person: nothing, a blur, or one of the pictures.
-  // Off by default on phones, weak computers (2–4 cores) and any browser
-  // where the blur once froze a call (remembered in localStorage).
-  const [background, setBackground] = useState(() => (isHandheld() || isLowPower() || slowDevice() ? 'none' : 'blur'))
+  // Blur by default everywhere, phones and weak computers included; off only
+  // in a browser where the blur once froze a call (remembered in localStorage)
+  // — the frame-rate check below switches it off on any device too slow for it.
+  const [background, setBackground] = useState(() => (slowDevice() ? 'none' : 'blur'))
   const isBlurEnabled = background !== 'none'
   const setIsBlurEnabled = (on) => setBackground(on ? 'blur' : 'none')
   // The chosen picture, once loaded; frames read it directly.
