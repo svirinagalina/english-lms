@@ -38,7 +38,7 @@ export default function StudentSettings({ studentId, onChanged, focus = false })
       from: dayOf(student.package.startedAt),
       price: student.priceAmount == null ? '' : String(student.priceAmount / 100),
       currency: student.priceCurrency || 'RUB',
-      card: student.payCardId ? `extra:${student.payCardId}` : student.paysTrialCardAuto ? 'auto' : student.payToTrialCard ? 'trial' : 'school',
+      card: student.payCardId === 'stripe' ? 'stripe' : student.payCardId ? `extra:${student.payCardId}` : student.paysTrialCardAuto ? 'auto' : student.payToTrialCard ? 'trial' : 'school',
       link: student.paymentLink ?? '',
       amount: '',
       note: ''
@@ -92,8 +92,8 @@ export default function StudentSettings({ studentId, onChanged, focus = false })
         ...(form.heldTouched || !fromChanged ? { held: Number(form.held) || 0 } : {}),
         ...(seesRequisites ? { priceAmount: price, priceCurrency: form.currency } : {}),
         ...(isOwner ? {
-          payToTrialCard: form.card === 'auto' ? null : form.card === 'trial',
-          payCardId: form.card.startsWith('extra:') ? form.card.slice(6) : null
+          payToTrialCard: form.card === 'auto' || form.card === 'stripe' ? null : form.card === 'trial',
+          payCardId: form.card === 'stripe' ? 'stripe' : form.card.startsWith('extra:') ? form.card.slice(6) : null
         } : {}),
         ...(seesRequisites ? { paymentLink: form.link.trim() === '' ? null : form.link.trim() } : {}),
         ...(seesRequisites ? { paidAmount: amount } : {}),
@@ -118,7 +118,7 @@ export default function StudentSettings({ studentId, onChanged, focus = false })
         // What the student sees on their Payment page, in one line.
         const price = student.priceAmount != null ? student.priceAmount / 100 : null
         const money = (v) => new Intl.NumberFormat('ru-RU', { style: 'currency', currency: student.priceCurrency || 'RUB', maximumFractionDigits: 2 }).format(v)
-        const card = (student.payCardId && cards.extra.find((c) => c.id === student.payCardId)?.label) || (student.paysTrialCard && cards.trialReady ? cards.trial : cards.main)
+        const card = (student.payCardId === 'stripe' && 'Stripe (online, in euro)') || (student.payCardId && cards.extra.find((c) => c.id === student.payCardId)?.label) || (student.paysTrialCard && cards.trialReady ? cards.trial : cards.main)
         const parts = [
           ...(seesRequisites ? [price != null ? `${money(price)} per lesson` : 'no price set'] : []),
           student.packageSize ? `package of ${student.packageSize} lessons${seesRequisites && price != null ? ` = ${money(price * student.packageSize)}` : ''}` : 'no package size set',
@@ -142,12 +142,13 @@ export default function StudentSettings({ studentId, onChanged, focus = false })
           </label>}
           <label>Package to pay (lessons)<input type="number" min="1" max="500" value={form.size} onChange={set('size')} placeholder="e.g. 8" /></label>
           {seesRequisites && <>
-          <label>Card (rubles)
+          <label>Pays to
             <select value={form.card} onChange={set('card')} disabled={!isOwner} title={isOwner ? undefined : 'Only the administrator changes the card'}>
               <option value="auto">Automatic ({student.paysTrialCard ? `${cards.trial}, came from the landing` : cards.main})</option>
               <option value="school">{cards.main}</option>
               <option value="trial">{cards.trial}</option>
               {cards.extra.map((c) => <option key={c.id} value={`extra:${c.id}`}>{c.label}</option>)}
+              <option value="stripe">Stripe (online, in euro) — no rouble card</option>
             </select>
           </label>
           <label>Payment link (card abroad)<input type="url" value={form.link} onChange={set('link')} placeholder="https://buy.stripe.com/…" /></label>

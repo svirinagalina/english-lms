@@ -154,10 +154,6 @@ export default function Billing() {
               <input placeholder="Galina S., Tinkoff" value={details.cardNote} onChange={(e) => setDetails({ ...details, cardNote: e.target.value })} maxLength={120} />
             </label>
             <label className="field">
-              <span>Online payment link (Stripe, in euro)</span>
-              <input type="url" placeholder="https://buy.stripe.com/…" value={details.link} onChange={(e) => setDetails({ ...details, link: e.target.value })} />
-            </label>
-            <label className="field">
               <span>Note for students</span>
               <textarea rows={2} placeholder="Please add your name to the transfer comment" value={details.note} onChange={(e) => setDetails({ ...details, note: e.target.value })} />
             </label>
@@ -175,12 +171,20 @@ export default function Billing() {
               <span>Card holder / bank</span>
               <input placeholder="Name, bank" value={trialCard.cardNote} onChange={(e) => setTrialCard({ ...trialCard, cardNote: e.target.value })} maxLength={120} />
             </label>
+            <h3 style={{ margin: '18px 0 4px' }}>Stripe (online, in euro)</h3>
+            <p className="muted" style={{ margin: '0 0 8px' }}>
+              Card payments from abroad, Apple Pay and Google Pay. Students with a lesson price and a package size get a button with the amount filled in, and the lessons are added by themselves; others pay by this link and you add the lessons. A student set to «Stripe» in their cabinet (Pays to) sees only online payment, no rouble card.
+            </p>
+            <label className="field">
+              <span>Stripe payment link (for students without a price set)</span>
+              <input type="url" placeholder="https://buy.stripe.com/…" value={details.link} onChange={(e) => setDetails({ ...details, link: e.target.value })} />
+            </label>
             {extraCards.map((c, i) => {
               const change = (key) => (e) => setExtraCards((list) => list.map((x, j) => (j === i ? { ...x, [key]: key === 'card' ? e.target.value.replace(/\D/g, '').slice(0, 19) : e.target.value } : x)))
               return (
                 <div key={c.id}>
                   <h3 style={{ margin: '18px 0 4px' }}>{c.name || 'New card'}</h3>
-                  <p className="muted" style={{ margin: '0 0 8px' }}>Used only for students whose card is set to it (Payment → a student → Rubles go to).</p>
+                  <p className="muted" style={{ margin: '0 0 8px' }}>Used only for students whose card is set to it (Payments → a student → Edit → Pays to).</p>
                   <label className="field">
                     <span>Card name (only staff see it)</span>
                     <input placeholder="Dmitry card" value={c.name ?? ''} onChange={change('name')} maxLength={40} />

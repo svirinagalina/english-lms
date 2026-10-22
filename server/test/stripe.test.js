@@ -93,3 +93,17 @@ test('without Stripe set up there is no online package button', async () => {
   assert.equal((await as.student.get('/api/billing/me')).body.billing.packageCheckout, null)
   assert.equal((await as.student.post('/api/billing/me/package-checkout')).status, 400)
 })
+
+test('a student set to Stripe sees online payment only, no rouble card', async () => {
+  const { student } = school.people
+  await prisma.school.update({ where: { id: student.schoolId }, data: { paymentDetails: JSON.stringify({ card: '2200111122223333', cardName: 'Galina card', link: 'https://buy.stripe.com/school', note: 'Thanks!' }) } })
+  const before = (await as.student.get('/api/billing/me')).body.billing
+  assert.match(before.paymentDetails, /2200111122223333/)
+  assert.equal(before.paysStripe, false)
+  assert.equal((await as.owner.patch(`/api/billing/students/${student.id}`, { payCardId: 'stripe', payToTrialCard: null })).status, 200)
+  const after = (await as.student.get('/api/billing/me')).body.billing
+  assert.equal(after.paysStripe, true)
+  assert.doesNotMatch(after.paymentDetails, /2200111122223333/)
+  assert.match(after.paymentDetails, /buy\.stripe\.com\/school/)
+  await as.owner.patch(`/api/billing/students/${student.id}`, { payCardId: null })
+})

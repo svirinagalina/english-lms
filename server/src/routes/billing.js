@@ -279,7 +279,15 @@ billingRouter.get('/rates', async (req, res) => {
 // The card a student pays to: an extra card set for them by hand, else the
 // after-trial card (set by hand, or automatically after a trial), else the
 // school's main card.
+// payCardId 'stripe' (Galina, 2026-10-22): this student pays online only —
+// no rouble card on their Payment page, just the Stripe link/button.
+const PAYS_STRIPE = 'stripe'
 function studentDetails(school, user, hadTrial) {
+  if (user.payCardId === PAYS_STRIPE) {
+    let d = {}
+    try { d = school.paymentDetails ? JSON.parse(school.paymentDetails) : {} } catch { d = { note: school.paymentDetails } }
+    return JSON.stringify({ link: d.link ?? '', note: d.note ?? '' })
+  }
   const extra = extraCards(school.extraPaymentCards).find((c) => c.id === user.payCardId)
   if (extra) return withTrialCard(school.paymentDetails, JSON.stringify(extra))
   return (user.payToTrialCard ?? hadTrial) ? withTrialCard(school.paymentDetails, school.trialPaymentDetails) : school.paymentDetails
@@ -292,6 +300,7 @@ async function cardLabel(studentId) {
   const user = await prisma.user.findUnique({ where: { id: studentId }, select: { payToTrialCard: true, payCardId: true, school: { select: { paymentDetails: true, trialPaymentDetails: true, extraPaymentCards: true } } } })
   if (!user) return null
   const { school } = user
+  if (user.payCardId === PAYS_STRIPE) return 'Stripe (online)'
   const parse = (raw) => { try { return JSON.parse(raw ?? 'null') ?? {} } catch { return {} } }
   const tail = (card) => (card ? ` · ${String(card).replace(/\D/g, '').slice(-4)}` : '')
   const extra = extraCards(school.extraPaymentCards).find((c) => c.id === user.payCardId)
@@ -338,6 +347,7 @@ billingRouter.get('/me', async (req, res) => {
       package: view.package,
       paymentReportedAt: view.paymentReportedAt,
       paymentDetails: studentDetails(school, user, view.paysTrialCard),
+      paysStripe: user.payCardId === PAYS_STRIPE,
       packageCheckout: await packageOffer(student).catch(() => null),
       schoolName: school.name,
       trial: trial ? { reportId: trial.id, publishedAt: trial.publishedAt, level: trial.generated?.level ?? null, links: offerLinks(), purchased: await paidBefore(user.id) } : null
