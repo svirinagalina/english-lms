@@ -180,18 +180,29 @@ export default function VideoGrid({
   onPlaybackBlocked,
   unlockTick = 0,
   connectionsRef,
-  sfuRef
+  sfuRef,
+  onShowBoard
 }) {
   // Through the media server a shared screen arrives as a stream of its own
   // (`screen`) and the camera stays in the tile; on a direct call the screen
   // comes in the camera's place.
-  const sharingPeer = Object.values(peers).find((p) => p.screen) ?? Object.values(peers).find((p) => p.sharing && p.stream) ?? null
+  const sharingId = Object.keys(peers).find((id) => peers[id].screen) ?? Object.keys(peers).find((id) => peers[id].sharing && peers[id].stream) ?? null
+  const sharingPeer = sharingId ? peers[sharingId] : null
   const drawing = useRef(false)
   const lastPoint = useRef(null)
   // On a phone, the camera tiles float over the board and cost real space —
   // let people tuck them away while they're working on the board itself.
   const [videoHidden, setVideoHidden] = useState(false)
-  const boardMode = board && !sharingPeer && !screenStream
+  // Anyone may step back to the board while a screen is shared — just on
+  // their own screen; the share goes on, and a pill brings it back. A new
+  // share shows itself again.
+  const [screenHidden, setScreenHidden] = useState(false)
+  const shareKey = screenStream?.id ?? sharingId
+  useEffect(() => { setScreenHidden(false) }, [shareKey])
+  const sharing = Boolean(sharingPeer || screenStream)
+  const showingScreen = sharing && !(screenHidden && board)
+  const boardMode = board && !showingScreen
+  const backToBoard = () => { onShowBoard?.(); setScreenHidden(true) }
 
   const pointerPosition = (event) => {
     const rect = drawingCanvasRef.current.getBoundingClientRect()
@@ -258,14 +269,16 @@ export default function VideoGrid({
 
   return (
     <div className={`stage ${boardMode ? 'board-mode' : (screenStream || sharingPeer) ? 'with-screen' : ''}`}>
-      {boardMode && <div className="board-area">{board}</div>}
+      {/* The board stays mounted under a shared screen, so going back to it
+          is instant and nothing on it is lost. */}
+      {board && <div className="board-area" style={boardMode ? undefined : { display: 'none' }}>{board}</div>}
       {sharingPeer && !screenStream && (
-        <div className="screen-area">
+        <div className="screen-area" style={showingScreen ? undefined : { display: 'none' }}>
           <RemoteScreen stream={sharingPeer.screen ?? sharingPeer.stream} name={sharingPeer.name} unlockTick={unlockTick} />
         </div>
       )}
       {screenStream && (
-        <div className="screen-area">
+        <div className="screen-area" style={showingScreen ? undefined : { display: 'none' }}>
           <video
             ref={screenVideoRef}
             autoPlay
@@ -282,6 +295,14 @@ export default function VideoGrid({
             onMouseLeave={stopDrawing}
           />
         </div>
+      )}
+      {showingScreen && (board || onShowBoard) && (
+        <button type="button" className="screen-switch" onClick={backToBoard}>← Back to board</button>
+      )}
+      {sharing && boardMode && (
+        <button type="button" className="screen-switch on-board" onClick={() => setScreenHidden(false)}>
+          🖥 {screenStream ? 'Show my shared screen' : (sharingPeer?.name ? `Show ${sharingPeer.name}'s screen` : 'Show the shared screen')}
+        </button>
       )}
 
       {boardMode && (

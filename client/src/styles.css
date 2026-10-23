@@ -279,6 +279,23 @@ textarea:focus { outline: none; border-color: var(--accent); }
 
 .stage.with-screen .tiles { flex: 0 0 200px; grid-template-columns: 1fr; }
 
+/* «Back to board» over a shared screen, «Show … screen» over the board. */
+.stage { position: relative; }
+.screen-switch {
+  position: absolute;
+  top: 16px;
+  left: 16px;
+  z-index: 6;
+  padding: 8px 14px;
+  border-radius: 999px;
+  border: 1px solid rgba(252, 251, 246, 0.25);
+  background: #14453f;
+  color: #fcfbf6;
+  font-weight: 600;
+  cursor: pointer;
+}
+.screen-switch.on-board { top: auto; bottom: 132px; left: 50%; transform: translateX(-50%); background: #ffd5ed; color: #14453f; border-color: #14453f; }
+
 .video-tile {
   position: relative;
   aspect-ratio: 16 / 9;

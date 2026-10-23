@@ -84,9 +84,18 @@ const report = (call, kind, message, details, thumb) => api.diag({ kind, message
 const RECONNECTING = 'Connection lost — reconnecting…'
 const SFU_TROUBLE = 'Cannot reach the call server — trying again… If it lasts, reload this page.'
 const WEAK_NET = 'Weak internet connection: the others’ video is lowered to keep the sound clear. Moving closer to the Wi‑Fi router or using a cable helps.'
-// A browser where the background blur once froze the call.
-const slowDevice = () => { try { return localStorage.getItem('call.slowDevice') === '1' } catch { return false } }
-const markSlowDevice = () => { try { localStorage.setItem('call.slowDevice', '1') } catch { /* private window */ } }
+// A browser where the background blur froze a call in the last two weeks.
+// Kept as a time, not for ever: a computer that was busy once (or a tab left
+// in the background, before that stopped counting) must get its blur back.
+// The old permanent mark ('1') no longer counts.
+const SLOW_DEVICE_DAYS = 14
+const slowDevice = () => {
+  try {
+    const at = Number(localStorage.getItem('call.slowDevice'))
+    return at > 1e12 && Date.now() - at < SLOW_DEVICE_DAYS * 864e5
+  } catch { return false }
+}
+const markSlowDevice = () => { try { localStorage.setItem('call.slowDevice', String(Date.now())) } catch { /* private window */ } }
 // Why the browser refused the camera and microphone, in words the person
 // can act on.
 const mediaErrorText = (err) => {
@@ -1174,8 +1183,19 @@ export default function Call() {
     let tick = 0
     let lastPlayNudge = 0
     let cpuRetried = false
+    // A hidden tab gets almost no frames — that says nothing about the
+    // computer, so the speed check starts over when the page comes back.
+    let wasHidden = document.hidden
+    const onVisibility = () => { if (document.hidden) wasHidden = true }
+    document.addEventListener('visibilitychange', onVisibility)
     const loop = async () => {
       if (cancelled) return
+      if (wasHidden && !document.hidden && !perf.judged) {
+        wasHidden = false
+        perf.started = 0
+        perf.frames = 0
+        perf.freezes = 0
+      }
       // About 15 frames a second is plenty for a mask; the browser's own
       // 60 Hz tick would run the model four times as often for nothing.
       const now = performance.now()
@@ -1209,19 +1229,25 @@ export default function Call() {
           } else if (await videoProcessor.send(video)) {
             const spent = performance.now() - t0
             frames += 1
-            if (frames === 1) perf.started = t0
+            perf.frames = (perf.frames ?? 0) + 1
+            if (perf.frames === 1) perf.started = t0
             perf.total += spent
             perf.max = Math.max(perf.max, spent)
             if (spent > 1500) perf.freezes += 1
             // Too slow for this computer: the frames pile up and the whole
             // browser stalls — sound and the connection with it. Judged after
             // ~6 s (or two multi-second freezes): switch the background off
-            // and remember it for this browser.
-            if (!perf.judged && (t0 - perf.started > 6000 || perf.freezes >= 2)) {
+            // and remember it for this browser for a while.
+            if (!perf.judged && !document.hidden && !wasHidden && (t0 - perf.started > 6000 || perf.freezes >= 2)) {
               perf.judged = true
-              const fpsNow = frames / Math.max(1, (t0 - perf.started) / 1000)
-              if (fpsNow < 6 || perf.freezes >= 2) {
-                report(token, 'blur.auto-off', background, { fps: Number(fpsNow.toFixed(1)), freezes: perf.freezes, maxMs: Math.round(perf.max), cores: navigator.hardwareConcurrency ?? null })
+              const fpsNow = perf.frames / Math.max(1, (t0 - perf.started) / 1000)
+              // Judged by what one frame costs, not by how many came: a
+              // window behind another one, or on a second screen, gets few
+              // ticks from the browser on a perfectly fast computer — that
+              // used to switch the blur off (and keep it off) for teachers.
+              const avgMs = perf.total / Math.max(1, perf.frames)
+              if (avgMs > 120 || perf.freezes >= 2) {
+                report(token, 'blur.auto-off', background, { fps: Number(fpsNow.toFixed(1)), avgMs: Math.round(avgMs), freezes: perf.freezes, maxMs: Math.round(perf.max), cores: navigator.hardwareConcurrency ?? null })
                 markSlowDevice()
                 cancelled = true
                 setBackground('none')
@@ -1232,7 +1258,7 @@ export default function Call() {
             if (!perf.reported && t0 - perf.started > 15000) {
               perf.reported = true
               const seconds = (t0 - perf.started) / 1000
-              report(token, 'blur.perf', background, { fps: Number((frames / seconds).toFixed(1)), target: BLUR_FPS, avgMs: Math.round(perf.total / frames), maxMs: Math.round(perf.max), delegate: videoProcessor.delegate ?? null, camera: `${video.videoWidth}x${video.videoHeight}`, filter: CANVAS_FILTER, segmentEvery: SEGMENT_EVERY })
+              report(token, 'blur.perf', background, { fps: Number((perf.frames / seconds).toFixed(1)), target: BLUR_FPS, avgMs: Math.round(perf.total / frames), maxMs: Math.round(perf.max), delegate: videoProcessor.delegate ?? null, camera: `${video.videoWidth}x${video.videoHeight}`, filter: CANVAS_FILTER, segmentEvery: SEGMENT_EVERY })
             }
             if (frames === 1) {
               setMediaWarning((w) => (w.startsWith('Blur') ? '' : w))
@@ -1290,6 +1316,7 @@ export default function Call() {
     return () => {
       cancelled = true
       if (watchdog) clearTimeout(watchdog)
+      document.removeEventListener('visibilitychange', onVisibility)
       setBlurStatus('')
       videoProcessor.onFrame = null
       if (animationRef.current) cancelAnimationFrame(animationRef.current)
@@ -1846,6 +1873,7 @@ export default function Call() {
   // Remembered so "Board" goes back to it after Writing, without a picker.
   const lastBoardRef = useRef(null)
   useEffect(() => { if (boardId) lastBoardRef.current = boardId }, [boardId])
+  const preferredBoardId = lastBoardRef.current ?? (call?.classroomId ? boards.find((b) => b.classroomId === call.classroomId)?.id : null)
   const openBoard = (id) => { setBoardId(id); if (writingId) { setWritingId(null); socketRef.current?.emit('doc:close') } }
   const closeBoard = () => {
     setBoardId(null)
@@ -2062,6 +2090,9 @@ export default function Call() {
             </>
           ) : null}
           screenStream={screenStream}
+          // «Back to board» over a shared screen: closes Writing, and opens the
+          // usual board when none is open yet.
+          onShowBoard={boardId && !writingId ? undefined : (boardId ? () => closeWriting() : preferredBoardId ? () => openBoard(preferredBoardId) : undefined)}
           onPlaybackBlocked={() => setNeedsTap(true)}
           unlockTick={unlockTick}
           connectionsRef={connectionsRef}
@@ -2103,7 +2134,7 @@ export default function Call() {
         hasScreenStream={Boolean(screenStream)}
         boards={boards}
         boardId={boardId}
-        preferredBoardId={lastBoardRef.current ?? (call?.classroomId ? boards.find((b) => b.classroomId === call.classroomId)?.id : null)}
+        preferredBoardId={preferredBoardId}
         onOpenBoard={openBoard}
         onCloseBoard={closeBoard}
         isBlurEnabled={isBlurEnabled}
