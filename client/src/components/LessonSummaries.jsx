@@ -70,7 +70,7 @@ export default function LessonSummaries({ classroomId, canEdit = false, student 
                   {s.words.length > 0 && (
                     <div className="summary-block">
                       <div className="summary-label">Words</div>
-                      <div className="summary-words">
+                      <div className="summary-words notranslate" translate="no">
                         {s.words.map((w) => (
                           <span key={w.word} className={`summary-word ${w.saved ? 'saved' : ''}`} title={w.saved ? 'In From my board' : ''}>
                             <strong>{w.word}</strong>
@@ -86,7 +86,7 @@ export default function LessonSummaries({ classroomId, canEdit = false, student 
                     <div className="summary-block">
                       <div className="summary-label">Mistakes to review</div>
                       {s.mistakes.map((m) => (
-                        <div key={m.id} className="summary-mistake"><span className="said">✗ {m.said}</span> <span className="correct">✓ {m.correct}</span></div>
+                        <div key={m.id} className="summary-mistake notranslate" translate="no"><span className="said">✗ {m.said}</span> <span className="correct">✓ {m.correct}</span></div>
                       ))}
                       {student && <Link className="muted" to="/practice/mistakes">Drill them →</Link>}
                     </div>
@@ -94,7 +94,7 @@ export default function LessonSummaries({ classroomId, canEdit = false, student 
                   {s.questions.length > 0 && (
                     <div className="summary-block">
                       <div className="summary-label">{student ? 'Prepare for the next lesson' : 'Speaking questions for the next lesson'}</div>
-                      <ol className="summary-questions">{s.questions.map((q) => <li key={q}>{q}</li>)}</ol>
+                      <ol className="summary-questions notranslate" translate="no">{s.questions.map((q) => <li key={q}>{q}</li>)}</ol>
                     </div>
                   )}
                   {canEdit && (
