@@ -960,7 +960,7 @@ function renderRegion(elements, box, scale) {
   return canvas
 }
 
-const isLessonHeading = (e) => e.type === 'text' && /^— Lesson · /.test(e.text ?? '')
+const isLessonHeading = (e) => e.type === 'text' && /^— (Trial lesson|Lesson) · /.test(e.text ?? '')
 
 // Every lesson on the board becomes a section; sections are cut into A4
 // pages top to bottom. A board without headings is one section.
@@ -1549,9 +1549,11 @@ const Whiteboard = forwardRef(function Whiteboard({ socketRef, boardId, title, s
         viewRef.current = { scale: 1, x: Math.max(40, (rect.width - 600) / 2) - focus.x, y: 80 - focus.y }
       } else if (elementsRef.current.length) {
         // The canvas may not have its size yet on the first paint: fit once it does.
+        // A board with several lessons opens on the latest one — fitting the
+        // whole board made every lesson a speck (Pavel saw only his trial).
         const rect = canvasRef.current?.getBoundingClientRect()
-        if (rect && rect.width > 50) fitAll(1)
-        else requestAnimationFrame(() => fitAll(1))
+        if (rect && rect.width > 50) fitLatestLesson()
+        else requestAnimationFrame(() => fitLatestLesson())
       } else viewRef.current = { x: 0, y: 0, scale: 1 }
       scheduleRender()
       bump()
@@ -3318,6 +3320,32 @@ const Whiteboard = forwardRef(function Whiteboard({ socketRef, boardId, title, s
       scale,
       x: (rect.width - box.w * scale) / 2 - box.x * scale,
       y: overflow ? rect.height - 170 - (box.y + box.h) * scale : (rect.height - box.h * scale) / 2 - box.y * scale
+    }
+    scheduleRender()
+    bump()
+  }
+
+  // The latest lesson heading and what lies around it (below it, within a
+  // board's width of it): shown readable, top first. One lesson or none: all.
+  const fitLatestLesson = () => {
+    const canvas = canvasRef.current
+    const headings = elementsRef.current.filter(isLessonHeading)
+    if (!canvas || headings.length < 2) { fitAll(1); return }
+    const rect = canvas.getBoundingClientRect()
+    if (rect.width < 720) { fitAll(1); return }
+    const latest = headings.reduce((a, b) => ((b.at ?? 0) >= (a.at ?? 0) ? b : a), headings[headings.length - 1])
+    const near = elementsRef.current.filter((e) => {
+      const b = unionBounds([e])
+      return b && b.y + b.h >= latest.y - 200 && Math.abs(b.x + b.w / 2 - latest.x) <= 1500
+    })
+    const box = unionBounds(near.length ? near : [latest])
+    const pad = 60
+    const scale = Math.min(1, Math.max(0.35, Math.min((rect.width - pad * 2) / Math.max(box.w, 1), (rect.height - pad * 2) / Math.max(box.h, 1))))
+    const tall = box.h * scale > rect.height - pad * 2
+    viewRef.current = {
+      scale,
+      x: (rect.width - box.w * scale) / 2 - box.x * scale,
+      y: tall ? pad - box.y * scale : (rect.height - box.h * scale) / 2 - box.y * scale
     }
     scheduleRender()
     bump()

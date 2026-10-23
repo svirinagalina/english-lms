@@ -18,7 +18,24 @@ const INVITE_DAYS = 14
 const realEmail = (email) => (email && !/\.invalid$/i.test(email) ? String(email).trim().toLowerCase() : null)
 const paid = (u) => u.lessonsPaid > 0 || Boolean(u.plan && u.planUntil && new Date(u.planUntil) > new Date())
 
+// A board called «Trial lesson…» belongs to the trial; once the student has
+// paid it is simply their board (Galina, 2026-10-23: Pavel thought he only
+// had the trial lesson). Renamed to «<name> — lessons», only when it is
+// attached to that one student.
+export async function renameTrialBoards() {
+  const boards = await prisma.board.findMany({
+    where: { scratch: false, title: { startsWith: 'Trial lesson', mode: 'insensitive' } },
+    select: { id: true, classroom: { select: { student: true } }, sharedWith: { select: { student: true } } }
+  })
+  for (const board of boards) {
+    const students = [board.classroom?.student, ...board.sharedWith.map((c) => c.student)].filter(Boolean)
+    if (students.length !== 1 || !paid(students[0])) continue
+    await prisma.board.update({ where: { id: board.id }, data: { title: `${students[0].name} — lessons` } })
+  }
+}
+
 export async function welcomeSweep() {
+  await renameTrialBoards().catch((error) => console.error('[welcome] rename boards', error.message))
   const fromTrial = await prisma.adventLesson.findMany({ where: { kind: 'trial', studentUserId: { not: null } }, select: { studentUserId: true }, distinct: ['studentUserId'] })
   for (const { studentUserId } of fromTrial) {
     const u = await prisma.user.findUnique({ where: { id: studentUserId } })
