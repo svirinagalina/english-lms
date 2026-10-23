@@ -193,16 +193,45 @@ export default function VideoGrid({
   // On a phone, the camera tiles float over the board and cost real space —
   // let people tuck them away while they're working on the board itself.
   const [videoHidden, setVideoHidden] = useState(false)
-  // Anyone may step back to the board while a screen is shared — just on
-  // their own screen; the share goes on, and a pill brings it back. A new
-  // share shows itself again.
-  const [screenHidden, setScreenHidden] = useState(false)
+  // A shared screen and the board at once: with a board open the screen sits
+  // in a small window over it (drag by its bar, resize by the corner);
+  // ⤢ makes it the whole stage, – tucks it into a pill. Each person chooses
+  // on their own screen; the share and its sound go on either way. A new
+  // share starts small again.
+  const [screenView, setScreenView] = useState('mini') // 'mini' | 'full' | 'hidden'
+  const [miniPos, setMiniPos] = useState(null) // {x, y} in the stage, null = default corner
   const shareKey = screenStream?.id ?? sharingId
-  useEffect(() => { setScreenHidden(false) }, [shareKey])
+  useEffect(() => { setScreenView('mini') }, [shareKey])
   const sharing = Boolean(sharingPeer || screenStream)
-  const showingScreen = sharing && !(screenHidden && board)
-  const boardMode = board && !showingScreen
-  const backToBoard = () => { onShowBoard?.(); setScreenHidden(true) }
+  const view = !sharing ? null : !board ? 'full' : screenView
+  const boardMode = board && view !== 'full'
+  const backToBoard = () => { onShowBoard?.(); setScreenView('mini') }
+  const stageRef = useRef(null)
+  const startMove = (event) => {
+    if (event.target.closest('button')) return
+    const box = event.currentTarget.parentElement.getBoundingClientRect()
+    const stage = stageRef.current.getBoundingClientRect()
+    const dx = event.clientX - box.left
+    const dy = event.clientY - box.top
+    const move = (e) => setMiniPos({
+      x: Math.min(Math.max(0, e.clientX - stage.left - dx), stage.width - box.width),
+      y: Math.min(Math.max(0, e.clientY - stage.top - dy), stage.height - box.height)
+    })
+    const stop = () => { window.removeEventListener('pointermove', move); window.removeEventListener('pointerup', stop) }
+    window.addEventListener('pointermove', move)
+    window.addEventListener('pointerup', stop)
+  }
+  const screenAreaProps = {
+    className: `screen-area ${view === 'mini' ? 'mini' : ''}`,
+    style: view === 'hidden' ? { display: 'none' } : view === 'mini' && miniPos ? { left: miniPos.x, top: miniPos.y, bottom: 'auto' } : undefined
+  }
+  const miniBar = view === 'mini' && (
+    <div className="screen-mini-bar" onPointerDown={startMove}>
+      <span>{screenStream ? 'Your screen' : `${sharingPeer?.name ?? 'Shared'} screen`}</span>
+      <button type="button" onClick={() => setScreenView('full')} title="Full size">⤢</button>
+      <button type="button" onClick={() => setScreenView('hidden')} title="Hide (the share goes on)">–</button>
+    </div>
+  )
 
   const pointerPosition = (event) => {
     const rect = drawingCanvasRef.current.getBoundingClientRect()
@@ -268,17 +297,19 @@ export default function VideoGrid({
   }
 
   return (
-    <div className={`stage ${boardMode ? 'board-mode' : (screenStream || sharingPeer) ? 'with-screen' : ''}`}>
+    <div ref={stageRef} className={`stage ${boardMode ? 'board-mode' : sharing ? 'with-screen' : ''}`}>
       {/* The board stays mounted under a shared screen, so going back to it
           is instant and nothing on it is lost. */}
       {board && <div className="board-area" style={boardMode ? undefined : { display: 'none' }}>{board}</div>}
       {sharingPeer && !screenStream && (
-        <div className="screen-area" style={showingScreen ? undefined : { display: 'none' }}>
+        <div {...screenAreaProps}>
+          {miniBar}
           <RemoteScreen stream={sharingPeer.screen ?? sharingPeer.stream} name={sharingPeer.name} unlockTick={unlockTick} />
         </div>
       )}
       {screenStream && (
-        <div className="screen-area" style={showingScreen ? undefined : { display: 'none' }}>
+        <div {...screenAreaProps}>
+          {miniBar}
           <video
             ref={screenVideoRef}
             autoPlay
@@ -296,11 +327,11 @@ export default function VideoGrid({
           />
         </div>
       )}
-      {showingScreen && (board || onShowBoard) && (
+      {view === 'full' && (board || onShowBoard) && (
         <button type="button" className="screen-switch" onClick={backToBoard}>← Back to board</button>
       )}
-      {sharing && boardMode && (
-        <button type="button" className="screen-switch on-board" onClick={() => setScreenHidden(false)}>
+      {view === 'hidden' && (
+        <button type="button" className="screen-switch on-board" onClick={() => setScreenView('mini')}>
           🖥 {screenStream ? 'Show my shared screen' : (sharingPeer?.name ? `Show ${sharingPeer.name}'s screen` : 'Show the shared screen')}
         </button>
       )}

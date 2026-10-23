@@ -295,6 +295,44 @@ textarea:focus { outline: none; border-color: var(--accent); }
   cursor: pointer;
 }
 .screen-switch.on-board { top: auto; bottom: 132px; left: 50%; transform: translateX(-50%); background: #ffd5ed; color: #14453f; border-color: #14453f; }
+/* The shared screen as a small window over the board. */
+.screen-area.mini {
+  position: absolute;
+  left: 16px;
+  bottom: 132px;
+  z-index: 6;
+  width: 380px;
+  height: 250px;
+  min-width: 200px;
+  min-height: 140px;
+  max-width: calc(100% - 32px);
+  max-height: calc(100% - 32px);
+  resize: both;
+  display: flex;
+  flex-direction: column;
+  border: 1px solid rgba(252, 251, 246, 0.3);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+}
+.screen-area.mini video { flex: 1; min-height: 0; height: auto; }
+.screen-area.mini .tile-label { display: none; }
+.screen-area.mini .drawing-layer { top: 30px; height: calc(100% - 30px); }
+.screen-mini-bar {
+  flex: 0 0 30px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 0 4px 0 10px;
+  background: #14453f;
+  color: #fcfbf6;
+  font-size: 12px;
+  cursor: move;
+  user-select: none;
+  touch-action: none;
+}
+.screen-mini-bar span { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.screen-mini-bar button { background: transparent; border: none; color: inherit; font-size: 16px; width: 26px; height: 26px; cursor: pointer; border-radius: 6px; }
+.screen-mini-bar button:hover { background: rgba(252, 251, 246, 0.15); }
+@media (max-width: 600px) { .screen-area.mini { width: 220px; height: 150px; } }
 
 .video-tile {
   position: relative;
