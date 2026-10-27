@@ -179,6 +179,7 @@ vocabRouter.post('/my/words', async (req, res) => {
   } catch (error) {
     return res.status(502).json({ error: `Could not look the word up: ${error.message}` })
   }
+  if (entry.suggestion) return res.status(400).json({ error: `No such word — did you mean «${entry.suggestion}»?` })
   const translation = entry.senses?.length
     ? entry.senses.map((s) => `${s.pos}: ${s.translations.slice(0, 4).join(', ')}`).join(' · ')
     : entry.translation

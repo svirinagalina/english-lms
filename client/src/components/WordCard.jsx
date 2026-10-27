@@ -94,7 +94,10 @@ export default function WordCard({ word, x, y, onClose }) {
       </div>
       {!entry && !failed && <div className="muted">Looking up…</div>}
       {failed && <div className="muted">No entry for this word.</div>}
-      {entry && (
+      {entry?.suggestion && (
+        <div className="muted">Such a word doesn't exist. Did you mean <strong>{entry.suggestion}</strong>?</div>
+      )}
+      {entry && !entry.suggestion && (
         entry.senses?.length
           ? <ul className="word-senses">
               {entry.senses.map((s) => (
@@ -104,7 +107,7 @@ export default function WordCard({ word, x, y, onClose }) {
           : <div>{entry.translation}</div>
       )}
       {error && <div className="error">{error}</div>}
-      {entry && (
+      {entry && !entry.suggestion && (
         <button type="button" className={saved ? 'ghost word-card-add' : 'word-card-add'} onClick={add} disabled={saving || saved}>
           {saved ? '✓ In my words' : saving ? 'Adding…' : '+ Add to my words'}
         </button>

@@ -31,14 +31,17 @@ const USER_AGENT = 'AdventAcademyLMS/1.0 (https://lms.advent-academy.online)'
 // Russian senses per part of speech from Google's dictionary data:
 // [{ pos: 'noun', translations: ['учитель', 'преподаватель'] }, …]
 async function googleSenses(word) {
-  const url = `https://translate.googleapis.com/translate_a/single?client=gtx&sl=en&tl=ru&dt=t&dt=bd&q=${encodeURIComponent(word)}`
+  const url = `https://translate.googleapis.com/translate_a/single?client=gtx&sl=en&tl=ru&dt=t&dt=bd&dt=qca&q=${encodeURIComponent(word)}`
   const response = await guardedFetch(`dictionary:${new URL(url).host}`, url, {}, { timeoutMs: 6000 })
-  if (!response.ok) return { senses: [], main: null }
+  if (!response.ok) return { senses: [], main: null, correction: null }
   const data = await response.json()
   const senses = Array.isArray(data?.[1])
     ? data[1].map((entry) => ({ pos: entry[0], translations: (entry[1] ?? []).slice(0, 5) })).filter((s) => s.translations.length).slice(0, 4)
     : []
-  return { senses, main: data?.[0]?.[0]?.[0] ?? null }
+  // A misspelt word ("beutiful"): Google quietly translates what it thinks
+  // was meant and says so in data[7] — [html, "beautiful", …].
+  const corrected = typeof data?.[7]?.[1] === 'string' ? data[7][1].trim().toLowerCase() : null
+  return { senses, main: data?.[0]?.[0]?.[0] ?? null, correction: corrected && corrected !== word ? corrected : null }
 }
 
 // IPA from the English section of the word's Wiktionary page (US
@@ -78,9 +81,14 @@ async function wiktionaryIpa(word) {
 async function lookup(word) {
   const [ai, google, ipa] = await Promise.all([
     assistantEnabled() ? translateWords([word]).then(([item]) => item ?? null).catch(() => null) : null,
-    googleSenses(word).catch(() => ({ senses: [], main: null })),
+    googleSenses(word).catch(() => ({ senses: [], main: null, correction: null })),
     wiktionaryIpa(word).catch(() => null)
   ])
+  // Written with a mistake: no translation of a word that doesn't exist —
+  // the right spelling instead, to look up with one click (Galina, 2026-10-27).
+  if (google.correction && !ipa) {
+    return { word, suggestion: google.correction, translation: null, transcription: null, senses: [], audio: null }
+  }
   let translation = ai?.translation ?? null
   if (!translation && google.senses.length) translation = google.senses.map((s) => `${s.pos}: ${s.translations.slice(0, 4).join(', ')}`).slice(0, 3).join(' · ')
   if (!translation) translation = google.main

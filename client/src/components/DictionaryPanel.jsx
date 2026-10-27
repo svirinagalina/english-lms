@@ -21,9 +21,9 @@ export default function DictionaryPanel({ onClose, onAdd }) {
     return () => document.removeEventListener('keydown', onKey)
   }, [onClose])
 
-  const search = async (event) => {
+  const search = async (event, text) => {
     event?.preventDefault()
-    const q = query.trim()
+    const q = (text ?? query).trim()
     if (!q || busy) return
     setBusy(true); setError(''); setResult(null); setAdded({})
     try {
@@ -81,7 +81,15 @@ export default function DictionaryPanel({ onClose, onAdd }) {
           </ul>
         ) : <div className="muted">Nothing found.</div>
       )}
-      {result?.direction === 'en-ru' && (
+      {result?.direction === 'en-ru' && result.entry.suggestion && (
+        <div className="dict-results">
+          <div className="dict-suggest">
+            <span className="muted">«{result.query}» — такого слова нет. Возможно, вы имели в виду:</span>{' '}
+            <button type="button" className="link-button" onClick={() => { setQuery(result.entry.suggestion); search(null, result.entry.suggestion) }}>{result.entry.suggestion}</button>
+          </div>
+        </div>
+      )}
+      {result?.direction === 'en-ru' && !result.entry.suggestion && (
         <div className="dict-results">
           <div className="dict-row">
             <strong>{result.query}</strong>
