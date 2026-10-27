@@ -442,6 +442,18 @@ async function liveCallToken(row) {
   return null
 }
 
+// The lesson is behind us: its call has ended, or no call is on half an hour
+// after its end. The link then opens the cabinet instead of waiting
+// (Galina, 2026-10-27: Kristina's link kept saying the teacher would start).
+async function lessonOver(row, callToken) {
+  if (row.status !== 'scheduled' || callToken) return false
+  if (row.callId) {
+    const call = await prisma.call.findUnique({ where: { id: row.callId }, select: { endedAt: true } })
+    if (call?.endedAt) return true
+  }
+  return Date.now() > new Date(row.startsAt).getTime() + (row.durationMin + 30) * 60000
+}
+
 export const lessonLinkRouter = express.Router()
 
 lessonLinkRouter.get('/:token', async (req, res) => {
@@ -453,6 +465,7 @@ lessonLinkRouter.get('/:token', async (req, res) => {
   if (role === 'student' && req.query.waiting && !row.studentWaitingAt) await prisma.adventLesson.update({ where: { id: row.id }, data: { studentWaitingAt: new Date() } }).catch(() => {})
   const teacher = await prisma.user.findUnique({ where: { id: row.teacherId }, select: { name: true } })
   const student = row.studentUserId ? await prisma.user.findUnique({ where: { id: row.studentUserId }, select: { name: true, viaLink: true, lessonsPaid: true } }) : null
+  const callToken = row.status === 'scheduled' ? await liveCallToken(row) : null
   res.json({
     role,
     kind: row.kind,
@@ -470,7 +483,8 @@ lessonLinkRouter.get('/:token', async (req, res) => {
     // Paid: the link no longer signs in — the page asks for an email and a password.
     needsSignup: role === 'student' && Boolean(student?.viaLink && student.lessonsPaid > 0),
     classroomId: row.classroomId,
-    callToken: row.status === 'scheduled' ? await liveCallToken(row) : null,
+    callToken,
+    over: await lessonOver(row, callToken),
     // For Advent's bot: stop the discount reminders once the student has paid.
     paid: Boolean(student?.lessonsPaid > 0),
     lessonsPaid: student?.lessonsPaid > 0 ? student.lessonsPaid : 0,

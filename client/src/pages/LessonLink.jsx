@@ -94,6 +94,8 @@ export default function LessonLink() {
     if (!inside) return
     if (safeTo) { navigate(safeTo, { replace: true }); return }
     if (info.callToken) { navigate(`/call/${info.callToken}`, { replace: true }); return }
+    // The lesson is over: the cabinet (report, payment), not the waiting room.
+    if (info.over) { navigate('/', { replace: true }); return }
     load(true)
     const timer = setInterval(() => load(true), 5000)
     return () => clearInterval(timer)
@@ -105,7 +107,7 @@ export default function LessonLink() {
     try {
       const result = await api.enterLessonLink(token, name.trim())
       // A fresh page, so the whole app knows who is signed in.
-      window.location.assign(result.redirect ?? safeTo ?? window.location.pathname)
+      window.location.assign(result.redirect ?? safeTo ?? (info?.over ? '/' : window.location.pathname))
     } catch (err) {
       setError(err.message)
       setBusy(false)
@@ -204,7 +206,7 @@ export default function LessonLink() {
           <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Имя" maxLength={80} autoFocus required />
         </label>
         {error && <p className="error">{error}</p>}
-        <button type="submit" className="ll-go" disabled={busy || !name.trim()}>{busy ? 'Вхожу…' : safeTo ? 'Открыть отчёт' : 'Войти на урок'}</button>
+        <button type="submit" className="ll-go" disabled={busy || !name.trim()}>{busy ? 'Вхожу…' : safeTo ? 'Открыть отчёт' : info.over ? 'Открыть кабинет' : 'Войти на урок'}</button>
         <p className="muted ll-note">Без регистрации и паролей — нужна только эта ссылка. Урок идёт прямо в браузере, ничего устанавливать не нужно.</p>
       </form>
       <TelegramButton param={`l_${token}`} hint="Пришлём ссылку, напоминания перед уроком и отчёт." />
