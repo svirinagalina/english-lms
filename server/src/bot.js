@@ -500,6 +500,52 @@ async function timetable() {
   }
 }
 
+// --- 6b. After a lesson: a short report to the student, or the parent ---------
+
+// Galina, 2026-10-27 (Lucy Zharikova, mother of Vitalina and Matvey): every
+// lesson held — on the platform or marked by the teacher — is reported in
+// Telegram to the chat of that student (a parent's chat holds every child):
+// when, with whom, the topics and new words from the lesson summary, and how
+// many lessons are left in the package. Sent once the 15-minute resume
+// window is over, so a dropped call that comes back is one lesson.
+const AFTER_LESSON = 16 * MIN
+const minutesWord = (n) => { const a = n % 100, b = n % 10; return a > 10 && a < 20 ? 'минут' : b === 1 ? 'минута' : b >= 2 && b <= 4 ? 'минуты' : 'минут' }
+export async function lessonReportText(session) {
+  const room = session.classroom
+  const summary = await prisma.lessonSummary.findUnique({ where: { sessionId: session.id } })
+  const minutes = session.endedAt ? Math.round((new Date(session.endedAt) - new Date(session.startedAt)) / MIN) : null
+  const lines = [
+    `✅ Урок проведён: <b>${esc(room.student.name)}</b>`,
+    `${mskDate(session.startedAt)}, ${mskTime(session.startedAt)} МСК${minutes && !session.manual ? ` · ${minutes} ${minutesWord(minutes)}` : ''} · преподаватель ${esc(room.teacher.name)}`
+  ]
+  if (summary?.topics?.length) lines.push('', `Темы: ${summary.topics.map(esc).join(', ')}`)
+  const words = Array.isArray(summary?.words) ? summary.words.map((w) => w?.word).filter(Boolean) : []
+  if (words.length) lines.push(`Новые слова: ${words.slice(0, 12).map(esc).join(', ')}${words.length > 12 ? ` и ещё ${words.length - 12}` : ''}`)
+  if (summary?.mistakeIds?.length) lines.push(`Разобрано ошибок: ${summary.mistakeIds.length}`)
+  if (summary?.questions?.length) lines.push(`К следующему уроку: вопросы для подготовки — в кабинете`)
+  lines.push('', `Пакет: ${await heldPackageLine(room.studentId)}`)
+  return lines.join('\n')
+}
+async function lessonReports() {
+  const now = Date.now()
+  // The last day only — and only lessons after that chat was connected.
+  const from = new Date(now - 24 * HOUR)
+  const sessions = await prisma.session.findMany({
+    where: {
+      counted: true,
+      endedAt: { gte: from, lte: new Date(now - AFTER_LESSON) },
+      classroom: { student: { telegramChatId: { not: null } } }
+    },
+    include: { classroom: { select: { id: true, studentId: true, student: { select: { ...PERSON, telegramLinkedAt: true } }, teacher: { select: { name: true } } } } }
+  })
+  for (const session of sessions) {
+    const student = session.classroom.student
+    if (student.telegramLinkedAt && new Date(session.endedAt) < new Date(student.telegramLinkedAt)) continue
+    await once(`lessonrep:${session.id}`, async () => sendTo(student, await lessonReportText(session),
+      [[{ text: 'Открыть кабинет', url: await classUrl(student) }]]))
+  }
+}
+
 // --- 7. The package is used up, or lessons go beyond it ------------------------
 
 async function packages() {
@@ -570,6 +616,7 @@ async function everyMinute() {
     await quietly('reports', reports)
     await quietly('payments', payments)
     await quietly('timetable', timetable)
+    await quietly('lessonReports', lessonReports)
     await quietly('heldHint', heldHint)
   } finally { running = false }
 }
