@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { Link, useLocation } from 'react-router-dom'
+import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '../AuthContext'
 import { Brand } from './Brand'
 import { Avatar } from './Avatar'
@@ -22,10 +22,20 @@ const ROLE_LABEL = {
   PARTNER: 'partner'
 }
 
-// `back` is where the ← Back link leads on inner pages (a student, a unit, a set).
+// `back` is where the ← Back link leads on inner pages (a student, a unit, a
+// set) when the page was opened directly; otherwise ← Back returns to the
+// page the person came from (Galina, 2026-10-27: a cabinet opened from
+// Payments sent her to Classroom instead of back to Payments).
 export default function Nav({ title, back }) {
   const { user, logout } = useAuth()
-  const { pathname } = useLocation()
+  const { pathname, key } = useLocation()
+  const navigate = useNavigate()
+  const goBack = (event) => {
+    // The first page of the visit has the key "default": nothing to return to.
+    if (key === 'default' || event.metaKey || event.ctrlKey || event.shiftKey) return
+    event.preventDefault()
+    navigate(-1)
+  }
   const [trainer, setTrainer] = useState(false)
   useEffect(() => {
     let live = true
@@ -100,7 +110,7 @@ export default function Nav({ title, back }) {
   return (
     <header className="topbar">
       <div className="nav-identity brand-row">
-        {back && <Link className="ghost back-link" to={back}>← Back</Link>}
+        {back && <Link className="ghost back-link" to={back} onClick={goBack}>← Back</Link>}
         <Brand compact />
         <div>
           <strong>{title ?? user.schoolName ?? 'School'}</strong>

@@ -374,6 +374,9 @@ usersRouter.delete('/:id', requireRole('OWNER'), async (req, res) => {
   }
 
   await prisma.user.delete({ where: { id: target.id } })
+  // A student goes completely (Payments → Delete student): their payment
+  // history lines too, which hold only an id, not a link that would cascade.
+  if (target.role === 'STUDENT') await prisma.paymentRecord.deleteMany({ where: { studentId: target.id } })
   if (target.role === 'STUDENT') unenrollStudent(target.email)
   res.json({ ok: true })
 })

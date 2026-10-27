@@ -29,6 +29,18 @@ export default function Billing() {
 
   const isStaff = user.role !== 'STUDENT'
 
+  const removeStudent = async (student) => {
+    if (!window.confirm(`Delete ${student.name} completely? Their account, cabinet, lessons, payments history, boards and writing are deleted — it cannot be undone.`)) return
+    if (window.prompt(`To confirm, type the student's name: ${student.name}`)?.trim() !== student.name.trim()) return
+    try {
+      await api.deleteUser(student.id)
+      setEditing(null)
+      await refresh()
+    } catch (err) {
+      setError(err.message)
+    }
+  }
+
   const refresh = async () => {
     if (!isStaff) return
     const { students } = await api.billingStudents()
@@ -114,12 +126,19 @@ export default function Billing() {
                     </div>
                   )}
                 </div>
-                <button
-                  className="ghost"
-                  onClick={() => setEditing(editing === student.id ? null : student.id)}
-                >
-                  {editing === student.id ? 'Close' : 'Edit'}
-                </button>
+                <div className="row-actions">
+                  {/* Removing a student for good (Galina, 2026-10-27): only the
+                      administrator, only from the opened row, asked twice. */}
+                  {editing === student.id && user.role === 'OWNER' && (
+                    <button className="danger-button" onClick={() => removeStudent(student)}>Delete student</button>
+                  )}
+                  <button
+                    className="ghost"
+                    onClick={() => setEditing(editing === student.id ? null : student.id)}
+                  >
+                    {editing === student.id ? 'Close' : 'Edit'}
+                  </button>
+                </div>
               </div>
 
               {editing === student.id && (
