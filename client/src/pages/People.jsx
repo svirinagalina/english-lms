@@ -40,7 +40,7 @@ function InviteForm({ role, teachers, currentUserId, onInvited, trialStudents = 
         name: trial ? (trial.name.length >= 2 ? trial.name : `${trial.name} (ученик)`) : form.name,
         ...(byTelegram && !trial ? { telegram: form.telegram } : { email: form.email }),
         role,
-        ...(trial ? { userId: trial.id } : role === 'STUDENT' ? { teacherId: form.teacherId } : {})
+        ...(trial ? { userId: trial.id, teacherId: form.teacherId } : role === 'STUDENT' ? { teacherId: form.teacherId } : {})
       })
       setForm({ name: '', email: '', telegram: '', teacherId: currentUserId })
       setTrial(null)
@@ -135,7 +135,44 @@ const monthAhead = () => { const d = new Date(); d.setMonth(d.getMonth() + 1); r
 // One trial lesson from the Advent site per row: each step it reached.
 const OUTCOME = { held: 'урок прошёл', student_no_show: 'ученик не пришёл', teacher_no_show: 'учитель не пришёл' }
 const shortWhen = (v) => new Date(v).toLocaleString(undefined, { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })
-function TrialFunnel({ trials, onRemove, onMerge }) {
+// A trial student made a full student (Galina, 2026-10-27): the three-day
+// limit goes for good; with an email they also get an invitation to the
+// same account (board, lessons and payments stay).
+function FullStudentForm({ trial, onDone, onCancel }) {
+  const [email, setEmail] = useState(trial.email ?? '')
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState('')
+  const submit = async (event) => {
+    event.preventDefault()
+    setBusy(true); setError('')
+    try {
+      await api.makeFullStudent(trial.student.id)
+      const name = trial.student.name.length >= 2 ? trial.student.name : `${trial.student.name} (ученик)`
+      const result = email.trim() ? await api.createInvite({ name, email: email.trim(), role: 'STUDENT', userId: trial.student.id, teacherId: trial.teacher.id }) : null
+      onDone(result)
+    } catch (err) {
+      setError(err.message)
+      setBusy(false)
+    }
+  }
+  return (
+    <form className="notice" style={{ width: '100%', marginTop: 6 }} onSubmit={submit}>
+      <p style={{ marginTop: 0 }}>
+        <strong>{trial.student.name}</strong> станет полноценным учеником {trial.teacher.name}: ограничение пробного (3 дня) снимается, доска и уроки остаются.
+        Укажите почту — придёт приглашение придумать пароль. Без почты ученик входит по ссылке урока, приглашение можно отправить позже.
+      </p>
+      <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="Почта ученика (необязательно)" maxLength={200} />
+      {error && <p className="error">{error}</p>}
+      <div style={{ marginTop: 8 }}>
+        <button type="submit" disabled={busy}>{busy ? 'Сохраняю…' : 'Сделать студентом'}</button>{' '}
+        <button type="button" className="ghost" onClick={onCancel} disabled={busy}>Отмена</button>
+      </div>
+    </form>
+  )
+}
+
+function TrialFunnel({ trials, onRemove, onMerge, onPromoted }) {
+  const [promoting, setPromoting] = useState(null)
   return (
     <div className="list">
       {trials.map((t) => {
@@ -161,8 +198,14 @@ function TrialFunnel({ trials, onRemove, onMerge }) {
               {steps.map(([label, ok, bad]) => (
                 <span key={label} className={`activity-tag${ok ? ' ok' : bad ? ' bad' : ''}`}>{label}</span>
               ))}
+              {onPromoted && t.student.id && !t.isTest && t.status !== 'cancelled' && promoting !== t.id && (
+                <button type="button" onClick={() => setPromoting(t.id)} title="Снять ограничение пробного и пригласить на этот же аккаунт">Сделать студентом</button>
+              )}
               {onRemove && <button type="button" className="ghost" onClick={() => onRemove(t)} title="Remove this booking from the platform; nobody is told">Убрать</button>}
             </div>
+            {promoting === t.id && (
+              <FullStudentForm trial={t} onCancel={() => setPromoting(null)} onDone={(result) => { setPromoting(null); onPromoted(t, result) }} />
+            )}
             {t.twin && onMerge && (
               <div className="notice" style={{ width: '100%', marginTop: 6 }}>
                 Похоже, это уже ваш ученик <strong>{t.twin.name}</strong>{t.twin.email ? ` (${t.twin.email})` : ''}: у него свой аккаунт, а для записи с сайта создан второй.{' '}
@@ -610,7 +653,7 @@ export default function People() {
       {!q && (<>
       {funnel.length > 0 && (
         <Panel id="people:trial-funnel" title="Пробные уроки с сайта" count={funnel.filter((t) => !t.isTest).length} hint="запись → пришёл → отчёт → оплата" defaultOpen>
-          <TrialFunnel trials={funnel} onRemove={['OWNER', 'PARTNER'].includes(user.role) ? removeBooking : null} onMerge={user.role === 'OWNER' ? mergeBooking : null} />
+          <TrialFunnel trials={funnel} onRemove={['OWNER', 'PARTNER'].includes(user.role) ? removeBooking : null} onMerge={user.role === 'OWNER' ? mergeBooking : null} onPromoted={user.role === 'OWNER' ? (t, result) => { setFunnel((list) => list.filter((x) => x.student.id !== t.student.id)); handleInvited(result) } : null} />
         </Panel>
       )}
 

@@ -315,6 +315,16 @@ usersRouter.post('/:id/change-teacher', requireRole('OWNER'), async (req, res) =
   res.json({ ok: true, moved })
 })
 
+// A trial student made a full student from People (Galina, 2026-10-27): the
+// three-day limit goes for good, paid or not. The email and password come
+// with an invitation to the same account (POST /invites with userId).
+usersRouter.post('/:id/full-student', requireRole('OWNER'), async (req, res) => {
+  const student = await prisma.user.findFirst({ where: { id: req.params.id, schoolId: req.user.schoolId, role: 'STUDENT' } })
+  if (!student) return res.status(404).json({ error: 'Student not found' })
+  await prisma.user.update({ where: { id: student.id }, data: { fullStudentAt: student.fullStudentAt ?? new Date(), trialAccessUntil: null, free: false } })
+  res.json({ ok: true })
+})
+
 // Only the owner hands out roles; a partner cannot promote or demote anyone.
 // Takes effect on the person's next request — no re-login needed.
 const ASSIGNABLE_ROLES = ['TEACHER', 'STUDENT', 'PARTNER']

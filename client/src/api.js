@@ -81,6 +81,7 @@ export const api = {
 
   listInvites: () => request('/invites'),
   createInvite: (body) => request('/invites', { method: 'POST', body }),
+  makeFullStudent: (studentId) => request(`/users/${studentId}/full-student`, { method: 'POST' }),
   createOfflineStudent: (body) => request('/users/offline-students', { method: 'POST', body }),
   deleteInvite: (id) => request(`/invites/${id}`, { method: 'DELETE' }),
   resendInvite: (id) => request(`/invites/${id}/resend`, { method: 'POST' }),

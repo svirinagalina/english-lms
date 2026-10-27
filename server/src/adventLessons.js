@@ -152,7 +152,7 @@ async function claimForSignedIn(req, row) {
 // student with paid lessons, or an ordinary account of their own, is not
 // limited.
 export async function applyTrialAccess(row, student) {
-  if (row.kind !== 'trial' || student.lessonsPaid > 0 || !(student.viaLink || student.trialAccessUntil)) return
+  if (row.kind !== 'trial' || student.lessonsPaid > 0 || student.fullStudentAt || !(student.viaLink || student.trialAccessUntil)) return
   const until = new Date(new Date(row.startsAt).getTime() + (row.durationMin ?? 40) * 60000 + 3 * 86400000)
   if (!student.trialAccessUntil || student.trialAccessUntil < until) await prisma.user.update({ where: { id: student.id }, data: { trialAccessUntil: until, free: false } })
 }

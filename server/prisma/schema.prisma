@@ -111,6 +111,9 @@ model User {
   // afterwards a lesson-link account must sign up (email + password) and,
   // without paid lessons, is on the free tier.
   trialAccessUntil DateTime?
+  // Made a full student from People's trial list (Galina, 2026-10-27): the
+  // three-day trial limit is lifted for good and the archive keeps them.
+  fullStudentAt    DateTime?
   // The school's Telegram bot (telegram.js): the chat this person connected
   // with /start, and what the bot last saw of their package
   // ("lessonsPaid|packageStartedAt"), so a new payment is thanked once.

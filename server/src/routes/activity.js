@@ -270,7 +270,7 @@ activityRouter.get('/trial-funnel', requireRole('OWNER', 'PARTNER'), async (req,
   const studentIds = [...new Set(rows.map((r) => r.studentUserId).filter(Boolean))]
   const [teachers, students, reports] = await Promise.all([
     prisma.user.findMany({ where: { id: { in: teacherIds }, schoolId: req.user.schoolId }, select: { id: true, name: true } }),
-    prisma.user.findMany({ where: { id: { in: studentIds } }, select: { id: true, name: true, viaLink: true, lessonsPaid: true, paymentReportedAt: true } }),
+    prisma.user.findMany({ where: { id: { in: studentIds } }, select: { id: true, name: true, viaLink: true, lessonsPaid: true, paymentReportedAt: true, fullStudentAt: true } }),
     prisma.trialReport.findMany({ where: { studentId: { in: studentIds } }, select: { id: true, studentId: true, publishedAt: true, generated: true } })
   ])
   const byId = (list) => Object.fromEntries(list.map((x) => [x.id, x]))
@@ -293,10 +293,10 @@ activityRouter.get('/trial-funnel', requireRole('OWNER', 'PARTNER'), async (req,
       if (twin) twins[r.id] = { id: twin.id, name: twin.name, email: twin.email }
     }
   }
-  // A student who paid has moved on to Students (Galina, 2026-10-16): the
-  // list is for trials still on their way.
+  // A student who paid, or was made a full student, has moved on to
+  // Students (Galina, 2026-10-16): the list is for trials still on their way.
   res.json({
-    trials: rows.filter((r) => T[r.teacherId] && !(S[r.studentUserId]?.lessonsPaid > 0)).map((r) => {
+    trials: rows.filter((r) => T[r.teacherId] && !(S[r.studentUserId]?.lessonsPaid > 0) && !S[r.studentUserId]?.fullStudentAt).map((r) => {
       const s = r.studentUserId ? S[r.studentUserId] : null
       const report = reports.filter((x) => x.studentId === r.studentUserId && x.publishedAt).sort((a, b) => b.publishedAt - a.publishedAt)[0] ?? null
       return {
@@ -310,6 +310,7 @@ activityRouter.get('/trial-funnel', requireRole('OWNER', 'PARTNER'), async (req,
         teacher: T[r.teacherId],
         student: s ? { id: s.id, name: s.name, registered: !s.viaLink } : { id: null, name: r.studentName ?? '—', registered: false },
         telegram: r.studentTelegram,
+        email: r.studentEmail ?? null,
         waitedAt: r.studentWaitingAt,
         studentJoinedAt: r.studentJoinedAt,
         teacherJoinedAt: r.teacherJoinedAt,

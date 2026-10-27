@@ -60,8 +60,8 @@ export async function archiveOldTrials() {
   for (const [key, lessons] of byStudent) {
     const last = lessons[lessons.length - 1]
     const student = key.startsWith('lesson:') ? null : await prisma.user.findUnique({ where: { id: key } })
-    // A real student now (paid, or an account of their own): left alone.
-    if (student && (student.role !== 'STUDENT' || !student.viaLink || student.lessonsPaid > 0)) continue
+    // A real student now (paid, an account of their own, or made one from People): left alone.
+    if (student && (student.role !== 'STUDENT' || !student.viaLink || student.lessonsPaid > 0 || student.fullStudentAt)) continue
     // Booked again within the month: wait until that one is a month old too.
     if (student && await prisma.adventLesson.count({ where: { studentUserId: student.id, startsAt: { gte: cutoff } } })) continue
     if (!lessons.every((l) => l.isTest)) {
