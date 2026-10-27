@@ -4,7 +4,7 @@ import { z } from 'zod'
 import { prisma } from './db.js'
 import { requireAuth, requireRole, isAdmin, hashPassword } from './auth.js'
 import { generateRecurringInstances } from './routes/personal.js'
-import { ensureStudent, MEMO, emptyBookingAccount } from './adventLessons.js'
+import { ensureStudent, MEMO, emptyBookingAccount, applyTrialAccess } from './adventLessons.js'
 import { ensureClassroom } from './routes/classrooms.js'
 import { toAdventLater } from './adventSync.js'
 import { botToken, botUsername, startLink, appUrl } from './telegram.js'
@@ -300,7 +300,11 @@ bookingRouter.post('/lessons/:id/move', requireAuth, requireRole(...STAFF), expr
   if (Number.isNaN(startsAt.getTime()) || startsAt < Date.now()) return res.status(400).json({ error: 'Choose a time in the future' })
   const busy = await busyFor(lesson.teacherId, new Date(startsAt.getTime() - 3 * HOUR), new Date(startsAt.getTime() + 3 * HOUR), lesson.id)
   if (clash(busy, startsAt.getTime(), startsAt.getTime() + lesson.durationMin * MIN)) return res.status(409).json({ error: 'The teacher has another lesson at that time' })
-  await prisma.adventLesson.update({ where: { id: lesson.id }, data: { startsAt } })
+  const moved = await prisma.adventLesson.update({ where: { id: lesson.id }, data: { startsAt } })
+  // The trial access counts from the lesson: moved later, it moves too, or
+  // the student would be locked out on the day of the lesson.
+  const student = moved.studentUserId ? await prisma.user.findUnique({ where: { id: moved.studentUserId } }) : null
+  if (student) await applyTrialAccess(moved, student)
   if (lesson.calendarEventId) {
     await prisma.userCalendarEvent.updateMany({ where: { id: lesson.calendarEventId }, data: { startTime: startsAt, endTime: new Date(startsAt.getTime() + lesson.durationMin * MIN) } })
   }
