@@ -79,6 +79,8 @@ export async function carryStudentOver(fromRoom, toRoom) {
       // Its other tabs too (saved by their own id, so nothing cached is lost).
       await tx.docTab.deleteMany({ where: { key: toRoom.id } })
       await tx.docTab.updateMany({ where: { key: fromRoom.id }, data: { key: toRoom.id } })
+      await tx.docTabName.deleteMany({ where: { OR: [{ key: toRoom.id }, { key: { startsWith: toRoom.id + '#' } }] } })
+      await tx.$executeRaw`UPDATE "DocTabName" SET "key" = ${toRoom.id} || substr("key", ${fromRoom.id.length + 1}) WHERE "key" = ${fromRoom.id} OR "key" LIKE ${fromRoom.id + '#%'}`
       writing = true
     }
     // Homework documents go along too (their live copies are keyed by their

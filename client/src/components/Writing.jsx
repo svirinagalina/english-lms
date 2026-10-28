@@ -256,6 +256,9 @@ export default function Writing({ socketRef, classroomId, docKey, onHomework, us
   // tab 1 (activeTab null); the others are "<key>#<tab id>" on the server.
   const baseKey = docKey ?? classroomId
   const [tabs, setTabs] = useState([])
+  // Tabs' own names by tab id ('' = Tab 1); a tab without one is "Tab N".
+  const [tabNames, setTabNames] = useState({})
+  const [renaming, setRenaming] = useState(null)
   const [activeTab, setActiveTab] = useState(null)
   const key = activeTab ? `${baseKey}#${activeTab}` : baseKey
 
@@ -333,11 +336,12 @@ export default function Writing({ socketRef, classroomId, docKey, onHomework, us
     const socket = socketRef.current
     if (!socket || !baseKey) return
     setTabs([])
+    setTabNames({})
     setActiveTab(null)
-    const fetchTabs = () => socket.emit('doc:tabs', baseKey, (response) => { if (response?.tabs) setTabs(response.tabs) })
+    const fetchTabs = () => socket.emit('doc:tabs', baseKey, (response) => { if (response?.tabs) { setTabs(response.tabs); setTabNames(response.names ?? {}) } })
     if (socket.connected) fetchTabs()
     socket.on('connect', fetchTabs)
-    const onTabs = ({ base, tabs: next }) => { if (base === baseKey) setTabs(next) }
+    const onTabs = ({ base, tabs: next, names }) => { if (base === baseKey) { setTabs(next); setTabNames(names ?? {}) } }
     socket.on('doc:tabs', onTabs)
     return () => { socket.off('connect', fetchTabs); socket.off('doc:tabs', onTabs) }
   }, [socketRef, baseKey])
@@ -349,13 +353,26 @@ export default function Writing({ socketRef, classroomId, docKey, onHomework, us
   const addTab = () => socketRef.current?.emit('doc:tab:add', baseKey, (response) => {
     if (response?.error) { setError(response.error); return }
     setTabs(response.tabs)
+    setTabNames(response.names ?? {})
     setActiveTab(response.id)
   })
-  const removeTab = (tabId, number) => {
-    if (!window.confirm(`Delete Tab ${number}? The text in it is lost.`)) return
+  const removeTab = (tabId, label) => {
+    if (!window.confirm(`Delete “${label}”? The text in it is lost.`)) return
     socketRef.current?.emit('doc:tab:delete', baseKey, tabId, (response) => {
       if (response?.error) { setError(response.error); return }
       setTabs(response.tabs)
+      setTabNames(response.names ?? {})
+    })
+  }
+  const tabLabel = (tabId, number) => tabNames[tabId ?? ''] || `Tab ${number}`
+  const renameTab = (tabId, title) => {
+    setRenaming(null)
+    if (title.trim() === (tabNames[tabId ?? ''] ?? '')) return
+    setTabNames((prev) => ({ ...prev, [tabId ?? '']: title.trim() }))
+    socketRef.current?.emit('doc:tab:rename', baseKey, tabId, title, (response) => {
+      if (response?.error) { setError(response.error); return }
+      setTabs(response.tabs)
+      setTabNames(response.names ?? {})
     })
   }
 
@@ -1143,9 +1160,35 @@ export default function Writing({ socketRef, classroomId, docKey, onHomework, us
         <div className="writing-outline-title">Contents</div>
         {[null, ...tabs].map((tabId, i) => (
           <div key={tabId ?? 'first'} className={`writing-tab ${tabId === activeTab ? 'active' : ''}`}>
-            <button className="writing-outline-item" onClick={() => setActiveTab(tabId)}>Tab {i + 1}</button>
-            {tabId && user.role !== 'STUDENT' && (
-              <button className="writing-tab-remove" onClick={() => removeTab(tabId, i + 1)} title={`Delete Tab ${i + 1}`} aria-label={`Delete Tab ${i + 1}`}>×</button>
+            {renaming === (tabId ?? '') ? (
+              <input
+                className="writing-tab-name"
+                autoFocus
+                defaultValue={tabNames[tabId ?? ''] ?? ''}
+                placeholder={`Tab ${i + 1}`}
+                maxLength={80}
+                onFocus={(e) => e.target.select()}
+                onBlur={(e) => (e.target.dataset.cancel ? setRenaming(null) : renameTab(tabId, e.target.value))}
+                onKeyDown={(e) => {
+                  if (e.key === 'Escape') e.target.dataset.cancel = '1'
+                  if (e.key === 'Enter' || e.key === 'Escape') e.target.blur()
+                }}
+              />
+            ) : (
+              <button
+                className="writing-outline-item"
+                onClick={() => setActiveTab(tabId)}
+                onDoubleClick={() => user.role !== 'PARTNER' && setRenaming(tabId ?? '')}
+                title={user.role !== 'PARTNER' ? 'Double-click to rename' : undefined}
+              >
+                {tabLabel(tabId, i + 1)}
+              </button>
+            )}
+            {renaming !== (tabId ?? '') && user.role !== 'PARTNER' && (
+              <button className="writing-tab-rename" onClick={() => setRenaming(tabId ?? '')} title="Rename" aria-label={`Rename ${tabLabel(tabId, i + 1)}`}>✎</button>
+            )}
+            {tabId && user.role !== 'STUDENT' && renaming !== tabId && (
+              <button className="writing-tab-remove" onClick={() => removeTab(tabId, tabLabel(tabId, i + 1))} title={`Delete ${tabLabel(tabId, i + 1)}`} aria-label={`Delete ${tabLabel(tabId, i + 1)}`}>×</button>
             )}
           </div>
         ))}

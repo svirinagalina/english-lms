@@ -576,6 +576,13 @@ model DocTab {
   @@index([key])
 }
 
+// A tab's own name. `key` is the tab's document key: the document itself
+// (its Tab 1) or "<document>#<tab id>". No row = "Tab N".
+model DocTabName {
+  key   String @id
+  title String
+}
+
 model Board {
   id        String   @id @default(cuid())
   title     String   @default("Untitled")

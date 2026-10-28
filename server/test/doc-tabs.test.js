@@ -62,6 +62,20 @@ test("someone else's teacher can neither see nor open the tabs", async () => {
   assert.ok((await emit(outsider, 'doc:open', `${base}#${tabs[0]}`, {})).error)
 })
 
+test('a tab can be named, by the student too, and an empty name gives "Tab N" back', async () => {
+  const base = school.rooms.student.id
+  const { tabs } = await emit(teacher, 'doc:tabs', base)
+  const heard = new Promise((resolve) => teacher.once('doc:tabs', resolve))
+  const named = await emit(student, 'doc:tab:rename', base, tabs[0], '  Essay 2  ')
+  assert.equal(named.names[tabs[0]], 'Essay 2')
+  assert.equal((await heard).names[tabs[0]], 'Essay 2')
+  assert.equal((await emit(teacher, 'doc:tab:rename', base, null, 'Plan')).names[''], 'Plan')
+  assert.ok((await emit(outsider, 'doc:tab:rename', base, null, 'Mine')).error)
+  assert.ok((await emit(teacher, 'doc:tab:rename', base, 'no-such-tab', 'X')).error)
+  const cleared = await emit(teacher, 'doc:tab:rename', base, null, '')
+  assert.equal(cleared.names[''], undefined)
+})
+
 test('only the teacher deletes a tab', async () => {
   const base = school.rooms.student.id
   const { tabs } = await emit(teacher, 'doc:tabs', base)
@@ -69,4 +83,5 @@ test('only the teacher deletes a tab', async () => {
   const done = await emit(teacher, 'doc:tab:delete', base, tabs[0])
   assert.deepEqual(done.tabs, [])
   assert.equal(await prisma.docTab.count({ where: { key: base } }), 0)
+  assert.equal(await prisma.docTabName.count({ where: { key: { startsWith: base } } }), 0)
 })

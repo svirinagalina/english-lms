@@ -48,13 +48,27 @@ export async function addTab(base) {
 export async function deleteTab(base, tabId) {
   const { count } = await prisma.docTab.deleteMany({ where: { id: tabId, key: base } })
   dropDocument(base + TAB_SEPARATOR + tabId)
+  await prisma.docTabName.deleteMany({ where: { key: base + TAB_SEPARATOR + tabId } })
   return count > 0
+}
+
+// The tabs' own names, by tab id ('' for Tab 1).
+export async function tabNames(base) {
+  const rows = await prisma.docTabName.findMany({ where: { OR: [{ key: base }, { key: { startsWith: base + TAB_SEPARATOR } }] } })
+  return Object.fromEntries(rows.map((r) => [splitTab(r.key).tabId ?? '', r.title]))
+}
+
+// An empty name goes back to "Tab N".
+export async function renameTab(key, title) {
+  if (!title) await prisma.docTabName.deleteMany({ where: { key } })
+  else await prisma.docTabName.upsert({ where: { key }, create: { key, title }, update: { title } })
 }
 
 // Every tab of a deleted document goes with it.
 export async function deleteTabsOf(base) {
   for (const { id } of await listTabs(base)) dropDocument(base + TAB_SEPARATOR + id)
   await prisma.docTab.deleteMany({ where: { key: base } })
+  await prisma.docTabName.deleteMany({ where: { OR: [{ key: base }, { key: { startsWith: base + TAB_SEPARATOR } }] } })
 }
 
 export async function loadDocument(classroomId) {

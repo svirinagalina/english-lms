@@ -55,6 +55,9 @@ const Controls = forwardRef(function Controls({
   onCloseWriting,
   // Board mode: only Cam, Mic, More and Leave stay in the row; the rest is under More.
   compact = false,
+  // Board on a computer: Cam and Mic get a box of their own (under the
+  // camera tiles, placed by Call.jsx) instead of sitting in this row.
+  camMicRef = null,
   onReact,
   onSticker
 }, ref) {
@@ -141,8 +144,8 @@ const Controls = forwardRef(function Controls({
     </>
   )
 
-  return (
-    <div className="controls" ref={ref}>
+  const camMic = (
+    <>
       <button
         className={`round ${cameraOn ? 'on' : 'off'}`}
         onClick={onToggleCamera}
@@ -158,6 +161,14 @@ const Controls = forwardRef(function Controls({
       >
         Mic
       </button>
+    </>
+  )
+
+  return (
+    <>
+    {camMicRef && <div className="controls cam-mic" ref={camMicRef}>{camMic}</div>}
+    <div className="controls" ref={ref}>
+      {!camMicRef && camMic}
 
       {blurInRow && !phone && (
         <button
@@ -292,6 +303,7 @@ const Controls = forwardRef(function Controls({
         <button className="pill leave" onClick={onLeave} title="Leave the call">Leave</button>
       )}
     </div>
+    </>
   )
 })
 

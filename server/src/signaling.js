@@ -12,7 +12,7 @@ import {
   clearBoard,
   forgetBoard
 } from './boardStore.js'
-import { loadDocument, replaceDocument, runsSchema, HOMEWORK_PREFIX, TAB_SEPARATOR, splitTab, listTabs, addTab, deleteTab } from './docStore.js'
+import { loadDocument, replaceDocument, runsSchema, HOMEWORK_PREFIX, TAB_SEPARATOR, splitTab, listTabs, addTab, deleteTab, tabNames, renameTab } from './docStore.js'
 import { buildSummary } from './lessonSummary.js'
 import { adventCallPresence, adventCallEnded } from './adventLessons.js'
 import { trialCallEnded } from './trialReport.js'
@@ -217,7 +217,7 @@ export function setupSignaling(io) {
     next(new Error('Not authenticated'))
   })
 
-const PARTNER_BLOCKED_EVENTS = new Set(['call:start', 'drawing', 'board:add', 'board:update', 'board:delete', 'board:clear', 'doc:update', 'doc:tab:add', 'doc:tab:delete'])
+const PARTNER_BLOCKED_EVENTS = new Set(['call:start', 'drawing', 'board:add', 'board:update', 'board:delete', 'board:clear', 'doc:update', 'doc:tab:add', 'doc:tab:delete', 'doc:tab:rename'])
 
   io.on('connection', (socket) => {
     const user = socket.data.user
@@ -586,19 +586,20 @@ const PARTNER_BLOCKED_EVENTS = new Set(['call:start', 'drawing', 'board:add', 'b
     // Tabs (Google Docs style): every tab is a document of its own, keyed
     // "<document>#<tab id>"; the document itself is tab 1. Adding or deleting
     // one tells everyone in any tab of that document.
+    const tabsOf = async (base) => ({ tabs: (await listTabs(base)).map((t) => t.id), names: await tabNames(base) })
     const tellTabs = async (base) => {
-      const tabs = (await listTabs(base)).map((t) => t.id)
+      const state = await tabsOf(base)
       for (const [key, sockets] of docWatchers) {
         if (key !== base && !key.startsWith(base + TAB_SEPARATOR)) continue
-        for (const other of sockets) other.emit('doc:tabs', { base, tabs })
+        for (const other of sockets) other.emit('doc:tabs', { base, ...state })
       }
-      return tabs
+      return state
     }
 
     socket.on('doc:tabs', async (base, ack) => {
       if (typeof ack !== 'function') return
       if (typeof base !== 'string' || base.includes(TAB_SEPARATOR) || !(await docAllowed(base))) return ack({ error: 'Document not found' })
-      ack({ tabs: (await listTabs(base)).map((t) => t.id) })
+      ack(await tabsOf(base))
     })
 
     socket.on('doc:tab:add', async (base, ack) => {
@@ -606,7 +607,7 @@ const PARTNER_BLOCKED_EVENTS = new Set(['call:start', 'drawing', 'board:add', 'b
       if (typeof base !== 'string' || base.includes(TAB_SEPARATOR) || !(await docAllowed(base))) return ack({ error: 'Document not found' })
       if ((await listTabs(base)).length >= 50) return ack({ error: 'That is the most tabs a document can have' })
       const tab = await addTab(base)
-      ack({ id: tab.id, tabs: await tellTabs(base) })
+      ack({ id: tab.id, ...(await tellTabs(base)) })
     })
 
     // Only staff delete a tab — a student can't lose the teacher's work.
@@ -615,7 +616,17 @@ const PARTNER_BLOCKED_EVENTS = new Set(['call:start', 'drawing', 'board:add', 'b
       if (user.role === 'STUDENT') return ack({ error: 'Only the teacher deletes tabs' })
       if (typeof base !== 'string' || typeof tabId !== 'string' || !(await docAllowed(base))) return ack({ error: 'Document not found' })
       if (!(await deleteTab(base, tabId))) return ack({ error: 'Tab not found' })
-      ack({ tabs: await tellTabs(base) })
+      ack(await tellTabs(base))
+    })
+
+    // Anyone in the document names a tab (tabId null = Tab 1); empty = "Tab N" again.
+    socket.on('doc:tab:rename', async (base, tabId, title, ack) => {
+      if (typeof ack !== 'function') return
+      if (typeof base !== 'string' || base.includes(TAB_SEPARATOR) || !(await docAllowed(base))) return ack({ error: 'Document not found' })
+      if (tabId !== null && (typeof tabId !== 'string' || !(await listTabs(base)).some((t) => t.id === tabId))) return ack({ error: 'Tab not found' })
+      if (typeof title !== 'string') return ack({ error: 'Give the tab a name' })
+      await renameTab(tabId ? base + TAB_SEPARATOR + tabId : base, title.trim().slice(0, 80))
+      ack(await tellTabs(base))
     })
 
     socket.on('doc:update', async (raw) => {
