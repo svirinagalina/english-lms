@@ -963,8 +963,60 @@ function renderRegion(elements, box, scale) {
 
 const isLessonHeading = (e) => e.type === 'text' && /^— (Trial lesson|Lesson) · /.test(e.text ?? '')
 
-// Every lesson on the board becomes a section; sections are cut into A4
-// pages top to bottom. A board without headings is one section.
+// Where to cut a page: at `ideal`, or a little before it if that would go
+// through a picture or a text, but never above `min` (then straight through).
+function snapCut(spans, ideal, min) {
+  let cut = ideal
+  for (let i = 0; i < 50; i++) {
+    const hit = spans.find(([from, to]) => from < cut && cut < to)
+    if (!hit) return cut
+    cut = hit[0] - 1
+    if (cut <= min) return ideal
+  }
+  return ideal
+}
+
+// About one screen of the board per page width: readable, like on the screen.
+const PAGE_WORLD_W = 1600
+// Elements closer than this belong to one block (a picture and its caption,
+// a column of text) and are never split apart across pages.
+const BLOCK_GAP = 60
+
+// Groups boxes that touch or nearly touch into blocks; returns their bounds.
+function blocksOf(boxes) {
+  const parent = boxes.map((_, i) => i)
+  const find = (i) => (parent[i] === i ? i : (parent[i] = find(parent[i])))
+  const near = (a, b) => a.x - BLOCK_GAP < b.x + b.w && b.x - BLOCK_GAP < a.x + a.w && a.y - BLOCK_GAP < b.y + b.h && b.y - BLOCK_GAP < a.y + a.h
+  for (let i = 0; i < boxes.length; i++) for (let j = i + 1; j < boxes.length; j++) if (near(boxes[i], boxes[j])) parent[find(i)] = find(j)
+  const groups = new Map()
+  boxes.forEach((box, i) => {
+    const root = find(i)
+    const g = groups.get(root)
+    if (!g) groups.set(root, { x: box.x, y: box.y, r: box.x + box.w, b: box.y + box.h, members: [box] })
+    else { g.x = Math.min(g.x, box.x); g.y = Math.min(g.y, box.y); g.r = Math.max(g.r, box.x + box.w); g.b = Math.max(g.b, box.y + box.h); g.members.push(box) }
+  })
+  return [...groups.values()].map((g) => ({ x: g.x, y: g.y, w: g.r - g.x, h: g.b - g.y, members: g.members }))
+}
+
+// Top to bottom; blocks side by side (overlapping in height) left to right.
+function readingOrder(blocks) {
+  const sorted = [...blocks].sort((a, b) => a.y - b.y)
+  const rows = []
+  for (const block of sorted) {
+    const row = rows[rows.length - 1]
+    if (row && block.y < row.y + row.h * 0.5) { row.items.push(block); row.h = Math.max(row.h, block.y + block.h - row.y) }
+    else rows.push({ y: block.y, h: block.h, items: [block] })
+  }
+  return rows.flatMap((row) => row.items.sort((a, b) => a.x - b.x))
+}
+
+// Every lesson on the board starts a new page. Its content is taken as
+// blocks (things close together) in reading order and laid onto A4
+// landscape pages at about screen size, without cutting a block in two
+// (a block taller than a page is cut between lines). Fitting the whole
+// board's width onto one page made a real board — 11 000 units wide,
+// pictures scattered left and right — come out as two pages of specks, and
+// cutting it into a grid split texts across pages (2026-10-28).
 export async function exportBoardPdf(elements, title = 'Board') {
   const { jsPDF } = await import('jspdf')
   await waitForImages(elements)
@@ -972,39 +1024,58 @@ export async function exportBoardPdf(elements, title = 'Board') {
   const all = unionBounds(elements)
   if (!all) return
   const pad = 40
+  const boxes = elements.map(boundsOf)
   const headings = elements.filter(isLessonHeading).map((e) => e.y - pad / 2).sort((a, b) => a - b)
   const cuts = [all.y - pad, ...headings.filter((y) => y > all.y), all.y + all.h + pad]
-  // Only sections that actually contain something make pages: a heading at
-  // the very top would otherwise leave a blank page above itself.
-  const sections = []
-  for (let i = 0; i < cuts.length - 1; i++) {
-    const y = cuts[i]
-    const h = cuts[i + 1] - cuts[i]
-    const populated = elements.some((e) => { const b = boundsOf(e); return b.y + b.h > y && b.y < y + h })
-    if (h > 1 && populated) sections.push({ y, h })
-  }
 
-  const pageW = 210
-  const pageH = 297
-  const margin = 10
+  const pageW = 297
+  const pageH = 210
+  const margin = 8
+  const gap = 5
   const innerW = pageW - 2 * margin
   const innerH = pageH - 2 * margin
-  const boxX = all.x - pad
-  const boxW = all.w + 2 * pad
-  // World units per mm, so the board's full width fits the page width.
-  const unitsPerMm = boxW / innerW
-  const sliceH = innerH * unitsPerMm
-  const scale = 4 / unitsPerMm // ≈ 4 px per mm ≈ 100 dpi
+  const unitsPerMm = PAGE_WORLD_W / innerW
+  const scale = Math.min(2, 6 / unitsPerMm) // ≈ 150 dpi
 
-  const pdf = new jsPDF({ unit: 'mm', format: 'a4' })
-  let first = true
-  for (const section of sections) {
-    for (let y = section.y; y < section.y + section.h; y += sliceH) {
-      const h = Math.min(sliceH, section.y + section.h - y)
-      const canvas = renderRegion(elements, { x: boxX, y, w: boxW, h }, Math.min(scale, 3))
-      if (!first) pdf.addPage()
-      first = false
-      pdf.addImage(canvas.toDataURL('image/jpeg', 0.85), 'JPEG', margin, margin, innerW, h / unitsPerMm)
+  const pdf = new jsPDF({ unit: 'mm', format: 'a4', orientation: 'landscape' })
+  let pages = 0
+  let cx = 0
+  let cy = 0
+  let rowH = 0
+  const newPage = () => {
+    if (pages) pdf.addPage('a4', 'landscape')
+    pages++
+    cx = 0; cy = 0; rowH = 0
+  }
+  // One piece of the board (world box) at `fit` (≤ 1) of the normal size.
+  const place = (box, fit) => {
+    const w = (box.w / unitsPerMm) * fit
+    const h = (box.h / unitsPerMm) * fit
+    if (cx > 0 && cx + w > innerW) { cx = 0; cy += rowH + gap; rowH = 0 }
+    if (cy > 0 && cy + h > innerH) newPage()
+    const canvas = renderRegion(elements, box, scale * fit)
+    pdf.addImage(canvas.toDataURL('image/jpeg', 0.85), 'JPEG', margin + cx, margin + cy, w, h)
+    cx += w + gap
+    rowH = Math.max(rowH, h)
+  }
+
+  for (let i = 0; i < cuts.length - 1; i++) {
+    const inside = boxes.filter((box) => box.y + box.h / 2 >= cuts[i] && box.y + box.h / 2 < cuts[i + 1])
+    if (!inside.length) continue
+    newPage()
+    for (const block of readingOrder(blocksOf(inside))) {
+      const box = { x: block.x - 10, y: block.y - 10, w: block.w + 20, h: block.h + 20 }
+      // Wider than a page: shrunk to the page's width.
+      const fit = Math.min(1, innerW / (box.w / unitsPerMm))
+      const sliceH = (innerH / fit) * unitsPerMm
+      if (box.h <= sliceH) { place(box, fit); continue }
+      // Taller than a page: one page-high slice at a time, cut between lines.
+      const spans = block.members.map((m) => [m.y, m.y + m.h])
+      for (let y = box.y; y < box.y + box.h - 1;) {
+        const end = Math.min(box.y + box.h, snapCut(spans, y + sliceH, y + sliceH * 0.6))
+        place({ x: box.x, y, w: box.w, h: end - y }, fit)
+        y = end
+      }
     }
   }
   pdf.save(`${title.replace(/[\\/:*?"<>|]+/g, '-')}.pdf`)
