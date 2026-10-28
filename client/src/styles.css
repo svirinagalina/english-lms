@@ -679,7 +679,8 @@ select.pill { padding: 0 16px; color: var(--text); border: none; }
 }
 
 /* Board inside a call: the board is the whole window, everything else
-   floats over it — videos down the right edge, call controls top centre. */
+   floats over it — videos down the right edge, call controls under them (placed by script
+   in Call.jsx; top centre until then). */
 .lesson-page.board-mode { position: relative; }
 .lesson-page.board-mode .topbar { display: none; }
 .lesson-page.board-mode .banner { position: absolute; top: 60px; left: 12px; z-index: 5; border-radius: 8px; max-width: min(50vw, 520px); font-size: 13px; }
@@ -759,6 +760,7 @@ select.pill { padding: 0 16px; color: var(--text); border: none; }
 .lesson-page.board-mode .more-menu { top: calc(100% + 8px); bottom: auto; left: 50%; right: auto; transform: translateX(-50%); }
 .lesson-page.board-mode .blur-control { flex-wrap: nowrap; }
 .lesson-page.board-mode .blur-control input[type="range"] { width: 80px; }
+.lesson-page.board-mode .controls.under-camera .more-menu { left: auto; right: 0; transform: none; max-height: var(--more-max-h, 60vh); overflow-y: auto; }
 .pill.leave { border: 1px solid rgba(239, 68, 68, 0.5); color: #fca5a5; background: transparent; }
 
 .update-toast {

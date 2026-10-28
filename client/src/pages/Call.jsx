@@ -1841,33 +1841,44 @@ export default function Call() {
     setUnread(0)
   }
 
-  // Board mode: the call controls sit exactly between the board chip and
-  // the zoom group, not in the middle of the whole width.
+  // Board mode: the call controls (Cam, Mic…) sit right under the camera
+  // tiles on the right, where they're easy to find (Galina, 2026-10-28).
   const controlsRef = useRef(null)
   const boardRef = useRef(null)
   useEffect(() => {
     if (!boardId || writingId) return
+    const reset = () => {
+      const controls = controlsRef.current
+      if (!controls) return
+      controls.style.left = ''; controls.style.top = ''; controls.style.right = ''; controls.style.transform = ''
+      controls.style.removeProperty('--more-max-h')
+      controls.classList.remove('under-camera')
+    }
     const align = () => {
       const controls = controlsRef.current
-      if (window.innerWidth <= 720) { if (controls) { controls.style.left = ''; controls.style.transform = '' } return }
-      const chip = document.querySelector('.board-chip')
-      const zoom = document.querySelector('.board-corner-right')
       if (!controls) return
-      if (!chip || !zoom) { controls.style.left = ''; controls.style.transform = ''; return }
-      const a = chip.getBoundingClientRect().right
-      const b = zoom.getBoundingClientRect().left
-      const host = controls.offsetParent?.getBoundingClientRect() ?? { left: 0 }
-      const width = controls.getBoundingClientRect().width
-      const left = Math.max(a + 8, Math.min((a + b) / 2 - width / 2, b - width - 8))
-      controls.style.left = `${left - host.left}px`
+      if (window.innerWidth <= 720) { reset(); return }
+      const host = controls.offsetParent?.getBoundingClientRect() ?? { top: 0, right: window.innerWidth, bottom: window.innerHeight }
+      const tiles = document.querySelector('.stage.board-mode .tiles:not(.tiles-tucked)')
+      const box = tiles?.getBoundingClientRect()
+      const last = tiles?.lastElementChild?.getBoundingClientRect()
+      const right = box ? host.right - box.right : 12
+      // Under the last tile, but never below the tiles' own area.
+      const top = box && last ? Math.min(last.bottom, box.bottom - controls.offsetHeight) + 8 : (box?.top ?? host.top + 60)
+      controls.classList.add('under-camera')
+      controls.style.left = 'auto'
+      controls.style.right = `${right}px`
+      controls.style.top = `${Math.max(top - host.top, 12)}px`
       controls.style.transform = 'none'
+      // The More menu opens downward from here: it scrolls rather than run off the screen.
+      controls.style.setProperty('--more-max-h', `${Math.max(window.innerHeight - controls.getBoundingClientRect().bottom - 16, 200)}px`)
     }
     align()
     const observer = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(align) : null
-    for (const el of [controlsRef.current, document.querySelector('.board-chip'), document.querySelector('.board-corner-right')]) if (el) observer?.observe(el)
+    for (const el of [controlsRef.current, document.querySelector('.stage.board-mode .tiles')]) if (el) observer?.observe(el)
     window.addEventListener('resize', align)
     const timer = setInterval(align, 500)
-    return () => { observer?.disconnect(); window.removeEventListener('resize', align); clearInterval(timer); if (controlsRef.current) { controlsRef.current.style.left = ''; controlsRef.current.style.transform = '' } }
+    return () => { observer?.disconnect(); window.removeEventListener('resize', align); clearInterval(timer); reset() }
   }, [boardId, writingId])
 
   // Remembered so "Board" goes back to it after Writing, without a picker.

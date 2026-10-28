@@ -31,8 +31,42 @@ const docs = new Map()
 export const HOMEWORK_PREFIX = 'hw:'
 const homeworkId = (key) => key.startsWith(HOMEWORK_PREFIX) ? key.slice(HOMEWORK_PREFIX.length) : null
 
+// Tabs 2, 3, … are "<key>#<tab id>"; the key alone is tab 1.
+export const TAB_SEPARATOR = '#'
+export const splitTab = (key) => {
+  const at = key.indexOf(TAB_SEPARATOR)
+  return at < 0 ? { base: key, tabId: null } : { base: key.slice(0, at), tabId: key.slice(at + 1) }
+}
+
+// The extra tabs of a document, in the order they were made.
+export const listTabs = (base) => prisma.docTab.findMany({ where: { key: base }, orderBy: { createdAt: 'asc' }, select: { id: true } })
+
+export async function addTab(base) {
+  return prisma.docTab.create({ data: { key: base, runs: [] }, select: { id: true } })
+}
+
+export async function deleteTab(base, tabId) {
+  const { count } = await prisma.docTab.deleteMany({ where: { id: tabId, key: base } })
+  dropDocument(base + TAB_SEPARATOR + tabId)
+  return count > 0
+}
+
+// Every tab of a deleted document goes with it.
+export async function deleteTabsOf(base) {
+  for (const { id } of await listTabs(base)) dropDocument(base + TAB_SEPARATOR + id)
+  await prisma.docTab.deleteMany({ where: { key: base } })
+}
+
 export async function loadDocument(classroomId) {
   if (docs.has(classroomId)) return docs.get(classroomId)
+  const { base, tabId } = splitTab(classroomId)
+  if (tabId) {
+    const record = await prisma.docTab.findFirst({ where: { id: tabId, key: base } })
+    if (!record) throw new Error('Tab not found')
+    const runs = Array.isArray(record.runs) ? record.runs : []
+    docs.set(classroomId, runs)
+    return runs
+  }
   const hwId = homeworkId(classroomId)
   if (hwId) {
     const record = await prisma.homeworkDoc.findUnique({ where: { id: hwId } })
@@ -59,6 +93,8 @@ export async function loadDocument(classroomId) {
 const saver = debouncedSaver('document', async (classroomId) => {
   const runs = docs.get(classroomId)
   if (!runs) return
+  const { tabId } = splitTab(classroomId)
+  if (tabId) { await prisma.docTab.updateMany({ where: { id: tabId }, data: { runs } }); return }
   const hwId = homeworkId(classroomId)
   if (hwId) await prisma.homeworkDoc.update({ where: { id: hwId }, data: { runs } })
   else await prisma.document.update({ where: { classroomId }, data: { runs } })

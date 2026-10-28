@@ -12,7 +12,7 @@ import {
   clearBoard,
   forgetBoard
 } from './boardStore.js'
-import { loadDocument, replaceDocument, runsSchema, HOMEWORK_PREFIX } from './docStore.js'
+import { loadDocument, replaceDocument, runsSchema, HOMEWORK_PREFIX, TAB_SEPARATOR, splitTab, listTabs, addTab, deleteTab } from './docStore.js'
 import { buildSummary } from './lessonSummary.js'
 import { adventCallPresence, adventCallEnded } from './adventLessons.js'
 import { trialCallEnded } from './trialReport.js'
@@ -217,7 +217,7 @@ export function setupSignaling(io) {
     next(new Error('Not authenticated'))
   })
 
-const PARTNER_BLOCKED_EVENTS = new Set(['call:start', 'drawing', 'board:add', 'board:update', 'board:delete', 'board:clear', 'doc:update'])
+const PARTNER_BLOCKED_EVENTS = new Set(['call:start', 'drawing', 'board:add', 'board:update', 'board:delete', 'board:clear', 'doc:update', 'doc:tab:add', 'doc:tab:delete'])
 
   io.on('connection', (socket) => {
     const user = socket.data.user
@@ -549,8 +549,10 @@ const PARTNER_BLOCKED_EVENTS = new Set(['call:start', 'drawing', 'board:add', 'b
     // school's admins) may open it — in a call too: a colleague in someone
     // else's call never gets their students' writing (Galina, 2026-10-20).
 
-    const docAllowed = async (classroomId) => {
-      if (typeof classroomId !== 'string') return false
+    const docAllowed = async (key) => {
+      if (typeof key !== 'string') return false
+      // A tab is allowed to whoever may open its document.
+      const classroomId = splitTab(key).base
       // A homework document: whoever may open its cabinet may open it.
       if (classroomId.startsWith(HOMEWORK_PREFIX)) {
         const hw = await prisma.homeworkDoc.findUnique({ where: { id: classroomId.slice(HOMEWORK_PREFIX.length) }, select: { classroomId: true } })
@@ -569,7 +571,7 @@ const PARTNER_BLOCKED_EVENTS = new Set(['call:start', 'drawing', 'board:add', 'b
       unwatch(docWatchers, socket.data.docId, socket)
       socket.data.docId = classroomId
       watch(docWatchers, classroomId, socket)
-      if (user.role !== 'STUDENT' && socket.data.callId && !classroomId.startsWith(HOMEWORK_PREFIX)) roomDocs.set(socket.data.roomId, classroomId)
+      if (user.role !== 'STUDENT' && socket.data.callId && !classroomId.startsWith(HOMEWORK_PREFIX)) roomDocs.set(socket.data.roomId, splitTab(classroomId).base)
       let runs
       try {
         runs = await loadDocument(classroomId)
@@ -579,6 +581,41 @@ const PARTNER_BLOCKED_EVENTS = new Set(['call:start', 'drawing', 'board:add', 'b
         return
       }
       if (typeof ack === 'function') ack({ runs })
+    })
+
+    // Tabs (Google Docs style): every tab is a document of its own, keyed
+    // "<document>#<tab id>"; the document itself is tab 1. Adding or deleting
+    // one tells everyone in any tab of that document.
+    const tellTabs = async (base) => {
+      const tabs = (await listTabs(base)).map((t) => t.id)
+      for (const [key, sockets] of docWatchers) {
+        if (key !== base && !key.startsWith(base + TAB_SEPARATOR)) continue
+        for (const other of sockets) other.emit('doc:tabs', { base, tabs })
+      }
+      return tabs
+    }
+
+    socket.on('doc:tabs', async (base, ack) => {
+      if (typeof ack !== 'function') return
+      if (typeof base !== 'string' || base.includes(TAB_SEPARATOR) || !(await docAllowed(base))) return ack({ error: 'Document not found' })
+      ack({ tabs: (await listTabs(base)).map((t) => t.id) })
+    })
+
+    socket.on('doc:tab:add', async (base, ack) => {
+      if (typeof ack !== 'function') return
+      if (typeof base !== 'string' || base.includes(TAB_SEPARATOR) || !(await docAllowed(base))) return ack({ error: 'Document not found' })
+      if ((await listTabs(base)).length >= 50) return ack({ error: 'That is the most tabs a document can have' })
+      const tab = await addTab(base)
+      ack({ id: tab.id, tabs: await tellTabs(base) })
+    })
+
+    // Only staff delete a tab — a student can't lose the teacher's work.
+    socket.on('doc:tab:delete', async (base, tabId, ack) => {
+      if (typeof ack !== 'function') return
+      if (user.role === 'STUDENT') return ack({ error: 'Only the teacher deletes tabs' })
+      if (typeof base !== 'string' || typeof tabId !== 'string' || !(await docAllowed(base))) return ack({ error: 'Document not found' })
+      if (!(await deleteTab(base, tabId))) return ack({ error: 'Tab not found' })
+      ack({ tabs: await tellTabs(base) })
     })
 
     socket.on('doc:update', async (raw) => {

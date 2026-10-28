@@ -7,6 +7,7 @@ import WordCard, { PlayButton } from './WordCard'
 import DictionaryPanel from './DictionaryPanel'
 import { useAuth } from '../AuthContext'
 import { api } from '../api'
+import BoardIcon from './BoardIcons'
 
 const COLORS = ['#111827', '#ef4444', '#16a34a', '#2563eb', '#f59e0b', '#9333ea']
 // Ink drawn while the board was dark, shown dark on the white board.
@@ -3814,26 +3815,28 @@ const Whiteboard = forwardRef(function Whiteboard({ socketRef, boardId, title, s
               {TOOLS.map((item) => (
                 <button
                   key={item.id}
-                  className={`tool ${(item.id === 'area' ? tool === 'select' && boxSelect : item.id === 'select' ? tool === 'select' && !boxSelect : tool === item.id) ? 'active' : ''}`}
+                  className={`tool icon ${(item.id === 'area' ? tool === 'select' && boxSelect : item.id === 'select' ? tool === 'select' && !boxSelect : tool === item.id) ? 'active' : ''}`}
                   onClick={() => { pickTool(item.id); scheduleRender(); bump() }}
                   title={item.title ?? `${item.label} (${item.key})`}
+                  aria-label={item.label}
                 >
-                  {item.label}
+                  <BoardIcon name={item.id} />
                 </button>
               ))}
               {onMistake && (
                 <button
-                  className={`tool ${mistakesOpen ? 'active' : ''}`}
+                  className={`tool icon ${mistakesOpen ? 'active' : ''}`}
                   onClick={() => setMistakesOpen((v) => !v)}
-                  title="The lesson's mistakes: what the student said and how it should be. Each goes on the board and into their notebook (X)"
+                  title="Mistakes: what the student said and how it should be. Each goes on the board and into their notebook (X)"
+                  aria-label="Mistakes"
                 >
-                  Mistakes
+                  <BoardIcon name="mistakes" />
                 </button>
               )}
-              <button className={`tool ${dictionaryOpen ? 'active' : ''}`} onClick={() => setDictionaryOpen((v) => !v)} title="Dictionary: any word or phrase, Russian ⇄ English">Dictionary</button>
+              <button className={`tool icon ${dictionaryOpen ? 'active' : ''}`} onClick={() => setDictionaryOpen((v) => !v)} title="Dictionary: any word or phrase, Russian ⇄ English" aria-label="Dictionary"><BoardIcon name="dictionary" /></button>
               {onUploadImage && (
                 <>
-                  <button className="tool" onClick={() => fileInputRef.current?.click()} title="Add an image">Image</button>
+                  <button className="tool icon" onClick={() => fileInputRef.current?.click()} title="Add an image" aria-label="Image"><BoardIcon name="image" /></button>
                   <input
                     ref={fileInputRef}
                     type="file"

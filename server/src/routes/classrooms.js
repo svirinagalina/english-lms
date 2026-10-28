@@ -4,7 +4,7 @@ import { prisma } from '../db.js'
 import { limitedToSite, siteStudentIds, maySeeStudent } from '../partnerScope.js'
 import { requireAuth, requireRole, isAdmin } from '../auth.js'
 import { forgetBoard } from '../boardStore.js'
-import { settleDocuments, dropDocument, HOMEWORK_PREFIX } from '../docStore.js'
+import { settleDocuments, dropDocument, deleteTabsOf, HOMEWORK_PREFIX } from '../docStore.js'
 import { randomBytes } from 'crypto'
 import { mkdir, writeFile } from 'fs/promises'
 import path from 'path'
@@ -76,6 +76,9 @@ export async function carryStudentOver(fromRoom, toRoom) {
     if (oldDoc && !empty(oldDoc) && empty(newDoc)) {
       if (newDoc) await tx.document.delete({ where: { id: newDoc.id } })
       await tx.document.update({ where: { id: oldDoc.id }, data: { classroomId: toRoom.id } })
+      // Its other tabs too (saved by their own id, so nothing cached is lost).
+      await tx.docTab.deleteMany({ where: { key: toRoom.id } })
+      await tx.docTab.updateMany({ where: { key: fromRoom.id }, data: { key: toRoom.id } })
       writing = true
     }
     // Homework documents go along too (their live copies are keyed by their
@@ -571,6 +574,7 @@ classroomsRouter.delete('/:id/homework-docs/:docId', requireRole('OWNER', 'PARTN
   const { count } = await prisma.homeworkDoc.deleteMany({ where: { id: req.params.docId, classroomId: classroom.id } })
   if (!count) return res.status(404).json({ error: 'Homework not found' })
   dropDocument(HOMEWORK_PREFIX + req.params.docId)
+  await deleteTabsOf(HOMEWORK_PREFIX + req.params.docId)
   res.json({ ok: true })
 })
 

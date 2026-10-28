@@ -436,3 +436,7 @@ select.tool { appearance: auto; padding: 5px 8px; }
 
 /* A picture being dragged over the window: the board shows it will take it. */
 .whiteboard.drag-over .board-canvas-wrap { outline: 3px dashed #3b82f6; outline-offset: -6px; }
+
+/* Dock tools drawn as icons; the name is in the tooltip. */
+.board-dock .tool.icon { display: inline-flex; align-items: center; justify-content: center; min-width: 34px; padding: 6px 8px; }
+.board-dock .tool.icon .dock-icon { display: block; }

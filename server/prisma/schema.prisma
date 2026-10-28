@@ -564,6 +564,18 @@ model HomeworkDoc {
   @@index([classroomId])
 }
 
+// Tabs 2, 3, … of a document (Google Docs style); the document itself is
+// tab 1. `key` is the document's key: a classroom id or "hw:<id>".
+model DocTab {
+  id        String   @id @default(cuid())
+  key       String
+  runs      Json     @default("[]")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([key])
+}
+
 model Board {
   id        String   @id @default(cuid())
   title     String   @default("Untitled")

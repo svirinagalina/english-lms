@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { api } from '../api'
 import { isEnglishWord, lookupWord, wordAt } from '../utils/dictionary'
 import WordCard from './WordCard'
@@ -19,7 +19,7 @@ import '../styles/writing.css'
 // (beforeinput) and replayed on the run model, so the marks stay exact.
 
 // Besides kind/author a run can carry formatting that is never a
-// suggestion: `h` (a heading line, listed in the outline) and `hl` (a
+// suggestion: `h` (a heading line) and `hl` (a
 // highlighter colour).
 const sameStyle = (a, b) => a.kind === b.kind && a.author === b.author && (a.h ?? 0) === (b.h ?? 0) && (a.hl ?? '') === (b.hl ?? '')
 
@@ -89,26 +89,6 @@ function restyle(runs, start, end, patch) {
     }
   }
   return normalise(next)
-}
-
-// Every heading line: its text and where it starts.
-function outlineOf(runs) {
-  const items = []
-  let pos = 0
-  let line = null
-  runs.forEach((run, index) => {
-    const parts = run.text.split('\n')
-    parts.forEach((part, i) => {
-      if (i > 0) { if (line) items.push(line); line = null }
-      if (run.h && run.kind !== 'del' && run.kind !== 'image' && part) {
-        if (!line) line = { offset: pos, index, text: '' }
-        line.text += part
-      }
-      pos += part.length + (i < parts.length - 1 ? 1 : 0)
-    })
-  })
-  if (line) items.push(line)
-  return items.filter((item) => item.text.trim()).map((item) => ({ ...item, text: item.text.trim() }))
 }
 
 // Splits runs so that `offset` falls on a run boundary; returns the index.
@@ -272,6 +252,13 @@ export default function Writing({ socketRef, classroomId, docKey, onHomework, us
   runsRef.current = runs
   const historyRef = useRef({ undo: [], redo: [] })
 
+  // Tabs, like Google Docs: each its own document. The document itself is
+  // tab 1 (activeTab null); the others are "<key>#<tab id>" on the server.
+  const baseKey = docKey ?? classroomId
+  const [tabs, setTabs] = useState([])
+  const [activeTab, setActiveTab] = useState(null)
+  const key = activeTab ? `${baseKey}#${activeTab}` : baseKey
+
   // Teachers suggest; students write.
   const actor = { id: user.id, tracked: user.role !== 'STUDENT' }
 
@@ -302,10 +289,14 @@ export default function Writing({ socketRef, classroomId, docKey, onHomework, us
   // Load and follow the document over the socket.
   useEffect(() => {
     const socket = socketRef.current
-    // The cabinet's own Writing, or a homework document ("hw:<id>").
-    const key = docKey ?? classroomId
+    // The cabinet's own Writing, or a homework document ("hw:<id>"), or one
+    // of their tabs.
     if (!socket || !key) return
     setLoaded(false)
+    setRuns([])
+    runsRef.current = []
+    historyRef.current = { undo: [], redo: [] }
+    dirtyRef.current = false
     const open = (quiet) => socket.emit('doc:open', key, { quiet }, (response) => {
       if (response?.error) { setError(response.error); return }
       // A reconnect (quiet) whose local edits never got confirmed synced —
@@ -335,7 +326,38 @@ export default function Writing({ socketRef, classroomId, docKey, onHomework, us
     }
     socket.on('doc:update', onUpdate)
     return () => { socket.off('connect', reopen); socket.off('doc:update', onUpdate) }
-  }, [socketRef, classroomId, docKey])
+  }, [socketRef, key])
+
+  // The list of tabs, kept current when someone adds or deletes one.
+  useEffect(() => {
+    const socket = socketRef.current
+    if (!socket || !baseKey) return
+    setTabs([])
+    setActiveTab(null)
+    const fetchTabs = () => socket.emit('doc:tabs', baseKey, (response) => { if (response?.tabs) setTabs(response.tabs) })
+    if (socket.connected) fetchTabs()
+    socket.on('connect', fetchTabs)
+    const onTabs = ({ base, tabs: next }) => { if (base === baseKey) setTabs(next) }
+    socket.on('doc:tabs', onTabs)
+    return () => { socket.off('connect', fetchTabs); socket.off('doc:tabs', onTabs) }
+  }, [socketRef, baseKey])
+  // A tab deleted by the other side: back to tab 1.
+  useEffect(() => {
+    if (activeTab && !tabs.includes(activeTab)) setActiveTab(null)
+  }, [tabs, activeTab])
+
+  const addTab = () => socketRef.current?.emit('doc:tab:add', baseKey, (response) => {
+    if (response?.error) { setError(response.error); return }
+    setTabs(response.tabs)
+    setActiveTab(response.id)
+  })
+  const removeTab = (tabId, number) => {
+    if (!window.confirm(`Delete Tab ${number}? The text in it is lost.`)) return
+    socketRef.current?.emit('doc:tab:delete', baseKey, tabId, (response) => {
+      if (response?.error) { setError(response.error); return }
+      setTabs(response.tabs)
+    })
+  }
 
   const lastSelRef = useRef(null)
   // Restore the caret after every re-render caused by an edit.
@@ -389,8 +411,9 @@ export default function Writing({ socketRef, classroomId, docKey, onHomework, us
       })
     }
     socket.on('doc:selection', onSel)
+    setRemoteSels({})
     return () => socket.off('doc:selection', onSel)
-  }, [socketRef, classroomId])
+  }, [socketRef, key])
   const [remoteRects, setRemoteRects] = useState([])
   useLayoutEffect(() => {
     const root = editorRef.current
@@ -959,15 +982,6 @@ export default function Writing({ socketRef, classroomId, docKey, onHomework, us
   }
   const [dictionaryOpen, setDictionaryOpen] = useState(false)
 
-  const outline = useMemo(() => outlineOf(runs), [runs])
-  const goToHeading = (item) => {
-    const root = editorRef.current
-    const el = root?.querySelector(`[data-run="${item.index}"]`)
-    el?.scrollIntoView({ block: 'start', behavior: 'smooth' })
-    root?.focus({ preventScroll: true })
-    if (root) setCaret(root, item.offset)
-  }
-
   // A click on a mark offers accept/reject; anywhere else the browser's own
   // caret, double-click-word and triple-click-line behaviour applies.
   const handleClick = (event) => {
@@ -1097,7 +1111,7 @@ export default function Writing({ socketRef, classroomId, docKey, onHomework, us
             {addingTerm ? 'Adding…' : '+ Vocabulary'}
           </button>
           <button className={`tool ${dictionaryOpen ? 'active' : ''}`} onMouseDown={(e) => e.preventDefault()} onClick={() => setDictionaryOpen((v) => !v)} title="Dictionary: any word or phrase, Russian ⇄ English">Dictionary</button>
-          <button className="tool" onMouseDown={(e) => e.preventDefault()} onClick={toggleHeading} title="Make the line a heading — it appears in the list on the left">Heading</button>
+          <button className="tool" onMouseDown={(e) => e.preventDefault()} onClick={toggleHeading} title="Make the line a heading">Heading</button>
           <span className="marker-tool">
             <button className="tool" onMouseDown={(e) => e.preventDefault()} onClick={() => highlight(marker)} title="Highlight the selected text">
               <span className={`marker-swatch hl-${marker}`} />Marker
@@ -1125,14 +1139,20 @@ export default function Writing({ socketRef, classroomId, docKey, onHomework, us
       {error && <div className="error">{error}</div>}
 
       <div className="writing-body">
-      {outline.length > 0 && (
-        <nav className="writing-outline" aria-label="Headings">
-          <div className="writing-outline-title">Contents</div>
-          {outline.map((item) => (
-            <button key={item.offset} className="writing-outline-item" onClick={() => goToHeading(item)} title={item.text}>{item.text}</button>
-          ))}
-        </nav>
-      )}
+      <nav className="writing-outline" aria-label="Tabs">
+        <div className="writing-outline-title">Contents</div>
+        {[null, ...tabs].map((tabId, i) => (
+          <div key={tabId ?? 'first'} className={`writing-tab ${tabId === activeTab ? 'active' : ''}`}>
+            <button className="writing-outline-item" onClick={() => setActiveTab(tabId)}>Tab {i + 1}</button>
+            {tabId && user.role !== 'STUDENT' && (
+              <button className="writing-tab-remove" onClick={() => removeTab(tabId, i + 1)} title={`Delete Tab ${i + 1}`} aria-label={`Delete Tab ${i + 1}`}>×</button>
+            )}
+          </div>
+        ))}
+        {user.role !== 'PARTNER' && (
+          <button className="writing-outline-item writing-tab-add" onClick={addTab} title="A new tab — a separate page with its own text">+ New tab</button>
+        )}
+      </nav>
       <div className="writing-page-wrap" onClick={(e) => { if (e.target === e.currentTarget) setPopover(null) }}>
         {remoteRects.map((r) => (
           <div key={r.key} className="writing-remote-sel" style={{ left: r.left, top: r.top, width: r.width, height: r.height }}>

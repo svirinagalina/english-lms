@@ -83,7 +83,7 @@
 
 .writing-bar .tool.accept { background: #22c55e; color: #052e16; }
 
-/* Headings and the outline on the left that jumps to them. */
+/* Headings, and the tabs on the left (each a document of its own). */
 .run.h1 { font-size: 1.4em; font-weight: 700; line-height: 1.5; scroll-margin-top: 24px; }
 .writing-body { flex: 1; display: flex; min-height: 0; }
 .writing-body > .writing-page-wrap { min-width: 0; }
@@ -111,6 +111,14 @@
   -webkit-box-orient: vertical;
 }
 .writing-outline-item:hover, .writing-outline-item:focus-visible { background: rgba(15, 55, 49, 0.1); }
+.writing-tab { display: flex; align-items: center; border-radius: 6px; }
+.writing-tab > .writing-outline-item { flex: 1; min-width: 0; }
+.writing-tab.active { background: rgba(15, 55, 49, 0.14); }
+.writing-tab.active > .writing-outline-item { font-weight: 700; }
+.writing-tab-remove { all: unset; cursor: pointer; padding: 2px 8px; color: #6b7280; font-size: 15px; visibility: hidden; }
+.writing-tab:hover .writing-tab-remove, .writing-tab-remove:focus-visible { visibility: visible; }
+.writing-tab-remove:hover { color: #b91c1c; }
+.writing-tab-add { color: #6b7280; margin-top: 4px; }
 
 /* Highlighter. */
 .run.hl-yellow, .hl-yellow { background-color: #fde68a; }
@@ -159,6 +167,8 @@
   .writing-outline { flex: 0 0 auto; flex-direction: row; overflow-x: auto; padding: 8px 8px 0; }
   .writing-outline-title { display: none; }
   .writing-outline-item { flex: 0 0 auto; display: block; white-space: nowrap; max-width: 220px; background: rgba(15, 55, 49, 0.08); }
+  .writing-tab { flex: 0 0 auto; }
+  .writing-tab-remove { visibility: visible; }
 }
 
 .writing-notice { font-size: 12px; color: #ffd5ed; margin-left: 6px; }
