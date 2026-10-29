@@ -760,7 +760,7 @@ select.pill { padding: 0 16px; color: var(--text); border: none; }
 .lesson-page.board-mode .more-menu { top: calc(100% + 8px); bottom: auto; left: 50%; right: auto; transform: translateX(-50%); }
 .lesson-page.board-mode .blur-control { flex-wrap: nowrap; }
 .lesson-page.board-mode .blur-control input[type="range"] { width: 80px; }
-.lesson-page.board-mode .controls.cam-mic { left: auto; right: 12px; top: 60px; transform: none; }
+.lesson-page.board-mode .controls.cam-mic { left: 12px; right: auto; top: 60px; transform: none; }
 .pill.leave { border: 1px solid rgba(239, 68, 68, 0.5); color: #fca5a5; background: transparent; }
 
 .update-toast {

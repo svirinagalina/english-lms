@@ -165,6 +165,7 @@ export const api = {
   getCall: (token) => request(`/calls/token/${token}`),
   iceServers: () => request('/calls/ice'),
   addMyWord: (word) => request('/vocab/my/words', { method: 'POST', body: { word } }),
+  recentBoardWords: (classroomId, days = 7) => request(`/vocab/board-words?days=${days}${classroomId ? `&classroomId=${encodeURIComponent(classroomId)}` : ''}`),
   addBoardWords: (words, classroomId) => request('/vocab/board-words', { method: 'POST', body: { words, classroomId } }),
   activeCall: () => request('/calls/active'),
   textbooks: () => request('/textbooks'),

@@ -152,6 +152,37 @@ vocabRouter.post('/my', async (req, res) => {
   res.json({ set: { id: set.id, title: set.title } })
 })
 
+// Whose words a board works with: the classroom's student for a teacher,
+// the student themself otherwise.
+async function boardStudent(user, classroomId) {
+  if (user.role === 'STUDENT') return user
+  const classroom = await prisma.classroom.findFirst({
+    where: { id: String(classroomId ?? ''), schoolId: user.schoolId },
+    include: { student: { select: { id: true, name: true, schoolId: true } } }
+  })
+  return classroom?.student ?? null
+}
+
+// The student's words of the last week (their own sets), for a list on the
+// board — the term and its first few translations.
+vocabRouter.get('/board-words', async (req, res) => {
+  const target = await boardStudent(req.user, req.query.classroomId)
+  if (!target) return res.status(404).json({ error: 'This board has no student' })
+  const days = Math.min(Math.max(Number(req.query.days) || 7, 1), 60)
+  const cards = await prisma.vocabCard.findMany({
+    where: { set: { ownerId: target.id }, createdAt: { gte: new Date(Date.now() - days * 86400000) } },
+    orderBy: { createdAt: 'asc' },
+    select: { term: true, translation: true },
+    take: 200
+  })
+  // "noun: дом, здание · verb: …" → "дом, здание"
+  const short = (translation) => (translation.split(' · ')[0].replace(/^[a-z ]+:\s*/i, '').split(',').slice(0, 3).join(',').trim())
+  const seen = new Set()
+  const words = cards.filter((c) => !seen.has(c.term.toLowerCase()) && seen.add(c.term.toLowerCase()))
+    .map((c) => ({ term: c.term, translation: short(c.translation) }))
+  res.json({ words, student: target.id === req.user.id ? null : target.name })
+})
+
 vocabRouter.get('/:id', async (req, res) => {
   const set = await prisma.vocabSet.findFirst({
     where: { id: req.params.id, ...visibleSets(req.user) },
@@ -207,15 +238,8 @@ vocabRouter.post('/board-words', async (req, res) => {
   const words = [...new Set((Array.isArray(req.body?.words) ? req.body.words : [req.body?.words]).map(cleanTerm).filter((w) => w && w.length <= 80))].slice(0, 20)
   if (!words.length) return res.status(400).json({ error: 'Select an English word first' })
 
-  let target = req.user
-  if (req.user.role !== 'STUDENT') {
-    const classroom = await prisma.classroom.findFirst({
-      where: { id: String(req.body?.classroomId ?? ''), schoolId: req.user.schoolId },
-      include: { student: { select: { id: true, name: true, schoolId: true } } }
-    })
-    if (!classroom?.student) return res.status(404).json({ error: 'This board has no student' })
-    target = classroom.student
-  }
+  const target = await boardStudent(req.user, req.body?.classroomId)
+  if (!target) return res.status(404).json({ error: 'This board has no student' })
   const set = await personalSet(target)
 
   let added = 0

@@ -1879,13 +1879,14 @@ export default function Call() {
     const place = () => {
       const box = camMicRef.current
       if (!box) return
-      const host = box.offsetParent?.getBoundingClientRect() ?? { top: 0, right: window.innerWidth }
+      const host = box.offsetParent?.getBoundingClientRect() ?? { top: 0, left: 0 }
       const tiles = document.querySelector('.stage.board-mode .tiles:not(.tiles-tucked)')
       const area = tiles?.getBoundingClientRect()
       const last = tiles?.lastElementChild?.getBoundingClientRect()
       // Under the last tile, but never below the tiles' own area.
       const top = area && last ? Math.min(last.bottom, area.bottom - box.offsetHeight) + 8 : (area?.top ?? host.top + 60)
-      box.style.right = `${area ? host.right - area.right : 12}px`
+      // Left-aligned with the tiles (Galina, 2026-10-29).
+      box.style.left = `${area ? area.left - host.left : 12}px`
       box.style.top = `${Math.max(top - host.top, 12)}px`
     }
     place()
@@ -2091,6 +2092,7 @@ export default function Call() {
               onMistake={isStaff && (lessonClassroomId || boardStudents?.length) ? (body, chosen) => api.addMistake(chosen ?? lessonClassroomId, { ...body, boardId }) : undefined}
               onMistakeRemoved={isStaff ? (elementId) => api.deleteMistakeByElement(elementId).catch(() => {}) : undefined}
               onAddWords={lessonClassroomId || boardStudents?.length || currentBoard?.classroomId ? (words, chosen) => api.addBoardWords(words, chosen ?? lessonClassroomId ?? currentBoard.classroomId) : undefined}
+              onRecentWords={lessonClassroomId || boardStudents?.length || currentBoard?.classroomId ? (chosen) => api.recentBoardWords(chosen ?? lessonClassroomId ?? currentBoard.classroomId) : undefined}
               students={boardStudents?.length ? boardStudents : null}
               assistEnabled={assistEnabled}
               onAssist={isStaff

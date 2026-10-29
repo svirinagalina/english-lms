@@ -1177,7 +1177,7 @@ async function prepareImage(file) {
   return { dataUrl, size: { w: canvas.width, h: canvas.height } }
 }
 
-const Whiteboard = forwardRef(function Whiteboard({ socketRef, boardId, title, subtitle, onClose, backLabel = '← Back', onStartCall, onOpenWriting, canSpotlight = false, onUploadImage, onAssist, assistEnabled, wordPicker = false, saveAllMoves = false, focusElementId = null, onMistake, onMistakeRemoved, insertBlock = null, onInserted, onAddWords, students = null, writingStudents = null }, ref) {
+const Whiteboard = forwardRef(function Whiteboard({ socketRef, boardId, title, subtitle, onClose, backLabel = '← Back', onStartCall, onOpenWriting, canSpotlight = false, onUploadImage, onAssist, assistEnabled, wordPicker = false, saveAllMoves = false, focusElementId = null, onMistake, onMistakeRemoved, insertBlock = null, onInserted, onAddWords, onRecentWords, students = null, writingStudents = null }, ref) {
   const [assisting, setAssisting] = useState(null)
   const [exporting, setExporting] = useState(false)
   const fileInputRef = useRef(null)
@@ -3530,6 +3530,41 @@ const Whiteboard = forwardRef(function Whiteboard({ socketRef, boardId, title, s
     }
   }
 
+  // The student's words of the last week, as a list where the teacher last
+  // clicked: a heading and one or two columns "term — translation".
+  const [addingRecent, setAddingRecent] = useState(false)
+  const addRecentWords = () => {
+    if (!onRecentWords || addingRecent) return
+    withTarget(async (classroomId) => {
+      setAddingRecent(true)
+      try {
+        const { words } = await onRecentWords(classroomId)
+        if (!words.length) { showToast('No new words in the vocabulary this week'); return }
+        const { point, view } = workSpot()
+        const two = words.length > 15
+        const x = Math.min(point.x, view.x + view.w - (two ? 1340 : 640) / viewRef.current.scale)
+        const y = point.y
+        const half = two ? Math.ceil(words.length / 2) : words.length
+        const column = (list, from, cx) => ({ id: newId(), type: 'text', color: COLORS[0], width: 6, x: cx, y: y + 56, w: 640, fontSize: 20, text: list.map((w, i) => `${from + i + 1}. ${w.term}${w.translation ? ` — ${w.translation}` : ''}`).join('\n') })
+        const made = [
+          { id: newId(), type: 'text', color: COLORS[3], width: 6, x, y, text: '— Words of the week —', fontSize: 28 },
+          column(words.slice(0, half), 0, x),
+          ...(two ? [column(words.slice(half), half, x + 700)] : [])
+        ]
+        for (const element of made) addRaw(element)
+        record({ type: 'batch', actions: made.map((element) => ({ type: 'add', element: structuredClone(element) })) })
+        selectedRef.current = made.map((element) => element.id)
+        setTool('select')
+        scheduleRender()
+        bump()
+      } catch (err) {
+        showToast(err.message)
+      } finally {
+        setAddingRecent(false)
+      }
+    })
+  }
+
   const view = viewRef.current
   const cropping = Boolean(cropRef.current)
   // Floating text bar: above the text being edited, or the selected text.
@@ -3938,6 +3973,7 @@ const Whiteboard = forwardRef(function Whiteboard({ socketRef, boardId, title, s
               {onUploadImage && <button className="tool" onClick={startLesson} title="Add a dated heading where you last clicked on the board">New lesson</button>}
               {onUploadImage && <button className="tool" onClick={startHomework} title="Add a Homework heading where you last clicked on the board">Homework</button>}
               {onUploadImage && <button className="tool" onClick={addPlacementTest} disabled={addingTest} title="Put the trial lesson's placement test where you last clicked on the board">{addingTest ? 'Adding…' : 'Test'}</button>}
+              {onRecentWords && <button className="tool" onClick={addRecentWords} disabled={addingRecent} title="Put the student's words from the last week (Vocabulary) where you last clicked on the board">{addingRecent ? 'Adding…' : 'Words'}</button>}
               <button
                 className="tool"
                 disabled={exporting}

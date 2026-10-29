@@ -98,18 +98,21 @@ const Controls = forwardRef(function Controls({
     </>
   )
 
-  // Screen, board, chat — in the row, or under More when compact.
+  const screen = canShareScreen && (
+    <button
+      className={`round ${hasScreenStream ? 'on' : ''}`}
+      onClick={onShareScreen}
+      title={hasScreenStream ? 'Stop sharing your screen' : 'Share your screen'}
+    >
+      {hasScreenStream ? 'Stop screen' : 'Screen'}
+    </button>
+  )
+
+  // Screen, board, chat — in the row, or under More when compact. With Cam /
+  // Mic under the camera, Screen goes there too (Galina, 2026-10-29).
   const tools = (
     <>
-      {canShareScreen && (
-        <button
-          className={`round ${hasScreenStream ? 'on' : ''}`}
-          onClick={onShareScreen}
-          title={hasScreenStream ? 'Stop sharing your screen' : 'Share your screen'}
-        >
-          {hasScreenStream ? 'Stop screen' : 'Screen'}
-        </button>
-      )}
+      {!camMicRef && screen}
 
       {boards.length > 0 && (
         boardId && writingId ? (
@@ -166,7 +169,7 @@ const Controls = forwardRef(function Controls({
 
   return (
     <>
-    {camMicRef && <div className="controls cam-mic" ref={camMicRef}>{camMic}</div>}
+    {camMicRef && <div className="controls cam-mic" ref={camMicRef}>{camMic}{screen}</div>}
     <div className="controls" ref={ref}>
       {!camMicRef && camMic}
 

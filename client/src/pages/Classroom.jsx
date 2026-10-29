@@ -389,6 +389,7 @@ export default function Classroom() {
                 }
               : undefined}
             onAddWords={!isPersonal || boardAssignees.length || myStudents.length ? (words, chosen) => api.addBoardWords(words, isPersonal ? (chosen ?? singleAssignee) : id) : undefined}
+            onRecentWords={!isPersonal || boardAssignees.length || myStudents.length ? (chosen) => api.recentBoardWords(isPersonal ? (chosen ?? singleAssignee) : id) : undefined}
             students={isPersonal && boardAssignees.length > 1
               ? boardAssignees.map((s) => ({ classroomId: s.id, name: s.name }))
               : isPersonal && !boardAssignees.length && myStudents.length ? myStudents : null}
