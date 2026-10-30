@@ -38,6 +38,7 @@ import AudioCheck from './pages/AudioCheck'
 import Profile from './pages/Profile'
 import Todo from './pages/Todo'
 import Timetable from './pages/Timetable'
+import SleepStories from './pages/SleepStories'
 import TeacherLessons from './pages/TeacherLessons'
 import Ielts from './pages/Ielts'
 import PersonActivity from './pages/PersonActivity'
@@ -196,6 +197,8 @@ export default function App() {
       <Route path="/timetable" element={<RequireAuth><Timetable /></RequireAuth>} />
       <Route path="/settings" element={<RequireAuth roles={['OWNER']}><Settings /></RequireAuth>} />
       <Route path="/content" element={<RequireAuth roles={['OWNER', 'PARTNER']}><Content /></RequireAuth>} />
+      {/* Sleep & meditation stories: owner only for now. */}
+      <Route path="/sleep-stories" element={<RequireAuth roles={['OWNER']}><SleepStories /></RequireAuth>} />
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
     </>

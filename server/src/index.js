@@ -39,6 +39,7 @@ import { personalRouter } from './routes/personal.js'
 import { coursesRouter } from './routes/courses.js'
 import { toeflRouter } from './routes/toefl.js'
 import { pushRouter } from './routes/push.js'
+import { sleepStoriesRouter } from './routes/sleepStories.js'
 import { startPushJobs } from './push.js'
 import { loadAiSettings } from './settings.js'
 import { prisma } from './db.js'
@@ -133,6 +134,7 @@ app.use('/api/personal', personalRouter)
 app.use('/api/courses', coursesRouter)
 app.use('/api/toefl', toeflRouter)
 app.use('/api/push', pushRouter)
+app.use('/api/sleep-stories', sleepStoriesRouter)
 app.use('/api/plans', plansRouter)
 app.use('/api/leads', leadsRouter)
 app.use('/api/course-shop', courseShopRouter)
