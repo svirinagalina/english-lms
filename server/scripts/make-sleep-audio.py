@@ -12,13 +12,14 @@ import sys
 
 import edge_tts
 
-VOICE = "en-US-AvaMultilingualNeural"  # calm, unhurried
+VOICE = "en-US-ChristopherNeural"  # male, low and warm
 RATE = "-12%"  # bedtime pace
+PITCH = "-8Hz"  # deeper than the default
 
 
 async def record(story, out_dir):
     path = os.path.join(out_dir, f"{story['id']}.mp3")
-    await edge_tts.Communicate(story["text"], VOICE, rate=RATE).save(path + ".part")
+    await edge_tts.Communicate(story["text"], VOICE, rate=RATE, pitch=PITCH).save(path + ".part")
     os.replace(path + ".part", path)
     print(f"ok {story['id']} ({os.path.getsize(path) // 1024} KB)")
 
