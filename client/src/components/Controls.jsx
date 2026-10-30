@@ -62,6 +62,7 @@ const Controls = forwardRef(function Controls({
   onSticker
 }, ref) {
   const boards = [...new Map(rawBoards.map((b) => [b.id, b])).values()]
+  const phoneVideo = phone && !boardId && !writingId
 
   // The rarely used controls live behind "More": blur and the invite link.
   const [moreOpen, setMoreOpen] = useState(false)
@@ -75,7 +76,9 @@ const Controls = forwardRef(function Controls({
   const moreActive = (isBlurEnabled && !blurInRow) || (compact && (hasScreenStream || (unread > 0 && !chatOpen)))
 
   // Writing: in the row in both layouts (next to Cam and Mic when compact).
-  const writing = (
+  // Not on a phone — no room in the row, and no way to type an essay there
+  // (Galina, 2026-10-30).
+  const writing = !phone && (
     <>
       {writingChoices.length > 0 && (
         writingId ? (
@@ -170,8 +173,9 @@ const Controls = forwardRef(function Controls({
   return (
     <>
     {camMicRef && <div className="controls cam-mic" ref={camMicRef}>{camMic}{screen}</div>}
-    <div className="controls" ref={ref}>
-      {!camMicRef && camMic}
+    <div className={`controls ${phoneVideo ? 'phone-video' : ''}`} ref={ref}>
+      {/* Phone, video view: Cam and Mic on a line of their own, centred under the picture. */}
+      {!camMicRef && (phoneVideo ? <div className="cam-mic-line">{camMic}</div> : camMic)}
 
       {blurInRow && !phone && (
         <button

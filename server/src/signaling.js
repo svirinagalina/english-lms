@@ -134,6 +134,12 @@ export function callRoomSize(token) {
   return signalingIo?.sockets.adapter.rooms.get(`call:${token}`)?.size ?? 0
 }
 
+// A call with no student got its scratch board: everyone already in the
+// call opens it (people who join later get it in the join answer).
+export function announceScratchBoard(token, board) {
+  signalingIo?.to(`call:${token}`).emit('call:scratch-board', board)
+}
+
 export function setupSignaling(io) {
   signalingIo = io
   const sweepCalls = async () => {
@@ -277,7 +283,7 @@ const PARTNER_BLOCKED_EVENTS = new Set(['call:start', 'drawing', 'board:add', 'b
     socket.on('join-call', async (callToken, ack) => {
       const call = await prisma.call.findUnique({
         where: { token: callToken },
-        include: { classroom: { select: { id: true, roomId: true, studentId: true } } }
+        include: { classroom: { select: { id: true, roomId: true, studentId: true } }, board: { select: { scratch: true } } }
       })
       if (!call || call.endedAt) {
         if (typeof ack === 'function') ack({ error: 'This call is not available' })
@@ -359,11 +365,14 @@ const PARTNER_BLOCKED_EVENTS = new Set(['call:start', 'drawing', 'board:add', 'b
 
       socket.to(roomId).emit('user-joined', { id: socket.id, name: socket.data.name, userId: user.id })
       // The teacher's current board/document is offered to staff joining
-      // later; a student starts on their own (the client opens it).
+      // later; a student starts on their own (the client opens it). A call
+      // with no student has one scratch board for everyone, guests included.
       const lead = user.role !== 'STUDENT'
       const roomDoc = lead ? roomDocs.get(roomId) ?? null : null
       const docId = roomDoc && await accessibleClassroom(user, roomDoc) ? roomDoc : null
-      if (typeof ack === 'function') ack({ peers, sfu, name: socket.data.name, boardId: lead ? roomBoards.get(roomId) ?? null : null, docId })
+      const scratchId = !call.classroom && call.board?.scratch ? call.boardId : null
+      const boardId = lead ? roomBoards.get(roomId) ?? scratchId : scratchId
+      if (typeof ack === 'function') ack({ peers, sfu, name: socket.data.name, boardId, docId })
     })
 
     socket.on('call:start', async (ack) => {
@@ -442,8 +451,16 @@ const PARTNER_BLOCKED_EVENTS = new Set(['call:start', 'drawing', 'board:add', 'b
     // access to its classroom, or when it is already the room's board.
     const boardBelongsHere = async (boardId) => {
       if (typeof boardId !== 'string') return false
-      const board = await prisma.board.findUnique({ where: { id: boardId }, select: { classroomId: true, sharedWith: { select: { id: true, studentId: true } } } })
+      const board = await prisma.board.findUnique({ where: { id: boardId }, select: { classroomId: true, scratch: true, sharedWith: { select: { id: true, studentId: true } } } })
       if (!board) return false
+      // The scratch board of an open call with no student: as open as the
+      // call itself (anyone of the school may join it by its link). Not
+      // tied to socket.data.callId — after a reconnect the board reopens
+      // before join-call has run again.
+      if (board.scratch) {
+        const call = await prisma.call.findFirst({ where: { boardId, endedAt: null, classroomId: null, schoolId: user.schoolId }, select: { id: true } })
+        if (call) return true
+      }
       // A student sees their own boards and those shared with them — never
       // another student's, whatever call they are in.
       if (user.role === 'STUDENT') {
@@ -748,8 +765,11 @@ const PARTNER_BLOCKED_EVENTS = new Set(['call:start', 'drawing', 'board:add', 'b
           // A scratch board made for a boardless call (no student attached)
           // was only ever for this one call: gone with it, not left behind
           // cluttering the teacher's own boards.
-          const openBoardId = roomBoards.get(roomId)
-          if (!hadClassroom && openBoardId) {
+          // The call's own scratch board goes too, even if the last one to
+          // leave had closed it (which forgets the room's board).
+          const ownBoardId = (await prisma.call.findUnique({ where: { id: callId }, select: { boardId: true } }).catch(() => null))?.boardId
+          const openBoardIds = new Set([roomBoards.get(roomId), ownBoardId].filter(Boolean))
+          for (const openBoardId of hadClassroom ? [] : openBoardIds) {
             const board = await prisma.board.findUnique({ where: { id: openBoardId }, select: { scratch: true } }).catch(() => null)
             if (board?.scratch) {
               await prisma.board.delete({ where: { id: openBoardId } }).catch(() => {})

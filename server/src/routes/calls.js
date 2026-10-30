@@ -8,10 +8,21 @@ import { notifyCallStarted } from '../push.js'
 import { linkCallToAdventLesson, adventCallEnded } from '../adventLessons.js'
 import { trialCallEnded } from '../trialReport.js'
 import { isUnpaidLead, startTrialCall } from '../trialCalls.js'
-import { callRoomSize } from '../signaling.js'
+import { callRoomSize, announceScratchBoard } from '../signaling.js'
 import { accessibleClassroom, ensurePersonalSpace } from './classrooms.js'
 
 export const callsRouter = Router()
+
+const SCRATCH_BOARD_FIELDS = { id: true, title: true, classroomId: true, createdAt: true, updatedAt: true }
+// The scratch board as a row of the call page's board list.
+const scratchRow = (board) => ({
+  id: board.id,
+  title: board.title,
+  classroomId: board.classroomId,
+  createdAt: board.createdAt,
+  updatedAt: board.updatedAt,
+  scratch: true
+})
 
 const originOf = (req) => process.env.CLIENT_ORIGIN ?? `${req.protocol}://${req.get('host')}`
 
@@ -56,7 +67,11 @@ callsRouter.get('/token/:token', async (req, res) => {
   // only hosting needs a plan).
   const call = await prisma.call.findFirst({
     where: { token: req.params.token, schoolId: req.user.schoolId },
-    include: { host: { select: { name: true } }, school: { select: { name: true } } }
+    include: {
+      host: { select: { name: true } },
+      school: { select: { name: true } },
+      board: { select: { ...SCRATCH_BOARD_FIELDS, scratch: true } }
+    }
   })
   if (!call) return res.status(404).json({ error: 'Call not found' })
   if (call.endedAt) return res.status(410).json({ error: 'This call has ended' })
@@ -70,7 +85,9 @@ callsRouter.get('/token/:token', async (req, res) => {
       classroomId: call.classroomId,
       // The person who started it (a subscriber hosting their own call gets
       // the host's tools: the invite link, a board to write on).
-      isHost: call.hostId === req.user.id
+      isHost: call.hostId === req.user.id,
+      // A call with no student shares one blank board with everyone in it.
+      scratchBoard: !call.classroomId && call.board?.scratch ? scratchRow(call.board) : null
     }
   })
 })
@@ -170,18 +187,39 @@ callsRouter.post('/', requireHost, async (req, res) => {
 
 // A blank board for a call that has no student (a colleague or group call):
 // created on the teacher's own shelf, flagged scratch so it never shows in
-// My boards and is deleted once the call ends (see signaling.js).
+// My boards and is deleted once the call ends (see signaling.js). It is
+// recorded as the call's board, so everyone in the call — staff who come
+// later, students, guests — lands on this one board instead of each host
+// making their own.
 callsRouter.post('/:token/scratch-board', requireHost, async (req, res) => {
-  const call = await prisma.call.findUnique({ where: { token: req.params.token } })
+  const call = await prisma.call.findUnique({
+    where: { token: req.params.token },
+    include: { board: { select: { ...SCRATCH_BOARD_FIELDS, scratch: true } } }
+  })
   if (!call || call.endedAt || call.schoolId !== req.user.schoolId) return res.status(404).json({ error: 'Call not found' })
   if (call.classroomId) return res.status(400).json({ error: 'This call already has its own board' })
+  if (call.board?.scratch) return res.json({ board: scratchRow(call.board) })
+  if (call.boardId) return res.status(400).json({ error: 'This call already has its own board' })
 
   const home = await ensurePersonalSpace(req.user.id, req.user.schoolId)
   const board = await prisma.board.create({
     data: { classroomId: home.id, title: call.title ?? `Call — ${new Date().toLocaleDateString()}`, scratch: true },
-    select: { id: true, title: true, classroomId: true, createdAt: true, updatedAt: true }
+    select: SCRATCH_BOARD_FIELDS
   })
-  res.status(201).json({ board })
+  // Two hosts asking at once: the first to record its board wins, the other
+  // board goes and everyone gets the winner.
+  const { count } = await prisma.call.updateMany({ where: { id: call.id, boardId: null }, data: { boardId: board.id } })
+  if (!count) {
+    await prisma.board.delete({ where: { id: board.id } }).catch(() => {})
+    const winner = await prisma.board.findFirst({
+      where: { calls: { some: { id: call.id } }, scratch: true },
+      select: SCRATCH_BOARD_FIELDS
+    })
+    if (!winner) return res.status(409).json({ error: 'Try again' })
+    return res.json({ board: scratchRow(winner) })
+  }
+  announceScratchBoard(call.token, scratchRow(board))
+  res.status(201).json({ board: scratchRow(board) })
 })
 
 // The lesson that is on right now for this person: for a student, an open

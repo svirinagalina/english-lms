@@ -1128,7 +1128,9 @@ button.play-word, button.play-word.small { padding: 0; }
 }
 .join-card .bg-picker { grid-template-columns: repeat(3, 1fr); }
 /* Microphone check under the own picture (MicCheck.jsx). */
-.mic-check { display: grid; gap: 8px; margin: 10px 0 4px; }
+/* minmax(0, 1fr): a microphone with a long name (a webcam's mic) used to
+   widen the grid past the card, the bar and the picker hanging off its edge. */
+.mic-check { display: grid; grid-template-columns: minmax(0, 1fr); gap: 8px; margin: 10px 0 4px; }
 .mic-check-bar { height: 8px; border-radius: 4px; background: rgba(252, 251, 246, 0.12); overflow: hidden; }
 .mic-check-bar span { display: block; height: 100%; background: var(--muted); transition: width 80ms linear; }
 .mic-check.ok .mic-check-bar span { background: #6ee7a8; }
@@ -1138,7 +1140,7 @@ button.play-word, button.play-word.small { padding: 0; }
 .mic-check.quiet .mic-check-text, .mic-check.unheard .mic-check-text { color: #fcd34d; }
 .mic-check.dead .mic-check-text { color: #fca5a5; }
 .mic-check-row { display: flex; gap: 8px; flex-wrap: wrap; }
-.mic-check-row select { flex: 1 1 200px; min-width: 0; }
+.mic-check-row select { flex: 1 1 200px; min-width: 0; width: 100%; text-overflow: ellipsis; }
 .link-button { background: none; border: none; padding: 0; color: var(--accent); font: inherit; text-decoration: underline; cursor: pointer; }
 @media (max-width: 720px) { .video-tile.preview { aspect-ratio: 1 / 1; } .join-card { padding: 24px 20px; } }
 .more-status { font-size: 12px; color: var(--muted); text-align: center; padding: 2px 0; }
@@ -1339,6 +1341,11 @@ button.compact { padding: 6px 10px; font-size: 12px; align-self: flex-start; }
   .controls { gap: 5px; flex-wrap: nowrap; }
   .controls .round, .controls .pill { padding: 0 9px; font-size: 12.5px; }
 }
+/* A phone's video view: Cam and Mic on their own line, centred under the
+   picture; Board, More and Leave on the line below. */
+.controls.phone-video { flex-wrap: wrap; row-gap: 8px; }
+.controls.phone-video .cam-mic-line { flex-basis: 100%; display: flex; justify-content: center; gap: 10px; }
+.controls.phone-video .cam-mic-line .round { min-width: 72px; }
 
 /* The Advent trainer fills the page under the top bar. */
 .trainer-page { display: flex; flex-direction: column; height: 100vh; height: 100dvh; }

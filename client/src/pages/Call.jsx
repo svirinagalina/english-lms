@@ -108,6 +108,11 @@ const mediaErrorText = (err) => {
   return err?.message || 'unknown reason'
 }
 
+// The call's scratch board is never in /classrooms/boards (only the people
+// in the call may open it), so a refetch of that list keeps it.
+const withBoard = (list, board) => (list.some((b) => b.id === board.id) ? list : [...list, board])
+const keepScratch = (fetched) => (prev) => [...fetched, ...prev.filter((b) => b.scratch && !fetched.some((f) => f.id === b.id))]
+
 export default function Call() {
   const { token } = useParams()
   const [searchParams] = useSearchParams()
@@ -613,7 +618,8 @@ export default function Call() {
     api.getCall(token)
       .then(({ call }) => {
         setCall(call)
-        api.allBoards().then(({ boards }) => setBoards(boards)).catch(() => {})
+        if (call.scratchBoard) setBoards((prev) => withBoard(prev, call.scratchBoard))
+        api.allBoards().then(({ boards }) => setBoards(keepScratch(boards))).catch(() => {})
       })
       .catch((err) => setError(err.message))
   }, [token, user])
@@ -932,6 +938,13 @@ export default function Call() {
           try { await pc.addIceCandidate(new RTCIceCandidate(candidate)) } catch (err) { console.error('ICE error:', err) }
         }
       })
+      // The host made the scratch board of a call with no student: everyone
+      // already here goes to it (phones only get the Board button).
+      socket.on('call:scratch-board', (board) => {
+        if (!board?.id) return
+        setBoards((prev) => withBoard(prev, board))
+        if (!isMobile()) setBoardId((current) => current ?? board.id)
+      })
       socket.on('user-joined', ({ id: peerId, name, userId }) => {
         setPeers((prev) => ({ ...prev, [peerId]: { name, stream: null, muted: false, userId } }))
         // A student arriving in a call with no board yet brings their board up.
@@ -1001,7 +1014,7 @@ export default function Call() {
           // which is how a single-student board ended up looking like
           // ownerless "material" and offering the whole roster instead of
           // just that student.
-          api.allBoards().then(({ boards }) => setBoards(boards)).catch(() => {})
+          api.allBoards().then(({ boards }) => setBoards(keepScratch(boards))).catch(() => {})
         }
         connectedBefore = true
         setMediaWarning((w) => (w === RECONNECTING ? '' : w))
@@ -1783,13 +1796,19 @@ export default function Call() {
       setBoardId((current) => current ?? wanted.id)
       return
     }
-    // A call with no student and no specific board requested: a fresh
-    // scratch board, so there is always something to write on — it goes
-    // away with the call instead of piling up in My boards.
+    // A call with no student and no specific board requested: one scratch
+    // board for everyone in it, so there is always something to write on —
+    // it goes away with the call instead of piling up in My boards. A host
+    // who arrives first makes it; the server hands later ones the same board.
+    if (call.scratchBoard) {
+      autoOpened.current = true
+      setBoardId((current) => current ?? call.scratchBoard.id)
+      return
+    }
     if (isStaff || isHost) {
       autoOpened.current = true
       api.createScratchBoard(token)
-        .then(({ board }) => { setBoards((prev) => [...prev, board]); setBoardId((current) => current ?? board.id) })
+        .then(({ board }) => { setBoards((prev) => withBoard(prev, board)); setBoardId((current) => current ?? board.id) })
         .catch(() => { autoOpened.current = false })
     }
   }, [status, isStaff, isHost, call, boards, requestedBoard, token])
