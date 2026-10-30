@@ -15,6 +15,26 @@ PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 REMOTE="$SSH_USER@$SSH_HOST"
 SSH_CMD="ssh -i $SSH_KEY -o BatchMode=yes -o StrictHostKeyChecking=accept-new"
 
+# This script ships whatever this checkout holds, so a checkout on an old
+# branch rolls production back: on 2026-10-30 a branch started on 10-22 went
+# out and a week of main (board icons, the shared-screen window, …)
+# disappeared. Refuse unless HEAD contains the latest origin/main.
+# STALE_OK=1 overrides (only for a deliberate rollback).
+if [ "${STALE_OK:-0}" != "1" ]; then
+  if ! git -C "$PROJECT_ROOT" fetch -q origin main 2>/dev/null; then
+    echo "!! Could not fetch origin/main to check this checkout is up to date. Fix the connection, or run with STALE_OK=1."
+    exit 1
+  fi
+  if ! git -C "$PROJECT_ROOT" merge-base --is-ancestor origin/main HEAD; then
+    BEHIND=$(git -C "$PROJECT_ROOT" rev-list --count HEAD..origin/main)
+    echo "!! This checkout ($(git -C "$PROJECT_ROOT" rev-parse --abbrev-ref HEAD)) is missing $BEHIND commit(s) of origin/main."
+    echo "!! Deploying it would take them off the site. Merge origin/main into this branch first:"
+    echo "!!   git fetch origin && git merge origin/main"
+    echo "!! (STALE_OK=1 deploys anyway — only for a deliberate rollback.)"
+    exit 1
+  fi
+fi
+
 # A deploy restarts the server and drops every call in progress (it cut a
 # lesson on 2026-10-05). Refuse while anyone was in a call in the last 3
 # minutes — call pages report to the diag log every 30 s. FORCE=1 overrides.
