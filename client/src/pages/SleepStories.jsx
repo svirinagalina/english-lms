@@ -3,6 +3,7 @@ import { api } from '../api'
 import Nav from '../components/Nav'
 import { SiteFooter } from '../components/Brand'
 import Panel from '../components/Panel'
+import { startAmbient } from '../utils/sleepAmbient'
 
 // Sleep and meditation stories in English. The owner generates them with the
 // platform's AI key and reads them; students will get the listen-only view later.
@@ -12,7 +13,10 @@ export default function SleepStories() {
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
   const [playingId, setPlayingId] = useState(null)
+  const [ambientOn, setAmbientOn] = useState(true)
   const playingRef = useRef(null)
+  const narrationRef = useRef(null)
+  const ambientRef = useRef(null)
 
   const load = () =>
     api.sleepStories()
@@ -24,19 +28,32 @@ export default function SleepStories() {
 
   useEffect(() => {
     load()
-    return () => window.speechSynthesis?.cancel()
+    return () => {
+      window.speechSynthesis?.cancel()
+      narrationRef.current?.pause()
+      ambientRef.current?.()
+    }
   }, [])
+
+  const stopAmbient = () => {
+    ambientRef.current?.()
+    ambientRef.current = null
+  }
 
   const stop = () => {
     window.speechSynthesis?.cancel()
+    if (narrationRef.current) {
+      narrationRef.current.pause()
+      narrationRef.current = null
+    }
+    stopAmbient()
     playingRef.current = null
     setPlayingId(null)
   }
 
-  const listen = (story) => {
-    if (playingRef.current === story.id) return stop()
+  // Reads the story aloud with the browser voice, used when no recording exists.
+  const speak = (story) => {
     if (!('speechSynthesis' in window)) return setError('This browser cannot read text aloud')
-    stop()
     const utterance = new SpeechSynthesisUtterance(story.text)
     const voice = window.speechSynthesis.getVoices().find((v) => v.lang === 'en-US')
     if (voice) utterance.voice = voice
@@ -45,9 +62,26 @@ export default function SleepStories() {
     utterance.pitch = 0.9
     utterance.onend = stop
     utterance.onerror = stop
+    window.speechSynthesis.speak(utterance)
+  }
+
+  // Plays the recorded narration when the server has one; otherwise the browser voice.
+  const listen = (story) => {
+    if (playingRef.current === story.id) return stop()
+    stop()
     playingRef.current = story.id
     setPlayingId(story.id)
-    window.speechSynthesis.speak(utterance)
+    if (ambientOn) ambientRef.current = startAmbient(0.5)
+
+    const audio = new Audio(`/api/sleep-stories/${story.id}/audio`)
+    audio.onended = stop
+    audio.addEventListener('error', () => {
+      if (narrationRef.current !== audio) return
+      narrationRef.current = null
+      speak(story)
+    }, { once: true })
+    narrationRef.current = audio
+    audio.play().catch(() => {})
   }
 
   const generate = async (event) => {
@@ -97,6 +131,10 @@ export default function SleepStories() {
       </Panel>
 
       <Panel id="sleep:list" title={`Stories (${data?.stories.length ?? 0})`} defaultOpen>
+        <label style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8, color: 'var(--muted)' }}>
+          <input type="checkbox" checked={ambientOn} onChange={(e) => setAmbientOn(e.target.checked)} />
+          Night ambience (drone, wind, Arabian notes)
+        </label>
         {data && data.stories.length === 0 && <p style={{ color: 'var(--muted)' }}>No stories yet.</p>}
         {(data?.stories ?? []).map((story) => (
           <div key={story.id} style={{ borderTop: '1px solid var(--line, #e7e0d4)', padding: '12px 0' }}>
