@@ -21,6 +21,7 @@ model School {
   createdAt DateTime @default(now())
   textbooks Textbook[]
   skillsets Skillset[]
+  sleepStories SleepStory[]
 
   // Free-form transfer details shown only to signed-in students of this school.
   paymentDetails String?
@@ -1119,4 +1120,20 @@ model ToeflResult {
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId, createdAt])
+}
+
+// Sleep and meditation stories in English. The owner generates them with the
+// platform's AI key; only the owner can see them for now.
+model SleepStory {
+  id        String   @id @default(cuid())
+  title     String
+  topic     String
+  minutes   Int      @default(2)
+  text      String
+  createdAt DateTime @default(now())
+
+  schoolId String
+  school   School @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+
+  @@index([schoolId])
 }

@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { api } from '../api'
+import { useAuth } from '../AuthContext'
 import Nav from '../components/Nav'
 import Panel from '../components/Panel'
 import { SiteFooter } from '../components/Brand'
@@ -8,6 +9,7 @@ import { SiteFooter } from '../components/Brand'
 export default function Courses() {
   const [skillsets, setSkillsets] = useState(null)
   const [error, setError] = useState('')
+  const { user } = useAuth()
 
   useEffect(() => {
     api.listSkillsets().then(setSkillsets).catch((err) => setError(err.message))
@@ -39,6 +41,18 @@ export default function Courses() {
           </div>
         </Panel>
       ))}
+      {user.role === 'OWNER' && (
+        <Panel id="courses:sleep" title="Sleep & meditation" defaultOpen>
+          <div className="list">
+            <Link className="row set-row student-link" to="/sleep-stories">
+              <div>
+                <strong>Sleep stories</strong>
+                <div className="muted">English bedtime and meditation stories, read aloud. Only you can see this section for now.</div>
+              </div>
+            </Link>
+          </div>
+        </Panel>
+      )}
       <SiteFooter />
     </div>
   )
