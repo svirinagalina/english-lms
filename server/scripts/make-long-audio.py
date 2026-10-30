@@ -30,12 +30,9 @@ FFMPEG = imageio_ffmpeg.get_ffmpeg_exe()
 VOICES = {
     # Most natural deep male voices edge-tts offers for each language.
     "en": [{"voice": "en-US-AndrewMultilingualNeural", "rate": "-20%", "pitch": "-10Hz"}],
-    # Dmitry is native Russian but the service often refuses him; Andrew (multilingual)
-    # then reads the whole story, so one story never mixes two voices.
-    "ru": [
-        {"voice": "ru-RU-DmitryNeural", "rate": "-15%", "pitch": "+0Hz"},
-        {"voice": "en-US-AndrewMultilingualNeural", "rate": "-18%", "pitch": "-10Hz"},
-    ],
+    # Andrew reads Russian too: ru-RU-DmitryNeural (native) keeps failing with NoAudioReceived,
+    # sometimes in the middle of a story, so the same narrator voices both languages.
+    "ru": [{"voice": "en-US-AndrewMultilingualNeural", "rate": "-18%", "pitch": "-10Hz"}],
 }
 CONCURRENCY = 4
 MIN_PAUSE, MAX_PAUSE = 3.5, 9.0  # seconds after every paragraph
@@ -46,7 +43,7 @@ BREATH = re.compile(r"breath|вдох|выдох|дыш", re.IGNORECASE)
 DEEPEN = "asetrate=24000*0.92,aresample=24000,atempo=1/0.92,bass=g=5:f=120,loudnorm=I=-18:TP=-2"
 
 
-async def speak(text, settings, path, attempts=5):
+async def speak(text, settings, path, attempts=8):
     for attempt in range(attempts):
         try:
             await edge_tts.Communicate(text, settings["voice"], rate=settings["rate"], pitch=settings["pitch"]).save(path)
