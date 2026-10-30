@@ -11,8 +11,23 @@ export const STORY_TOPICS = [
   'lying in an open field watching the stars',
   'a calm evening on a sea shore with a lighthouse far away',
   'a wooden cabin by a lake in the morning mist',
-  'a warm rainy afternoon in a small garden'
+  'a warm rainy afternoon in a small garden',
+  'a slow night train crossing the Swiss Alps past lakes, chalets and snowy peaks, the rhythm of the wheels',
+  'a Trans-Siberian night train along the shore of Lake Baikal through the taiga, the rhythm of the wheels'
 ]
+
+export const KIDS_TOPICS = [
+  'Sasha and Tirli and a sleepy owl in the attic: a little spooky, then friendly',
+  'Sasha and Tirli and the enchanted forest: lost on a path, glowing mushrooms, a kind bear',
+  'Sasha and Tirli on a moonlit lake: a big splash that turns out to be a friendly catfish'
+]
+
+const KIDS_SYSTEM =
+  'You write bedtime stories for children aged 4 to 8, in Russian. The main characters are Sasha (a boy) ' +
+  'and Tirli (his small, fluffy, curious friend). Every story has a playful adventure with a little bit of ' +
+  'spooky tension at the start (a noise, a shadow, a lost path), which turns out to be friendly by the end. ' +
+  'Use short sentences, simple words, gentle humour, and a calm ending where the children fall asleep. ' +
+  'No real violence, no scary monsters that stay scary. About 350 words. Plain text, paragraphs separated by blank lines.'
 
 const StorySchema = z.object({
   title: z.string(),
@@ -29,19 +44,22 @@ const SYSTEM =
 // Reading pace for a bedtime story is slow, about 120 words a minute.
 const WORDS_PER_MINUTE = 120
 
-export async function generateSleepStory(topic) {
+export async function generateSleepStory(topic, kind = 'sleep') {
+  const kids = kind === 'kids'
   const out = await structured({
     name: 'sleep_story',
     schema: StorySchema,
     maxTokens: 3000,
-    system: SYSTEM,
-    user: `Topic: ${topic}`
+    system: kids ? KIDS_SYSTEM : SYSTEM,
+    user: kids ? `Story idea: ${topic}` : `Topic: ${topic}`
   })
   if (!out?.text?.trim()) throw new Error('Empty story from the model')
   const words = out.text.trim().split(/\s+/).length
   return {
     title: out.title.trim().slice(0, 120) || 'Untitled story',
     text: out.text.trim(),
-    minutes: Math.max(1, Math.round(words / WORDS_PER_MINUTE))
+    minutes: Math.max(1, Math.round(words / WORDS_PER_MINUTE)),
+    kind: kids ? 'kids' : 'sleep',
+    language: kids ? 'ru' : 'en'
   }
 }

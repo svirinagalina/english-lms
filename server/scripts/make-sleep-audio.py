@@ -1,7 +1,7 @@
 """Records sleep-story narration with a Microsoft neural voice (edge-tts).
 
 Usage: python make-sleep-audio.py <stories.json> <out_dir>
-stories.json: [{"id": "<SleepStory id>", "text": "..."}]
+stories.json: [{"id": "<SleepStory id>", "text": "...", "voice": optional, "rate": optional, "pitch": optional}]
 Writes <out_dir>/<id>.mp3, which GET /api/sleep-stories/:id/audio serves.
 Needs `pip install edge-tts`.
 """
@@ -14,12 +14,18 @@ import edge_tts
 
 VOICE = "en-US-ChristopherNeural"  # male, low and warm
 RATE = "-12%"  # bedtime pace
-PITCH = "-8Hz"  # deeper than the default
+PITCH = "-18Hz"  # lower timbre, deep narrator
 
 
 async def record(story, out_dir):
     path = os.path.join(out_dir, f"{story['id']}.mp3")
-    await edge_tts.Communicate(story["text"], VOICE, rate=RATE, pitch=PITCH).save(path + ".part")
+    communicate = edge_tts.Communicate(
+        story["text"],
+        story.get("voice", VOICE),
+        rate=story.get("rate", RATE),
+        pitch=story.get("pitch", PITCH),
+    )
+    await communicate.save(path + ".part")
     os.replace(path + ".part", path)
     print(f"ok {story['id']} ({os.path.getsize(path) // 1024} KB)")
 

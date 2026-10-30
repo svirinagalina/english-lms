@@ -1130,6 +1130,10 @@ model SleepStory {
   topic     String
   minutes   Int      @default(2)
   text      String
+  // "sleep" = adult sleep and meditation stories, "kids" = bedtime stories for children
+  kind      String   @default("sleep")
+  // Language of the text, which also decides the fallback voice: "en" or "ru"
+  language  String   @default("en")
   createdAt DateTime @default(now())
 
   schoolId String

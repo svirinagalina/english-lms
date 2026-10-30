@@ -5,7 +5,7 @@ import { fileURLToPath } from 'url'
 import { z } from 'zod'
 import { prisma } from '../db.js'
 import { requireAuth, requireRole } from '../auth.js'
-import { sleepStoriesEnabled, generateSleepStory, STORY_TOPICS } from '../sleepStories.js'
+import { sleepStoriesEnabled, generateSleepStory, STORY_TOPICS, KIDS_TOPICS } from '../sleepStories.js'
 
 // Sleep and meditation stories. For now only the owner can see this section;
 // students will be able to listen later, but never generate.
@@ -17,17 +17,17 @@ sleepStoriesRouter.use(requireRole('OWNER'))
 const UPLOAD_ROOT = process.env.UPLOAD_DIR ?? path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../uploads')
 const AUDIO_DIR = path.join(UPLOAD_ROOT, 'sleep-audio')
 
-const view = (s) => ({ id: s.id, title: s.title, topic: s.topic, minutes: s.minutes, text: s.text, createdAt: s.createdAt })
+const view = (s) => ({ id: s.id, title: s.title, topic: s.topic, minutes: s.minutes, text: s.text, kind: s.kind, language: s.language, createdAt: s.createdAt })
 
 sleepStoriesRouter.get('/', async (req, res) => {
   const stories = await prisma.sleepStory.findMany({
     where: { schoolId: req.user.schoolId },
     orderBy: { createdAt: 'desc' }
   })
-  res.json({ enabled: sleepStoriesEnabled(), topics: STORY_TOPICS, stories: stories.map(view) })
+  res.json({ enabled: sleepStoriesEnabled(), topics: { sleep: STORY_TOPICS, kids: KIDS_TOPICS }, stories: stories.map(view) })
 })
 
-const generateSchema = z.object({ topic: z.string().min(3).max(200) })
+const generateSchema = z.object({ topic: z.string().min(3).max(200), kind: z.enum(['sleep', 'kids']).default('sleep') })
 
 sleepStoriesRouter.post('/generate', async (req, res) => {
   if (!sleepStoriesEnabled()) {
@@ -37,7 +37,7 @@ sleepStoriesRouter.post('/generate', async (req, res) => {
   if (!parsed.success) return res.status(400).json({ error: 'Invalid data' })
 
   try {
-    const story = await generateSleepStory(parsed.data.topic)
+    const story = await generateSleepStory(parsed.data.topic, parsed.data.kind)
     const saved = await prisma.sleepStory.create({
       data: { ...story, topic: parsed.data.topic, schoolId: req.user.schoolId }
     })

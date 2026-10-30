@@ -1,13 +1,16 @@
-// Arabian night ambience made in the browser: a low drone, soft wind and
-// now and then a note from the Hijaz scale, softened by a gentle echo.
-// No audio files needed. Returns a function that fades everything out.
+// Ambience made in the browser, no audio files needed. Returns a function that
+// fades everything out. Modes:
+//   'arabian': low drone, soft wind and now and then a note from the Hijaz scale, with echo
+//   'calm':    drone and soft wind only (bedtime stories for children)
+//   'train':   the rhythm of the wheels over a low rumble
 
 const HIJAZ = [146.83, 155.56, 185.0, 196.0, 220.0, 233.08, 261.63, 293.66] // D3 Eb3 F#3 G3 A3 Bb3 C4 D4
 
-export function startAmbient(volume = 0.5) {
+export function startAmbient(mode = 'arabian', volume = 0.5) {
   const AudioCtx = window.AudioContext || window.webkitAudioContext
   if (!AudioCtx) return () => {}
   const ctx = new AudioCtx()
+  if (mode === 'train') return startTrain(ctx, volume)
   const now = ctx.currentTime
 
   const master = ctx.createGain()
@@ -49,7 +52,7 @@ export function startAmbient(volume = 0.5) {
   windFilter.frequency.value = 600
   windFilter.Q.value = 0.6
   const windGain = ctx.createGain()
-  windGain.gain.value = 0.12
+  windGain.gain.value = mode === 'calm' ? 0.06 : 0.12
   const sweep = ctx.createOscillator()
   sweep.frequency.value = 0.03
   const sweepDepth = ctx.createGain()
@@ -91,19 +94,82 @@ export function startAmbient(volume = 0.5) {
     osc.stop(t + 3.6)
     overtone.stop(t + 3.6)
   }
-  const timer = setInterval(() => {
+  const timer = mode === 'calm' ? null : setInterval(() => {
     if (Math.random() < 0.7) pluck()
   }, 3500)
-  pluck()
+  if (mode !== 'calm') pluck()
 
-  return () => {
+  return fadeOut(ctx, master, () => {
     clearInterval(timer)
+    sources.forEach(([osc, lfo]) => { osc.stop(); lfo.stop() })
+    wind.stop()
+    sweep.stop()
+  })
+}
+
+// Rail joints: a "ta-dum" motif of two soft clacks, then a pause, over a low rumble.
+function startTrain(ctx, volume) {
+  const now = ctx.currentTime
+  const master = ctx.createGain()
+  master.gain.setValueAtTime(0, now)
+  master.gain.setTargetAtTime(volume, now, 2)
+  master.connect(ctx.destination)
+
+  const rumbleBuffer = ctx.createBuffer(1, ctx.sampleRate * 4, ctx.sampleRate)
+  const rumbleData = rumbleBuffer.getChannelData(0)
+  let last = 0
+  for (let i = 0; i < rumbleData.length; i++) {
+    last = (last + 0.02 * (Math.random() * 2 - 1)) / 1.02
+    rumbleData[i] = last * 3.5
+  }
+  const rumble = ctx.createBufferSource()
+  rumble.buffer = rumbleBuffer
+  rumble.loop = true
+  const rumbleFilter = ctx.createBiquadFilter()
+  rumbleFilter.type = 'lowpass'
+  rumbleFilter.frequency.value = 220
+  const rumbleGain = ctx.createGain()
+  rumbleGain.gain.value = 0.35
+  rumble.connect(rumbleFilter).connect(rumbleGain).connect(master)
+  rumble.start(now)
+
+  const clackBuffer = ctx.createBuffer(1, ctx.sampleRate * 0.1, ctx.sampleRate)
+  const clackData = clackBuffer.getChannelData(0)
+  for (let i = 0; i < clackData.length; i++) {
+    clackData[i] = (Math.random() * 2 - 1) * Math.exp(-i / (ctx.sampleRate * 0.012))
+  }
+  const clack = (t) => {
+    const src = ctx.createBufferSource()
+    src.buffer = clackBuffer
+    const filter = ctx.createBiquadFilter()
+    filter.type = 'bandpass'
+    filter.frequency.value = 1400
+    filter.Q.value = 1.2
+    const gain = ctx.createGain()
+    gain.gain.value = 0.5
+    src.connect(filter).connect(gain).connect(master)
+    src.start(t)
+  }
+  const motif = () => {
+    const t = ctx.currentTime + 0.05
+    clack(t)
+    clack(t + 0.24)
+  }
+  const timer = setInterval(motif, 1800)
+  motif()
+
+  return fadeOut(ctx, master, () => {
+    clearInterval(timer)
+    rumble.stop()
+  })
+}
+
+function fadeOut(ctx, master, stopSources) {
+  return () => {
     const t = ctx.currentTime
     master.gain.setTargetAtTime(0, t, 0.8)
     setTimeout(() => {
-      sources.forEach(([osc, lfo]) => { osc.stop(); lfo.stop() })
-      wind.stop()
-      sweep.stop()
+      stopSources()
       ctx.close()
     }, 3000)
   }
