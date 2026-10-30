@@ -29,6 +29,7 @@ export default function SleepStories() {
   const [error, setError] = useState('')
   const [playingId, setPlayingId] = useState(null)
   const [ambientOn, setAmbientOn] = useState(true)
+  const [lang, setLang] = useState('ru')
   const playingRef = useRef(null)
   const narrationRef = useRef(null)
   const ambientRef = useRef(null)
@@ -142,8 +143,21 @@ export default function SleepStories() {
         </p>
       )}
 
+      <div style={{ display: 'flex', gap: 8, margin: '0 0 12px' }}>
+        {[['ru', 'Русский'], ['en', 'English']].map(([code, label]) => (
+          <button
+            key={code}
+            className="ghost"
+            onClick={() => { stop(); setLang(code) }}
+            style={lang === code ? { borderColor: 'var(--accent, #f4b9d9)', fontWeight: 600 } : undefined}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
+
       {SECTIONS.map((section) => {
-        const stories = (data?.stories ?? []).filter((s) => s.kind === section.kind)
+        const stories = (data?.stories ?? []).filter((s) => s.kind === section.kind && s.language === lang)
         return (
           <div key={section.kind}>
             <Panel id={`sleep:generate:${section.kind}`} title={section.createTitle} defaultOpen>
