@@ -7,7 +7,7 @@
 // Messages in:  { type: 'init', wasm: [urls…], model, delegate }
 //               { type: 'frame', bitmap, timestamp, easing }
 // Messages out: { type: 'ready', delegate } | { type: 'failed', message }
-//               { type: 'mask', alpha (ArrayBuffer, transferred), width, height, delegate, ms }
+//               { type: 'mask', alpha (ArrayBuffer, transferred), width, height, delegate, ms, mean, max }
 //               { type: 'skipped' } — a frame that gave no mask
 import { FilesetResolver, ImageSegmenter } from '@mediapipe/tasks-vision'
 
@@ -52,20 +52,29 @@ async function create(d) {
 }
 
 // Same check as on the page: a mask that never varies over the first frames
-// means the GPU path is broken here — switch to the CPU once.
+// (all person, or no person anywhere) means the GPU path is broken here —
+// switch to the CPU once. "No person" is judged by the strongest pixel, NaN
+// counted as 0: a mask of faint noise or NaN slipped past the old
+// mean < 0.015 test. Returns the frame's { mean, max } for the diag.
 function checkMask(values) {
-  if (switching) return
-  let sum = 0
-  for (let i = 0; i < values.length; i += 7) sum += values[i]
-  maskStats.push(sum / Math.ceil(values.length / 7))
-  if (maskStats.length < 30) return
-  if (delegate !== 'GPU') { maskStats = []; return }
-  const flat = maskStats.every((m) => m > 0.985) || maskStats.every((m) => m < 0.015)
+  let sum = 0, max = 0, n = 0
+  for (let i = 0; i < values.length; i += 7) {
+    const v = Number.isFinite(values[i]) ? values[i] : 0
+    sum += v; n++
+    if (v > max) max = v
+  }
+  const stat = { mean: sum / n, max }
+  if (switching) return stat
+  maskStats.push(stat)
+  if (maskStats.length < 30) return stat
+  if (delegate !== 'GPU') { maskStats = []; return stat }
+  const flat = maskStats.every((m) => m.mean > 0.985) || maskStats.every((m) => m.max < 0.5)
   maskStats = []
-  if (!flat) { delegate = 'GPU-ok'; return }
+  if (!flat) { delegate = 'GPU-ok'; return stat }
   switching = true
   const old = segmenter
   create('CPU').then(() => old?.close?.()).finally(() => { switching = false })
+  return stat
 }
 
 async function init({ wasm, model: modelUrl, delegate: wanted }) {
@@ -100,7 +109,7 @@ function frame({ bitmap, timestamp, easing }) {
   const confidence = result.confidenceMasks?.[0]
   if (!confidence) { result.close?.(); self.postMessage({ type: 'skipped' }); return }
   let values = confidence.getAsFloat32Array()
-  checkMask(values)
+  const stat = checkMask(values)
   if (easing) {
     if (prevMask && prevMask.length === values.length) {
       const eased = new Float32Array(values.length)
@@ -114,7 +123,7 @@ function frame({ bitmap, timestamp, easing }) {
   const alpha = new Uint8ClampedArray(width * height * 4)
   for (let i = 0, j = 3; i < values.length; i++, j += 4) alpha[j] = values[i] * 255
   result.close?.()
-  self.postMessage({ type: 'mask', alpha: alpha.buffer, width, height, delegate, ms: performance.now() - t0 }, [alpha.buffer])
+  self.postMessage({ type: 'mask', alpha: alpha.buffer, width, height, delegate, ms: performance.now() - t0, mean: stat.mean, max: stat.max }, [alpha.buffer])
 }
 
 self.onmessage = ({ data }) => {

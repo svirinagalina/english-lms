@@ -1314,7 +1314,7 @@ export default function Call() {
                   thumb = t.toDataURL('image/jpeg', 0.5).split(',')[1]
                 }
               } catch { /* no thumbnail */ }
-              report(token, 'blur.mask', background, { delegate: videoProcessor.delegate ?? null, maskMean: Number((videoProcessor.lastMaskMean ?? -1).toFixed(3)), sending: Boolean(blurOutRef.current), picture: Boolean(bgImageRef.current), filter: CANVAS_FILTER }, thumb)
+              report(token, 'blur.mask', background, { delegate: videoProcessor.delegate ?? null, maskMean: Number((videoProcessor.lastMaskMean ?? -1).toFixed(3)), maskMax: Number((videoProcessor.lastMaskMax ?? -1).toFixed(3)), mode: videoProcessor.mode ?? null, sending: Boolean(blurOutRef.current), picture: Boolean(bgImageRef.current), filter: CANVAS_FILTER }, thumb)
             }
           }
         } catch (err) {

@@ -1080,8 +1080,17 @@ export default function Writing({ socketRef, classroomId, docKey, onHomework, us
     tipWordRef.current = word
     clearTimeout(tipTimer.current)
     setTip(null)
-    const host = editorRef.current.parentElement.getBoundingClientRect()
-    const at = { x: event.clientX - host.left + 12, y: event.clientY - host.top + 18 }
+    // The tip is absolutely positioned inside the scrolling wrap, so the
+    // wrap's scroll offset has to be added, or it lands above the visible
+    // area for any word that sits higher than the scroll position.
+    const wrap = editorRef.current.parentElement
+    const host = wrap.getBoundingClientRect()
+    const pointerY = event.clientY - host.top + wrap.scrollTop
+    const below = event.clientY - host.top + 80 < wrap.clientHeight
+    const at = {
+      x: Math.max(8, Math.min(event.clientX - host.left + 12, wrap.clientWidth - 280)),
+      y: below ? pointerY + 18 : pointerY - 60,
+    }
     tipTimer.current = setTimeout(async () => {
       const entry = await lookupWord(word)
       if (tipWordRef.current === word && entry) setTip({ ...at, word, entry })

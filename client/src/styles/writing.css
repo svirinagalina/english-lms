@@ -65,6 +65,12 @@
   white-space: nowrap;
 }
 
+/* A word tip wraps its translation instead of running off the page. */
+.writing-popover.word-tip {
+  white-space: normal;
+  max-width: 260px;
+}
+
 .writing-hint {
   padding: 8px 16px;
   background: #0f3731;

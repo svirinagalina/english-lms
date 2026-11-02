@@ -150,18 +150,26 @@ class VideoProcessor {
     }
   }
 
-  // A mask that never varies (all person, or all background) over the first
-  // seconds means the GPU path is broken on this device: switch to the CPU once.
+  // A mask that never varies (all person, or no person anywhere) over the
+  // first seconds means the GPU path is broken on this device: switch to the
+  // CPU once. "No person" is judged by the strongest pixel, NaN counted as 0:
+  // a mask of faint noise or NaN slipped past the old mean < 0.015 test, and
+  // the whole picture, face included, would be blurred.
   checkMask(values) {
     if (this.switching) return
-    let sum = 0
-    for (let i = 0; i < values.length; i += 7) sum += values[i]
-    const mean = sum / Math.ceil(values.length / 7)
+    let sum = 0, max = 0, n = 0
+    for (let i = 0; i < values.length; i += 7) {
+      const v = Number.isFinite(values[i]) ? values[i] : 0
+      sum += v; n++
+      if (v > max) max = v
+    }
+    const mean = sum / n
     this.lastMaskMean = mean
-    this.maskStats.push(mean)
+    this.lastMaskMax = max
+    this.maskStats.push({ mean, max })
     if (this.maskStats.length < 30) return
     if (this.delegate !== 'GPU') { this.maskStats = []; return }
-    const flat = this.maskStats.every((m) => m > 0.985) || this.maskStats.every((m) => m < 0.015)
+    const flat = this.maskStats.every((m) => m.mean > 0.985) || this.maskStats.every((m) => m.max < 0.5)
     this.maskStats = []
     if (!flat) { this.delegate = 'GPU-ok'; return }
     this.switching = true
@@ -242,6 +250,9 @@ class VideoProcessor {
     if (reply.width !== this.mask.width || reply.height !== this.mask.height) return false
     this.delegate = reply.delegate
     this.modelMs = reply.ms
+    // For the blur.mask diag: how much "person" the worker's mask holds.
+    this.lastMaskMean = reply.mean
+    this.lastMaskMax = reply.max
     this.mask.getContext('2d').putImageData(new ImageData(new Uint8ClampedArray(reply.alpha), reply.width, reply.height), 0, 0)
     this.hasMask = true
     if (this.onFrame) this.onFrame({ image: video, segmentationMask: this.mask })
