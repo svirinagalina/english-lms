@@ -96,6 +96,8 @@ const slowDevice = () => {
   } catch { return false }
 }
 const markSlowDevice = () => { try { localStorage.setItem('call.slowDevice', String(Date.now())) } catch { /* private window */ } }
+// A computer (not a phone) with 2–4 cores starts a call without a background.
+const weakComputer = () => !isHandheld() && (navigator.hardwareConcurrency || 8) <= 4
 // Why the browser refused the camera and microphone, in words the person
 // can act on.
 const mediaErrorText = (err) => {
@@ -151,10 +153,12 @@ export default function Call() {
   const [screenSoundNote, setScreenSoundNote] = useState('')
   // Blur is on from the start; it can be switched off in the call.
   // What stands behind the person: nothing, a blur, or one of the pictures.
-  // Blur by default everywhere, phones and weak computers included; off only
-  // in a browser where the blur once froze a call (remembered in localStorage)
-  // — the frame-rate check below switches it off on any device too slow for it.
-  const [background, setBackground] = useState(() => (slowDevice() ? 'none' : 'blur'))
+  // Blur by default, phones included; off on a computer with 2–4 cores and in
+  // a browser where the blur once froze a call (remembered in localStorage).
+  // On a 2-core laptop one frame took 0.2–3.9 s and froze the call before the
+  // frame-rate check could switch it off (Valeria, Mark, 2026-10 diag; Galina,
+  // 2026-11-02). It can still be switched on in the call.
+  const [background, setBackground] = useState(() => (slowDevice() || weakComputer() ? 'none' : 'blur'))
   const isBlurEnabled = background !== 'none'
   const setIsBlurEnabled = (on) => setBackground(on ? 'blur' : 'none')
   // The chosen picture, once loaded; frames read it directly.
@@ -1192,7 +1196,16 @@ export default function Call() {
     let lastTick = 0
     // How fast the blur really runs on this device: reported once, after
     // ~15 s, so "choppy on my phone" can be told from "not blurring at all".
-    const perf = { started: 0, total: 0, max: 0, reported: false, judged: false, freezes: 0 }
+    const perf = { started: 0, total: 0, max: 0, reported: false, judged: false, freezes: 0, modelTotal: 0, camAt: 0 }
+    // The camera's own frame rate: many laptop cameras drop to 5–8 fps in a
+    // dim room, which in the blur's fps alone looks like a slow computer.
+    let camFrames = 0
+    const countCamera = () => {
+      const video = localVideoRef.current
+      if (cancelled || !video?.requestVideoFrameCallback) return
+      video.requestVideoFrameCallback(() => { camFrames += 1; countCamera() })
+    }
+    countCamera()
     let tick = 0
     let lastPlayNudge = 0
     let cpuRetried = false
@@ -1243,8 +1256,10 @@ export default function Call() {
             const spent = performance.now() - t0
             frames += 1
             perf.frames = (perf.frames ?? 0) + 1
-            if (perf.frames === 1) perf.started = t0
+            if (perf.frames === 1) { perf.started = t0; perf.camAt = camFrames }
             perf.total += spent
+            // In the worker, the model's own time (the rest is waiting and painting).
+            perf.modelTotal += videoProcessor.modelMs ?? 0
             perf.max = Math.max(perf.max, spent)
             if (spent > 1500) perf.freezes += 1
             // Too slow for this computer: the frames pile up and the whole
@@ -1260,7 +1275,7 @@ export default function Call() {
               // used to switch the blur off (and keep it off) for teachers.
               const avgMs = perf.total / Math.max(1, perf.frames)
               if (avgMs > 120 || perf.freezes >= 2) {
-                report(token, 'blur.auto-off', background, { fps: Number(fpsNow.toFixed(1)), avgMs: Math.round(avgMs), freezes: perf.freezes, maxMs: Math.round(perf.max), cores: navigator.hardwareConcurrency ?? null })
+                report(token, 'blur.auto-off', background, { fps: Number(fpsNow.toFixed(1)), avgMs: Math.round(avgMs), freezes: perf.freezes, maxMs: Math.round(perf.max), cores: navigator.hardwareConcurrency ?? null, mode: videoProcessor.mode ?? null, delegate: videoProcessor.delegate ?? null })
                 markSlowDevice()
                 cancelled = true
                 setBackground('none')
@@ -1271,11 +1286,21 @@ export default function Call() {
             if (!perf.reported && t0 - perf.started > 15000) {
               perf.reported = true
               const seconds = (t0 - perf.started) / 1000
-              report(token, 'blur.perf', background, { fps: Number((perf.frames / seconds).toFixed(1)), target: BLUR_FPS, avgMs: Math.round(perf.total / frames), maxMs: Math.round(perf.max), delegate: videoProcessor.delegate ?? null, camera: `${video.videoWidth}x${video.videoHeight}`, filter: CANVAS_FILTER, segmentEvery: SEGMENT_EVERY })
+              report(token, 'blur.perf', background, {
+                fps: Number((perf.frames / seconds).toFixed(1)), target: BLUR_FPS, avgMs: Math.round(perf.total / frames), maxMs: Math.round(perf.max),
+                // Where the model ran: 'worker' / 'page' (phones) / 'page-fallback'
+                // (the worker died mid-call), and on what (GPU-ok, GPU, CPU).
+                mode: videoProcessor.mode ?? null, delegate: videoProcessor.delegate ?? null,
+                modelMs: videoProcessor.mode === 'worker' ? Math.round(perf.modelTotal / Math.max(1, perf.frames)) : null,
+                // What the camera itself gives (null where the browser can't count frames).
+                cameraFps: localVideoRef.current?.requestVideoFrameCallback ? Number(((camFrames - perf.camAt) / seconds).toFixed(1)) : null,
+                cameraAsked: localStreamRef.current?.getVideoTracks()[0]?.getSettings?.().frameRate ?? null,
+                camera: `${video.videoWidth}x${video.videoHeight}`, filter: CANVAS_FILTER, segmentEvery: SEGMENT_EVERY, cores: navigator.hardwareConcurrency ?? null
+              })
             }
             if (frames === 1) {
               setMediaWarning((w) => (w.startsWith('Blur') ? '' : w))
-              report(token, 'blur.on', background, { camera: `${video.videoWidth}x${video.videoHeight}`, sending: Boolean(blurOutRef.current), delegate: videoProcessor.delegate ?? null })
+              report(token, 'blur.on', background, { camera: `${video.videoWidth}x${video.videoHeight}`, sending: Boolean(blurOutRef.current), delegate: videoProcessor.delegate ?? null, mode: videoProcessor.mode ?? null })
             }
             if (frames === 45) {
               // Three seconds in: is the mask telling person from room? And a

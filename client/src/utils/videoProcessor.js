@@ -15,6 +15,8 @@ const withTimeout = (promise, ms) => Promise.race([promise, new Promise((_, reje
 const HANDHELD = isHandheld()
 const ANALYSIS_WIDTH = HANDHELD ? 256 : 320
 const MASK_EASING = HANDHELD ? 0.35 : 0 // share of the previous mask kept each frame
+const MODEL_URL = '/mediapipe/selfie_segmenter.tflite'
+const WORKER_OK = typeof Worker !== 'undefined' && typeof createImageBitmap === 'function' && typeof OffscreenCanvas !== 'undefined'
 
 class VideoProcessor {
   constructor() {
@@ -32,6 +34,26 @@ class VideoProcessor {
 
   async initialize() {
     if (this.initialized) return
+    // A computer runs the model in a worker of its own, so a slow frame no
+    // longer holds up the board, sound and video on the page. Phones keep the
+    // page path, tuned for them (CPU, smaller frames). The page path is also
+    // the fallback whenever the worker can't start.
+    if (!HANDHELD && WORKER_OK) {
+      try {
+        await this.startWorker()
+        this.mode = 'worker'
+        this.initialized = true
+        return
+      } catch (error) {
+        console.warn('Blur: the worker did not start, running on the page', error)
+        this.stopWorker()
+      }
+    }
+    await this.initializePage()
+  }
+
+  async initializePage() {
+    this.mode = 'page'
     // The runtime is ~2.5 MB even compressed and our server sends it slowly
     // (half a minute on some links); jsDelivr has the same files in well
     // under a second. Our own copy stays as the fallback for a blocked CDN.
@@ -53,6 +75,57 @@ class VideoProcessor {
     this.maskStats = []
   }
 
+  startWorker() {
+    return new Promise((resolve, reject) => {
+      const worker = new Worker(new URL('./segmentWorker.js', import.meta.url), { type: 'module' })
+      this.worker = worker
+      const timer = setTimeout(() => reject(new Error('worker timeout')), 25000)
+      worker.onmessage = ({ data }) => {
+        if (data?.type === 'ready') {
+          clearTimeout(timer)
+          this.delegate = data.delegate
+          worker.onmessage = ({ data: reply }) => this.onWorkerReply(reply)
+          resolve()
+        } else if (data?.type === 'failed') {
+          clearTimeout(timer)
+          reject(new Error(data.message))
+        }
+      }
+      worker.onerror = (event) => {
+        clearTimeout(timer)
+        event.preventDefault?.()
+        // Before it was ready: the page path takes over in initialize().
+        // During a call: the next frame starts the page path instead.
+        if (!this.initialized) reject(new Error(event.message || 'worker error'))
+        else this.workerFailed(event.message || 'worker error')
+      }
+      worker.postMessage({ type: 'init', wasm: [CDN_WASM, '/mediapipe/wasm'], model: MODEL_URL, delegate: this.pickDelegate() })
+    })
+  }
+
+  stopWorker() {
+    this.worker?.terminate()
+    this.worker = null
+    this.pending?.(null)
+    this.pending = null
+  }
+
+  onWorkerReply(reply) {
+    const done = this.pending
+    this.pending = null
+    done?.(reply)
+  }
+
+  workerFailed(message) {
+    console.warn('Blur: the worker stopped, going on on the page', message)
+    this.workerError = message
+    this.stopWorker()
+    this.mode = 'page-fallback'
+    this.initialized = false
+    this.hasMask = false
+    this.initializePage().catch((error) => console.error('Blur: page path failed too', error))
+  }
+
   pickDelegate() {
     return /iPhone|iPad|iPod/i.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1) ? 'CPU' : 'GPU'
   }
@@ -63,7 +136,7 @@ class VideoProcessor {
 
   async createSegmenter(delegate) {
     const options = (d) => ({
-      baseOptions: { modelAssetPath: '/mediapipe/selfie_segmenter.tflite', delegate: d },
+      baseOptions: { modelAssetPath: MODEL_URL, delegate: d },
       runningMode: 'VIDEO',
       outputCategoryMask: false,
       outputConfidenceMasks: true
@@ -118,6 +191,7 @@ class VideoProcessor {
         this.input.width = width; this.input.height = height
         this.mask.width = width; this.mask.height = height
       }
+      if (this.mode === 'worker') return await this.sendToWorker(video, width, height)
       this.input.getContext('2d').drawImage(video, 0, 0, width, height)
 
       const result = this.segmenter.segmentForVideo(this.input, performance.now())
@@ -147,6 +221,31 @@ class VideoProcessor {
     } finally {
       this.busy = false
     }
+  }
+
+  // The worker path: the page only shrinks the frame (createImageBitmap, done
+  // by the browser off the page's thread) and paints the mask that comes back.
+  async sendToWorker(video, width, height) {
+    const bitmap = await createImageBitmap(video, { resizeWidth: width, resizeHeight: height, resizeQuality: 'low' })
+    if (!this.worker) { bitmap.close(); return false }
+    // A worker that stops answering (a lost GPU context, a crash that sends
+    // no error) must not hang the blur loop that awaits this frame. 15 s:
+    // a slow computer's first frame alone has taken 12 s on the page path.
+    let timer
+    const reply = await new Promise((resolve) => {
+      this.pending = resolve
+      timer = setTimeout(() => this.workerFailed('no answer for 15 s'), 15000)
+      this.worker.postMessage({ type: 'frame', bitmap, timestamp: performance.now(), easing: MASK_EASING }, [bitmap])
+    })
+    clearTimeout(timer)
+    if (reply?.type !== 'mask') return false
+    if (reply.width !== this.mask.width || reply.height !== this.mask.height) return false
+    this.delegate = reply.delegate
+    this.modelMs = reply.ms
+    this.mask.getContext('2d').putImageData(new ImageData(new Uint8ClampedArray(reply.alpha), reply.width, reply.height), 0, 0)
+    this.hasMask = true
+    if (this.onFrame) this.onFrame({ image: video, segmentationMask: this.mask })
+    return true
   }
 }
 
