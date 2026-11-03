@@ -10,7 +10,11 @@ import { AudioPresets, ParticipantEvent, Room, RoomEvent, Track, VideoPresets, V
 //
 // The tracks are ours (the denoiser's output, the blurred camera): LiveKit
 // never stops or restarts them, and leaving the room leaves them running.
-export async function joinSfu({ url, token, onStream, onLeft, onState }) {
+//
+// `rtcConfig`: given, the media goes only the way it names (the relay in
+// Germany, for a connection whose incoming sound keeps getting lost) instead
+// of the ways the media server offers.
+export async function joinSfu({ url, token, onStream, onLeft, onState, rtcConfig = null }) {
   // adaptiveStream would pause video for elements LiveKit doesn't attach
   // itself (our <video>s use srcObject), so it stays off; dynacast stops
   // sending simulcast layers nobody watches.
@@ -83,7 +87,7 @@ export async function joinSfu({ url, token, onStream, onLeft, onState }) {
   let leaving = false
   room.on(RoomEvent.ConnectionStateChanged, (state) => onState?.(state, { leaving }))
 
-  await room.connect(url, token, { autoSubscribe: true })
+  await room.connect(url, token, rtcConfig ? { autoSubscribe: true, rtcConfig } : { autoSubscribe: true })
 
   const pubs = { audio: null, video: null, screen: null, screenAudio: null }
   // LiveKit mutes a publication by itself when its track ends — and the old

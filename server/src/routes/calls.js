@@ -10,6 +10,7 @@ import { trialCallEnded } from '../trialReport.js'
 import { isUnpaidLead, startTrialCall } from '../trialCalls.js'
 import { callRoomSize, announceScratchBoard } from '../signaling.js'
 import { accessibleClassroom, ensurePersonalSpace } from './classrooms.js'
+import { relayIceServer } from '../turn.js'
 
 export const callsRouter = Router()
 
@@ -57,7 +58,9 @@ callsRouter.get('/ice', (req, res) => {
       credential
     })
   }
-  res.json({ iceServers })
+  // Apart from these: the relay in Germany a call through the media server
+  // switches to when its incoming sound keeps getting lost (turn.js).
+  res.json({ iceServers, lossRelay: relayIceServer() })
 })
 
 // What a participant sees before joining. Only members of the school that

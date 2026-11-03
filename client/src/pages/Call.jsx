@@ -96,6 +96,17 @@ const slowDevice = () => {
   } catch { return false }
 }
 const markSlowDevice = () => { try { localStorage.setItem('call.slowDevice', String(Date.now())) } catch { /* private window */ } }
+// The relay in Germany (server/src/turn.js), per browser for a week: 'on' —
+// this browser's sound got lost on the way and went through the relay, so
+// its next calls start there; 'off' — the relay didn't help, not tried again.
+const LOSS_RELAY_DAYS = 7
+const lossRelayMark = () => {
+  try {
+    const [verdict, at] = String(localStorage.getItem('call.lossRelay') ?? '').split(':')
+    return Date.now() - Number(at) < LOSS_RELAY_DAYS * 864e5 ? verdict : null
+  } catch { return null }
+}
+const markLossRelay = (verdict) => { try { localStorage.setItem('call.lossRelay', `${verdict}:${Date.now()}`) } catch { /* private window */ } }
 // A computer (not a phone) with 2–4 cores starts a call without a background.
 const weakComputer = () => !isHandheld() && (navigator.hardwareConcurrency || 8) <= 4
 // Why the browser refused the camera and microphone, in words the person
@@ -602,6 +613,13 @@ export default function Call() {
   // whether this call uses it at all (set from the server's join answer).
   const sfuRef = useRef(null)
   const sfuModeRef = useRef(false)
+  // The media server reached through the relay in Germany instead of
+  // directly; the switch there and back, for the connection-quality loop;
+  // and the incoming-video level that loop chose, applied again to a room
+  // joined later.
+  const sfuRelayRef = useRef(lossRelayMark() === 'on')
+  const sfuRelaySwitchRef = useRef(null)
+  const incomingRef = useRef('high')
   const localVideoRef = useRef(null)
   const screenVideoRef = useRef(null)
   const drawingCanvasRef = useRef(null)
@@ -735,6 +753,7 @@ export default function Call() {
     let disposed = false
 
     let iceServers = ICE_SERVERS
+    let lossRelay = null
     const createConnection = (peerId, peerName) => {
       const pc = new RTCPeerConnection({ iceServers })
       const stream = localStreamRef.current
@@ -786,7 +805,11 @@ export default function Call() {
         setMediaWarning('Video calls are switched off in this browser — usually by an extension (a WebRTC blocker, a VPN or privacy add-on). Turn it off for this site, or open the lesson in another browser or an incognito window. / Видеозвонки отключены в этом браузере — обычно расширением (блокировщик WebRTC, VPN, защита приватности). Отключите его для этого сайта или откройте урок в другом браузере или в режиме инкогнито.')
       }
       // TURN relay credentials, when the server has a relay configured.
-      try { iceServers = (await api.iceServers()).iceServers } catch { /* STUN only */ }
+      try {
+        const ice = await api.iceServers()
+        iceServers = ice.iceServers
+        lossRelay = ice.lossRelay ?? null
+      } catch { /* STUN only */ }
       setStatus('requesting-media')
       try {
         const audioConstraints = AUDIO_CONSTRAINTS
@@ -847,8 +870,12 @@ export default function Call() {
       // sends what we already send (the cleaned microphone, the camera or
       // its blurred copy, a shared screen). Retries a few times; a room
       // joined for an id we no longer have (a reconnect in between) is left.
+      let lastSfu = null
       const connectSfu = async (access, forSocket, peerCount, attempt = 1) => {
         const t0 = performance.now()
+        lastSfu = { access, forSocket, peerCount }
+        // Through the relay in Germany: that relay alone, nothing else.
+        const rtcConfig = sfuRelayRef.current && lossRelay ? { iceServers: [lossRelay], iceTransportPolicy: 'relay' } : null
         try {
           // Loaded only for calls that use it (it is a big library).
           const { joinSfu } = await import('../utils/sfu')
@@ -857,6 +884,7 @@ export default function Call() {
           const sfu = await joinSfu({
             url: access.url,
             token: access.token,
+            rtcConfig,
             onStream: (identity, name, stream, screen) => setPeers((prev) => (!prev[identity] && !stream && !screen ? prev : { ...prev, [identity]: { ...(prev[identity] ?? { name, muted: false }), stream, screen } })),
             onLeft: (identity) => setPeers((prev) => { if (!prev[identity]) return prev; const next = { ...prev }; delete next[identity]; return next }),
             onState: (state, info) => {
@@ -882,6 +910,7 @@ export default function Call() {
           if (disposed || socketRef.current !== forSocket || !forSocket.connected) { sfu.leave(); return }
           sfuRef.current?.leave()
           sfuRef.current = sfu
+          sfu.setIncoming(incomingRef.current)
           const audio = localStreamRef.current?.getAudioTracks()[0]
           if (audio) await sfu.setAudio(audio)
           const video = cameraOnRef.current ? outgoingCameraTrack() : null
@@ -889,9 +918,14 @@ export default function Call() {
           const screen = screenStreamRef.current?.getVideoTracks()[0]
           if (screen) await sfu.setScreen(screen, screenStreamRef.current?.getAudioTracks()[0] ?? null)
           setMediaWarning((w) => (w === SFU_TROUBLE ? '' : w))
-          report(token, 'sfu.on', 'connected', { ms: Math.round(performance.now() - t0), peers: peerCount, attempt })
+          report(token, 'sfu.on', 'connected', { ms: Math.round(performance.now() - t0), peers: peerCount, attempt, relay: Boolean(rtcConfig) })
+          // Still using the relay: it stays this browser's way for another week.
+          if (rtcConfig) markLossRelay('on')
         } catch (err) {
-          report(token, 'sfu.failed', String(err?.message ?? err).slice(0, 120), { attempt })
+          report(token, 'sfu.failed', String(err?.message ?? err).slice(0, 120), { attempt, relay: Boolean(rtcConfig) })
+          // The relay didn't connect: the next try goes the direct way, and
+          // this browser doesn't try the relay again this week.
+          if (rtcConfig) { sfuRelayRef.current = false; markLossRelay('off') }
           // This page's code is older than the server's (a deploy since it was
           // opened): its media-server part is gone — load the new version.
           if (/dynamically imported module|Importing a module script failed|Failed to fetch dynamically/i.test(String(err?.message ?? err))) {
@@ -902,6 +936,25 @@ export default function Call() {
           setMediaWarning(SFU_TROUBLE)
           if (attempt < 5) setTimeout(() => connectSfu(access, forSocket, peerCount, attempt + 1), 3000 * attempt)
         }
+      }
+      // Incoming sound keeps getting lost even with the video off: the room
+      // is joined again through the relay in Germany (Lubov, 2026-11-03: on
+      // Deutsche Telekom, srv3 → Cogent → Telekom dropped up to half of what
+      // came to her every evening, while her own sound reached us clean; a
+      // switch to TCP on 443 only turned the loss into a 10-s delay).
+      // `on` false: back to the direct way when the relay didn't help either,
+      // and not tried again that week. The old room is left first: the same
+      // identity joining twice throws the first one out, which would look
+      // like a lost connection.
+      sfuRelaySwitchRef.current = (on, lossPct) => {
+        if (sfuRelayRef.current === on || !lastSfu || disposed || socketRef.current !== lastSfu.forSocket) return false
+        if (on && (!lossRelay || lossRelayMark() === 'off')) return false
+        sfuRelayRef.current = on
+        markLossRelay(on ? 'on' : 'off')
+        report(token, 'sfu.relay', on ? 'switched' : 'back', { lossPct })
+        sfuRef.current?.leave(); sfuRef.current = null
+        connectSfu(lastSfu.access, lastSfu.forSocket, lastSfu.peerCount, 1)
+        return true
       }
 
       // Only a first connection that fails ends here (signed out, call
@@ -1566,7 +1619,9 @@ export default function Call() {
     // voice broke up; the video is what gives way first now: lowered at
     // 8% loss, paused at 20%, back one step after 30 s under 2%.
     const weakPrev = {}
-    let weakLevel = 'high', badTicks = 0, goodTicks = 0
+    // Still ≥15% after 40 s (the video is off by then): through the relay in
+    // Germany; still ≥15% there after another 40 s: back, for the week.
+    let weakLevel = incomingRef.current, badTicks = 0, goodTicks = 0, lossyTicks = 0
     const checkWeak = async (sfu) => {
       let lost = 0, got = 0
       for (const identity of sfu.remoteIds()) {
@@ -1580,6 +1635,8 @@ export default function Call() {
       }
       if (got + lost < 50) return
       const pct = (100 * lost) / (got + lost)
+      lossyTicks = pct >= 15 ? lossyTicks + 1 : 0
+      if (lossyTicks >= 4 && sfuRelaySwitchRef.current?.(!sfuRelayRef.current, Number(pct.toFixed(1)))) { lossyTicks = 0; return }
       const target = pct >= 20 ? 'off' : pct >= 8 ? 'low' : null
       const order = ['high', 'low', 'off']
       if (target && order.indexOf(target) > order.indexOf(weakLevel)) { badTicks += 1; goodTicks = 0 } else if (pct < 2) { goodTicks += 1; badTicks = 0 } else { badTicks = 0; goodTicks = 0 }
@@ -1588,6 +1645,7 @@ export default function Call() {
       else if (goodTicks >= 3 && weakLevel !== 'high') { next = order[order.indexOf(weakLevel) - 1]; goodTicks = 0 }
       if (next === weakLevel) return
       weakLevel = next
+      incomingRef.current = next
       sfu.setIncoming?.(next)
       report(token, 'net.weak', next, { lossPct: Number(pct.toFixed(1)) })
       setMediaWarning((w) => (next === 'high' ? (w === WEAK_NET ? '' : w) : (w ? w : WEAK_NET)))
@@ -1612,12 +1670,15 @@ export default function Call() {
               if (item.type === 'candidate-pair' && item.nominated && item.state === 'succeeded') pair = item
               if (item.type === 'inbound-rtp' && item.kind === 'audio') { lost = item.packetsLost ?? 0; got = item.packetsReceived ?? 0; energy = item.totalAudioEnergy ?? null; duration = item.totalSamplesDuration ?? null; level = item.audioLevel ?? null }
             })
-            const p = sfuPrev[identity]
+            // Counters that went back are a room joined again (the relay):
+            // that window starts over instead of reporting nonsense.
+            const p = sfuPrev[identity] && got >= sfuPrev[identity].got ? sfuPrev[identity] : null
             sfuPrev[identity] = { lost, got, energy, duration }
             const dl = p ? lost - p.lost : 0, dg = p ? got - p.got : 0
             report(token, 'net.health', 'sfu', {
               peer: peersRef.current[identity]?.name ?? null, peers: ids.length, mode: 'sfu',
-              path: pair ? `${byId[pair.localCandidateId]?.candidateType}/${byId[pair.localCandidateId]?.protocol ?? ''}` : null,
+              // A relay also names how we reach it (relay/udp/udp, relay/udp/tls).
+              path: pair ? [byId[pair.localCandidateId]?.candidateType, byId[pair.localCandidateId]?.protocol ?? '', byId[pair.localCandidateId]?.relayProtocol].filter((x) => x != null).join('/') : null,
               rttMs: pair?.currentRoundTripTime != null ? Math.round(pair.currentRoundTripTime * 1000) : null,
               inLossPct: dg + dl > 0 ? Number(((100 * dl) / (dg + dl)).toFixed(1)) : null,
               inAudioLevel: level != null ? Number(level.toFixed(3)) : null,
