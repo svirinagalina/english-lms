@@ -10,7 +10,6 @@ import { trialCallEnded } from '../trialReport.js'
 import { isUnpaidLead, startTrialCall } from '../trialCalls.js'
 import { callRoomSize, announceScratchBoard } from '../signaling.js'
 import { accessibleClassroom, ensurePersonalSpace } from './classrooms.js'
-import { turnTlsHost } from '../turn.js'
 
 export const callsRouter = Router()
 
@@ -57,11 +56,6 @@ callsRouter.get('/ice', (req, res) => {
       username,
       credential
     })
-    // The same relay over TLS on 443 (Caddy hands that name to coturn,
-    // 2026-10-19): a separate entry, so a call can pick it alone — the way
-    // through for a network that loses or blocks everything but 443.
-    const tlsHost = turnTlsHost(host)
-    if (tlsHost) iceServers.push({ urls: [`turns:${tlsHost}:443?transport=tcp`], username, credential })
   }
   res.json({ iceServers })
 })

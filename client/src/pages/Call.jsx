@@ -96,18 +96,6 @@ const slowDevice = () => {
   } catch { return false }
 }
 const markSlowDevice = () => { try { localStorage.setItem('call.slowDevice', String(Date.now())) } catch { /* private window */ } }
-// A browser whose call through the media server lost too much over UDP and
-// went over to the relay on 443 (TCP) in the last week: its next calls start
-// there straight away.
-const SFU_TCP_DAYS = 7
-const sfuTcpRemembered = () => {
-  try {
-    const at = Number(localStorage.getItem('call.sfuTcp'))
-    return at > 1e12 && Date.now() - at < SFU_TCP_DAYS * 864e5
-  } catch { return false }
-}
-const rememberSfuTcp = (on) => { try { if (on) localStorage.setItem('call.sfuTcp', String(Date.now())); else localStorage.removeItem('call.sfuTcp') } catch { /* private window */ } }
-const isTlsRelay = (server) => [].concat(server.urls ?? server.url ?? []).some((u) => /^turns:/.test(u))
 // A computer (not a phone) with 2–4 cores starts a call without a background.
 const weakComputer = () => !isHandheld() && (navigator.hardwareConcurrency || 8) <= 4
 // Why the browser refused the camera and microphone, in words the person
@@ -614,12 +602,6 @@ export default function Call() {
   // whether this call uses it at all (set from the server's join answer).
   const sfuRef = useRef(null)
   const sfuModeRef = useRef(false)
-  // The media server reached over TCP (the relay on 443) instead of UDP; the
-  // switch to it, for the connection-quality loop; and the incoming-video
-  // level that loop chose, applied again to a room joined later.
-  const sfuTcpRef = useRef(sfuTcpRemembered())
-  const sfuToTcpRef = useRef(null)
-  const incomingRef = useRef('high')
   const localVideoRef = useRef(null)
   const screenVideoRef = useRef(null)
   const drawingCanvasRef = useRef(null)
@@ -865,13 +847,8 @@ export default function Call() {
       // sends what we already send (the cleaned microphone, the camera or
       // its blurred copy, a shared screen). Retries a few times; a room
       // joined for an id we no longer have (a reconnect in between) is left.
-      let lastSfu = null
       const connectSfu = async (access, forSocket, peerCount, attempt = 1) => {
         const t0 = performance.now()
-        lastSfu = { access, forSocket, peerCount }
-        // Over TCP: only the relay on 443, nothing else.
-        const tlsRelay = iceServers.filter(isTlsRelay)
-        const rtcConfig = sfuTcpRef.current && tlsRelay.length ? { iceServers: tlsRelay, iceTransportPolicy: 'relay' } : null
         try {
           // Loaded only for calls that use it (it is a big library).
           const { joinSfu } = await import('../utils/sfu')
@@ -880,7 +857,6 @@ export default function Call() {
           const sfu = await joinSfu({
             url: access.url,
             token: access.token,
-            rtcConfig,
             onStream: (identity, name, stream, screen) => setPeers((prev) => (!prev[identity] && !stream && !screen ? prev : { ...prev, [identity]: { ...(prev[identity] ?? { name, muted: false }), stream, screen } })),
             onLeft: (identity) => setPeers((prev) => { if (!prev[identity]) return prev; const next = { ...prev }; delete next[identity]; return next }),
             onState: (state, info) => {
@@ -906,7 +882,6 @@ export default function Call() {
           if (disposed || socketRef.current !== forSocket || !forSocket.connected) { sfu.leave(); return }
           sfuRef.current?.leave()
           sfuRef.current = sfu
-          sfu.setIncoming(incomingRef.current)
           const audio = localStreamRef.current?.getAudioTracks()[0]
           if (audio) await sfu.setAudio(audio)
           const video = cameraOnRef.current ? outgoingCameraTrack() : null
@@ -914,11 +889,9 @@ export default function Call() {
           const screen = screenStreamRef.current?.getVideoTracks()[0]
           if (screen) await sfu.setScreen(screen, screenStreamRef.current?.getAudioTracks()[0] ?? null)
           setMediaWarning((w) => (w === SFU_TROUBLE ? '' : w))
-          report(token, 'sfu.on', 'connected', { ms: Math.round(performance.now() - t0), peers: peerCount, attempt, tcp: Boolean(rtcConfig) })
+          report(token, 'sfu.on', 'connected', { ms: Math.round(performance.now() - t0), peers: peerCount, attempt })
         } catch (err) {
-          report(token, 'sfu.failed', String(err?.message ?? err).slice(0, 120), { attempt, tcp: Boolean(rtcConfig) })
-          // The relay on 443 didn't connect: the next try goes the usual way.
-          if (rtcConfig) { sfuTcpRef.current = false; rememberSfuTcp(false) }
+          report(token, 'sfu.failed', String(err?.message ?? err).slice(0, 120), { attempt })
           // This page's code is older than the server's (a deploy since it was
           // opened): its media-server part is gone — load the new version.
           if (/dynamically imported module|Importing a module script failed|Failed to fetch dynamically/i.test(String(err?.message ?? err))) {
@@ -929,21 +902,6 @@ export default function Call() {
           setMediaWarning(SFU_TROUBLE)
           if (attempt < 5) setTimeout(() => connectSfu(access, forSocket, peerCount, attempt + 1), 3000 * attempt)
         }
-      }
-      // Incoming sound keeps getting lost over UDP even with the video off
-      // (Lubov, 2026-11-03: 25–50% on two computers at home, while everyone
-      // received her cleanly): the room is joined again with the media only
-      // through the relay over TLS on 443 — TCP, which resends what the line
-      // drops. The old room is left first: the same identity joining twice
-      // throws the first one out, which would look like a lost connection.
-      sfuToTcpRef.current = (lossPct) => {
-        if (sfuTcpRef.current || !lastSfu || disposed || socketRef.current !== lastSfu.forSocket || !iceServers.some(isTlsRelay)) return false
-        sfuTcpRef.current = true
-        rememberSfuTcp(true)
-        report(token, 'sfu.tcp', 'switched', { lossPct })
-        sfuRef.current?.leave(); sfuRef.current = null
-        connectSfu(lastSfu.access, lastSfu.forSocket, lastSfu.peerCount, 1)
-        return true
       }
 
       // Only a first connection that fails ends here (signed out, call
@@ -1608,8 +1566,7 @@ export default function Call() {
     // voice broke up; the video is what gives way first now: lowered at
     // 8% loss, paused at 20%, back one step after 30 s under 2%.
     const weakPrev = {}
-    // Still ≥15% after 40 s (the video is off by then): over to TCP.
-    let weakLevel = incomingRef.current, badTicks = 0, goodTicks = 0, lossyTicks = 0
+    let weakLevel = 'high', badTicks = 0, goodTicks = 0
     const checkWeak = async (sfu) => {
       let lost = 0, got = 0
       for (const identity of sfu.remoteIds()) {
@@ -1623,8 +1580,6 @@ export default function Call() {
       }
       if (got + lost < 50) return
       const pct = (100 * lost) / (got + lost)
-      lossyTicks = pct >= 15 ? lossyTicks + 1 : 0
-      if (lossyTicks >= 4 && sfuToTcpRef.current?.(Number(pct.toFixed(1)))) { lossyTicks = 0; return }
       const target = pct >= 20 ? 'off' : pct >= 8 ? 'low' : null
       const order = ['high', 'low', 'off']
       if (target && order.indexOf(target) > order.indexOf(weakLevel)) { badTicks += 1; goodTicks = 0 } else if (pct < 2) { goodTicks += 1; badTicks = 0 } else { badTicks = 0; goodTicks = 0 }
@@ -1633,7 +1588,6 @@ export default function Call() {
       else if (goodTicks >= 3 && weakLevel !== 'high') { next = order[order.indexOf(weakLevel) - 1]; goodTicks = 0 }
       if (next === weakLevel) return
       weakLevel = next
-      incomingRef.current = next
       sfu.setIncoming?.(next)
       report(token, 'net.weak', next, { lossPct: Number(pct.toFixed(1)) })
       setMediaWarning((w) => (next === 'high' ? (w === WEAK_NET ? '' : w) : (w ? w : WEAK_NET)))
@@ -1658,15 +1612,12 @@ export default function Call() {
               if (item.type === 'candidate-pair' && item.nominated && item.state === 'succeeded') pair = item
               if (item.type === 'inbound-rtp' && item.kind === 'audio') { lost = item.packetsLost ?? 0; got = item.packetsReceived ?? 0; energy = item.totalAudioEnergy ?? null; duration = item.totalSamplesDuration ?? null; level = item.audioLevel ?? null }
             })
-            // Counters that went back are a room joined again (over TCP):
-            // that window starts over instead of reporting nonsense.
-            const p = sfuPrev[identity] && got >= sfuPrev[identity].got ? sfuPrev[identity] : null
+            const p = sfuPrev[identity]
             sfuPrev[identity] = { lost, got, energy, duration }
             const dl = p ? lost - p.lost : 0, dg = p ? got - p.got : 0
             report(token, 'net.health', 'sfu', {
               peer: peersRef.current[identity]?.name ?? null, peers: ids.length, mode: 'sfu',
-              // A relay also names how we reach it: relay/udp/tls = over 443.
-              path: pair ? [byId[pair.localCandidateId]?.candidateType, byId[pair.localCandidateId]?.protocol ?? '', byId[pair.localCandidateId]?.relayProtocol].filter((x) => x != null).join('/') : null,
+              path: pair ? `${byId[pair.localCandidateId]?.candidateType}/${byId[pair.localCandidateId]?.protocol ?? ''}` : null,
               rttMs: pair?.currentRoundTripTime != null ? Math.round(pair.currentRoundTripTime * 1000) : null,
               inLossPct: dg + dl > 0 ? Number(((100 * dl) / (dg + dl)).toFixed(1)) : null,
               inAudioLevel: level != null ? Number(level.toFixed(3)) : null,
