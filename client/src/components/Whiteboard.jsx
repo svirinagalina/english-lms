@@ -1398,19 +1398,12 @@ const Whiteboard = forwardRef(function Whiteboard({ socketRef, boardId, title, s
   const [following, setFollowing] = useState(null) // { name }
   const spotlightRef = useRef(false)
   spotlightRef.current = spotlighting
-  // A follower who pans/zooms on their own stops being dragged back to the
-  // spotlighter's view on the next broadcast (at most ~100ms away) — forcing
-  // their view back mid-gesture read as "the board won't move". Resumes
-  // following on the next fresh "Spotlight on" so the teacher can still pull
-  // everyone back to one place.
-  // The pause lasts while they keep moving and 6 s after: one scroll used to
-  // stop following for good, so for the student "Spotlight did nothing"
-  // (Anastasia Obóznaya's lessons, 2026-10-13).
+  // Someone moving their own board is not pulled away mid-gesture by a view
+  // that arrives then; a fresh "Spotlight me" clears this, so the teacher can
+  // still bring everyone to one place.
   const followPausedRef = useRef(false)
   const pausedAtRef = useRef(0)
-  const lastSpotViewRef = useRef(null)
   const pauseFollowing = () => { followPausedRef.current = true; pausedAtRef.current = Date.now() }
-  const viewBroadcastRef = useRef(0)
   // True while a press is held on the canvas: floating bars step aside.
   const [dragging, setDragging] = useState(false)
   // Fingers currently on the canvas (touch screens): two of them pinch-zoom.
@@ -1554,13 +1547,11 @@ const Whiteboard = forwardRef(function Whiteboard({ socketRef, boardId, title, s
     }
   }, [])
 
-  const viewHookRef = useRef(null)
   const scheduleRender = useCallback(() => {
     if (frameRef.current) return
     frameRef.current = requestAnimationFrame(() => {
       frameRef.current = null
       render()
-      viewHookRef.current?.()
     })
   }, [render])
 
@@ -1661,11 +1652,9 @@ const Whiteboard = forwardRef(function Whiteboard({ socketRef, boardId, title, s
     const onSpotlight = ({ name, on }) => {
       setFollowing(on ? { name } : null)
       if (on) followPausedRef.current = false
-      else lastSpotViewRef.current = null
     }
-    const onView = (view, resumed = false) => {
+    const onView = (view) => {
       const { scale, cx, cy } = view
-      if (!resumed) lastSpotViewRef.current = view
       if (spotlightRef.current) return
       if (followPausedRef.current) {
         // Not while they are drawing or dragging something.
@@ -1700,13 +1689,7 @@ const Whiteboard = forwardRef(function Whiteboard({ socketRef, boardId, title, s
       })
     }, 2000)
     socket.on('board:spotlight', onSpotlight)
-    const onViewEvent = (view) => onView(view)
-    socket.on('board:view', onViewEvent)
-    // Back to the spotlighter's view 6 s after one's own scrolling stopped,
-    // even if they haven't moved since.
-    const resume = setInterval(() => {
-      if (followPausedRef.current && lastSpotViewRef.current && Date.now() - pausedAtRef.current >= 6000) onView(lastSpotViewRef.current, true)
-    }, 1000)
+    socket.on('board:view', onView)
 
     return () => {
       socket.off('connect', reopen)
@@ -1715,20 +1698,18 @@ const Whiteboard = forwardRef(function Whiteboard({ socketRef, boardId, title, s
       socket.off('board:delete', onDelete)
       socket.off('board:clear', onClear)
       socket.off('board:spotlight', onSpotlight)
-      socket.off('board:view', onViewEvent)
-      clearInterval(resume)
+      socket.off('board:view', onView)
       socket.off('board:cursor', onCursor)
       clearInterval(sweep)
       setCursors({})
     }
   }, [socketRef, boardId, scheduleRender])
 
-  // While spotlighting, every viewport change goes out (at most ~10/s).
+  // Spotlight sends the teacher's view ONCE, when it is switched on. Panning
+  // and zooming afterwards stay on the teacher's own screen, and everyone
+  // else moves their own board freely (Galina, 2026-11-04).
   const broadcastView = () => {
     if (!spotlightRef.current) return
-    const now = Date.now()
-    if (now - viewBroadcastRef.current < 100) return
-    viewBroadcastRef.current = now
     const canvas = canvasRef.current
     if (!canvas) return
     const rect = canvas.getBoundingClientRect()
@@ -1739,13 +1720,12 @@ const Whiteboard = forwardRef(function Whiteboard({ socketRef, boardId, title, s
       cy: (rect.height / 2 - view.y) / view.scale
     })
   }
-  viewHookRef.current = broadcastView
   const toggleSpotlight = () => {
     const next = !spotlighting
     setSpotlighting(next)
     spotlightRef.current = next
     socketRef.current?.emit('board:spotlight', { on: next })
-    if (next) { viewBroadcastRef.current = 0; broadcastView() }
+    if (next) broadcastView()
   }
   useEffect(() => () => { if (spotlightRef.current) socketRef.current?.emit('board:spotlight', { on: false }) }, [socketRef])
 
@@ -3692,7 +3672,7 @@ const Whiteboard = forwardRef(function Whiteboard({ socketRef, boardId, title, s
             </button>
           ))}
           {canSpotlight && (
-            <button className={`chip-call ${spotlighting ? 'on' : 'ghost-chip'}`} onClick={toggleSpotlight} title="Everyone on this board follows your view">
+            <button className={`chip-call ${spotlighting ? 'on' : 'ghost-chip'}`} onClick={toggleSpotlight} title="Sends your view to everyone once; they move their own board afterwards">
               {spotlighting ? 'Spotlight on' : 'Spotlight me'}
             </button>
           )}
@@ -3893,7 +3873,7 @@ const Whiteboard = forwardRef(function Whiteboard({ socketRef, boardId, title, s
         ))}
 
         {following && !spotlighting && (
-          <div className="board-following">Following {following.name}’s view</div>
+          <div className="board-following">{following.name} shared their view</div>
         )}
 
         {!phone && <div className="board-corner-right">

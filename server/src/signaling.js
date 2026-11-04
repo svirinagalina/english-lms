@@ -105,10 +105,18 @@ function endSpotlight(socket) {
   if (!boardId || boardSpotlights.get(boardId)?.from !== socket.id) return
   boardSpotlights.delete(boardId)
   emitToWatchers(boardWatchers, boardId, socket, 'board:spotlight', { from: socket.id, on: false })
+  hideCursorFromStudents(socket, boardId)
 }
 
 const emitToWatchers = (map, key, socket, event, payload) => {
   for (const other of map.get(key) ?? []) if (other !== socket) other.emit(event, payload)
+}
+
+// Students see a teacher's cursor only during that teacher's Spotlight.
+const hideCursorFromStudents = (socket, boardId) => {
+  for (const other of boardWatchers.get(boardId) ?? []) {
+    if (other.data.user?.role === 'STUDENT') other.emit('board:cursor', { from: socket.id, gone: true })
+  }
 }
 
 // Open calls nobody is in any more get closed by a sweep every few minutes.
@@ -496,7 +504,8 @@ const PARTNER_BLOCKED_EVENTS = new Set(['call:start', 'drawing', 'board:add', 'b
       if (user.role !== 'STUDENT' && socket.data.callId) roomBoards.set(socket.data.roomId, boardId)
       if (typeof ack === 'function') ack({ elements })
       const spot = boardSpotlights.get(boardId)
-      if (spot && spot.from !== socket.id) {
+      // A reconnect must not pull someone away from where they moved to.
+      if (spot && spot.from !== socket.id && !options?.quiet) {
         socket.emit('board:spotlight', { from: spot.from, name: spot.name, on: true })
         if (spot.view) socket.emit('board:view', spot.view)
       }
@@ -678,11 +687,17 @@ const PARTNER_BLOCKED_EVENTS = new Set(['call:start', 'drawing', 'board:add', 'b
       roomDocs.delete(roomId)
     })
 
-    // Live cursors: everyone with the board open sees where the others point.
+    // Live cursors: everyone with the board open sees where the others point,
+    // except that a teacher's reaches students only during their Spotlight
+    // (Galina, 2026-11-04).
     socket.on('board:cursor', (pos) => {
       const { boardId } = socket.data
       if (!boardId || typeof pos?.x !== 'number' || typeof pos?.y !== 'number') return
-      emitToWatchers(boardWatchers, boardId, socket, 'board:cursor', { from: socket.id, name: socket.data.name, x: pos.x, y: pos.y })
+      const hidden = user.role !== 'STUDENT' && boardSpotlights.get(boardId)?.from !== socket.id
+      const payload = { from: socket.id, name: socket.data.name, x: pos.x, y: pos.y }
+      for (const other of boardWatchers.get(boardId) ?? []) {
+        if (other !== socket && !(hidden && other.data.user?.role === 'STUDENT')) other.emit('board:cursor', payload)
+      }
     })
 
     // Spotlight: the teacher's viewport goes to everyone looking at the
@@ -695,7 +710,10 @@ const PARTNER_BLOCKED_EVENTS = new Set(['call:start', 'drawing', 'board:add', 'b
       // before any await: the first board:view comes right after this).
       const spot = on ? { from: socket.id, name: socket.data.name, view: null } : null
       if (on) boardSpotlights.set(boardId, spot)
-      else if (boardSpotlights.get(boardId)?.from === socket.id) boardSpotlights.delete(boardId)
+      else if (boardSpotlights.get(boardId)?.from === socket.id) {
+        boardSpotlights.delete(boardId)
+        hideCursorFromStudents(socket, boardId)
+      }
       // Outside a call the name isn't known yet (it is set on join-call).
       if (!socket.data.name) socket.data.name = (await prisma.user.findUnique({ where: { id: user.id }, select: { name: true } }))?.name ?? 'Teacher'
       if (spot) spot.name = socket.data.name

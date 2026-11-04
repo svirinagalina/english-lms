@@ -71,3 +71,42 @@ test("a student's new element is recorded as theirs, whatever the client says", 
   assert.equal(element.authorId, school.people.student.id)
   assert.equal(typeof element.at, 'number')
 })
+
+// Galina, 2026-11-04: students see the teacher's cursor only during Spotlight.
+test("a teacher's cursor reaches students only while Spotlight is on", async () => {
+  const teacher = await connect(school.people.teacher)
+  try {
+    const opened = await new Promise((resolve) => teacher.emit('board:open', board.id, {}, resolve))
+    assert.ok(Array.isArray(opened?.elements), JSON.stringify(opened))
+    const seen = []
+    const onCursor = (cursor) => seen.push(cursor)
+    student.on('board:cursor', onCursor)
+    const settle = () => new Promise((resolve) => setTimeout(resolve, 300))
+
+    teacher.emit('board:cursor', { x: 1, y: 1 })
+    await settle()
+    assert.equal(seen.length, 0, 'seen without Spotlight')
+
+    teacher.emit('board:spotlight', { on: true })
+    await settle()
+    teacher.emit('board:cursor', { x: 2, y: 2 })
+    await settle()
+    assert.equal(seen.at(-1)?.x, 2, 'not seen during Spotlight')
+
+    teacher.emit('board:spotlight', { on: false })
+    await settle()
+    assert.equal(seen.at(-1)?.gone, true, 'still shown after Spotlight')
+    const count = seen.length
+    teacher.emit('board:cursor', { x: 3, y: 3 })
+    await settle()
+    assert.equal(seen.length, count, 'seen again after Spotlight')
+
+    // A student's cursor still reaches the teacher.
+    const atTeacher = new Promise((resolve) => teacher.once('board:cursor', resolve))
+    student.emit('board:cursor', { x: 4, y: 4 })
+    assert.equal((await atTeacher).x, 4)
+    student.off('board:cursor', onCursor)
+  } finally {
+    teacher.close()
+  }
+})
