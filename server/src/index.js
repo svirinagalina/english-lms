@@ -34,7 +34,7 @@ import { diagRouter } from './routes/diag.js'
 import { serverError, droppedError } from './alerts.js'
 import { adventRouter } from './routes/advent.js'
 import { profileRouter } from './routes/profile.js'
-import { textbooksRouter } from './routes/textbooks.js'
+import { textbooksRouter, startTextbookUploadSweep } from './routes/textbooks.js'
 import { personalRouter } from './routes/personal.js'
 import { coursesRouter } from './routes/courses.js'
 import { toeflRouter } from './routes/toefl.js'
@@ -163,8 +163,8 @@ app.get('/api/version', (req, res) => res.json({ build: BUILD_ID }))
 
 const uploadDir = process.env.UPLOAD_DIR
   ?? path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../uploads')
-// Folders of the uploads volume that are never served: textbooks are
-// copyrighted (they go out only through /api/textbooks/:id/file), diagnostics
+// Folders of the uploads volume that are never served: textbooks and their
+// audio are copyrighted (they go out only through /api/textbooks), diagnostics
 // hold names, devices and camera thumbnails. The folder is judged on the path
 // as the file server will resolve it — /uploads//diag/… used to slip past a
 // plain '/uploads/diag' prefix.
@@ -173,7 +173,7 @@ const uploadDir = process.env.UPLOAD_DIR
 // holding an API token, as the Content tools do) gets one; to anyone else it
 // does not exist (Galina, 2026-10-21). The bare /uploads/ is left alone: a
 // monitor of Maxim's polls it.
-const PRIVATE_UPLOADS = new Set(['textbooks', 'diag'])
+const PRIVATE_UPLOADS = new Set(['textbooks', 'textbook-audio', 'textbook-incoming', 'diag'])
 app.use('/uploads', async (req, res, next) => {
   let folder
   try { folder = decodeURIComponent(req.path).split(/[\\/]+/).find((part) => part && part !== '.') } catch { return res.status(400).end() }
@@ -249,6 +249,7 @@ startArchiveJobs()
 startFreeCleanup()
 startSyncJobs()
 startWelcomeJobs()
+startTextbookUploadSweep()
 
 // The AI key saved from the Settings page, before the first request.
 loadAiSettings().catch((error) => console.error('Could not load AI settings:', error.message))

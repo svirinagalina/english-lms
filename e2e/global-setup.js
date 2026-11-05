@@ -40,7 +40,7 @@ export default async function globalSetup() {
     }
   })
 
-  const server = await startServer({ PORT: String(API_PORT), CLIENT_ORIGIN: `http://localhost:${WEB_PORT}` })
+  const server = await startServer({ PORT: String(API_PORT), CLIENT_ORIGIN: `http://localhost:${WEB_PORT}`, TEXTBOOK_DISK_RESERVE_BYTES: '1' })
   const ids = (obj) => Object.fromEntries(Object.entries(obj).map(([k, v]) => [k, { id: v.id, email: v.email, name: v.name }]))
   writeFileSync(new URL('./.seed.json', import.meta.url), JSON.stringify({
     password: PASSWORD,

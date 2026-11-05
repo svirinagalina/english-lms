@@ -16,7 +16,7 @@ const diag = mkdtempSync(path.join(tmpdir(), 'lms-security-diag-'))
 before(async () => {
   migrate()
   school = await seed()
-  for (const [dir, file] of [['diag', 'diag-2026-10.log'], ['textbooks', 'book.pdf'], ['boards', 'picture.png']]) {
+  for (const [dir, file] of [['diag', 'diag-2026-10.log'], ['textbooks', 'book.pdf'], ['textbook-audio', 'track.mp3'], ['textbook-incoming', 'half.part'], ['boards', 'picture.png']]) {
     mkdirSync(path.join(uploads, dir), { recursive: true })
     writeFileSync(path.join(uploads, dir, file), 'secret')
   }
@@ -36,7 +36,7 @@ test('diagnostic logs are not served, whatever the spelling of the path', async 
 })
 
 test('textbooks are not served from uploads, whatever the spelling of the path', async () => {
-  for (const url of ['/uploads/textbooks/book.pdf', '/uploads//textbooks/book.pdf', '/uploads/%74extbooks/book.pdf', '/uploads/./textbooks/book.pdf']) {
+  for (const url of ['/uploads/textbooks/book.pdf', '/uploads//textbooks/book.pdf', '/uploads/%74extbooks/book.pdf', '/uploads/./textbooks/book.pdf', '/uploads/textbook-audio/track.mp3', '/uploads//textbook-audio/track.mp3', '/uploads/textbook-incoming/half.part']) {
     const res = await fetch(server.base + url)
     assert.notEqual(await res.text(), 'secret', url)
   }

@@ -27,6 +27,7 @@ async function request(path, options = {}) {
   if (response.status === 403 && data.locked) window.dispatchEvent(new CustomEvent('trial-offer', { detail: { feature: data.feature ?? null } }))
   if (!response.ok) {
     const error = new Error(data.error ?? 'Request failed')
+    error.status = response.status
     error.locked = Boolean(data.locked)
     error.data = data
     throw error
@@ -172,12 +173,17 @@ export const api = {
   addBoardWords: (words, classroomId) => request('/vocab/board-words', { method: 'POST', body: { words, classroomId } }),
   activeCall: () => request('/calls/active'),
   textbooks: () => request('/textbooks'),
-  uploadTextbook: async (file, title, pages) => {
-    const response = await fetch(`/api/textbooks?title=${encodeURIComponent(title)}&pages=${pages ?? ''}`, { method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/pdf' }, body: file })
+  // A file goes up in pieces: see uploadInChunks in utils/upload.js.
+  startTextbookUpload: (body) => request('/textbooks/uploads', { method: 'POST', body }),
+  textbookUploadStatus: (id) => request(`/textbooks/uploads/${id}`),
+  sendTextbookChunk: async (id, offset, piece, signal) => {
+    const response = await fetch(`/api/textbooks/uploads/${id}?offset=${offset}`, { method: 'PUT', credentials: 'include', headers: { 'Content-Type': 'application/octet-stream' }, body: piece, signal })
     const data = await response.json().catch(() => ({}))
-    if (!response.ok) throw new Error(data.error ?? 'Upload failed')
+    if (!response.ok) throw Object.assign(new Error(data.error ?? 'Upload failed'), { status: response.status })
     return data
   },
+  finishTextbookUpload: (id) => request(`/textbooks/uploads/${id}/finish`, { method: 'POST' }),
+  cancelTextbookUpload: (id) => request(`/textbooks/uploads/${id}`, { method: 'DELETE' }),
   renameTextbook: (id, title) => request(`/textbooks/${id}`, { method: 'PATCH', body: { title } }),
   deleteTextbook: (id) => request(`/textbooks/${id}`, { method: 'DELETE' }),
   textbookFileUrl: (id) => `/api/textbooks/${id}/file`,
@@ -337,12 +343,6 @@ export const api = {
 
   // Audio tracks attached to a textbook (e.g. listening-test recordings).
   textbookAudio: (id) => request(`/textbooks/${id}/audio`),
-  uploadTextbookAudio: async (id, file, title) => {
-    const response = await fetch(`/api/textbooks/${id}/audio?title=${encodeURIComponent(title)}`, { method: 'POST', credentials: 'include', headers: { 'Content-Type': file.type || 'audio/mpeg' }, body: file })
-    const data = await response.json().catch(() => ({}))
-    if (!response.ok) throw new Error(data.error ?? 'Upload failed')
-    return data
-  },
   deleteTextbookAudio: (id, audioId) => request(`/textbooks/${id}/audio/${audioId}`, { method: 'DELETE' }),
   textbookAudioFileUrl: (id, audioId) => `/api/textbooks/${id}/audio/${audioId}/file`
 }

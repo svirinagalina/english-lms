@@ -3,6 +3,10 @@
 # images, kept for 30 days under /opt/srv3/backups. Installed by
 # deploy/install-backup.sh; run by root's cron at 03:30 server time.
 #
+# Textbooks and their audio stay out of the nightly archive: they are hundreds
+# of megabytes that never change, and a copy of them every night would fill the
+# disk in days. backup-library.sh copies each of those files to Wasabi once.
+#
 # Each file is written under a .part name, checked, and only then renamed to
 # its final name — a failed pg_dump (pipefail) or a broken archive never
 # leaves something that looks like a good backup. A failure exits non-zero
@@ -22,7 +26,8 @@ gunzip -c "$DB.part" | tail -n 5 | grep -q 'PostgreSQL database dump complete'
 mv "$DB.part" "$DB"
 
 docker run --rm -v srv3_lms_uploads:/uploads:ro -v "$DIR":/backup alpine \
-  tar czf "/backup/uploads_$STAMP.tar.gz.part" -C /uploads .
+  tar czf "/backup/uploads_$STAMP.tar.gz.part" -C /uploads \
+    --exclude=./textbooks --exclude=./textbook-audio --exclude=./textbook-incoming .
 gzip -t "$UP.part"
 mv "$UP.part" "$UP"
 

@@ -20,10 +20,26 @@ export function openPdf(url) {
   return open.get(url)
 }
 
-export async function pdfPageCount(source) {
+// A file on this computer is read a bit at a time, never whole: a book can be
+// hundreds of megabytes, too much to hold in memory on a tablet.
+async function pagesInFile(file) {
   const pdfjs = await lib()
-  const doc = await (source instanceof ArrayBuffer ? pdfjs.getDocument({ data: source }).promise : openPdf(source))
-  return doc.numPages
+  const start = new Uint8Array(await file.slice(0, 65536).arrayBuffer())
+  const reader = new pdfjs.PDFDataRangeTransport(file.size, start)
+  reader.requestDataRange = (begin, end) => {
+    file.slice(begin, end).arrayBuffer().then((bytes) => reader.onDataRange(begin, new Uint8Array(bytes)))
+  }
+  const task = pdfjs.getDocument({ range: reader, disableAutoFetch: true, disableStream: true })
+  try {
+    return (await task.promise).numPages
+  } finally {
+    task.destroy()
+  }
+}
+
+export async function pdfPageCount(source) {
+  if (source instanceof Blob) return pagesInFile(source)
+  return (await openPdf(source)).numPages
 }
 
 // A page as a JPEG data URL, `width` pixels wide (a board page at ~1400 px
