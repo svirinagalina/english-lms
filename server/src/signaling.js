@@ -19,6 +19,7 @@ import { trialCallEnded } from './trialReport.js'
 import { sfuEnabled, sfuJoin, sfuKick } from './sfu.js'
 import { notifyHomeworkLater, notifyAfterLessonLater } from './push.js'
 import { isUnpaidLead } from './trialCalls.js'
+import { attachPolls, pollFor, forgetPoll } from './polls.js'
 
 // A call that resumes within this window continues the previous session rather
 // than counting as a second lesson — reconnects should not inflate the count.
@@ -175,6 +176,7 @@ export function setupSignaling(io) {
       if (idle.length) {
         await prisma.call.updateMany({ where: { id: { in: idle }, endedAt: null }, data: { endedAt: new Date() } })
         for (const id of idle) { callLastSeen.delete(id); adventCallEnded(id).catch(() => {}); trialCallEnded(id).catch(() => {}) }
+        for (const call of open) if (idle.includes(call.id)) forgetPoll(`call:${call.token}`)
         console.log(`Closed ${idle.length} idle call(s)`)
       }
       // Scratch boards belong to one call each; a restart can orphan them.
@@ -231,7 +233,7 @@ export function setupSignaling(io) {
     next(new Error('Not authenticated'))
   })
 
-const PARTNER_BLOCKED_EVENTS = new Set(['call:start', 'drawing', 'board:add', 'board:update', 'board:delete', 'board:clear', 'doc:update', 'doc:tab:add', 'doc:tab:delete', 'doc:tab:rename'])
+const PARTNER_BLOCKED_EVENTS = new Set(['call:start', 'drawing', 'board:add', 'board:update', 'board:delete', 'board:clear', 'doc:update', 'doc:tab:add', 'doc:tab:delete', 'doc:tab:rename', 'poll:start', 'poll:close', 'poll:clear'])
 
   io.on('connection', (socket) => {
     const user = socket.data.user
@@ -380,7 +382,7 @@ const PARTNER_BLOCKED_EVENTS = new Set(['call:start', 'drawing', 'board:add', 'b
       const docId = roomDoc && await accessibleClassroom(user, roomDoc) ? roomDoc : null
       const scratchId = !call.classroom && call.board?.scratch ? call.boardId : null
       const boardId = lead ? roomBoards.get(roomId) ?? scratchId : scratchId
-      if (typeof ack === 'function') ack({ peers, sfu, name: socket.data.name, boardId, docId })
+      if (typeof ack === 'function') ack({ peers, sfu, name: socket.data.name, boardId, docId, poll: pollFor(roomId, user) })
     })
 
     socket.on('call:start', async (ack) => {
@@ -444,6 +446,8 @@ const PARTNER_BLOCKED_EVENTS = new Set(['call:start', 'drawing', 'board:add', 'b
       if (!room || !REACTIONS.has(emoji)) return
       io.to(room).emit('reaction', { from: socket.id, name: socket.data.name, emoji, at: Date.now() })
     })
+
+    attachPolls(io, socket)
 
     // Pointer strokes over a shared screen, for everyone else in the room.
     socket.on('drawing', (stroke) => {
@@ -796,6 +800,7 @@ const PARTNER_BLOCKED_EVENTS = new Set(['call:start', 'drawing', 'board:add', 'b
           }
           roomBoards.delete(roomId)
           roomDocs.delete(roomId)
+          forgetPoll(roomId)
         }, 15 * 60 * 1000)
       }
     })

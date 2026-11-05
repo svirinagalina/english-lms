@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { Link, Navigate, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { io } from 'socket.io-client'
 import { useAuth } from '../AuthContext'
@@ -7,6 +7,7 @@ import MicCheck from '../components/MicCheck'
 import VideoGrid from '../components/VideoGrid'
 import Controls from '../components/Controls'
 import Reactions from '../components/Reactions'
+import Poll from '../components/Poll'
 import Whiteboard from '../components/Whiteboard'
 import Writing from '../components/Writing'
 import { videoProcessor } from '../utils/videoProcessor'
@@ -580,10 +581,16 @@ export default function Call() {
   const [unread, setUnread] = useState(0)
   const chatOpenRef = useRef(false)
   chatOpenRef.current = chatOpen
+  // The call's poll (see Poll.jsx); `voted` is only ever known about oneself.
+  const [poll, setPoll] = useState(null)
+  const [pollComposing, setPollComposing] = useState(false)
+  const closePollForm = useCallback(() => setPollComposing(false), [])
   const [boardId, setBoardId] = useState(null)
   const isStaff = user && user.role !== 'STUDENT'
   // A subscriber hosting their own call (Calls plan): link and board, not the teacher's tools.
   const isHost = Boolean(call?.isHost)
+  // A partner only looks, so they follow a poll without running one.
+  const canRunPoll = isStaff && user.role !== 'PARTNER'
   const isStaffRef = useRef(isStaff)
   // Questions on the board need the AI assistant to be configured.
   const [assistEnabled, setAssistEnabled] = useState(false)
@@ -990,6 +997,9 @@ export default function Call() {
         setMessages((prev) => [...prev.slice(-200), { ...message, mine: message.from === socket.id }])
         if (!chatOpenRef.current) setUnread((n) => n + 1)
       })
+      socket.on('poll:state', (next) => {
+        setPoll((prev) => next && { ...next, voted: prev?.id === next.id && Boolean(prev.voted) })
+      })
       socket.on('drawing', ({ x0, y0, x1, y1, color }) => {
         const canvas = drawingCanvasRef.current
         if (!canvas) return
@@ -1028,6 +1038,7 @@ export default function Call() {
           if (response.boardId && !isMobile()) setBoardId(response.boardId)
           if (response.docId && !isMobile()) setWritingId(response.docId)
           sfuModeRef.current = Boolean(response.sfu)
+          setPoll(response.poll ?? null)
           for (const peer of response.peers) {
             setPeers((prev) => ({ ...prev, [peer.id]: { name: peer.name, stream: prev[peer.id]?.stream ?? null, muted: Boolean(peer.muted), denoised: peer.denoised, sharing: Boolean(peer.sharing), userId: peer.userId } }))
             if (response.sfu) continue
@@ -2180,6 +2191,16 @@ export default function Call() {
         />
       </div>
 
+      <Poll
+        socketRef={socketRef}
+        poll={poll}
+        onVoted={(id) => setPoll((p) => (p?.id === id ? { ...p, voted: true } : p))}
+        isStaff={isStaff}
+        canRun={canRunPoll}
+        composing={pollComposing}
+        onCloseComposer={closePollForm}
+      />
+
       {chatOpen && (
         <CallChat messages={messages} onSend={sendChat} onClose={toggleChat} />
       )}
@@ -2189,6 +2210,9 @@ export default function Call() {
         camMicRef={camMicApart ? camMicRef : null}
         compact={Boolean(boardId || writingId) || narrow}
         onReact={(emoji) => socketRef.current?.emit('reaction', { emoji })}
+        onPoll={canRunPoll ? () => setPollComposing((v) => !v) : undefined}
+        pollActive={pollComposing || Boolean(poll?.open)}
+        pollRunning={Boolean(poll?.open)}
         onSticker={boardId && !writingId ? (sticker) => boardRef.current?.addSticker(sticker) : undefined}
         onToggleCamera={toggleTrack('video')}
         onToggleMicrophone={toggleTrack('audio')}

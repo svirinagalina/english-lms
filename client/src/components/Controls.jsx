@@ -59,7 +59,11 @@ const Controls = forwardRef(function Controls({
   // camera tiles, placed by Call.jsx) instead of sitting in this row.
   camMicRef = null,
   onReact,
-  onSticker
+  onSticker,
+  // Staff only: opens the poll form. A running poll is ended from its own card.
+  onPoll,
+  pollActive = false,
+  pollRunning = false
 }, ref) {
   const boards = [...new Map(rawBoards.map((b) => [b.id, b])).values()]
   const phoneVideo = phone && !boardId && !writingId
@@ -211,6 +215,16 @@ const Controls = forwardRef(function Controls({
         ) : writing
       )}
       {!compact && tools}
+      {onPoll && (
+        <button
+          className={`round ${pollActive ? 'on' : ''}`}
+          onClick={onPoll}
+          disabled={pollRunning}
+          title={pollRunning ? 'A poll is running: end it on its card' : 'Ask the students an anonymous question'}
+        >
+          Poll
+        </button>
+      )}
       <div className="more-wrap" ref={moreRef}>
         <button className={`round ${moreOpen ? 'on' : ''}`} onClick={() => setMoreOpen((v) => !v)} title={compact ? 'Screen, board, chat, blur, invite link' : 'Blur, invite link'}>
           More{compact && unread > 0 && !chatOpen ? ` (${unread})` : moreActive && !moreOpen ? ' •' : ''}
