@@ -114,6 +114,13 @@ test('Cancel stops an upload and leaves nothing behind', async ({ page }) => {
   await expect.poll(() => prisma.textbook.count({ where: { title: 'Changed my mind' } })).toBe(0)
 })
 
+test('a PDF too damaged to count its pages still goes up, without a page error', async ({ page }) => {
+  const panel = await openTextbooks(page)
+  await panel.locator('input[type=file]').first().setInputFiles({ name: 'Damaged.pdf', mimeType: 'application/pdf', buffer: Buffer.concat([Buffer.from('%PDF-1.4\n'), Buffer.alloc(2000, 'z')]) })
+  await expect(panel.locator('.row', { hasText: 'Damaged' })).toContainText('KB')
+  await expect(panel.locator('.row', { hasText: 'Damaged' })).not.toContainText('pages')
+})
+
 test('a wrong file gets a clear answer before anything is sent', async ({ page }) => {
   const panel = await openTextbooks(page)
   const row = panel.locator('.row', { hasText: 'Big book' })

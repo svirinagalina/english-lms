@@ -1,12 +1,14 @@
 // PDF pages as pictures, rendered in the browser with pdf.js. A textbook is
 // opened once per session and its pages drawn on demand.
-import workerUrl from 'pdfjs-dist/build/pdf.worker.min.mjs?url'
+// The legacy build: the plain one needs this year's browsers (Math.sumPrecise,
+// Map.getOrInsertComputed) and simply fails on an older iPad or Chrome.
+import workerUrl from 'pdfjs-dist/legacy/build/pdf.worker.min.mjs?url'
 
 // pdf.js is half a megabyte: it loads the first time a textbook is touched.
 let libPromise = null
 function lib() {
   if (!libPromise) {
-    libPromise = import('pdfjs-dist').then((pdfjs) => { pdfjs.GlobalWorkerOptions.workerSrc = workerUrl; return pdfjs })
+    libPromise = import('pdfjs-dist/legacy/build/pdf.mjs').then((pdfjs) => { pdfjs.GlobalWorkerOptions.workerSrc = workerUrl; return pdfjs })
   }
   return libPromise
 }
@@ -30,8 +32,10 @@ async function pagesInFile(file) {
     file.slice(begin, end).arrayBuffer().then((bytes) => reader.onDataRange(begin, new Uint8Array(bytes)))
   }
   const task = pdfjs.getDocument({ range: reader, disableAutoFetch: true, disableStream: true })
+  // The count is a nicety: it must never hold the upload back.
+  const tooSlow = new Promise((_, reject) => { setTimeout(() => reject(new Error('The PDF took too long to read')), 15_000) })
   try {
-    return (await task.promise).numPages
+    return (await Promise.race([task.promise, tooSlow])).numPages
   } finally {
     task.destroy()
   }
