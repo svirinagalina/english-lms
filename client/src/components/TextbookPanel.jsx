@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { api } from '../api'
 import { renderPdfPage, pdfPageCount } from '../utils/pdf'
+import { uploadInChunks } from '../utils/upload'
 
 // On the board: pick a textbook, see its pages, put one on the board as a
 // picture — then draw and write on it with the usual tools.
@@ -25,8 +26,8 @@ export default function TextbookPanel({ onInsert, onClose }) {
     setUploading(file.name)
     try {
       let pages = null
-      try { pages = await pdfPageCount(await file.arrayBuffer()) } catch { /* the count is a nicety */ }
-      const { textbook } = await api.uploadTextbook(file, file.name.replace(/\.pdf$/i, ''), pages)
+      try { pages = await pdfPageCount(file) } catch { /* the count is a nicety */ }
+      const { textbook } = await uploadInChunks(file, { kind: 'pdf', title: file.name.replace(/\.pdf$/i, ''), pages })
       const { textbooks } = await api.textbooks()
       setBooks(textbooks)
       setBookId(textbook.id)

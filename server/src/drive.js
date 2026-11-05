@@ -20,7 +20,7 @@ const UPLOAD_ROOT = process.env.UPLOAD_DIR ?? path.resolve(path.dirname(fileURLT
 const TOKEN_URL = 'https://oauth2.googleapis.com/token'
 const FILES_URL = 'https://www.googleapis.com/drive/v3/files'
 const UPLOAD_URL = 'https://www.googleapis.com/upload/drive/v3/files?uploadType=resumable&fields=id'
-const MIME_BY_EXT = { pdf: 'application/pdf', mp3: 'audio/mpeg', wav: 'audio/wav', m4a: 'audio/mp4', aac: 'audio/aac', ogg: 'audio/ogg' }
+const MIME_BY_EXT = { pdf: 'application/pdf', mp3: 'audio/mpeg', wav: 'audio/wav', m4a: 'audio/mp4', aac: 'audio/aac', ogg: 'audio/ogg', flac: 'audio/flac' }
 const RETRY_EVERY_MS = 10 * 60_000
 
 let fetchImpl = (...args) => fetch(...args)
@@ -100,7 +100,7 @@ export async function trashInDrive(fileId) {
 }
 
 // One pass over everything not yet copied: textbooks, then audio tracks.
-// Stops at the first failure, so a Drive outage does not hammer it with requests.
+// Stops at the first Drive failure, so an outage does not hammer it with requests.
 let running = null
 export function syncToDrive() {
   if (!driveConfigured()) return Promise.resolve(0)
@@ -128,7 +128,8 @@ async function runSync() {
       copied++
     } catch (err) {
       console.error(`[drive] ${job.table} ${job.row.id} not copied: ${err.message}`)
-      break
+      // A file missing from the disk must not hold up the rest of the queue.
+      if (err.code !== 'ENOENT') break
     }
   }
   return copied
