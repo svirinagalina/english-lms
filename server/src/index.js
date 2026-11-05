@@ -35,6 +35,7 @@ import { serverError, droppedError } from './alerts.js'
 import { adventRouter } from './routes/advent.js'
 import { profileRouter } from './routes/profile.js'
 import { textbooksRouter } from './routes/textbooks.js'
+import { startDriveSync } from './drive.js'
 import { personalRouter } from './routes/personal.js'
 import { coursesRouter } from './routes/courses.js'
 import { toeflRouter } from './routes/toefl.js'
@@ -269,6 +270,7 @@ const port = process.env.PORT ?? 4000
 httpServer.listen(port, () => {
   console.log(`LMS server running on http://localhost:${port}`)
 })
+startDriveSync() // no-op unless GOOGLE_DRIVE_* are set
 
 // A deploy stops the container with SIGTERM: write out the boards and
 // documents that are still waiting for their debounced save, then leave.

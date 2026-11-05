@@ -7,6 +7,7 @@ import { randomBytes } from 'crypto'
 import { fileURLToPath } from 'url'
 import { prisma } from '../db.js'
 import { requireAuth, requireRole, isAdmin, requirePaid } from '../auth.js'
+import { driveConfigured, syncToDrive, removeFromDrive } from '../drive.js'
 
 // Textbooks: PDFs a teacher uploads once and opens on a board during lessons.
 // The files are copyrighted material, so they are never served as plain
@@ -24,8 +25,10 @@ const MAX_AUDIO_BYTES = 150 * 1024 * 1024
 const AUDIO_EXT = { 'audio/mpeg': 'mp3', 'audio/mp3': 'mp3', 'audio/wav': 'wav', 'audio/x-wav': 'wav', 'audio/mp4': 'm4a', 'audio/x-m4a': 'm4a', 'audio/aac': 'aac', 'audio/ogg': 'ogg' }
 const CONTENT_TYPE_BY_EXT = { mp3: 'audio/mpeg', wav: 'audio/wav', m4a: 'audio/mp4', aac: 'audio/aac', ogg: 'audio/ogg' }
 
-const view = (t, uploader) => ({ id: t.id, title: t.title, bytes: t.bytes, pages: t.pages, createdAt: t.createdAt, uploadedById: t.uploadedById, uploadedBy: uploader?.name ?? null })
-const audioView = (a) => ({ id: a.id, title: a.title, bytes: a.bytes, position: a.position, createdAt: a.createdAt })
+const view = (t, uploader) => ({ id: t.id, title: t.title, bytes: t.bytes, pages: t.pages, createdAt: t.createdAt, uploadedById: t.uploadedById, uploadedBy: uploader?.name ?? null, inDrive: Boolean(t.driveFileId) })
+const audioView = (a) => ({ id: a.id, title: a.title, bytes: a.bytes, position: a.position, createdAt: a.createdAt, inDrive: Boolean(a.driveFileId) })
+// Copies go to Google Drive in the background (drive.js); a failure never fails the upload.
+const mirrorSoon = () => { syncToDrive().catch((err) => console.error(`[drive] ${err.message}`)) }
 
 // Each teacher keeps their own books; the administrator sees every book of
 // the school with the teacher's name, and may delete any of them.
@@ -37,7 +40,7 @@ textbooksRouter.get('/', async (req, res) => {
   const ids = [...new Set(textbooks.map((t) => t.uploadedById).filter(Boolean))]
   const people = ids.length ? await prisma.user.findMany({ where: { id: { in: ids } }, select: { id: true, name: true } }) : []
   const byId = Object.fromEntries(people.map((p) => [p.id, p]))
-  res.json({ textbooks: textbooks.map((t) => view(t, byId[t.uploadedById])) })
+  res.json({ textbooks: textbooks.map((t) => view(t, byId[t.uploadedById])), drive: driveConfigured() })
 })
 
 // The PDF itself, as raw bytes: ?title=…&pages=… carry the name and page count.
@@ -54,6 +57,7 @@ textbooksRouter.post('/', requireRole('OWNER', 'TEACHER'), express.raw({ type: '
   const textbook = await prisma.textbook.create({
     data: { title, file: `textbooks/${fileName}`, bytes: bytes.length, pages: Number.isFinite(pages) ? pages : null, schoolId: req.user.schoolId, uploadedById: req.user.id }
   })
+  mirrorSoon()
   res.status(201).json({ textbook: view(textbook) })
 })
 
@@ -82,8 +86,10 @@ textbooksRouter.get('/:id/file', async (req, res) => {
 textbooksRouter.delete('/:id', requireRole('OWNER', 'TEACHER'), async (req, res) => {
   const textbook = await prisma.textbook.findFirst({ where: { id: req.params.id, schoolId: req.user.schoolId } })
   if (!textbook || !mayManage(req.user, textbook)) return res.status(404).json({ error: 'Textbook not found' })
+  const tracks = await prisma.textbookAudio.findMany({ where: { textbookId: textbook.id }, select: { driveFileId: true } })
   await prisma.textbook.delete({ where: { id: textbook.id } })
   unlink(path.join(UPLOAD_ROOT, textbook.file)).catch(() => {})
+  for (const id of [textbook.driveFileId, ...tracks.map((t) => t.driveFileId)]) removeFromDrive(id)
   res.json({ ok: true })
 })
 
@@ -113,6 +119,7 @@ textbooksRouter.post('/:id/audio', requireRole('OWNER', 'TEACHER'), express.raw(
   const track = await prisma.textbookAudio.create({
     data: { title, file: `textbook-audio/${fileName}`, bytes: bytes.length, position: count, textbookId: textbook.id }
   })
+  mirrorSoon()
   res.status(201).json({ audio: audioView(track) })
 })
 
@@ -140,5 +147,6 @@ textbooksRouter.delete('/:id/audio/:audioId', requireRole('OWNER', 'TEACHER'), a
   if (!track) return res.status(404).json({ error: 'Track not found' })
   await prisma.textbookAudio.delete({ where: { id: track.id } })
   unlink(path.join(UPLOAD_ROOT, track.file)).catch(() => {})
+  removeFromDrive(track.driveFileId)
   res.json({ ok: true })
 })
