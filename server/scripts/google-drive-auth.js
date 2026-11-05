@@ -1,15 +1,27 @@
-// One-time setup: gets the refresh token the LMS uses to write to Google Drive.
-//   GOOGLE_DRIVE_CLIENT_ID=… GOOGLE_DRIVE_CLIENT_SECRET=… node scripts/google-drive-auth.js
-// Open the printed link, sign in with the Google account that owns the Drive
-// folder, and copy the GOOGLE_DRIVE_REFRESH_TOKEN line into server/.env.
+// One-time setup: gets the refresh token the LMS uses to write to Google Drive,
+// and creates the Drive folder for the copies.
+//   node scripts/google-drive-auth.js ~/Downloads/client_secret_….json
+// Open the printed link and sign in with the Google account whose Drive to use.
+// All four GOOGLE_DRIVE_* lines land in lms-drive.env next to the JSON file, so
+// no secret is printed to the terminal. The folder has to be created here: the
+// drive.file scope cannot see a folder made by hand in Drive.
+import fs from 'fs'
 import http from 'http'
+import path from 'path'
 
-const id = process.env.GOOGLE_DRIVE_CLIENT_ID
-const secret = process.env.GOOGLE_DRIVE_CLIENT_SECRET
-if (!id || !secret) {
-  console.error('Set GOOGLE_DRIVE_CLIENT_ID and GOOGLE_DRIVE_CLIENT_SECRET first.')
+const clientFile = process.argv[2]
+if (!clientFile) {
+  console.error('Usage: node scripts/google-drive-auth.js <client_secret JSON from Google Cloud>')
   process.exit(1)
 }
+const { web } = JSON.parse(fs.readFileSync(clientFile, 'utf8'))
+const id = web?.client_id
+const secret = web?.client_secret
+if (!id || !secret) {
+  console.error('This is not a Web application client file.')
+  process.exit(1)
+}
+const envFile = path.join(path.dirname(path.resolve(clientFile)), 'lms-drive.env')
 const redirect = 'http://localhost:53682/callback'
 const link = 'https://accounts.google.com/o/oauth2/v2/auth?' + new URLSearchParams({
   client_id: id,
@@ -22,6 +34,7 @@ const link = 'https://accounts.google.com/o/oauth2/v2/auth?' + new URLSearchPara
 console.log('\nOpen this link and sign in with the Google account that owns the Drive:\n\n' + link + '\n')
 
 const server = http.createServer(async (req, res) => {
+  res.setHeader('Content-Type', 'text/plain; charset=utf-8')
   const url = new URL(req.url, redirect)
   if (url.pathname !== '/callback') { res.writeHead(404).end(); return }
   const code = url.searchParams.get('code')
@@ -38,10 +51,22 @@ const server = http.createServer(async (req, res) => {
   }).then((r) => r.json())
   if (!tokens.refresh_token) {
     res.end('Refresh token не пришёл. Попробуйте ещё раз.')
-    console.error('No refresh token in the answer:', tokens.error ?? tokens)
+    console.error('No refresh token in the answer:', tokens.error ?? 'unknown')
   } else {
-    res.end('Готово, можно закрыть вкладку. Токен — в терминале.')
-    console.log('Add this line to server/.env:\n\nGOOGLE_DRIVE_REFRESH_TOKEN=' + tokens.refresh_token + '\n')
+    const folder = await fetch('https://www.googleapis.com/drive/v3/files?fields=id', {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${tokens.access_token}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: 'English LMS', mimeType: 'application/vnd.google-apps.folder' })
+    }).then((r) => r.json())
+    if (folder.id) {
+      const lines = [`GOOGLE_DRIVE_CLIENT_ID=${id}`, `GOOGLE_DRIVE_CLIENT_SECRET=${secret}`, `GOOGLE_DRIVE_REFRESH_TOKEN=${tokens.refresh_token}`, `GOOGLE_DRIVE_FOLDER_ID=${folder.id}`]
+      fs.writeFileSync(envFile, lines.join('\n') + '\n', { mode: 0o600 })
+      res.end('Готово, можно закрыть вкладку.')
+      console.log('Saved to ' + envFile)
+    } else {
+      res.end('Доступ получен, но папка не создалась. Смотрите терминал.')
+      console.error('Folder not created:', folder.error ?? 'unknown')
+    }
   }
   server.close()
 })

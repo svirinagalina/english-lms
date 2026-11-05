@@ -7,9 +7,9 @@
 // that someone drops into the Drive folder by hand are not imported.
 //
 // Config (server/.env): GOOGLE_DRIVE_CLIENT_ID, GOOGLE_DRIVE_CLIENT_SECRET,
-// GOOGLE_DRIVE_REFRESH_TOKEN (from scripts/google-drive-auth.js) and
-// GOOGLE_DRIVE_FOLDER_ID (the folder's id from its Drive link). Without them
-// nothing here runs. The scope is drive.file: the app sees only the files it
+// GOOGLE_DRIVE_REFRESH_TOKEN and GOOGLE_DRIVE_FOLDER_ID (both printed by
+// scripts/google-drive-auth.js, which creates the folder). Without them nothing
+// here runs. The scope is drive.file: the app sees only the files and folders it
 // created itself, not the rest of the Drive.
 import path from 'path'
 import { openAsBlob } from 'fs'
