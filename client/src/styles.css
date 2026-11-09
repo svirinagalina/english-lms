@@ -2021,3 +2021,26 @@ div.answer-key { margin-top: 4px; }
 .poll-result-number { flex: none; font-weight: 600; font-variant-numeric: tabular-nums; }
 .poll-bar { height: 8px; border-radius: 4px; background: rgba(252, 251, 246, 0.14); overflow: hidden; }
 .poll-bar > div { height: 100%; border-radius: 4px; background: var(--accent); }
+
+/* Finance (/finance): totals, sales, advertising. */
+.finance-bar { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; margin: 4px 0 14px; }
+.finance-bar select { width: auto; min-width: 180px; }
+.finance-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; margin-bottom: 4px; }
+.finance-card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 12px 14px; display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.finance-card span { font-size: 12px; color: var(--muted); text-transform: uppercase; letter-spacing: .05em; }
+.finance-card strong { font-size: 20px; font-variant-numeric: tabular-nums; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.finance-card.main { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
+.finance-card.main span { color: var(--accent-ink); opacity: .75; }
+.finance-card.minus strong { color: var(--danger); }
+.finance-scroll { overflow-x: auto; }
+.finance-table { width: 100%; border-collapse: collapse; font-size: 14px; }
+.finance-table th { text-align: left; font-weight: 600; font-size: 12px; color: var(--muted); padding: 6px 10px 6px 0; white-space: nowrap; }
+.finance-table td { padding: 8px 10px 8px 0; border-top: 1px solid var(--border); vertical-align: top; font-variant-numeric: tabular-nums; }
+.finance-table td .muted { font-size: 12px; margin-top: 2px; }
+.finance-minus { color: #ffb4ad; white-space: nowrap; }
+.finance-actions { white-space: nowrap; text-align: right; }
+.finance-actions button { padding: 4px 10px; }
+.finance-form { display: flex; flex-wrap: wrap; gap: 10px; align-items: flex-end; margin-bottom: 12px; }
+.finance-form label { display: flex; flex-direction: column; gap: 4px; font-size: 12px; color: var(--muted); flex: 1 1 130px; min-width: 0; }
+.finance-form label.wide { flex: 2 1 220px; }
+.finance-form-buttons { display: flex; gap: 8px; }

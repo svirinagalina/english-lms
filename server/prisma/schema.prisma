@@ -1169,3 +1169,47 @@ model SleepStory {
 
   @@index([schoolId])
 }
+
+// Finance (Galina, 2026-10-30): one row per package sold to a student from
+// the landing (Maxim's site) — written by itself when such a student pays
+// (finance.js → recordLandingSale), or added by hand. The teacher's rate and
+// the tax rate are kept on the row as they were, so a later change of the
+// settings does not rewrite the past. Amounts in kopecks.
+model FinanceIncome {
+  id               String   @id @default(cuid())
+  schoolId         String
+  studentId        String?
+  studentName      String
+  paidAt           DateTime
+  lessons          Int
+  amountRub        Int
+  // What the student paid in; amountOriginal is in that currency's minor units.
+  currency         String   @default("RUB")
+  amountOriginal   Int?
+  // "npd" (Russia, paid in roubles) or "es" (Spain, paid in euros): a share
+  // of the whole amount either way.
+  tax              String
+  taxRate          Float
+  teacherPerLesson Int
+  // seed | stripe | advent | package | manual
+  source           String
+  sourceId         String?  @unique
+  note             String?
+  createdAt        DateTime @default(now())
+
+  @@index([schoolId, paidAt])
+}
+
+// Money spent — on advertising, as a rule. Kopecks.
+model FinanceExpense {
+  id        String   @id @default(cuid())
+  schoolId  String
+  spentAt   DateTime
+  amountRub Int
+  category  String   @default("ads")
+  note      String?
+  byUserId  String?
+  createdAt DateTime @default(now())
+
+  @@index([schoolId, spentAt])
+}

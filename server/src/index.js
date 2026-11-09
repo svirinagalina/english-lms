@@ -22,6 +22,7 @@ import { billingRouter } from './routes/billing.js'
 import { unitsRouter } from './routes/units.js'
 import { vocabRouter } from './routes/vocab.js'
 import { statsRouter } from './routes/stats.js'
+import { financeRouter } from './routes/finance.js'
 import { callsRouter } from './routes/calls.js'
 import { assistRouter } from './routes/assist.js'
 import { contentRouter } from './routes/content.js'
@@ -119,6 +120,7 @@ app.use('/api/billing', billingRouter)
 app.use('/api/units', unitsRouter)
 app.use('/api/vocab', vocabRouter)
 app.use('/api/stats', statsRouter)
+app.use('/api/finance', financeRouter)
 app.use('/api/calls', callsRouter)
 app.use('/api/assist', assistRouter)
 app.use('/api/content', contentRouter)

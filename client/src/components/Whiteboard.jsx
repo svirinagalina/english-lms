@@ -2209,6 +2209,22 @@ const Whiteboard = forwardRef(function Whiteboard({ socketRef, boardId, title, s
         return
       }
 
+      // Arrow keys nudge the selected elements: 1 screen px per press, 10 with
+      // Shift. Each press is one undo step, and it saves like a drag does.
+      const arrow = { ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, -1], ArrowDown: [0, 1] }[event.key]
+      if (arrow && selectedRef.current.length && !event.metaKey && !event.ctrlKey && !event.altKey) {
+        event.preventDefault()
+        const step = (event.shiftKey ? 10 : 1) / (viewRef.current.scale || 1)
+        const originals = selectedElements().map((item) => structuredClone(item))
+        const ids = new Set(selectedRef.current)
+        elementsRef.current = elementsRef.current.map((item) => (ids.has(item.id) ? moveElement(item, arrow[0] * step, arrow[1] * step) : item))
+        for (const element of elementsRef.current) if (ids.has(element.id)) emit('board:update', element)
+        recordUpdates(originals)
+        scheduleRender()
+        bump()
+        return
+      }
+
       if ((event.key === 'Delete' || event.key === 'Backspace') && selectedRef.current.length) {
         event.preventDefault()
         remove(selectedRef.current)

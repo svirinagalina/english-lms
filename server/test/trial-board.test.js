@@ -51,3 +51,13 @@ test('a board that is not this student\'s is not used for their trial', async ()
   // The teacher cannot reach that board at all.
   assert.equal(res.status, 404)
 })
+
+test('pressing Trial lesson again carries on the open trial instead of failing', async () => {
+  await prisma.call.updateMany({ data: { endedAt: new Date() } })
+  const first = await teacher.post('/api/trials', { classroomId: school.rooms.student.id })
+  assert.equal(first.status, 201, JSON.stringify(first.body))
+  const again = await teacher.post('/api/trials', { classroomId: school.rooms.student.id })
+  assert.equal(again.status, 200, JSON.stringify(again.body))
+  assert.equal(again.body.call.id, first.body.call.id)
+  assert.equal(again.body.reportId, first.body.reportId)
+})

@@ -115,6 +115,19 @@ async function noticeToTeacher(lesson, teacher) {
   return once(`book:t:${lesson.id}:${lesson.teacherId}`, () => sendTo(teacher, text, [[{ text: 'Подтверждаю', data: `c:${lesson.id}` }], ...openButton(lesson)]))
 }
 
+// The partner (Maxim) hears of every new trial booked on his site (Galina,
+// 2026-10-23) — who, when, with whom; nothing about the platform's own bookings.
+async function noticeToPartners(lesson, teacher) {
+  if (lesson.kind !== 'trial' || !fromAdvent(lesson) || !teacher) return
+  const partners = await prisma.user.findMany({ where: { schoolId: teacher.schoolId, role: 'PARTNER', telegramChatId: { not: null } }, select: PERSON })
+  const who = [esc(lesson.studentName ?? 'ученик'), lesson.studentTelegram ? esc(lesson.studentTelegram) : null].filter(Boolean).join(', ')
+  const text = `${test(lesson)}🆕 Новый пробный урок с сайта: ${who} — ${day(lesson.startsAt)} в ${mskTime(lesson.startsAt)} МСК, преподаватель ${esc(teacher.name ?? '')}.`
+  for (const partner of partners) {
+    if (partner.id === teacher.id) continue
+    await once(`book:p:${lesson.id}:${partner.id}`, () => sendTo(partner, text))
+  }
+}
+
 // A student connected the bot from their lesson link: the booking at once.
 // A booking made on the platform is confirmed by this very Start.
 // /lessons («Мои уроки»): the package of every student on this chat — a
@@ -269,7 +282,10 @@ async function bookings() {
 
     // New: the teacher (booked after the bot was switched on) and the student (once connected).
     let told = false
-    if (start > now && recent(lesson, lesson.createdAt)) told = (await noticeToTeacher(lesson, teacher)) || told
+    if (start > now && recent(lesson, lesson.createdAt)) {
+      told = (await noticeToTeacher(lesson, teacher)) || told
+      await noticeToPartners(lesson, teacher)
+    }
     if (student) told = (await confirmToStudent(lesson, student, teacher)) || told
     if (told && !lesson.botStartsAt) await prisma.adventLesson.update({ where: { id: lesson.id }, data: { botStartsAt: start, botTeacherId: lesson.teacherId } })
 

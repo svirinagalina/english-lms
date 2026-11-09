@@ -34,6 +34,9 @@ before(async () => {
 })
 
 after(async () => {
+  // loadBotSettings (the partner test) starts polling; no token ends the loop.
+  delete process.env.TELEGRAM_BOT_TOKEN
+  fake?.closeAllConnections?.()
   fake?.close()
   await prisma.$disconnect()
   const { prisma: appPrisma } = await import('../src/db.js')
@@ -126,4 +129,24 @@ test('a student with the bot hears that the payment is in — lessons only, once
   assert.doesNotMatch(mine[0].text, /₽|€|RUB|EUR|карт/i)
   await runBotOnce()
   assert.equal(sent.filter((m) => m.chat_id === '7004').length, 1)
+})
+
+test('the partner hears of a new trial from Maxim\'s site once; not of a platform booking', async () => {
+  const { partner, teacher } = school.people
+  await prisma.user.update({ where: { id: partner.id }, data: { telegramChatId: '7005' } })
+  await prisma.platformSetting.upsert({ where: { key: 'telegram.on' }, create: { key: 'telegram.on', value: 'on' }, update: { value: 'on' } })
+  await prisma.platformSetting.upsert({ where: { key: 'telegram.onSince' }, create: { key: 'telegram.onSince', value: new Date(Date.now() - 60_000).toISOString() }, update: { value: new Date(Date.now() - 60_000).toISOString() } })
+  const { loadBotSettings } = await import('../src/telegram.js')
+  await loadBotSettings()
+  sent.length = 0
+  const startsAt = new Date(Date.now() + 5 * 3600_000)
+  const base = { kind: 'trial', title: 'Trial', startsAt, durationMin: 40, status: 'scheduled', teacherId: teacher.id }
+  await prisma.adventLesson.create({ data: { ...base, adventId: 'site-1', source: 'advent', studentName: 'Irina', studentTelegram: '@irina_tg' } })
+  await prisma.adventLesson.create({ data: { ...base, adventId: 'platform-1', source: 'platform', studentName: 'Olga' } })
+  await runBotOnce()
+  const mine = sent.filter((m) => m.chat_id === '7005')
+  assert.equal(mine.length, 1)
+  assert.match(mine[0].text, /Новый пробный урок с сайта: Irina, @irina_tg — .+ МСК, преподаватель teacher/)
+  await runBotOnce()
+  assert.equal(sent.filter((m) => m.chat_id === '7005').length, 1)
 })

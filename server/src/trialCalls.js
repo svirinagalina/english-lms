@@ -36,7 +36,7 @@ export async function startTrialCall(user, classroom, origin, boardId = null) {
     where: { kind: 'TRIAL', hostId: user.id, classroomId: classroom.id, endedAt: null, createdAt: { gt: new Date(Date.now() - 3 * 60 * 60 * 1000) } },
     orderBy: { createdAt: 'desc' }
   })
-  const openReport = open && await prisma.trialReport.findUnique({ where: { callId: open.id } })
+  const openReport = open && await prisma.trialReport.findFirst({ where: { callId: open.id } })
   if (open && openReport && !openReport.publishedAt) {
     return { status: 200, call: open, body: { call: { id: open.id, token: open.token, link: `${origin}/call/${open.token}` }, reportId: openReport.id, boardId: open.boardId } }
   }

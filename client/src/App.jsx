@@ -28,6 +28,7 @@ import Vocabulary from './pages/Vocabulary'
 import VocabSet from './pages/VocabSet'
 import People from './pages/People'
 import Billing from './pages/Billing'
+import Finance from './pages/Finance'
 import Report from './pages/Report'
 import Settings from './pages/Settings'
 import Join from './pages/Join'
@@ -188,6 +189,7 @@ export default function App() {
       <Route path="/progress" element={<RequireAuth><Stats /></RequireAuth>} />
       <Route path="/progress/:id" element={<RequireAuth><Stats /></RequireAuth>} />
       <Route path="/billing" element={<RequireAuth><Billing /></RequireAuth>} />
+      <Route path="/finance" element={<RequireAuth roles={['OWNER', 'PARTNER']}><Finance /></RequireAuth>} />
       <Route path="/report/:id" element={<RequireAuth><Report /></RequireAuth>} />
       <Route path="/profile" element={<RequireAuth><Profile /></RequireAuth>} />
       <Route path="/audio-check" element={<RequireAuth><AudioCheck /></RequireAuth>} />

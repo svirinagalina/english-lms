@@ -96,7 +96,7 @@ export default function Nav({ title, back }) {
   if (user.role === 'TEACHER') links.push({ to: '/trial-reports', label: 'Trial reports' }, { to: '/billing', label: 'Payments' })
 
   if (admin) {
-    links.push({ to: '/people', label: 'People' }, { to: '/billing', label: 'Payments' }, { to: '/content', label: 'Content' })
+    links.push({ to: '/people', label: 'People' }, { to: '/billing', label: 'Payments' }, { to: '/finance', label: 'Finance' }, { to: '/content', label: 'Content' })
     if (user.role === 'OWNER') {
       links.push({ to: '/settings', label: 'Settings' })
       // Todos are still owner-only; the calendar lives in Timetable now.

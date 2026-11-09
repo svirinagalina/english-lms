@@ -8,6 +8,7 @@ import { sendAdventLessonEmail, sendLessonLinkEmail } from './mailer.js'
 import { notify } from './push.js'
 import { supportContact } from './settings.js'
 import { creditLessons } from './purchases.js'
+import { recordLandingSale } from './finance.js'
 import { toAdventLater } from './adventSync.js'
 
 // Lessons booked on the Advent site (Maxim's partner API, see
@@ -560,6 +561,7 @@ async function handlePayment(event) {
   const amount = Number(p.amount)
   const currency = ['RUB', 'EUR', 'USD'].includes(String(p.currency).toUpperCase()) ? String(p.currency).toUpperCase() : null
   const { left } = await creditLessons(student.id, lessons, Number.isFinite(amount) && amount > 0 && currency ? { pricePerLesson: Math.round((amount * 100) / lessons), currency } : {})
+  await recordLandingSale({ studentId: student.id, lessons, currency, amountMinor: Number.isFinite(amount) && amount > 0 ? Math.round(amount * 100) : 0, source: 'advent', sourceId: `advent:${p.id ?? event.event_id}` })
   const links = await prisma.teacherStudent.findMany({ where: { studentId: student.id }, select: { teacherId: true } })
   const owners = await prisma.user.findMany({ where: { schoolId: student.schoolId, role: 'OWNER' }, select: { id: true } })
   notify([...links.map((l) => l.teacherId), ...owners.map((o) => o.id)], { title: `Оплата: ${student.name}`, body: `Оплачено уроков: ${lessons}${left ? ` (+${left} оставалось)` : ''}`, url: `/people/${student.id}/activity` })

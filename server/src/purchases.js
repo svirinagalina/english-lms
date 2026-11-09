@@ -6,6 +6,7 @@ import { sendPaymentReportedEmail } from './mailer.js'
 import { stripeKey } from './settings.js'
 import { creditCoursePurchase } from './coursePurchases.js'
 import { sendTo, esc, appUrl } from './telegram.js'
+import { recordLandingSale } from './finance.js'
 
 // Paid lessons added to a student's package: what was left in the current
 // package is kept, the new package (left + paid) counts from now. The trial
@@ -54,6 +55,7 @@ export async function creditOfferPurchase(session) {
   if (plan.lessons > 0) {
     const rub = Number(session.metadata?.rub) || plan.price
     const result = await creditLessons(userId, plan.lessons, { pricePerLesson: Math.round((rub * 100) / plan.lessons), currency: 'RUB' })
+    await recordLandingSale({ studentId: userId, lessons: plan.lessons, currency: String(session.currency ?? 'eur'), amountMinor: session.amount_total ?? 0, rub, source: 'stripe', sourceId: `stripe:${session.id}` })
     note = `Оплачено через Stripe: «${plan.name}», ${plan.lessons} уроков${result?.left ? ` (+${result.left} оставалось)` : ''} — ${((session.amount_total ?? 0) / 100).toFixed(2)} ${String(session.currency).toUpperCase()}. Уроки начислены автоматически.`
     teacherNote = `Оплачено онлайн: ${plan.lessons} уроков${result?.left ? ` (+${result.left} оставалось)` : ''}. Уроки начислены — можно заниматься.`
   } else {
@@ -104,6 +106,7 @@ export async function creditPackagePurchase(session) {
   const price = Number(session.metadata?.price)
   const currency = session.metadata?.currency
   const result = await creditLessons(userId, lessons, price > 0 && currency ? { pricePerLesson: price, currency } : {})
+  await recordLandingSale({ studentId: userId, lessons, currency: String(session.currency ?? 'eur'), amountMinor: session.amount_total ?? 0, rub: Number(session.metadata?.rub) || 0, source: 'stripe', sourceId: `stripe:${session.id}` })
   const note = `Оплачено через Stripe: пакет ${lessons} уроков${result?.left ? ` (+${result.left} оставалось)` : ''} — ${((session.amount_total ?? 0) / 100).toFixed(2)} ${String(session.currency).toUpperCase()}. Уроки начислены автоматически.`
   await tellStaff(student, note, { teacherNote: `Оплачено онлайн: ${lessons} уроков${result?.left ? ` (+${result.left} оставалось)` : ''}. Уроки начислены — можно заниматься.` })
   return { credited: true, lessons }

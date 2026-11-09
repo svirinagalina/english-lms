@@ -9,6 +9,7 @@ import { OFFER_PLANS, discountActive } from '../offer.js'
 import { guardedFetch } from '../resilience.js'
 import { creditStripeSession } from '../purchases.js'
 import { userStartLink } from '../telegram.js'
+import { recordLandingSale } from '../finance.js'
 
 export const billingRouter = Router()
 
@@ -459,13 +460,15 @@ billingRouter.patch('/students/:id', requireRole('OWNER', 'PARTNER', 'TEACHER'),
   const lessons = newPackage ? after : after - before
   if (lessons > 0) {
     const auto = updated.priceAmount != null ? updated.priceAmount * lessons : null
-    await prisma.paymentRecord.create({
+    const record = await prisma.paymentRecord.create({
       data: {
         studentId: student.id, kind: 'package', lessons,
         amountCents: amountGiven ?? auto, currency: updated.priceCurrency,
         card: await cardLabel(student.id), note: paidNote?.trim() || null, byUserId: req.user.id
       }
     })
+    // A package for a student from the landing goes into Finance too.
+    await recordLandingSale({ studentId: student.id, lessons, currency: updated.priceCurrency, amountMinor: record.amountCents ?? 0, source: 'package', sourceId: `package:${record.id}` })
   }
   res.json({ student: hideRequisites(req.user, await withPackage(updated)) })
 })
