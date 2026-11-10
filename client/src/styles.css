@@ -2044,3 +2044,11 @@ div.answer-key { margin-top: 4px; }
 .finance-form label { display: flex; flex-direction: column; gap: 4px; font-size: 12px; color: var(--muted); flex: 1 1 130px; min-width: 0; }
 .finance-form label.wide { flex: 2 1 220px; }
 .finance-form-buttons { display: flex; gap: 8px; }
+
+/* The Google Drive panel */
+.drive-bar { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-bottom: 10px; }
+.drive-bar input[type="search"] { flex: 1; min-width: 160px; }
+.drive-path { flex-basis: 100%; font-size: 14px; }
+.drive-path .link-button:disabled { color: inherit; font-weight: 600; cursor: default; text-decoration: none; }
+.drive-icon { margin-right: 6px; }
+.drive-audio { width: 100%; margin: 6px 0 4px; }

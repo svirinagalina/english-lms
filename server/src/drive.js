@@ -9,17 +9,21 @@
 // Config (server/.env): GOOGLE_DRIVE_CLIENT_ID, GOOGLE_DRIVE_CLIENT_SECRET,
 // GOOGLE_DRIVE_REFRESH_TOKEN and GOOGLE_DRIVE_FOLDER_ID (both printed by
 // scripts/google-drive-auth.js, which creates the folder). Without them nothing
-// here runs. The scope is drive.file: the app sees only the files and folders it
-// created itself, not the rest of the Drive.
+// here runs. The scope drive.file lets the app write copies; drive.readonly
+// (added 2026-11-10) lets the platform show the files the teacher puts into the
+// folder herself — the «Google Drive» panel (routes/drive.js). Only the folder
+// and what is inside it is ever listed or served.
 import path from 'path'
 import { openAsBlob } from 'fs'
 import { fileURLToPath } from 'url'
 import { prisma } from './db.js'
 
 const UPLOAD_ROOT = process.env.UPLOAD_DIR ?? path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../uploads')
-const TOKEN_URL = 'https://oauth2.googleapis.com/token'
-const FILES_URL = 'https://www.googleapis.com/drive/v3/files'
-const UPLOAD_URL = 'https://www.googleapis.com/upload/drive/v3/files?uploadType=resumable&fields=id'
+// GOOGLE_DRIVE_TEST_API: a fake Google for the route tests (test/driveBrowse).
+const FAKE = process.env.NODE_ENV === 'test' ? process.env.GOOGLE_DRIVE_TEST_API : null
+const TOKEN_URL = FAKE ? `${FAKE}/token` : 'https://oauth2.googleapis.com/token'
+const FILES_URL = FAKE ? `${FAKE}/drive/v3/files` : 'https://www.googleapis.com/drive/v3/files'
+const UPLOAD_URL = FAKE ? `${FAKE}/upload?uploadType=resumable&fields=id` : 'https://www.googleapis.com/upload/drive/v3/files?uploadType=resumable&fields=id'
 const MIME_BY_EXT = { pdf: 'application/pdf', mp3: 'audio/mpeg', wav: 'audio/wav', m4a: 'audio/mp4', aac: 'audio/aac', ogg: 'audio/ogg', flac: 'audio/flac' }
 const RETRY_EVERY_MS = 10 * 60_000
 
@@ -49,7 +53,7 @@ async function accessToken() {
   })
   const json = await res.json().catch(() => ({}))
   if (!res.ok || !json.access_token) throw driveError(`Drive sign-in failed (${res.status}${json.error ? ` ${json.error}` : ''})`, res.status)
-  cachedToken = { value: json.access_token, expiresAt: Date.now() + json.expires_in * 1000 }
+  cachedToken = { value: json.access_token, expiresAt: Date.now() + json.expires_in * 1000, scope: json.scope ?? '' }
   return cachedToken.value
 }
 
@@ -149,4 +153,109 @@ export function startDriveSync() {
   const tick = () => syncToDrive().catch((err) => console.error(`[drive] sync stopped: ${err.message}`))
   tick()
   setInterval(tick, RETRY_EVERY_MS).unref()
+}
+
+// --- Reading the folder (the «Google Drive» panel) ---
+
+const READ_SCOPES = ['https://www.googleapis.com/auth/drive.readonly', 'https://www.googleapis.com/auth/drive']
+// Without drive.readonly the app sees only its own copies, not what she adds.
+export async function driveCanRead() {
+  await accessToken()
+  return cachedToken.scope.split(' ').some((s) => READ_SCOPES.includes(s))
+}
+
+export function kindOf(mimeType, name = '') {
+  if (mimeType === 'application/vnd.google-apps.folder') return 'folder'
+  if (mimeType === 'application/pdf' || /\.pdf$/i.test(name)) return 'pdf'
+  if (mimeType?.startsWith('audio/') || /\.(mp3|wav|m4a|aac|ogg|flac)$/i.test(name)) return 'audio'
+  return null
+}
+
+const FIELDS = 'id,name,mimeType,size,modifiedTime,parents'
+// A short memory of what Drive said: the folder is opened again and again in a
+// lesson, and Drive allows only so many calls.
+const LIST_TTL_MS = 30_000
+const listCache = new Map() // folderId → { at, items }
+const parentOf = new Map() // fileId → { parents, name, mimeType, size }
+
+export function forgetDriveCacheForTests() { listCache.clear(); parentOf.clear() }
+
+export async function listFolder(folderId) {
+  const hit = listCache.get(folderId)
+  if (hit && Date.now() - hit.at < LIST_TTL_MS) return hit.items
+  const items = []
+  let pageToken = ''
+  do {
+    const params = new URLSearchParams({
+      q: `'${folderId.replace(/'/g, "\\'")}' in parents and trashed = false`,
+      fields: `nextPageToken,files(${FIELDS})`,
+      orderBy: 'folder,name_natural',
+      pageSize: '1000',
+      supportsAllDrives: 'true',
+      includeItemsFromAllDrives: 'true'
+    })
+    if (pageToken) params.set('pageToken', pageToken)
+    const json = await (await driveCall(`${FILES_URL}?${params}`)).json()
+    for (const f of json.files ?? []) {
+      parentOf.set(f.id, f)
+      const kind = kindOf(f.mimeType, f.name)
+      if (kind) items.push({ id: f.id, name: f.name, kind, size: f.size ? Number(f.size) : null, modifiedTime: f.modifiedTime })
+    }
+    pageToken = json.nextPageToken ?? ''
+  } while (pageToken && items.length < 5000)
+  listCache.set(folderId, { at: Date.now(), items })
+  return items
+}
+
+async function fileMeta(id) {
+  if (parentOf.has(id)) return parentOf.get(id)
+  const params = new URLSearchParams({ fields: FIELDS, supportsAllDrives: 'true' })
+  const meta = await (await driveCall(`${FILES_URL}/${encodeURIComponent(id)}?${params}`)).json()
+  parentOf.set(id, meta)
+  return meta
+}
+
+// The way from the LMS folder down to this file or folder, or null when it is
+// somewhere else in the Drive: the platform never serves anything outside.
+export async function pathInside(id) {
+  const root = process.env.GOOGLE_DRIVE_FOLDER_ID
+  const chain = []
+  let current = id
+  for (let depth = 0; depth < 12; depth++) {
+    if (current === root) return chain.reverse()
+    let meta
+    try { meta = await fileMeta(current) } catch (err) { if (err.status === 404) return null; throw err }
+    chain.push({ id: meta.id, name: meta.name, mimeType: meta.mimeType, size: meta.size ? Number(meta.size) : null })
+    current = meta.parents?.[0]
+    if (!current) return null
+  }
+  return null
+}
+
+// Every PDF and audio file in the folder and its subfolders (for the board's
+// textbook picker), with the folder names on the way.
+export async function listAll(kinds = ['pdf', 'audio']) {
+  const found = []
+  const walk = async (folderId, where, depth) => {
+    if (depth > 6 || found.length > 2000) return
+    for (const item of await listFolder(folderId)) {
+      if (item.kind === 'folder') await walk(item.id, [...where, item.name], depth + 1)
+      else if (kinds.includes(item.kind)) found.push({ ...item, folder: where.join(' / ') })
+    }
+  }
+  await walk(process.env.GOOGLE_DRIVE_FOLDER_ID, [], 0)
+  return found
+}
+
+// The bytes of one file, as Drive sends them; a Range is passed through, so
+// pdf.js reads only the pages it needs and Safari can seek in audio.
+export async function openDriveFile(id, { range, signal } = {}) {
+  const token = await accessToken()
+  const url = `${FILES_URL}/${encodeURIComponent(id)}?alt=media&supportsAllDrives=true`
+  const res = await fetchImpl(url, { headers: { Authorization: `Bearer ${token}`, ...(range ? { Range: range } : {}) }, signal })
+  if (!res.ok && res.status !== 206) {
+    const text = await res.text().catch(() => '')
+    throw driveError(`Drive file failed (${res.status}): ${text.slice(0, 200)}`, res.status)
+  }
+  return res
 }

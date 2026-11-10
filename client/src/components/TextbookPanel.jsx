@@ -35,9 +35,22 @@ export default function TextbookPanel({ onInsert, onClose }) {
   }
 
   useEffect(() => { api.textbooks().then(({ textbooks }) => setBooks(textbooks)).catch((err) => setError(err.message)) }, [])
-  const book = books?.find((b) => b.id === bookId) ?? null
-  const url = book ? api.textbookFileUrl(book.id) : null
+  const [drivePdfs, setDrivePdfs] = useState([])
+  useEffect(() => { api.driveAll('pdf').then((r) => setDrivePdfs(r.items ?? [])).catch(() => { /* no Drive: just the textbooks */ }) }, [])
+  const [drivePages, setDrivePages] = useState(0)
+  const fromDrive = bookId.startsWith('drive:')
+  const driveItem = fromDrive ? drivePdfs.find((d) => `drive:${d.id}` === bookId) : null
+  const book = fromDrive ? (driveItem ? { id: bookId, title: driveItem.name.replace(/\.pdf$/i, ''), pages: drivePages } : null) : (books?.find((b) => b.id === bookId) ?? null)
+  const url = book ? (fromDrive ? api.driveFileUrl(driveItem.id) : api.textbookFileUrl(book.id)) : null
   const total = book?.pages ?? 0
+  // A Drive PDF has no stored page count: pdf.js reads it from the file.
+  useEffect(() => {
+    setDrivePages(0)
+    if (!fromDrive || !url) return
+    let stopped = false
+    pdfPageCount(url).then((n) => { if (!stopped) setDrivePages(n) }).catch((err) => { if (!stopped) setError(`Could not read the PDF: ${err.message}`) })
+    return () => { stopped = true }
+  }, [fromDrive, url])
 
   // Thumbnails around the current page, a few at a time.
   useEffect(() => {
@@ -76,13 +89,18 @@ export default function TextbookPanel({ onInsert, onClose }) {
         <strong>Textbook</strong>
         <button type="button" className="word-card-close" onClick={onClose} title="Close">×</button>
       </div>
-      {books && books.length > 0 && (
+      {books && (books.length > 0 || drivePdfs.length > 0) && (
         <select className="tool" value={bookId} onChange={(e) => setBookId(e.target.value)}>
           <option value="">Choose a textbook…</option>
-          {books.map((b) => <option key={b.id} value={b.id}>{b.title}{b.pages ? ` · ${b.pages} p.` : ''}</option>)}
+          {drivePdfs.length > 0 ? (
+            <>
+              {books.length > 0 && <optgroup label="Textbooks">{books.map((b) => <option key={b.id} value={b.id}>{b.title}{b.pages ? ` · ${b.pages} p.` : ''}</option>)}</optgroup>}
+              <optgroup label="Google Drive">{drivePdfs.map((d) => <option key={d.id} value={`drive:${d.id}`}>{d.folder ? `${d.folder} / ` : ''}{d.name.replace(/\.pdf$/i, '')}</option>)}</optgroup>
+            </>
+          ) : books.map((b) => <option key={b.id} value={b.id}>{b.title}{b.pages ? ` · ${b.pages} p.` : ''}</option>)}
         </select>
       )}
-      {books && (!book || books.length === 0) && (
+      {books && !book && (
         <div
           className={`dropzone ${over ? 'over' : ''} ${uploading ? 'busy' : ''}`}
           onClick={() => !uploading && fileRef.current?.click()}

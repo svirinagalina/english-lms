@@ -3,8 +3,10 @@
 //   node scripts/google-drive-auth.js ~/Downloads/client_secret_….json
 // Open the printed link and sign in with the Google account whose Drive to use.
 // All four GOOGLE_DRIVE_* lines land in lms-drive.env next to the JSON file, so
-// no secret is printed to the terminal. The folder has to be created here: the
-// drive.file scope cannot see a folder made by hand in Drive.
+// no secret is printed to the terminal. The folder is created here the first
+// time; when lms-drive.env already names one, that folder is kept (signing in
+// again only renews the access: drive.file to write the copies, drive.readonly
+// so the platform can show what she puts into the folder herself).
 import fs from 'fs'
 import http from 'http'
 import path from 'path'
@@ -22,12 +24,14 @@ if (!id || !secret) {
   process.exit(1)
 }
 const envFile = path.join(path.dirname(path.resolve(clientFile)), 'lms-drive.env')
+let keptFolder = null
+try { keptFolder = /^GOOGLE_DRIVE_FOLDER_ID=(.+)$/m.exec(fs.readFileSync(envFile, 'utf8'))?.[1]?.trim() || null } catch { /* first sign-in */ }
 const redirect = 'http://localhost:53682/callback'
 const link = 'https://accounts.google.com/o/oauth2/v2/auth?' + new URLSearchParams({
   client_id: id,
   redirect_uri: redirect,
   response_type: 'code',
-  scope: 'https://www.googleapis.com/auth/drive.file',
+  scope: 'https://www.googleapis.com/auth/drive.file https://www.googleapis.com/auth/drive.readonly',
   access_type: 'offline',
   prompt: 'consent'
 })
@@ -53,7 +57,15 @@ const server = http.createServer(async (req, res) => {
     res.end('Refresh token не пришёл. Попробуйте ещё раз.')
     console.error('No refresh token in the answer:', tokens.error ?? 'unknown')
   } else {
-    const folder = await fetch('https://www.googleapis.com/drive/v3/files?fields=id', {
+    // The folder the LMS already writes to, if there is one: the server keeps its id.
+    const existing = keptFolder ? null : await fetch('https://www.googleapis.com/drive/v3/files?' + new URLSearchParams({
+      q: "name = 'English LMS' and mimeType = 'application/vnd.google-apps.folder' and trashed = false and 'root' in parents",
+      fields: 'files(id,createdTime)',
+      orderBy: 'createdTime'
+    }), { headers: { Authorization: `Bearer ${tokens.access_token}` } }).then((r) => r.json()).then((j) => j.files ?? []).catch(() => [])
+    if (existing?.length > 1) console.log(`Note: ${existing.length} folders «English LMS» in the Drive; keeping the oldest.`)
+    if (existing?.length) keptFolder = existing[0].id
+    const folder = keptFolder ? { id: keptFolder } : await fetch('https://www.googleapis.com/drive/v3/files?fields=id', {
       method: 'POST',
       headers: { Authorization: `Bearer ${tokens.access_token}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({ name: 'English LMS', mimeType: 'application/vnd.google-apps.folder' })
@@ -62,7 +74,7 @@ const server = http.createServer(async (req, res) => {
       const lines = [`GOOGLE_DRIVE_CLIENT_ID=${id}`, `GOOGLE_DRIVE_CLIENT_SECRET=${secret}`, `GOOGLE_DRIVE_REFRESH_TOKEN=${tokens.refresh_token}`, `GOOGLE_DRIVE_FOLDER_ID=${folder.id}`]
       fs.writeFileSync(envFile, lines.join('\n') + '\n', { mode: 0o600 })
       res.end('Готово, можно закрыть вкладку.')
-      console.log('Saved to ' + envFile)
+      console.log('Saved to ' + envFile + (keptFolder ? ' (the same folder as before)' : ''))
     } else {
       res.end('Доступ получен, но папка не создалась. Смотрите терминал.')
       console.error('Folder not created:', folder.error ?? 'unknown')

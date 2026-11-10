@@ -11,6 +11,7 @@ import StudentHome from '../components/StudentHome'
 import FreeHome from '../components/FreeHome'
 import Panel from '../components/Panel'
 import Textbooks from '../components/Textbooks'
+import DriveFiles from '../components/DriveFiles'
 import PersonLink from '../components/PersonLink'
 import { TelegramReminder } from '../components/TelegramConnect'
 
@@ -257,6 +258,7 @@ export default function Classrooms() {
       )}
 
       {isStaff && <Textbooks />}
+      {isStaff && <DriveFiles />}
 
       {isStaff && (
         <section className="panel-like">
