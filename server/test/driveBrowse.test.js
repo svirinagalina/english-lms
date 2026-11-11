@@ -79,6 +79,12 @@ test('the board\'s picker gets every PDF of the tree with its folder', async () 
   assert.deepEqual(res.body.items.map((i) => `${i.folder}|${i.name}`).sort(), ['Units|Unit 2.pdf', '|Solutions.pdf'].sort())
 })
 
+test('the panel\'s search gets folders, PDFs and audio of the whole tree', async () => {
+  const teacher = await signedIn(server.base, school.people.teacher)
+  const res = await teacher.get('/api/drive/all?kind=any')
+  assert.deepEqual(res.body.items.map((i) => `${i.kind}:${i.folder}|${i.name}`).sort(), ['audio:Units|Track 01.mp3', 'folder:|Units', 'pdf:Units|Unit 2.pdf', 'pdf:|Solutions.pdf'].sort())
+})
+
 test('a file is served in ranges; anything outside the folder is not found', async () => {
   const teacher = await signedIn(server.base, school.people.teacher)
   const cookie = teacher.cookie ?? (await (await fetch(`${server.base}/api/auth/login`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ email: school.people.teacher.email, password: 'test-password-1' }) })).headers.get('set-cookie').split(';')[0])

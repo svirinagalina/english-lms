@@ -239,8 +239,8 @@ export async function listAll(kinds = ['pdf', 'audio']) {
   const walk = async (folderId, where, depth) => {
     if (depth > 6 || found.length > 2000) return
     for (const item of await listFolder(folderId)) {
+      if (kinds.includes(item.kind)) found.push({ ...item, folder: where.join(' / ') })
       if (item.kind === 'folder') await walk(item.id, [...where, item.name], depth + 1)
-      else if (kinds.includes(item.kind)) found.push({ ...item, folder: where.join(' / ') })
     }
   }
   await walk(process.env.GOOGLE_DRIVE_FOLDER_ID, [], 0)

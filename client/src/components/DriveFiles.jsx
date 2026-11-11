@@ -24,14 +24,22 @@ function DriveBrowser() {
   const [error, setError] = useState('')
   const [q, setQ] = useState('')
   const [playing, setPlaying] = useState(null)
+  // The whole tree, fetched the first time something is searched for.
+  const [all, setAll] = useState(null)
   const listRef = useRef(null)
 
   const load = (id) => {
     setError('')
     setData(null)
+    setAll(null)
     api.drive(id).then(setData).catch((err) => setError(err.message))
   }
   useEffect(() => { load(folder); setQ(''); setPlaying(null) }, [folder])
+  const searching = q.trim().length > 0
+  useEffect(() => {
+    if (!searching || all) return
+    api.driveAll('any').then((r) => setAll(r.items ?? [])).catch((err) => setError(err.message))
+  }, [searching, all])
 
   // One recording at a time.
   const playOnlyThis = (event) => {
@@ -42,8 +50,11 @@ function DriveBrowser() {
     return <p className="muted">The platform can see only its own copies in Drive so far. Galina needs to sign in to Google once more to let it read the files you add to the folder.</p>
   }
 
-  const needle = q.trim().toLowerCase()
-  const items = (data?.items ?? []).filter((i) => !needle || i.name.toLowerCase().includes(needle))
+  // Every word must be in the name or in the folders it sits in: «unit 2
+  // speakout» finds «Unit 2.pdf» inside «Speakout».
+  const words = q.trim().toLowerCase().split(/\s+/).filter(Boolean)
+  const matches = (i) => words.every((w) => `${i.folder ?? ''} ${i.name}`.toLowerCase().includes(w))
+  const items = searching ? (all ?? []).filter(matches) : (data?.items ?? [])
 
   return (
     <div className="drive-files" ref={listRef}>
@@ -60,12 +71,13 @@ function DriveBrowser() {
             </span>
           ))}
         </nav>
-        <input type="search" placeholder="Find in this folder" value={q} onChange={(e) => setQ(e.target.value)} />
+        <input type="search" placeholder="Search all folders" value={q} onChange={(e) => setQ(e.target.value)} />
         <button type="button" className="ghost" onClick={() => load(folder)} title="Show what was added in Drive just now">Refresh</button>
       </div>
       {error && <div className="error">{error}</div>}
-      {!data && !error && <p className="muted">Loading…</p>}
-      {data && items.length === 0 && <p className="muted">{needle ? 'Nothing matches.' : 'This folder has no PDFs or audio yet.'}</p>}
+      {((!searching && !data) || (searching && !all)) && !error && <p className="muted">{searching ? 'Searching all folders…' : 'Loading…'}</p>}
+      {searching && all && <p className="muted">{items.length ? `Found ${items.length} in all folders` : 'Nothing matches in any folder.'}</p>}
+      {!searching && data && items.length === 0 && <p className="muted">This folder has no PDFs or audio yet.</p>}
       <div className="list">
         {items.map((item) => (
           <div key={item.id}>
@@ -75,6 +87,7 @@ function DriveBrowser() {
                 {item.kind === 'folder'
                   ? <button type="button" className="link-button" onClick={() => setFolder(item.id)}><strong>{item.name}</strong></button>
                   : <strong>{item.name}</strong>}
+                {searching && <div className="muted">in English LMS{item.folder ? ` / ${item.folder}` : ''}</div>}
                 {item.kind !== 'folder' && <div className="muted">{item.size ? `${fileSize(item.size)} · ` : ''}{item.modifiedTime ? `changed ${new Date(item.modifiedTime).toLocaleDateString()}` : ''}</div>}
               </div>
               <div className="row-actions">

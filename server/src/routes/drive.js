@@ -57,14 +57,15 @@ driveRouter.get('/', async (req, res) => {
   } catch (err) { failed(res, err) }
 })
 
-// Every PDF (or ?kind=audio) in the folder tree, for the board's picker.
+// Every PDF (?kind=audio: audio; ?kind=any: folders, PDFs and audio — the
+// panel's search) in the folder tree, with the folders on the way.
 driveRouter.get('/all', async (req, res) => {
   if (!(await ourSchool(req.user))) return res.json({ available: false, items: [] })
   try {
     if (!(await driveCanRead())) return res.json({ available: true, needsAccess: true, items: [] })
-    const kind = req.query.kind === 'audio' ? 'audio' : 'pdf'
+    const kinds = req.query.kind === 'any' ? ['folder', 'pdf', 'audio'] : [req.query.kind === 'audio' ? 'audio' : 'pdf']
     const hidden = await mirroredIds()
-    res.json({ available: true, items: (await listAll([kind])).filter((i) => !hidden.has(i.id)) })
+    res.json({ available: true, items: (await listAll(kinds)).filter((i) => !hidden.has(i.id)) })
   } catch (err) { failed(res, err) }
 })
 
