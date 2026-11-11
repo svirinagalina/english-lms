@@ -41,6 +41,7 @@ import { driveRouter } from './routes/drive.js'
 import { personalRouter } from './routes/personal.js'
 import { coursesRouter } from './routes/courses.js'
 import { toeflRouter } from './routes/toefl.js'
+import { speakingRouter } from './routes/speaking.js'
 import { pushRouter } from './routes/push.js'
 import { sleepStoriesRouter } from './routes/sleepStories.js'
 import { startPushJobs } from './push.js'
@@ -138,6 +139,7 @@ app.use('/api/drive', driveRouter)
 app.use('/api/personal', personalRouter)
 app.use('/api/courses', coursesRouter)
 app.use('/api/toefl', toeflRouter)
+app.use('/api/speaking', speakingRouter)
 app.use('/api/push', pushRouter)
 app.use('/api/sleep-stories', sleepStoriesRouter)
 app.use('/api/plans', plansRouter)

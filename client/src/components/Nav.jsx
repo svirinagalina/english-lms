@@ -3,17 +3,12 @@ import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '../AuthContext'
 import { Brand } from './Brand'
 import { Avatar } from './Avatar'
-import { api } from '../api'
 import { isNativeApp } from '../utils/native'
 
-// Whether the Advent trainer is connected: asked once per page load, and
-// again when Settings connects or disconnects it (refreshTrainerStatus).
-let trainerStatus = null
-const trainerConnected = () => (trainerStatus ??= api.adventStatus().then((s) => s.connected).catch(() => false))
-export function refreshTrainerStatus() {
-  trainerStatus = null
-  window.dispatchEvent(new Event('trainer-status'))
-}
+// The menu used to show Maxim's trainer only once it was connected; the
+// speaking trainer is the platform's own now (2026-11-11) and always shown.
+// Kept for Settings, which still calls it after saving the Advent key.
+export function refreshTrainerStatus() {}
 
 const ROLE_LABEL = {
   OWNER: 'administrator',
@@ -36,14 +31,6 @@ export default function Nav({ title, back }) {
     event.preventDefault()
     navigate(-1)
   }
-  const [trainer, setTrainer] = useState(false)
-  useEffect(() => {
-    let live = true
-    const check = () => trainerConnected().then((on) => { if (live) setTrainer(on) })
-    check()
-    window.addEventListener('trainer-status', check)
-    return () => { live = false; window.removeEventListener('trainer-status', check) }
-  }, [])
 
   // The sections sit folded under one Menu button: the full list used to
   // wrap over two or three rows at the top of every page.
@@ -66,7 +53,7 @@ export default function Nav({ title, back }) {
     links.push(
       { to: '/timetable', label: 'Timetable' },
       { to: '/practice', label: 'Practice' },
-      ...(trainer ? [{ to: '/trainer', label: 'Trainer' }] : []),
+      { to: '/trainer', label: 'Speaking' },
       { to: '/vocabulary', label: 'Vocabulary' },
       { to: '/progress', label: 'Progress' }
     )
@@ -75,7 +62,7 @@ export default function Nav({ title, back }) {
     links.push(
       { to: '/try-board', label: 'Try the board' },
       { to: '/practice', label: 'Practice' },
-      ...(trainer ? [{ to: '/trainer', label: 'Trainer' }] : []),
+      { to: '/trainer', label: 'Speaking' },
       { to: '/vocabulary', label: 'Vocabulary' },
       { to: '/dictionary', label: 'Dictionary' },
       { to: '/plans', label: 'Plans' }
@@ -84,7 +71,7 @@ export default function Nav({ title, back }) {
     links.push(
       { to: '/timetable', label: 'My Schedule' },
       { to: '/practice', label: 'Practice' },
-      ...(trainer ? [{ to: '/trainer', label: 'Trainer' }] : []),
+      { to: '/trainer', label: 'Speaking' },
       { to: '/vocabulary', label: 'Vocabulary' },
       { to: '/dictionary', label: 'Dictionary' },
       // Paying is on the website: the App Store does not allow leading to

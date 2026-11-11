@@ -14,11 +14,9 @@ export default function Practice() {
   const [loading, setLoading] = useState(true)
   const [focus, setFocus] = useState(null)
   const [mistakes, setMistakes] = useState([])
-  const [trainer, setTrainer] = useState(false)
 
   useEffect(() => {
     api.statsMe().then(setFocus).catch(() => setFocus(null))
-    api.adventStatus().then(({ connected }) => setTrainer(connected)).catch(() => {})
     if (user.role === 'STUDENT') api.mistakePractice().then(({ exercises }) => setMistakes(exercises)).catch(() => {})
     api.listUnits()
       .then(({ units }) => setUnits(units))
@@ -34,18 +32,16 @@ export default function Practice() {
 
       {error && <div className="error">{error}</div>}
 
-      {/* The Advent speaking trainer is part of Practice. */}
-      {trainer && (
-        <section>
-          <Link className="row unit-row trainer-row" to="/trainer">
-            <div className="unit-main">
-              <strong>Practice speaking</strong>
-              <div className="muted">The trainer: talk, get corrected, practise your words.</div>
-            </div>
-            <span className="due-badge">Open</span>
-          </Link>
-        </section>
-      )}
+      {/* The speaking trainer (our own, SpeakingTrainer.jsx) is part of Practice. */}
+      <section>
+        <Link className="row unit-row trainer-row" to="/trainer">
+          <div className="unit-main">
+            <strong>Practice speaking</strong>
+            <div className="muted">Talk in English with an AI partner by voice and see how to say it better.</div>
+          </div>
+          <span className="due-badge">Open</span>
+        </Link>
+      </section>
 
       {mistakes.length > 0 && (
         <section>

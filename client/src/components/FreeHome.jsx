@@ -10,7 +10,6 @@ export default function FreeHome() {
   const { user } = useAuth()
   const [units, setUnits] = useState(null)
   const [sets, setSets] = useState(null)
-  const [trainer, setTrainer] = useState(false)
   const [starting, setStarting] = useState(false)
   const navigate = useNavigate()
   const access = user.access ?? {}
@@ -28,7 +27,6 @@ export default function FreeHome() {
   useEffect(() => {
     api.listUnits().then(({ units }) => setUnits(units)).catch(() => setUnits([]))
     api.listVocabSets().then(({ sets }) => setSets(sets)).catch(() => setSets([]))
-    api.adventStatus().then(({ connected }) => setTrainer(connected)).catch(() => {})
   }, [])
 
   const open = units?.filter((u) => !u.locked) ?? []
@@ -94,13 +92,11 @@ export default function FreeHome() {
             <span className="muted">Добавляйте новые слова из урока или создавайте свои наборы карточек для повторения. Платформа подскажет оптимальные интервалы для повторения по методу spaced repetition.{due > 0 ? ` Сейчас на повторение: ${due}.` : ''}</span>
           </Link>
 
-          {trainer && (
-            <Link className="tile" to="/trainer">
-              <span className="tile-kicker">Speaking</span>
-              <strong>Practice speaking</strong>
-              <span className="muted">Говорите с тренажёром и получайте исправления — пробный доступ бесплатный.</span>
-            </Link>
-          )}
+          <Link className="tile" to="/trainer">
+            <span className="tile-kicker">Speaking</span>
+            <strong>Practice speaking</strong>
+            <span className="muted">Разговаривайте по-английски с ИИ-собеседником голосом и сразу видьте, как сказать лучше.</span>
+          </Link>
 
         </div>
       </section>

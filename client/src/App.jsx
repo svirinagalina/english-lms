@@ -16,7 +16,7 @@ import Classrooms from './pages/Classrooms'
 import Classroom from './pages/Classroom'
 import HomeworkDocs from './pages/HomeworkDocs'
 import Practice from './pages/Practice'
-import Trainer from './pages/Trainer'
+import SpeakingTrainer from './pages/SpeakingTrainer'
 import UnitPractice from './pages/UnitPractice'
 import Plans from './pages/Plans'
 import { isNativeApp } from './utils/native'
@@ -177,7 +177,7 @@ export default function App() {
       <Route path="/courses/:courseId" element={<RequireAuth><Course /></RequireAuth>} />
       <Route path="/toefl" element={<RequireAuth><ToeflResults /></RequireAuth>} />
       <Route path="/practice" element={<RequireAuth><Practice /></RequireAuth>} />
-      <Route path="/trainer" element={<RequireAuth><Trainer /></RequireAuth>} />
+      <Route path="/trainer" element={<RequireAuth><SpeakingTrainer /></RequireAuth>} />
       <Route path="/practice/mistakes" element={<RequireAuth><MistakePractice /></RequireAuth>} />
       <Route path="/practice/:id" element={<RequireAuth><UnitPractice /></RequireAuth>} />
       <Route path="/vocabulary" element={<RequireAuth><Vocabulary /></RequireAuth>} />

@@ -13,9 +13,6 @@ export default function StudentHome({ classrooms }) {
   const [homework, setHomework] = useState(null)
   const [billing, setBilling] = useState(null)
   const [mistakes, setMistakes] = useState(null)
-  // Whether the Advent trainer is connected: it lives in the Practice section
-  // (no tile of its own — six tiles make an even grid).
-  const [trainer, setTrainer] = useState(false)
 
   useEffect(() => {
     api.listUnits().then(({ units }) => setUnits(units)).catch(() => setUnits([]))
@@ -23,7 +20,6 @@ export default function StudentHome({ classrooms }) {
     api.studentHome().then(({ homework }) => setHomework(homework)).catch(() => setHomework(null))
     api.myBilling().then(({ billing }) => setBilling(billing)).catch(() => setBilling(null))
     api.mistakePractice().then(({ exercises }) => setMistakes(exercises)).catch(() => setMistakes([]))
-    api.adventStatus().then(({ connected }) => setTrainer(connected)).catch(() => {})
   }, [])
 
   // The cabinet with a current teacher and a board (a former teacher's one
@@ -68,13 +64,13 @@ export default function StudentHome({ classrooms }) {
             )}
           </Link>
 
-          {/* The Practice section: grammar units and (when connected) the speaking trainer. */}
+          {/* The Practice section: grammar units and the speaking trainer (no tile of its own — six tiles make an even grid). */}
           <Link className="tile" to="/practice">
             <span className="tile-kicker">Practice</span>
             <strong>Train your grammar</strong>
             <span className="muted">
               {nextUnit ? `${nextUnit.title} · ${nextUnit.solved} of ${nextUnit.total} done` : units === null ? 'Loading…' : 'Grammar units'}
-              {trainer ? ' · speaking trainer' : ''}
+              {' · speaking trainer'}
             </span>
           </Link>
 

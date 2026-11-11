@@ -206,6 +206,8 @@ export const api = {
   translate: (q) => request(`/dictionary/translate?q=${encodeURIComponent(q)}`),
   adventStatus: () => request('/advent/status'),
   trainerLink: () => request('/advent/trainer-link'),
+  speakingStatus: () => request('/speaking/status'),
+  speakingTurn: (body) => request('/speaking/turn', { method: 'POST', body }),
   adventProgress: (classroomId) => request(`/advent/progress${classroomId ? `?classroomId=${encodeURIComponent(classroomId)}` : ''}`),
   adventSettings: () => request('/settings/advent'),
   saveAdventKey: (key) => request('/settings/advent', { method: 'PUT', body: { key } }),
