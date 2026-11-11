@@ -41,23 +41,37 @@ const SYSTEM =
   'Give `score` from 0 to 5 in steps of 0.5 using the rubric. `summary`: 1–2 sentences in Russian with the overall verdict. ' +
   '`strengths`: 1–3 short points in Russian. `improve`: 2–4 concrete, actionable points in Russian (quote the exact phrase that needs ' +
   'fixing and give the better English version). `corrected`: the learner\'s text with grammar and word choice corrected, keeping their ' +
-  'ideas (English). Be fair and calibrated: a native-like, complete answer gets 5; do not inflate.'
+  'ideas (English). Be fair and calibrated: a native-like, complete answer gets 5; do not inflate. Every `improve` point must ' +
+  'change something: never suggest a version identical to the learner\'s phrase.'
 
 // 0–5 raw → band 1–6.
 export const rawToBand = (raw) => Math.max(1, Math.min(6, Math.round((1 + raw) * 2) / 2))
 
+// A very short written answer cannot reach the middle of the scale however
+// clean it is (a 12-word email got 2/5 in the 2026-11-11 calibration run).
+// Spoken answers are transcripts and are not capped.
+export function lengthCap(task, answer) {
+  if (task !== 'email' && task !== 'discussion') return 5
+  const n = String(answer ?? '').split(/\s+/).filter(Boolean).length
+  return n < 30 ? 1 : n < 60 ? 2.5 : 5
+}
+
 export async function scoreToefl({ task, prompt, answer }) {
   const rubric = RUBRIC[task]
   if (!rubric) throw new Error(`No rubric for ${task}`)
-  const out = await structured({
+  const ask = () => structured({
     name: 'toefl_score',
     schema: ScoreSchema,
     maxTokens: 4000,
+    temperature: 0, // the same text should get the same score
     system: `${SYSTEM}\n\n${rubric}`,
     user: `${prompt}\n\nThe learner's answer:\n${answer}`,
   })
-  if (!out) return null
-  const score = Math.max(0, Math.min(5, Math.round(out.score * 2) / 2))
+  // A reply that does not match the schema comes back as null (about 1 in 20
+  // with DeepSeek): one more try before the work waits for the teacher.
+  const out = (await ask()) ?? (await ask())
+  if (!out || typeof out.score !== 'number') return null
+  const score = Math.max(0, Math.min(lengthCap(task, answer), Math.round(out.score * 2) / 2))
   return { score, band: rawToBand(score), summary: out.summary, strengths: out.strengths, improve: out.improve, corrected: out.corrected }
 }
 

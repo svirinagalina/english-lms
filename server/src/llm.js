@@ -58,7 +58,10 @@ export function structured(options) {
     throw error
   }))
 }
-async function structuredOnce({ system, user, schema, name = 'result', maxTokens = 3000, effort }) {
+// `temperature` (optional) is passed to chat-completions providers (DeepSeek,
+// xAI) so scoring the same text twice gives the same result; OpenAI reasoning
+// models and Anthropic ignore it here.
+async function structuredOnce({ system, user, schema, name = 'result', maxTokens = 3000, effort, temperature }) {
   const config = aiConfig()
   if (!config) throw Object.assign(new Error('No AI key is configured'), { countsAsFailure: false })
   const client = await clientFor(config)
@@ -76,7 +79,8 @@ async function structuredOnce({ system, user, schema, name = 'result', maxTokens
         { role: 'user', content: user }
       ],
       max_tokens: Math.min(maxTokens, 8000),
-      response_format: { type: 'json_object' }
+      response_format: { type: 'json_object' },
+      ...(temperature != null ? { temperature } : {})
     })
     try {
       const result = schema.safeParse(JSON.parse(completion.choices[0]?.message?.content ?? ''))
@@ -90,7 +94,8 @@ async function structuredOnce({ system, user, schema, name = 'result', maxTokens
       model,
       messages: [{ role: 'system', content: system }, { role: 'user', content: user }],
       max_tokens: maxTokens,
-      response_format: zodResponseFormat(schema, name)
+      response_format: zodResponseFormat(schema, name),
+      ...(temperature != null ? { temperature } : {})
     })
     return completion.choices[0]?.message?.parsed ?? null
   }
