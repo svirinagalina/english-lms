@@ -1,6 +1,7 @@
 import { Router } from 'express'
 import { z } from 'zod'
 import { prisma } from '../db.js'
+import { boardFor } from '../boardPrivacy.js'
 import { limitedToSite, siteStudentIds, maySeeStudent } from '../partnerScope.js'
 import { requireAuth, requireRole, isAdmin } from '../auth.js'
 import { forgetBoard } from '../boardStore.js'
@@ -212,7 +213,8 @@ classroomsRouter.get('/home', async (req, res) => {
   const clean = (text) => text.replace(/\{\{#[0-9a-f]{6}:([^}]*)\}\}/gi, '$1').replace(/\*\*|__|~~/g, '').trim()
   let homework = null
   for (const board of boards) {
-    const elements = Array.isArray(board.elements) ? board.elements : []
+    // Another student's "Homework" note on a group board is not theirs.
+    const elements = await boardFor(req.user, Array.isArray(board.elements) ? board.elements : [])
     const texts = elements.filter(isText).map((e) => ({ ...e, plain: clean(e.text) }))
     // The "— Homework —" heading, or any text/note that starts with "Homework".
     const headings = texts.filter((e) => /^[—\-\s]*homework\b/i.test(e.plain)).sort((a, b) => b.y - a.y)
