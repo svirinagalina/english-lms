@@ -19,7 +19,7 @@ export const TEST_2 = {
           ],
         },
         {
-          task: 'academic-passage', title: 'Read an Academic Passage', timeSec: 420, passageTitle: 'The Invention of Standard Time',
+          task: 'academic-passage', title: 'Read an Academic Passage', timeSec: 360, passageTitle: 'The Invention of Standard Time',
           passage: 'Until the late nineteenth century, most towns set their clocks by the sun: noon was the moment the sun was highest in the sky. Because the sun reaches this point at slightly different moments in different places, a town just a few dozen kilometers to the west might be several minutes behind its neighbor.\n\nFor most of history, these small differences hardly mattered. The arrival of railways changed that. Trains connected distant towns on precise schedules, and railway companies struggled to publish timetables that worked in dozens of local times. Confusion, missed connections, and even accidents resulted.\n\nIn 1883, railways in the United States and Canada adopted a system of standard time zones, in which every location within a zone used the same time. An international conference in 1884 proposed a global system based on the meridian passing through Greenwich, England. Although some cities resisted at first, standard time gradually became the norm, showing how a new technology can reshape even something as basic as the measurement of time.',
           questions: [
             q('According to paragraph 1, why did nearby towns often have different times?', ['Each town set its clocks by the position of the sun', 'Towns used different types of clocks', 'Some towns ignored railway schedules', 'Clocks were often broken'], 'Each town set its clocks by the position of the sun'),
@@ -42,7 +42,7 @@ export const TEST_2 = {
           ],
         },
         {
-          task: 'academic-passage', title: 'Read an Academic Passage', timeSec: 420, passageTitle: 'Microplastics',
+          task: 'academic-passage', title: 'Read an Academic Passage', timeSec: 360, passageTitle: 'Microplastics',
           passage: 'Microplastics — fragments of plastic smaller than five millimeters — have been found nearly everywhere scientists have looked, from deep ocean trenches to Arctic snow. Some are manufactured at that size, such as the tiny beads once common in cosmetics, but most result from the gradual breakdown of larger items like bottles, bags, and synthetic clothing.\n\nTheir small size makes them particularly difficult to manage. Wastewater treatment plants capture a large share of microplastics, but the captured material often ends up in sludge that is spread on farmland as fertilizer, returning the particles to the environment. Meanwhile, every wash of synthetic garments releases thousands of fibers.\n\nThe effects on living organisms are still being clarified. Laboratory studies show that some marine animals that ingest microplastics eat less and grow more slowly, yet researchers caution that laboratory concentrations are frequently far higher than those found in nature. Determining realistic risks, including any risks to human health, therefore remains an active area of research.',
           questions: [
             q('According to paragraph 1, where do most microplastics come from?', ['The breakdown of larger plastic objects', 'Cosmetic products', 'Deep ocean trenches', 'Arctic snow'], 'The breakdown of larger plastic objects'),
@@ -64,7 +64,7 @@ export const TEST_2 = {
           ],
         },
         {
-          task: 'academic-passage', title: 'Read an Academic Passage', timeSec: 420, passageTitle: 'Camels in the Desert',
+          task: 'academic-passage', title: 'Read an Academic Passage', timeSec: 360, passageTitle: 'Camels in the Desert',
           passage: 'Camels are well known for living in hot, dry deserts. They can travel for many days without drinking water. Many people think camels store water in their humps, but this is not true. The hump is full of fat.\n\nThe fat in the hump gives the camel energy when there is little food. When a camel does not eat for a long time, its hump becomes smaller and may fall to one side.\n\nCamels have other useful features too. Their long eyelashes protect their eyes from sand, and their wide feet help them walk on soft sand without sinking. Because of these features, people in desert regions have used camels to carry goods for thousands of years.',
           questions: [
             q('What is in a camel\'s hump?', ['Fat', 'Water', 'Sand', 'Muscle'], 'Fat'),

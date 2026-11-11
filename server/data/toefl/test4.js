@@ -19,7 +19,7 @@ export const TEST_4 = {
           ],
         },
         {
-          task: 'academic-passage', title: 'Read an Academic Passage', timeSec: 420, passageTitle: 'Coffee and Coffeehouses',
+          task: 'academic-passage', title: 'Read an Academic Passage', timeSec: 360, passageTitle: 'Coffee and Coffeehouses',
           passage: 'Coffee was first cultivated in the region around Yemen, and by the fifteenth century it was widely drunk in the Arabian Peninsula. From there, the drink spread through the Ottoman Empire and, in the seventeenth century, reached Europe.\n\nIn European cities such as London, coffeehouses quickly became much more than places to drink coffee. For the price of a single cup, customers could stay for hours, read newspapers, and debate politics and science with strangers. Because they were cheap and open to men of many social classes, coffeehouses were sometimes called "penny universities."\n\nSome coffeehouses developed into important institutions. Merchants and ship owners gathered at one London coffeehouse to exchange news about shipping, and that meeting place eventually grew into Lloyd\'s, one of the world\'s largest insurance markets. Not everyone approved, however: the English king tried to close coffeehouses in 1675, fearing they encouraged criticism of the government. The order was withdrawn within days after strong public protest.',
           questions: [
             q('According to paragraph 1, where was coffee first grown?', ['In the region around Yemen', 'In London', 'In the Ottoman capital', 'Across Europe'], 'In the region around Yemen'),
@@ -42,7 +42,7 @@ export const TEST_4 = {
           ],
         },
         {
-          task: 'academic-passage', title: 'Read an Academic Passage', timeSec: 420, passageTitle: 'Memory Is Reconstructive',
+          task: 'academic-passage', title: 'Read an Academic Passage', timeSec: 360, passageTitle: 'Memory Is Reconstructive',
           passage: 'We often think of memory as a recording that we replay when we remember. Decades of research suggest otherwise. Each time we recall an event, we reconstruct it from fragments, filling gaps with expectations, knowledge, and information acquired later. As a result, memories can change without our noticing.\n\nIn a classic series of experiments, participants watched a film of a car accident and were then asked how fast the cars were going when they "hit" or "smashed into" each other. Those who heard "smashed" gave higher speed estimates, and a week later they were more likely to report having seen broken glass — although there had been none.\n\nSuch findings have serious implications for the legal system, where eyewitness testimony can be decisive. Confident witnesses are not necessarily accurate ones; confidence can actually grow as a memory is retold. Consequently, many researchers recommend that police record a witness\'s first account, ask open rather than leading questions, and treat later recollections with caution.',
           questions: [
             q('What is the author\'s main point in paragraph 1?', ['Remembering involves rebuilding events, which can alter them', 'Memories are exact recordings of the past', 'People forget most events quickly', 'Expectations have no effect on memory'], 'Remembering involves rebuilding events, which can alter them'),
@@ -64,7 +64,7 @@ export const TEST_4 = {
           ],
         },
         {
-          task: 'academic-passage', title: 'Read an Academic Passage', timeSec: 420, passageTitle: 'Penguins',
+          task: 'academic-passage', title: 'Read an Academic Passage', timeSec: 360, passageTitle: 'Penguins',
           passage: 'Penguins are birds, but they cannot fly. Instead, they are excellent swimmers. Their wings work like flippers, and their bodies have a smooth shape that helps them move quickly through water.\n\nMost penguins live in the Southern Hemisphere, and some live in very cold places like Antarctica. They have thick layers of fat and tightly packed feathers that keep them warm. Emperor penguins stand close together in large groups to share body heat during winter storms.\n\nPenguins eat fish, squid, and small sea animals called krill. Some penguins can dive more than 500 meters deep to find food.',
           questions: [
             q('What is special about penguins as birds?', ['They cannot fly but swim very well', 'They fly very high', 'They live only in hot places', 'They do not eat fish'], 'They cannot fly but swim very well'),

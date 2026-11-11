@@ -19,7 +19,7 @@ export const TEST_3 = {
           ],
         },
         {
-          task: 'academic-passage', title: 'Read an Academic Passage', timeSec: 420, passageTitle: 'Desert Plants and Water',
+          task: 'academic-passage', title: 'Read an Academic Passage', timeSec: 360, passageTitle: 'Desert Plants and Water',
           passage: 'Plants in deserts face a constant challenge: obtaining enough water while losing as little as possible. Many desert plants solve this problem with a combination of structural and chemical adaptations.\n\nCacti, for example, have replaced most of their leaves with spines. Because leaves are where most water evaporates, this greatly reduces water loss. The thick stems of cacti store water and carry out photosynthesis instead of leaves. Many cacti also have shallow but very wide root systems, allowing them to absorb rainwater quickly before it evaporates from the surface.\n\nSome desert plants also use a special type of photosynthesis. Instead of opening their pores during the hot day, they open them at night, when the air is cooler and more humid, and store carbon dioxide until morning. This allows them to keep their pores closed in the heat of the day, saving water. The trade-off is that these plants usually grow quite slowly.',
           questions: [
             q('What is the main idea of the passage?', ['Desert plants have several ways to manage water', 'Cacti are the only plants that survive in deserts', 'Photosynthesis is impossible in hot climates', 'Desert rain evaporates very quickly'], 'Desert plants have several ways to manage water'),
@@ -42,7 +42,7 @@ export const TEST_3 = {
           ],
         },
         {
-          task: 'academic-passage', title: 'Read an Academic Passage', timeSec: 420, passageTitle: 'The Tragedy of the Commons',
+          task: 'academic-passage', title: 'Read an Academic Passage', timeSec: 360, passageTitle: 'The Tragedy of the Commons',
           passage: 'In 1968, the ecologist Garrett Hardin described a situation he called "the tragedy of the commons." Imagine a pasture open to all herders. Each herder gains the full benefit of adding another animal, while the cost — the overgrazing of the pasture — is shared by everyone. Acting rationally, each herder keeps adding animals, until the pasture is ruined for all.\n\nHardin concluded that shared resources would inevitably be destroyed unless they were either privatized or controlled by the government. His argument became highly influential in debates over fisheries, forests, and the atmosphere.\n\nHowever, the political economist Elinor Ostrom challenged this conclusion. Studying communities around the world, she found many groups that had managed shared resources sustainably for centuries — Swiss alpine pastures and Japanese forests among them. These communities developed their own rules, monitored one another, and applied gradual penalties to rule-breakers. Ostrom\'s work, which earned her a Nobel Prize, showed that collective management is a realistic third option.',
           questions: [
             q('According to paragraph 1, why does each herder add more animals?', ['Each herder receives the full benefit while the cost is shared', 'The pasture is too large for one herder', 'The government encourages larger herds', 'Herders do not know the pasture is limited'], 'Each herder receives the full benefit while the cost is shared'),
@@ -64,7 +64,7 @@ export const TEST_3 = {
           ],
         },
         {
-          task: 'academic-passage', title: 'Read an Academic Passage', timeSec: 420, passageTitle: 'The Moon and the Tides',
+          task: 'academic-passage', title: 'Read an Academic Passage', timeSec: 360, passageTitle: 'The Moon and the Tides',
           passage: 'People who live near the ocean see the water rise and fall twice a day. These changes are called tides. Tides are caused mainly by the Moon.\n\nThe Moon\'s gravity pulls on the Earth. It pulls the ocean water a little toward it, so the water rises on the side of the Earth that faces the Moon. This is high tide. At the same time, the water is lower in other places. This is low tide.\n\nThe Sun also affects tides, but less than the Moon, because it is much farther away. When the Sun and the Moon are in a line, the tides are especially high. These are called spring tides, although they happen all year.',
           questions: [
             q('What mainly causes tides?', ['The Moon', 'The wind', 'Rain', 'Ocean animals'], 'The Moon'),

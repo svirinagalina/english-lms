@@ -1,13 +1,17 @@
-import { html, set } from './helpers.js'
+import { html, set, extendTest } from './helpers.js'
 import { OVERVIEW, THEORY } from './theory.js'
 import { COMPLETE_WORDS, DAILY_LIFE, ACADEMIC_PASSAGES } from './reading.js'
 import { CHOOSE_RESPONSE, CONVERSATIONS, ANNOUNCEMENTS, ACADEMIC_TALKS } from './listening.js'
 import { BUILD_SENTENCE, EMAILS, DISCUSSIONS } from './writing.js'
 import { LISTEN_REPEAT, INTERVIEWS } from './speaking.js'
 import { TEST_1 } from './test1.js'
+import { EXTRA_1 } from './test1-full.js'
 import { TEST_2 } from './test2.js'
+import { EXTRA_2 } from './test2-full.js'
 import { TEST_3 } from './test3.js'
+import { EXTRA_3 } from './test3-full.js'
 import { TEST_4 } from './test4.js'
+import { EXTRA_4 } from './test4-full.js'
 import { COMPLETE_WORDS_2, DAILY_LIFE_2, ACADEMIC_PASSAGES_2 } from './reading2.js'
 import { CHOOSE_RESPONSE_2, CONVERSATIONS_2, ANNOUNCEMENTS_2, ACADEMIC_TALKS_2 } from './listening2.js'
 import { BUILD_SENTENCE_2, EMAILS_2, DISCUSSIONS_2 } from './writing2.js'
@@ -43,8 +47,8 @@ export const LESSONS = [
   typeLesson('Writing: Academic Discussion', 'discussion', [...DISCUSSIONS, ...DISCUSSIONS_2]),
   typeLesson('Speaking: Listen and Repeat', 'listen-repeat', [...LISTEN_REPEAT, ...LISTEN_REPEAT_2]),
   typeLesson('Speaking: Take an Interview', 'interview', [...INTERVIEWS, ...INTERVIEWS_2]),
-  { title: 'Simulation Test 1', type: 'practice', blocks: [{ type: 'toefl-test', payload: TEST_1 }] },
-  { title: 'Simulation Test 2', type: 'practice', blocks: [{ type: 'toefl-test', payload: TEST_2 }] },
-  { title: 'Simulation Test 3', type: 'practice', blocks: [{ type: 'toefl-test', payload: TEST_3 }] },
-  { title: 'Simulation Test 4', type: 'practice', blocks: [{ type: 'toefl-test', payload: TEST_4 }] },
+  { title: 'Simulation Test 1', type: 'practice', blocks: [{ type: 'toefl-test', payload: extendTest(TEST_1, EXTRA_1) }] },
+  { title: 'Simulation Test 2', type: 'practice', blocks: [{ type: 'toefl-test', payload: extendTest(TEST_2, EXTRA_2) }] },
+  { title: 'Simulation Test 3', type: 'practice', blocks: [{ type: 'toefl-test', payload: extendTest(TEST_3, EXTRA_3) }] },
+  { title: 'Simulation Test 4', type: 'practice', blocks: [{ type: 'toefl-test', payload: extendTest(TEST_4, EXTRA_4) }] },
 ]

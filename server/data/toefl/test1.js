@@ -21,7 +21,7 @@ export const TEST_1 = {
           ],
         },
         {
-          task: 'academic-passage', title: 'Read an Academic Passage', timeSec: 420, passageTitle: 'The Sense of Smell in Salmon',
+          task: 'academic-passage', title: 'Read an Academic Passage', timeSec: 360, passageTitle: 'The Sense of Smell in Salmon',
           passage: 'Pacific salmon hatch in freshwater streams, swim hundreds or even thousands of kilometers into the ocean, and, several years later, return to the very stream where they were born in order to reproduce. How they manage this journey has fascinated biologists for decades.\n\nOn the open ocean, salmon appear to use the Earth\'s magnetic field to find the general direction of the coast. Once they reach the right river system, however, a different sense takes over: smell. Each stream has a distinctive chemical "signature" created by the soil, rocks, and plants in its area. Young salmon memorize this odor before they leave for the sea.\n\nExperiments support this idea. When researchers blocked the noses of returning salmon, the fish chose streams at random. In other studies, young salmon raised in water containing an artificial chemical later swam toward streams to which the same chemical had been added, even though they had never been there before.',
           questions: [
             q('The word "distinctive" in the passage is closest in meaning to', ['characteristic', 'strong', 'pleasant', 'temporary'], 'characteristic'),
@@ -44,7 +44,7 @@ export const TEST_1 = {
           ],
         },
         {
-          task: 'academic-passage', title: 'Read an Academic Passage', timeSec: 420, passageTitle: 'The Placebo Effect',
+          task: 'academic-passage', title: 'Read an Academic Passage', timeSec: 360, passageTitle: 'The Placebo Effect',
           passage: 'A placebo is a treatment with no active ingredient, such as a sugar pill, yet patients who receive one sometimes report genuine improvements in their symptoms. This placebo effect is so consistent that new drugs are routinely tested against placebos: a medicine is considered effective only if it outperforms an inactive treatment.\n\nFor a long time, the effect was dismissed as imagination. Brain-imaging studies have complicated that view. In patients who expect pain relief from a placebo, the brain releases its own natural painkillers, and activity decreases in regions associated with pain. Expectations, in other words, can produce measurable physical changes.\n\nThe effect is not limitless. Placebos have little influence on conditions such as infections or tumors, and they work best on symptoms that the brain itself modulates, such as pain, nausea, and fatigue. Intriguingly, some studies have found that placebos can help even when patients are told openly that the pills contain no medicine — a finding that researchers are still trying to explain.',
           questions: [
             q('The word "routinely" in the passage is closest in meaning to', ['regularly', 'carefully', 'rarely', 'recently'], 'regularly'),
@@ -66,7 +66,7 @@ export const TEST_1 = {
           ],
         },
         {
-          task: 'academic-passage', title: 'Read an Academic Passage', timeSec: 420, passageTitle: 'Why Leaves Change Color',
+          task: 'academic-passage', title: 'Read an Academic Passage', timeSec: 360, passageTitle: 'Why Leaves Change Color',
           passage: 'In many parts of the world, the leaves of trees turn yellow, orange, and red in the fall. Leaves are green most of the year because they contain chlorophyll, a substance that helps plants make food from sunlight.\n\nWhen days become shorter and colder, trees stop producing chlorophyll. As the green color fades, other colors that were in the leaves all along, such as yellow and orange, become visible. Some trees also make new red substances in the fall.\n\nEventually the leaves fall to the ground. This helps trees save water and energy during the winter, when there is less sunlight. In spring, the trees grow new green leaves.',
           questions: [
             q('Why are leaves green most of the year?', ['They contain chlorophyll', 'They receive a lot of water', 'They grow in cold weather', 'They are very young'], 'They contain chlorophyll'),
