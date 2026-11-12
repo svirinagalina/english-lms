@@ -93,6 +93,7 @@ export default function Profile() {
       <Nav title="My profile" back="/classroom" />
       {/* First on the page: it used to sit under the password form and was missed. */}
       <TelegramConnect first />
+      <ThemePicker />
       <section className="profile">
         <div className="profile-picture">
           <Avatar user={user} size={96} />
@@ -225,6 +226,38 @@ function DeleteAccount() {
           </div>
         </form>
       )}
+    </section>
+  )
+}
+
+// Green (the brand) or dark. Saved in this browser; index.html applies it
+// before the first paint so the page does not flash green.
+const THEMES = [
+  { id: 'green', label: 'Зелёная', swatch: '#14453f' },
+  { id: 'dark', label: 'Тёмная', swatch: '#131615' }
+]
+function readTheme() {
+  try { return localStorage.getItem('lms-theme') === 'dark' ? 'dark' : 'green' } catch { return 'green' }
+}
+function ThemePicker() {
+  const [theme, setTheme] = useState(readTheme)
+  const choose = (id) => {
+    setTheme(id)
+    try { localStorage.setItem('lms-theme', id) } catch {}
+    if (id === 'dark') document.documentElement.dataset.theme = 'dark'
+    else delete document.documentElement.dataset.theme
+  }
+  return (
+    <section className="profile theme-picker">
+      <h2>Тема оформления</h2>
+      <div className="theme-options">
+        {THEMES.map((t) => (
+          <button key={t.id} type="button" className={`theme-option ${theme === t.id ? 'on' : ''}`} onClick={() => choose(t.id)} aria-pressed={theme === t.id}>
+            <span className="theme-swatch" style={{ background: t.swatch }} />
+            {t.label}
+          </button>
+        ))}
+      </div>
     </section>
   )
 }
