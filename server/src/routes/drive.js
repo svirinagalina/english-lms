@@ -65,7 +65,7 @@ driveRouter.get('/all', async (req, res) => {
     if (!(await driveCanRead())) return res.json({ available: true, needsAccess: true, items: [] })
     const kinds = req.query.kind === 'any' ? ['folder', 'pdf', 'audio'] : [req.query.kind === 'audio' ? 'audio' : 'pdf']
     const hidden = await mirroredIds()
-    res.json({ available: true, items: (await listAll(kinds)).filter((i) => !hidden.has(i.id)) })
+    res.json({ available: true, items: (await listAll(kinds, { fresh: req.query.fresh === '1' })).filter((i) => !hidden.has(i.id)) })
   } catch (err) { failed(res, err) }
 })
 

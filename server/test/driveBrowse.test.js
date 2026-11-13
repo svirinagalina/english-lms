@@ -28,8 +28,13 @@ before(async () => {
     const m = /^\/drive\/v3\/files(?:\/([^/]+))?$/.exec(url.pathname)
     if (!m) return send({ error: 'nope' }, 404)
     if (!m[1]) {
-      const parent = /'([^']+)' in parents/.exec(url.searchParams.get('q'))[1]
-      return send({ files: Object.values(files).filter((f) => f.parents[0] === parent) })
+      const q = url.searchParams.get('q')
+      const parent = /'([^']+)' in parents/.exec(q)?.[1]
+      if (parent) return send({ files: Object.values(files).filter((f) => f.parents[0] === parent) })
+      // The search over the whole Drive: folders, PDFs and audio, wherever
+      // they are (Taxes.pdf too: the server must keep it out).
+      assert.match(q, /mimeType contains 'audio\/'/)
+      return send({ files: Object.values(files).filter((f) => /folder|pdf|audio/.test(f.mimeType)) })
     }
     const f = files[decodeURIComponent(m[1])]
     if (!f) return send({ error: 'notFound' }, 404)

@@ -195,7 +195,7 @@ export const api = {
   deleteTextbook: (id) => request(`/textbooks/${id}`, { method: 'DELETE' }),
   textbookFileUrl: (id) => `/api/textbooks/${id}/file`,
   drive: (folder) => request(`/drive${folder ? `?folder=${encodeURIComponent(folder)}` : ''}`),
-  driveAll: (kind = 'pdf') => request(`/drive/all?kind=${kind}`),
+  driveAll: (kind = 'pdf', fresh = false) => request(`/drive/all?kind=${kind}${fresh ? '&fresh=1' : ''}`),
   driveFileUrl: (id) => `/api/drive/files/${encodeURIComponent(id)}`,
   getProfile: () => request('/profile'),
   updateProfile: (body) => request('/profile', { method: 'PATCH', body }),

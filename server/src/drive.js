@@ -178,7 +178,7 @@ const LIST_TTL_MS = 30_000
 const listCache = new Map() // folderId → { at, items }
 const parentOf = new Map() // fileId → { parents, name, mimeType, size }
 
-export function forgetDriveCacheForTests() { listCache.clear(); parentOf.clear() }
+export function forgetDriveCacheForTests() { listCache.clear(); parentOf.clear(); allCache = null }
 
 export async function listFolder(folderId) {
   const hit = listCache.get(folderId)
@@ -233,18 +233,72 @@ export async function pathInside(id) {
 }
 
 // Every PDF and audio file in the folder and its subfolders (for the board's
-// textbook picker), with the folder names on the way.
-export async function listAll(kinds = ['pdf', 'audio']) {
-  const found = []
-  const walk = async (folderId, where, depth) => {
-    if (depth > 6 || found.length > 2000) return
-    for (const item of await listFolder(folderId)) {
-      if (kinds.includes(item.kind)) found.push({ ...item, folder: where.join(' / ') })
-      if (item.kind === 'folder') await walk(item.id, [...where, item.name], depth + 1)
+// textbook picker and the panel's search), with the folder names on the way.
+// Her folder holds thousands of files in hundreds of folders: walking it
+// folder by folder took minutes and was cut off part-way, so instead one
+// search asks the whole Drive for folders, PDFs and audio (a dozen pages), and
+// the tree is put together here, keeping only what sits inside the LMS folder.
+const ALL_TTL_MS = 2 * 60_000
+let allCache = null // { at, items } | { at, pending }
+const TREE_QUERY = "(mimeType = 'application/vnd.google-apps.folder' or mimeType = 'application/pdf' or mimeType contains 'audio/') and trashed = false"
+
+async function readTree() {
+  const root = process.env.GOOGLE_DRIVE_FOLDER_ID
+  const files = []
+  let pageToken = ''
+  do {
+    const params = new URLSearchParams({
+      q: TREE_QUERY,
+      fields: `nextPageToken,files(${FIELDS})`,
+      pageSize: '1000',
+      supportsAllDrives: 'true',
+      includeItemsFromAllDrives: 'true'
+    })
+    if (pageToken) params.set('pageToken', pageToken)
+    const json = await (await driveCall(`${FILES_URL}?${params}`)).json()
+    files.push(...(json.files ?? []))
+    pageToken = json.nextPageToken ?? ''
+  } while (pageToken && files.length < 100_000)
+  const byId = new Map(files.map((f) => [f.id, f]))
+  // The folder names from the LMS folder down to this file, or null when the
+  // file lives elsewhere in her Drive.
+  const trail = new Map()
+  const where = (f) => {
+    const names = []
+    let current = f.parents?.[0]
+    for (let depth = 0; current && depth < 20; depth++) {
+      if (current === root) return names.reverse()
+      if (trail.has(current)) { const above = trail.get(current); return above && [...above, ...names.reverse()] }
+      const parent = byId.get(current)
+      if (!parent) return null
+      names.push(parent.name)
+      current = parent.parents?.[0]
     }
+    return null
   }
-  await walk(process.env.GOOGLE_DRIVE_FOLDER_ID, [], 0)
-  return found
+  const items = []
+  for (const f of files) {
+    const path = where(f)
+    if (f.mimeType === 'application/vnd.google-apps.folder') trail.set(f.id, path && [...path, f.name])
+    const kind = kindOf(f.mimeType, f.name)
+    if (!path || !kind) continue
+    parentOf.set(f.id, f)
+    items.push({ id: f.id, name: f.name, kind, size: f.size ? Number(f.size) : null, modifiedTime: f.modifiedTime, folder: path.join(' / ') })
+  }
+  // Same order every time: by folder, folders before files, then by name.
+  const key = (i) => `${i.folder}\u0000${i.kind === 'folder' ? 0 : 1}\u0000${i.name}`
+  return items.sort((a, b) => key(a).localeCompare(key(b), undefined, { numeric: true }))
+}
+
+export async function listAll(kinds = ['pdf', 'audio'], { fresh = false } = {}) {
+  if (fresh || !allCache || Date.now() - allCache.at > ALL_TTL_MS) {
+    // Several people searching at once share one read of the Drive.
+    const pending = readTree()
+    allCache = { at: Date.now(), pending }
+    try { allCache = { at: Date.now(), items: await pending } } catch (err) { allCache = null; throw err }
+  }
+  const items = allCache.items ?? await allCache.pending
+  return items.filter((i) => kinds.includes(i.kind))
 }
 
 // The bytes of one file, as Drive sends them; a Range is passed through, so

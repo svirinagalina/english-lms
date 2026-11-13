@@ -24,22 +24,23 @@ function DriveBrowser() {
   const [error, setError] = useState('')
   const [q, setQ] = useState('')
   const [playing, setPlaying] = useState(null)
-  // The whole tree, fetched the first time something is searched for.
+  // The whole tree, fetched as soon as the panel opens so that a search is
+  // ready by the time something is typed.
   const [all, setAll] = useState(null)
   const listRef = useRef(null)
 
   const load = (id) => {
     setError('')
     setData(null)
-    setAll(null)
     api.drive(id).then(setData).catch((err) => setError(err.message))
   }
+  const loadAll = (fresh = false) => {
+    setAll(null)
+    api.driveAll('any', fresh).then((r) => setAll(r.items ?? [])).catch((err) => setError(err.message))
+  }
+  useEffect(() => { loadAll() }, [])
   useEffect(() => { load(folder); setQ(''); setPlaying(null) }, [folder])
   const searching = q.trim().length > 0
-  useEffect(() => {
-    if (!searching || all) return
-    api.driveAll('any').then((r) => setAll(r.items ?? [])).catch((err) => setError(err.message))
-  }, [searching, all])
 
   // One recording at a time.
   const playOnlyThis = (event) => {
@@ -72,7 +73,7 @@ function DriveBrowser() {
           ))}
         </nav>
         <input type="search" placeholder="Search all folders" value={q} onChange={(e) => setQ(e.target.value)} />
-        <button type="button" className="ghost" onClick={() => load(folder)} title="Show what was added in Drive just now">Refresh</button>
+        <button type="button" className="ghost" onClick={() => { load(folder); loadAll(true) }} title="Show what was added in Drive just now">Refresh</button>
       </div>
       {error && <div className="error">{error}</div>}
       {((!searching && !data) || (searching && !all)) && !error && <p className="muted">{searching ? 'Searching all folders…' : 'Loading…'}</p>}
