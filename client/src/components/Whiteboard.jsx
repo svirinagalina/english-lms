@@ -1797,13 +1797,33 @@ const Whiteboard = forwardRef(function Whiteboard({ socketRef, boardId, title, s
     emit('board:update', element)
   }
 
+  // Deleting a mistake note drops its notebook entry too (see remove), so
+  // bringing the note back must write the entry again — otherwise the note
+  // is on the board but the notebook lacks it and editing it says «Not found».
+  const rewriteMistake = (note) => {
+    if (!onMistake) return
+    const { said, correct } = mistakeNoteParts(note.text)
+    if (!said) return
+    onMistake({ said, correct, elementId: note.id }, target ?? undefined).then(({ mistake }) => {
+      const current = elementsRef.current.find((item) => item.id === note.id)
+      if (current) { replaceRaw({ ...current, mistakeId: mistake.id }); scheduleRender() }
+    }).catch(() => {})
+  }
+
   const applyAction = (action, direction) => {
     const ops = action.type === 'batch' ? action.actions : [action]
+    const restored = []
     for (const op of direction === 'undo' ? [...ops].reverse() : ops) {
       if (op.type === 'add') direction === 'undo' ? removeRaw(op.element.id) : addRaw(op.element)
-      if (op.type === 'delete') direction === 'undo' ? addRaw(op.element) : removeRaw(op.element.id)
+      if (op.type === 'delete') {
+        if (direction === 'undo') { addRaw(op.element); if (op.element.mistakeId) restored.push(op.element) } else {
+          removeRaw(op.element.id)
+          if (op.element.mistakeId && onMistakeRemoved) onMistakeRemoved(op.element.id)
+        }
+      }
       if (op.type === 'update') replaceRaw(direction === 'undo' ? op.before : op.after)
     }
+    for (const note of restored) rewriteMistake(note)
     scheduleRender()
     bump()
   }
@@ -2439,9 +2459,17 @@ const Whiteboard = forwardRef(function Whiteboard({ socketRef, boardId, title, s
     if (!said) { setMistakeEdit({ ...edit, error: 'What the student said is needed' }); return }
     setMistakeEdit({ ...edit, busy: true, error: '' })
     try {
-      const { mistake } = await api.updateMistake(edit.element.mistakeId, { said, correct })
       const before = elementsRef.current.find((item) => item.id === edit.element.id) ?? edit.element
-      const after = { ...before, text: mistakeNoteText(said, correct, mistake.labels ?? []) }
+      let mistake
+      try {
+        ({ mistake } = await api.updateMistake(before.mistakeId, { said, correct }))
+      } catch (err) {
+        // The notebook entry is gone (deleted from the notebook, or the note
+        // came back some way that did not write it again): write a new one.
+        if (err.status !== 404 || !onMistake) throw err
+        ;({ mistake } = await onMistake({ said, correct, elementId: before.id }, target ?? undefined))
+      }
+      const after = { ...before, mistakeId: mistake.id, text: mistakeNoteText(said, correct, mistake.labels ?? []) }
       replaceRaw(after)
       record({ type: 'update', before: structuredClone(before), after: structuredClone(after) })
       scheduleRender()
