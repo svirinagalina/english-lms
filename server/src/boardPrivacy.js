@@ -5,6 +5,7 @@
 // change or delete what isn't theirs: moving the teacher's card would move it
 // for the whole group.
 import { prisma } from './db.js'
+import { studentMovesOf, shiftElement } from './boardStore.js'
 
 const roles = new Map() // userId → role; a role never changes to or from STUDENT mid-lesson
 async function rolesOf(ids) {
@@ -30,10 +31,14 @@ export async function visibleTo(viewer, element) {
 }
 
 // The board as this viewer may see it.
-export async function boardFor(viewer, elements) {
+// With boardId, the student's own moves of the teacher's things are applied.
+export async function boardFor(viewer, elements, boardId = null) {
   if (viewer?.role !== 'STUDENT') return elements
   const known = await rolesOf(elements.map((e) => e.authorId))
-  return elements.filter((e) => !e.authorId || e.authorId === viewer.id || known.get(e.authorId) !== 'STUDENT')
+  const shifts = boardId ? await studentMovesOf(boardId, viewer.id) : {}
+  return elements
+    .filter((e) => !e.authorId || e.authorId === viewer.id || known.get(e.authorId) !== 'STUDENT')
+    .map((e) => shiftElement(e, shifts[e.id]))
 }
 
 // Several students on one board: its own classroom's and everyone it is shared with.

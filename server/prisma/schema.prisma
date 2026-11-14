@@ -588,6 +588,9 @@ model Board {
   id        String   @id @default(cuid())
   title     String   @default("Untitled")
   elements  Json     @default("[]")
+  // On a group board a student may move the teacher's things for themself
+  // only: { studentId: { elementId: [dx, dy] } }, applied to what they see.
+  studentMoves Json  @default("{}")
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
   // A scratch board made for a call that has no student (a colleague or

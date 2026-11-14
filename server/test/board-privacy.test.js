@@ -1,6 +1,7 @@
 // A group board (one board shared with several students): each student sees
 // the teacher's work and their own, never another student's; the teacher
-// sees everything. A student cannot move or delete the teacher's things there.
+// sees everything. A student cannot change or delete the teacher's things
+// there; moving one only moves it on their own screen.
 import { test, before, after } from 'node:test'
 import assert from 'node:assert/strict'
 import { io } from 'socket.io-client'
@@ -84,18 +85,50 @@ test('the teacher\'s changes reach every student', async () => {
   assert.deepEqual(boris.got, [])
 })
 
-test('a student cannot move or delete the teacher\'s things on a group board', async () => {
+test('a student cannot change or delete the teacher\'s things on a group board', async () => {
   clear()
-  anna.emit('board:update', text('teacher-task', { x: 900 }))
+  anna.emit('board:update', text('teacher-task', { text: 'mine now' }))
   anna.emit('board:delete', 'teacher-task')
   await settle()
   assert.deepEqual(boris.got, [])
   assert.deepEqual(teacher.got, [])
   // Anna gets the stored copy back.
-  assert.equal(anna.got.find((g) => g.event === 'board:update')?.payload.x, 100)
+  assert.equal(anna.got.find((g) => g.event === 'board:update')?.payload.text, 'teacher-task')
   assert.deepEqual(ids(anna, 'board:add'), ['teacher-task'])
   const elements = (await open(teacher)).elements
-  assert.equal(elements.find((e) => e.id === 'teacher-task').x, 100)
+  assert.equal(elements.find((e) => e.id === 'teacher-task').text, 'teacher-task')
+})
+
+test('a student moving the teacher\'s card moves it for herself only, and it stays moved', async () => {
+  clear()
+  // Room for her own words: the card goes 800 to the right, on her screen.
+  anna.emit('board:update', text('teacher-task', { x: 900 }))
+  await settle()
+  assert.deepEqual(boris.got, [])
+  assert.deepEqual(teacher.got, [])
+  assert.deepEqual(anna.got, []) // nothing bounced back
+  const at = async (s) => (await open(s)).elements.find((e) => e.id === 'teacher-task')
+  assert.equal((await at(anna)).x, 900)
+  assert.equal((await at(boris)).x, 100)
+  assert.equal((await at(teacher)).x, 100)
+  // The teacher edits the card: Anna gets the new text where she put it.
+  clear()
+  teacher.emit('board:update', text('teacher-task', { text: 'Task 2', y: 150 }))
+  await settle()
+  const toAnna = anna.got.find((g) => g.event === 'board:update')?.payload
+  assert.deepEqual([toAnna.x, toAnna.y, toAnna.text], [900, 150, 'Task 2'])
+  const toBoris = boris.got.find((g) => g.event === 'board:update')?.payload
+  assert.deepEqual([toBoris.x, toBoris.y], [100, 150])
+  // Kept after the board leaves memory (a restart): it is saved with the board.
+  await new Promise((resolve) => setTimeout(resolve, 2000))
+  const saved = await prisma.board.findUnique({ where: { id: board.id }, select: { studentMoves: true } })
+  assert.deepEqual(saved.studentMoves[school.people.student.id]['teacher-task'], [800, 0])
+  // Moving it back where it was forgets her shift.
+  anna.emit('board:update', text('teacher-task', { text: 'Task 2', y: 150 }))
+  await settle()
+  assert.equal((await at(anna)).x, 100)
+  teacher.emit('board:update', text('teacher-task', { y: 100 }))
+  await settle()
 })
 
 test('a student cannot touch another student\'s note either', async () => {

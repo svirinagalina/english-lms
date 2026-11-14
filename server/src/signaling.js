@@ -10,7 +10,11 @@ import {
   updateElement,
   deleteElement,
   clearBoard,
-  forgetBoard
+  forgetBoard,
+  movedOnly,
+  setStudentMove,
+  studentMovesOf,
+  shiftElement
 } from './boardStore.js'
 import { byStudent, boardFor, isGroupBoard } from './boardPrivacy.js'
 import { loadDocument, replaceDocument, runsSchema, HOMEWORK_PREFIX, TAB_SEPARATOR, splitTab, listTabs, addTab, deleteTab, tabNames, renameTab } from './docStore.js'
@@ -68,11 +72,14 @@ export async function broadcastBoardAdd(boardId, element) {
 // student did reaches only staff and that student's other tabs (boardPrivacy.js).
 async function emitElement(boardId, socket, event, payload, element) {
   const studentsOnly = await byStudent(element)
+  const isElement = event === 'board:add' || event === 'board:update'
   for (const other of boardWatchers.get(boardId) ?? []) {
     if (other === socket) continue
     const viewer = other.data.user
     if (studentsOnly && viewer?.role === 'STUDENT' && viewer.id !== element.authorId) continue
-    other.emit(event, payload)
+    // A student who moved this for themself keeps seeing it where they put it.
+    const shift = isElement && viewer?.role === 'STUDENT' ? (await studentMovesOf(boardId, viewer.id))[payload.id] : null
+    other.emit(event, shift ? shiftElement(payload, shift) : payload)
   }
 }
 
@@ -520,7 +527,7 @@ const PARTNER_BLOCKED_EVENTS = new Set(['call:start', 'drawing', 'board:add', 'b
       unwatch(boardWatchers, socket.data.boardId, socket)
       socket.data.boardId = boardId
       watch(boardWatchers, boardId, socket)
-      const elements = await boardFor(user, await loadBoard(boardId))
+      const elements = await boardFor(user, await loadBoard(boardId), boardId)
       // What each person has open is their own business; the only thing a
       // teacher's choice does is tell people who join the call later which
       // board to start on. Edits reach everyone through the watchers.
@@ -577,13 +584,17 @@ const PARTNER_BLOCKED_EVENTS = new Set(['call:start', 'drawing', 'board:add', 'b
         return
       }
 
-      // On a group board a student changes only their own things; the sender
-      // gets the stored copy back, so their screen matches everyone's again.
+      // On a group board a student changes only their own things. Moving the
+      // teacher's is kept as their own layout (studentMoves), seen by nobody
+      // else; any other change sends the sender their copy back, so their
+      // screen matches what is stored again.
       if (user.role === 'STUDENT' && await isGroupBoard(boardId)) {
         const stored = (await loadBoard(boardId)).find((e) => e.id === parsed.data.id)
         if (stored && stored.authorId !== user.id) {
-          if (await byStudent(stored)) socket.emit('board:delete', stored.id) // not theirs to see either
-          else socket.emit('board:update', stored)
+          if (await byStudent(stored)) { socket.emit('board:delete', stored.id); return } // not theirs to see either
+          const shift = movedOnly(stored, parsed.data)
+          if (shift) { await setStudentMove(boardId, user.id, stored.id, shift); return }
+          socket.emit('board:update', shiftElement(stored, (await studentMovesOf(boardId, user.id))[stored.id]))
           return
         }
       }
@@ -599,7 +610,8 @@ const PARTNER_BLOCKED_EVENTS = new Set(['call:start', 'drawing', 'board:add', 'b
 
       const stored = (await loadBoard(boardId)).find((e) => e.id === elementId)
       if (stored && user.role === 'STUDENT' && stored.authorId !== user.id && await isGroupBoard(boardId)) {
-        socket.emit(await byStudent(stored) ? 'board:delete' : 'board:add', await byStudent(stored) ? stored.id : stored)
+        if (await byStudent(stored)) socket.emit('board:delete', stored.id)
+        else socket.emit('board:add', shiftElement(stored, (await studentMovesOf(boardId, user.id))[stored.id]))
         return
       }
       if (await deleteElement(boardId, elementId)) {
