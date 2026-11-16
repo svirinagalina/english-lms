@@ -28,6 +28,9 @@ const TOOLS = [
 
 // Sticky-note fills, one per ink colour (black ink → yellow note).
 const NOTE_FILLS = ['#fef08a', '#fecaca', '#bbf7d0', '#bfdbfe', '#fed7aa', '#e9d5ff']
+// Mistake notes in a group lesson: each student's in their own colour, so
+// it is clear whose mistake it is (Galina, 2026-11-16). One student: pink.
+const MISTAKE_FILLS = ['#fecaca', '#bfdbfe', '#fef08a', '#e9d5ff', '#fed7aa', '#bbf7d0']
 const NOTE_PAD = 14
 const NOTE_SIZE = 220
 // Marker strokes: translucent, wide, multiplied so text underneath stays readable.
@@ -1264,6 +1267,13 @@ const Whiteboard = forwardRef(function Whiteboard({ socketRef, boardId, title, s
     try { const saved = localStorage.getItem(`board-target:${boardId}`); if (students.some((s) => s.classroomId === saved)) return saved } catch { /* private window */ }
     return students.length === 1 ? students[0].classroomId : null
   })
+  const mistakeFill = (classroomId) => {
+    // By name, not by list order (a call puts its own student first), so a
+    // student keeps one colour from lesson to lesson.
+    const byName = students?.length > 1 ? [...students].sort((a, b) => String(a.name).localeCompare(String(b.name))) : []
+    const index = byName.findIndex((s) => s.classroomId === classroomId)
+    return MISTAKE_FILLS[Math.max(0, index) % MISTAKE_FILLS.length]
+  }
   const chooseTarget = (classroomId) => {
     setTarget(classroomId)
     try { localStorage.setItem(`board-target:${boardId}`, classroomId) } catch { /* private window */ }
@@ -3760,6 +3770,7 @@ const Whiteboard = forwardRef(function Whiteboard({ socketRef, boardId, title, s
                   {!target && <option value="">Choose…</option>}
                   {students.map((s) => <option key={s.classroomId} value={s.classroomId}>{s.name}</option>)}
                 </select>
+                {target && <span className="mistake-swatch" style={{ background: mistakeFill(target) }} title="This student's mistakes are in this colour" />}
               </label>
             )}
             <p className="muted small-hint">Each saved line appears on the board for the student right away and goes into their notebook.</p>
@@ -3789,7 +3800,7 @@ const Whiteboard = forwardRef(function Whiteboard({ socketRef, boardId, title, s
                     const { x, y } = nextPos
                     const note = {
                       id: elementId, type: 'note', color: COLORS[0], width, x, y, w: 320, h: 90,
-                      fill: '#fecaca', fontSize: 12, mistakeId: mistake.id,
+                      fill: mistakeFill(target), fontSize: 12, mistakeId: mistake.id,
                       text: mistakeNoteText(said, correct, mistake.labels ?? [])
                     }
                     commit(note)
