@@ -89,3 +89,29 @@ body::after {
   :is(.whiteboard, .call-chat) :is(button, .button):hover,
   :is(.whiteboard, .call-chat) :is(button, .button):active { transform: none; box-shadow: none; }
 }
+
+/* The logo: on arrival the two chevrons draw themselves bottom to top, like
+   climbing a level; on hover they hop up one after the other and glow green;
+   every so often a soft green light runs up through them. */
+@media (prefers-reduced-motion: no-preference) {
+  .logo-mark { overflow: visible; }
+  .logo-mark .chev {
+    stroke-dasharray: 1;
+    animation: chev-draw .7s cubic-bezier(.6,0,.2,1) both, chev-breathe 9s ease-in-out 2s infinite;
+    transition: transform .35s cubic-bezier(.3,1.6,.5,1);
+  }
+  .logo-mark .chev-low { animation-delay: .1s, 2s; }
+  .logo-mark .chev-top { animation-delay: .45s, 2.25s; }
+  @keyframes chev-draw { from { stroke-dashoffset: 1; opacity: .3; } to { stroke-dashoffset: 0; opacity: 1; } }
+  @keyframes chev-breathe {
+    0%, 88%, 100% { filter: none; }
+    93% { filter: drop-shadow(0 0 6px rgba(var(--grid, 74,222,128), .9)); stroke: #d9fbe5; }
+  }
+  .logo-mark { transition: filter .3s; }
+  .brand:hover .logo-mark { filter: drop-shadow(0 0 5px rgba(var(--grid, 74,222,128), .8)); }
+  .brand:hover .logo-mark .chev-low { transform: translateY(-6px); }
+  .brand:hover .logo-mark .chev-top { transform: translateY(-12px); transition-delay: .06s; }
+  .brand:active .logo-mark .chev { transform: translateY(2px); transition-duration: .1s; }
+  .brand .brand-name { transition: letter-spacing .3s, color .3s; }
+  .brand:hover .brand-name { letter-spacing: 0; color: rgb(var(--grid, 74,222,128)); }
+}

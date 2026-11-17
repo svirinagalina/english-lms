@@ -4,9 +4,9 @@ import { Link } from 'react-router-dom'
 // SVG so it stays crisp at any size on the green ground.
 export function Logo({ height = 28 }) {
   return (
-    <svg width={height * 0.62} height={height} viewBox="0 0 62 100" fill="none" aria-hidden="true">
-      <path d="M7 50 L31 6 L55 50" stroke="#fcfbf6" strokeWidth="9" strokeLinejoin="miter" strokeLinecap="butt" />
-      <path d="M7 96 L31 52 L55 96" stroke="#fcfbf6" strokeWidth="9" strokeLinejoin="miter" strokeLinecap="butt" />
+    <svg className="logo-mark" width={height * 0.62} height={height} viewBox="0 0 62 100" fill="none" aria-hidden="true">
+      <path className="chev chev-top" pathLength="1" d="M7 50 L31 6 L55 50" stroke="#fcfbf6" strokeWidth="9" strokeLinejoin="miter" strokeLinecap="butt" />
+      <path className="chev chev-low" pathLength="1" d="M7 96 L31 52 L55 96" stroke="#fcfbf6" strokeWidth="9" strokeLinejoin="miter" strokeLinecap="butt" />
     </svg>
   )
 }
