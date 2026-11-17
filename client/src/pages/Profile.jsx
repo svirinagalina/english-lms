@@ -230,14 +230,15 @@ function DeleteAccount() {
   )
 }
 
-// Green (the brand) or dark. Saved in this browser; index.html applies it
+// Dark or green (the brand). Saved in this browser; index.html applies it
 // before the first paint so the page does not flash green.
+// Dark is the default since 2026-11-17.
 const THEMES = [
-  { id: 'green', label: 'Зелёная', swatch: '#14453f' },
-  { id: 'dark', label: 'Тёмная', swatch: '#131615' }
+  { id: 'dark', label: 'Тёмная', swatch: '#0b110f' },
+  { id: 'green', label: 'Зелёная', swatch: '#14453f' }
 ]
 function readTheme() {
-  try { return localStorage.getItem('lms-theme') === 'dark' ? 'dark' : 'green' } catch { return 'green' }
+  try { return localStorage.getItem('lms-theme') === 'green' ? 'green' : 'dark' } catch { return 'dark' }
 }
 function ThemePicker() {
   const [theme, setTheme] = useState(readTheme)
