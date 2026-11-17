@@ -115,3 +115,10 @@ body::after {
   .brand .brand-name { transition: letter-spacing .3s, color .3s; }
   .brand:hover .brand-name { letter-spacing: 0; color: rgb(var(--grid, 74,222,128)); }
 }
+
+/* A board's name opens it: the whole name block is a link-like target. */
+.board-open { cursor: pointer; border-radius: 8px; flex: 1; outline-offset: 4px; }
+.board-open strong { transition: color .2s; }
+.board-open strong::after { content: ' →'; opacity: 0; display: inline-block; transform: translateX(-4px); transition: opacity .2s, transform .2s; }
+.board-open:hover strong, .board-open:focus-visible strong { color: rgb(var(--grid, 74,222,128)); text-decoration: underline; text-underline-offset: 3px; }
+.board-open:hover strong::after, .board-open:focus-visible strong::after { opacity: 1; transform: none; }

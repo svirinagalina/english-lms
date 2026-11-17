@@ -40,7 +40,14 @@ export default function BoardRow({ board, classroomId, targets, canEdit, onOpen,
   return (
     <div className="row column">
       <div className="row-main">
-        <div>
+        <div
+          className="board-open"
+          role="button"
+          tabIndex={0}
+          title={`Open “${board.title}”`}
+          onClick={onOpen}
+          onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onOpen() } }}
+        >
           <strong>{board.title}</strong>
           <div className="muted">
             Updated {new Date(board.updatedAt).toLocaleString()}
