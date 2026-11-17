@@ -7,7 +7,7 @@ import Whiteboard from '../components/Whiteboard'
 import Writing from '../components/Writing'
 import Nav from '../components/Nav'
 import Panel from '../components/Panel'
-import LiveLesson from '../components/LiveLesson'
+import LiveLesson, { useActiveCall } from '../components/LiveLesson'
 import { SiteFooter } from '../components/Brand'
 import BoardRow from '../components/BoardRow'
 import MistakeNotebook from '../components/MistakeNotebook'
@@ -141,6 +141,8 @@ export default function Classroom() {
   const socketRef = useRef(null)
 
   const isStaff = user.role !== 'STUDENT'
+  // A student waiting on the board (not in the cabinet) still gets "Join call".
+  const liveCall = useActiveCall(id, !isStaff)
 
   // The student's weak spots, for a glance before the lesson.
   const [report, setReport] = useState(null)
@@ -361,6 +363,7 @@ export default function Classroom() {
             // come back to, so that one stays as is.
             onClose={() => (isPersonal ? navigate('/classroom') : setOpenBoardId(null))}
             onStartCall={isStaff ? () => startCallOnBoard(openBoard.id) : undefined}
+            joinCallHref={liveCall ? `/call/${liveCall.token}?board=${openBoard.id}` : null}
             onOpenWriting={!isPersonal
               ? () => setWritingOpen(true)
               : boardAssignees.length

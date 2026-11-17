@@ -441,3 +441,5 @@ select.tool { appearance: auto; padding: 5px 8px; }
 /* Dock tools drawn as icons; the name is in the tooltip. */
 .board-dock .tool.icon { display: inline-flex; align-items: center; justify-content: center; min-width: 34px; padding: 6px 8px; }
 .board-dock .tool.icon .dock-icon { display: block; }
+.chip-call.chip-join { background: #22c55e; color: #052e16; text-decoration: none; display: inline-flex; align-items: center; gap: 6px; }
+.chip-call.chip-join .live-dot { width: 8px; height: 8px; background: #052e16; }

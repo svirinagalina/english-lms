@@ -5,9 +5,11 @@ import { api } from '../api'
 // "Your lesson is on": shown the moment the teacher starts a call on the
 // student's classroom. Polled every ten seconds, and right away when the tab
 // comes back to the front.
-export default function LiveLesson({ classroomId = null }) {
+// The student's live call, if any, for this classroom (null = any).
+export function useActiveCall(classroomId = null, enabled = true) {
   const [call, setCall] = useState(null)
   useEffect(() => {
+    if (!enabled) return
     let stopped = false
     const check = () => api.activeCall().then(({ call }) => { if (!stopped) setCall(call) }).catch(() => {})
     check()
@@ -15,8 +17,14 @@ export default function LiveLesson({ classroomId = null }) {
     const onVisible = () => { if (document.visibilityState === 'visible') check() }
     document.addEventListener('visibilitychange', onVisible)
     return () => { stopped = true; clearInterval(timer); document.removeEventListener('visibilitychange', onVisible) }
-  }, [])
+  }, [enabled])
   if (!call || (classroomId && call.classroomId && call.classroomId !== classroomId)) return null
+  return call
+}
+
+export default function LiveLesson({ classroomId = null }) {
+  const call = useActiveCall(classroomId)
+  if (!call) return null
   return (
     <Link className="live-lesson" to={`/call/${call.token}`}>
       <span className="live-dot" aria-hidden="true" />

@@ -1,3 +1,4 @@
+import { Link } from 'react-router-dom'
 import { forwardRef, useCallback, useEffect, useImperativeHandle, useLayoutEffect, useRef, useState } from 'react'
 import '../styles/whiteboard.css'
 import { isEnglishWord, lookupWord, wordAt } from '../utils/dictionary'
@@ -1180,7 +1181,7 @@ async function prepareImage(file) {
   return { dataUrl, size: { w: canvas.width, h: canvas.height } }
 }
 
-const Whiteboard = forwardRef(function Whiteboard({ socketRef, boardId, title, subtitle, onClose, backLabel = '← Back', onStartCall, onOpenWriting, canSpotlight = false, onUploadImage, onAssist, assistEnabled, wordPicker = false, saveAllMoves = false, focusElementId = null, onMistake, onMistakeRemoved, insertBlock = null, onInserted, onAddWords, onRecentWords, students = null, writingStudents = null }, ref) {
+const Whiteboard = forwardRef(function Whiteboard({ socketRef, boardId, title, subtitle, onClose, backLabel = '← Back', onStartCall, joinCallHref = null, onOpenWriting, canSpotlight = false, onUploadImage, onAssist, assistEnabled, wordPicker = false, saveAllMoves = false, focusElementId = null, onMistake, onMistakeRemoved, insertBlock = null, onInserted, onAddWords, onRecentWords, students = null, writingStudents = null }, ref) {
   const [assisting, setAssisting] = useState(null)
   const [exporting, setExporting] = useState(false)
   const fileInputRef = useRef(null)
@@ -3729,6 +3730,11 @@ const Whiteboard = forwardRef(function Whiteboard({ socketRef, boardId, title, s
             <button className={`chip-call ${spotlighting ? 'on' : 'ghost-chip'}`} onClick={toggleSpotlight} title="Sends your view to everyone once; they move their own board afterwards">
               {spotlighting ? 'Spotlight on' : 'Spotlight me'}
             </button>
+          )}
+          {joinCallHref && (
+            <Link className="chip-call chip-join" to={joinCallHref} title="Your teacher is in the call — join it">
+              <span className="live-dot" aria-hidden="true" /> Join call
+            </Link>
           )}
           {onStartCall && (
             <button className="chip-call" onClick={onStartCall} title="Start a call on this board and get a link to send">
