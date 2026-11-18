@@ -1,5 +1,5 @@
-/* A calmer, livelier look (Galina, 2026-11-17): a dark ground with a faint
-   green grid that lights up around the pointer, and buttons, rows and
+/* A calmer, livelier look (Galina, 2026-11-17): a dark ground with green
+   dots that light up around the pointer in the empty margins, and buttons, rows and
    panels that answer the mouse with a small lift. Nothing moves for people
    who asked their system for less motion, and nothing on touch screens. */
 
@@ -20,31 +20,21 @@
   --grid: 74, 222, 128;
 }
 
-/* The grid: barely there everywhere, brighter near the pointer. Both layers
-   sit behind the page (pointer-events none), so they only show in the gaps
-   between cards and never under a whiteboard or a video. */
-body::before,
+/* Dots around the pointer, only over the empty background (outside the
+   menu and the page's content: main.jsx decides) and fading out with
+   distance. They sit behind the page and never cover a card or a board. */
 body::after {
   content: '';
   position: fixed;
   inset: 0;
   pointer-events: none;
   z-index: 0;
-  background-size: 34px 34px;
-}
-body::before {
   background-image:
-    linear-gradient(rgba(var(--grid), 0.035) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(var(--grid), 0.035) 1px, transparent 1px);
-}
-body::after {
-  background-image:
-    radial-gradient(circle at var(--mx) var(--my), rgba(var(--grid), 0.09), transparent 260px),
-    linear-gradient(rgba(var(--grid), 0.4) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(var(--grid), 0.4) 1px, transparent 1px);
-  background-size: 100% 100%, 34px 34px, 34px 34px;
-  -webkit-mask-image: radial-gradient(220px circle at var(--mx) var(--my), #000 0%, rgba(0, 0, 0, 0.35) 45%, transparent 100%);
-  mask-image: radial-gradient(220px circle at var(--mx) var(--my), #000 0%, rgba(0, 0, 0, 0.35) 45%, transparent 100%);
+    radial-gradient(circle at var(--mx) var(--my), rgba(var(--grid), 0.07), transparent 240px),
+    radial-gradient(circle, rgba(var(--grid), 0.75) 1.3px, transparent 1.8px);
+  background-size: 100% 100%, 22px 22px;
+  -webkit-mask-image: radial-gradient(200px circle at var(--mx) var(--my), #000 0%, rgba(0, 0, 0, 0.4) 45%, transparent 100%);
+  mask-image: radial-gradient(200px circle at var(--mx) var(--my), #000 0%, rgba(0, 0, 0, 0.4) 45%, transparent 100%);
   opacity: 0;
   transition: opacity 0.35s ease;
 }

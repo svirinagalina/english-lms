@@ -11,8 +11,10 @@ import '@fontsource/inter/700-italic.css'
 import './styles.css'
 import './styles/glow.css'
 
-// The background grid lights up around the pointer (styles/glow.css): the
-// position goes into two CSS variables, at most once a frame.
+// Dots light up around the pointer (styles/glow.css), only while it is over
+// the empty background, not the menu or the page's content. The position goes
+// into two CSS variables, at most once a frame.
+const CONTENT = '.topbar, .page, .card, .lesson-page, .view-pane, .whiteboard, .call-page, .modal, dialog, .update-toast'
 if (window.matchMedia?.('(hover: hover)').matches) {
   const root = document.documentElement
   let frame = 0
@@ -25,7 +27,8 @@ if (window.matchMedia?.('(hover: hover)').matches) {
       frame = 0
       root.style.setProperty('--mx', `${last.clientX}px`)
       root.style.setProperty('--my', `${last.clientY}px`)
-      root.classList.add('pointer-in')
+      const over = last.target instanceof Element && last.target.closest(CONTENT)
+      root.classList.toggle('pointer-in', !over)
     })
   }, { passive: true })
   document.addEventListener('pointerleave', () => root.classList.remove('pointer-in'))
