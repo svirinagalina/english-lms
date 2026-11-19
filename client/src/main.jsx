@@ -17,6 +17,8 @@ import './styles/glow.css'
 const CONTENT = '.topbar, .page, .card, .lesson-page, .view-pane, .whiteboard, .call-page, .modal, dialog, .update-toast'
 if (window.matchMedia?.('(hover: hover)').matches) {
   const root = document.documentElement
+  // Turned off in the profile («Зелёные точки под курсором»).
+  try { if (localStorage.getItem('lms-dots') === 'off') root.classList.add('no-dots') } catch {}
   let frame = 0
   let last = null
   window.addEventListener('pointermove', (event) => {

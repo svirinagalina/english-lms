@@ -240,8 +240,17 @@ const THEMES = [
 function readTheme() {
   try { return localStorage.getItem('lms-theme') === 'green' ? 'green' : 'dark' } catch { return 'dark' }
 }
+function readDots() {
+  try { return localStorage.getItem('lms-dots') !== 'off' } catch { return true }
+}
 function ThemePicker() {
   const [theme, setTheme] = useState(readTheme)
+  const [dots, setDots] = useState(readDots)
+  const toggleDots = (on) => {
+    setDots(on)
+    try { localStorage.setItem('lms-dots', on ? 'on' : 'off') } catch {}
+    document.documentElement.classList.toggle('no-dots', !on)
+  }
   const choose = (id) => {
     setTheme(id)
     try { localStorage.setItem('lms-theme', id) } catch {}
@@ -259,6 +268,10 @@ function ThemePicker() {
           </button>
         ))}
       </div>
+      <label className="theme-dots">
+        <input type="checkbox" checked={dots} onChange={(e) => toggleDots(e.target.checked)} />
+        Зелёные точки под курсором
+      </label>
     </section>
   )
 }
