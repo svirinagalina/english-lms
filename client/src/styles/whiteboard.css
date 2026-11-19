@@ -443,3 +443,123 @@ select.tool { appearance: auto; padding: 5px 8px; }
 .board-dock .tool.icon .dock-icon { display: block; }
 .chip-call.chip-join { background: #22c55e; color: #052e16; text-decoration: none; display: inline-flex; align-items: center; gap: 6px; }
 .chip-call.chip-join .live-dot { width: 8px; height: 8px; background: #052e16; }
+
+/* ---- Side panel (2026-11-19): tools down the left, light and quiet, like
+   the reference Galina sent; zoom, undo and full screen bottom right. ---- */
+.board-rail {
+  position: absolute;
+  left: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 3;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: 6px;
+  background: #ffffff;
+  border: 1px solid #e7e4ef;
+  border-radius: 14px;
+  box-shadow: 0 6px 24px rgba(30, 20, 70, 0.12);
+  max-height: calc(100% - 140px);
+  overflow-y: auto;
+  scrollbar-width: none;
+}
+.board-rail::-webkit-scrollbar { display: none; }
+/* In a call the camera/mic buttons sit top left: keep below them. */
+.stage.board-mode .board-rail { top: calc(50% + 30px); max-height: calc(100% - 200px); }
+.board-rail .tool,
+.board-zoombar .tool {
+  background: transparent;
+  color: #3b3650;
+  border-radius: 9px;
+}
+.board-rail .tool.icon { width: 36px; height: 36px; min-width: 0; padding: 0; display: inline-flex; align-items: center; justify-content: center; }
+.board-rail .tool:hover,
+.board-zoombar .tool:hover:not(:disabled) { background: #f1eff7; }
+.board-rail .tool.active,
+.board-zoombar .tool.active { background: #ece6ff; color: #5b3fd0; }
+.board-rail .tool:disabled,
+.board-zoombar .tool:disabled { opacity: 0.35; cursor: default; }
+.rail-sep { width: 24px; height: 1px; background: #ebe8f2; margin: 4px 0; flex: none; }
+.rail-item { position: relative; display: flex; }
+.rail-colour { width: 20px; height: 20px; border-radius: 50%; box-shadow: inset 0 0 0 2px rgba(255, 255, 255, 0.9), 0 0 0 1px #d6d2e2; }
+
+.board-popover {
+  position: fixed;
+  z-index: 40;
+  background: #ffffff;
+  color: #1f1b2e;
+  border: 1px solid #e7e4ef;
+  border-radius: 14px;
+  box-shadow: 0 12px 32px rgba(30, 20, 70, 0.16);
+  padding: 10px;
+}
+/* Next to the panel, level with the button that opened it. */
+.board-rail .board-popover { position: absolute; left: calc(100% + 14px); top: -6px; }
+.board-rail { overflow: visible; }
+.rail-swatches { display: grid; grid-template-columns: repeat(6, 24px); gap: 8px; }
+.rail-width { display: flex; align-items: center; gap: 8px; margin-top: 10px; font-size: 12px; }
+.rail-width .muted { color: #6f6a80; }
+.rail-width input { flex: 1; accent-color: #6d4fd8; }
+.rail-more { display: flex; flex-direction: column; min-width: 200px; padding: 6px; top: auto; bottom: -6px; }
+.board-rail .rail-more { top: auto; bottom: -6px; }
+.popover-item {
+  display: flex; align-items: center; gap: 10px; width: 100%;
+  background: transparent; border: none; border-radius: 8px;
+  padding: 8px 10px; text-align: left; font: inherit; font-size: 14px; color: #1f1b2e; cursor: pointer;
+}
+.popover-item:hover:not(:disabled) { background: #f4f2fa; }
+.popover-item:disabled { opacity: 0.5; cursor: default; }
+.popover-item.danger { color: #c62828; }
+.popover-head { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; color: #5b3fd0; }
+.popover-head strong { flex: 1; color: #1f1b2e; font-size: 14px; }
+.popover-head .word-card-close { color: #6f6a80; }
+.popover-search { width: 100%; box-sizing: border-box; padding: 8px 10px; border: 1px solid #e2deec; border-radius: 9px; font: inherit; font-size: 14px; background: #faf9fd; color: #1f1b2e; }
+.popover-list { margin-top: 8px; max-height: 320px; overflow-y: auto; }
+.popover-item-icon { width: 30px; height: 30px; flex: none; border-radius: 8px; background: #efeafd; color: #6d4fd8; display: inline-flex; align-items: center; justify-content: center; }
+.popover-item-text { display: flex; flex-direction: column; min-width: 0; flex: 1; }
+.popover-item-text > span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.popover-item-text .muted { font-size: 12px; color: #6f6a80; }
+.board-popover .muted { color: #6f6a80; }
+.board-popover .error { color: #c62828; font-size: 13px; }
+.rail-audio { width: 320px; }
+.board-rail .rail-audio { top: -60px; }
+
+.board-zoombar {
+  top: auto;
+  bottom: 14px;
+  align-items: center;
+  gap: 2px;
+  padding: 5px;
+  background: #ffffff;
+  border: 1px solid #e7e4ef;
+  border-radius: 12px;
+  box-shadow: 0 6px 24px rgba(30, 20, 70, 0.12);
+}
+.board-zoombar .tool.icon { width: 34px; height: 34px; min-width: 0; padding: 0; display: inline-flex; align-items: center; justify-content: center; font-size: 18px; }
+.board-zoombar .zoom-value { height: 34px; min-width: 54px; padding: 0 6px; font-size: 13px; font-variant-numeric: tabular-nums; }
+.bar-sep { width: 1px; height: 22px; background: #ebe8f2; margin: 0 3px; }
+.stage.board-mode .board-zoombar { bottom: 14px; }
+
+/* The crop bar keeps the bottom centre, in the same light dress. */
+.board-dock { background: #ffffff; color: #1f1b2e; border-color: #e7e4ef; box-shadow: 0 6px 24px rgba(30, 20, 70, 0.12); }
+.board-dock .muted { color: #6f6a80; }
+.board-dock .tool { background: #f1eff7; color: #3b3650; }
+.board-dock .tool.active { background: #6d4fd8; color: #fff; }
+
+/* Audio players over their cards. */
+.board-audio-layer { position: absolute; inset: 0; pointer-events: none; overflow: hidden; z-index: 1; }
+.board-audio { position: absolute; left: 0; top: 0; width: 360px; transform-origin: 0 0; pointer-events: none; }
+.audio-controls { position: absolute; left: 12px; right: 14px; bottom: 12px; height: 44px; display: flex; align-items: center; gap: 4px; color: #3b3650; }
+.audio-controls button { pointer-events: auto; border: none; padding: 0; flex: none; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; }
+.audio-skip { background: transparent; color: #4a4560; width: 32px; height: 32px; border-radius: 50%; }
+.audio-skip:hover { background: #f1eff7; }
+.audio-play { width: 40px; height: 40px; border-radius: 50%; background: #6d4fd8; color: #fff; box-shadow: 0 4px 10px rgba(109, 79, 216, 0.35); }
+.audio-play:hover { background: #5b3fd0; }
+.audio-play:disabled { background: #c9c3dc; box-shadow: none; cursor: default; }
+.audio-wave { pointer-events: auto; flex: 1; height: 30px; display: flex; align-items: center; gap: 2px; margin-left: 6px; cursor: pointer; touch-action: none; }
+.audio-wave span { flex: 1; min-width: 1px; border-radius: 2px; background: #d9d4ea; }
+.audio-wave span.played { background: #6d4fd8; }
+.audio-time { font-size: 11px; color: #6f6a80; font-variant-numeric: tabular-nums; white-space: nowrap; margin-left: 6px; }
+.audio-controls svg { flex: none; }

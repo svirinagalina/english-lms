@@ -38,6 +38,7 @@ import { profileRouter } from './routes/profile.js'
 import { textbooksRouter, startTextbookUploadSweep } from './routes/textbooks.js'
 import { startDriveSync } from './drive.js'
 import { driveRouter } from './routes/drive.js'
+import { boardMediaRouter } from './routes/boardMedia.js'
 import { personalRouter } from './routes/personal.js'
 import { coursesRouter } from './routes/courses.js'
 import { toeflRouter } from './routes/toefl.js'
@@ -136,6 +137,7 @@ app.use('/api/advent', adventRouter)
 app.use('/api/profile', profileRouter)
 app.use('/api/textbooks', textbooksRouter)
 app.use('/api/drive', driveRouter)
+app.use('/api/boards', boardMediaRouter)
 app.use('/api/personal', personalRouter)
 app.use('/api/courses', coursesRouter)
 app.use('/api/toefl', toeflRouter)

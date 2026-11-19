@@ -9,6 +9,7 @@ import DictionaryPanel from './DictionaryPanel'
 import { useAuth } from '../AuthContext'
 import { api } from '../api'
 import BoardIcon from './BoardIcons'
+import { AudioPlayer, DriveAudioPicker, AUDIO_W, AUDIO_H } from './BoardAudio'
 
 const COLORS = ['#111827', '#ef4444', '#16a34a', '#2563eb', '#f59e0b', '#9333ea']
 // Ink drawn while the board was dark, shown dark on the white board.
@@ -24,6 +25,9 @@ const TOOLS = [
   { id: 'marker', label: 'Marker', key: 'M' },
   { id: 'text', label: 'Text', key: 'T' },
   { id: 'note', label: 'Note', key: 'N' },
+  { id: 'rect', label: 'Rectangle', key: 'R' },
+  { id: 'ellipse', label: 'Circle', key: 'O' },
+  { id: 'arrow', label: 'Arrow', key: 'A' },
   { id: 'eraser', label: 'Erase', key: 'E' }
 ]
 
@@ -796,6 +800,56 @@ function strikeThrough(ctx, x, y, width, size) {
   ctx.restore()
 }
 
+// An audio card: a white card with a note icon and the file's name. The
+// player itself (play, ±5 s, waveform, time) is HTML over it — see BoardAudio.
+function drawAudioCard(ctx, element) {
+  const k = Math.abs(element.w) / AUDIO_W || 1
+  const h = Math.abs(element.h) / k || AUDIO_H
+  ctx.save()
+  ctx.translate(element.x, element.y)
+  ctx.scale(k, k)
+  ctx.shadowColor = 'rgba(30, 20, 70, 0.14)'
+  ctx.shadowBlur = 18
+  ctx.shadowOffsetY = 4
+  ctx.fillStyle = '#ffffff'
+  ctx.beginPath()
+  ctx.roundRect(0, 0, AUDIO_W, h, 16)
+  ctx.fill()
+  ctx.shadowColor = 'transparent'
+  ctx.strokeStyle = '#e6e2f3'
+  ctx.lineWidth = 1
+  ctx.stroke()
+  ctx.fillStyle = '#efeafd'
+  ctx.beginPath()
+  ctx.roundRect(14, 12, 34, 34, 10)
+  ctx.fill()
+  // A small waveform glyph in the icon square.
+  ctx.strokeStyle = '#6d4fd8'
+  ctx.lineWidth = 2
+  ctx.lineCap = 'round'
+  ;[6, 12, 18, 10, 14, 6].forEach((len, i) => {
+    const x = 21 + i * 4
+    ctx.beginPath()
+    ctx.moveTo(x, 29 - len / 2)
+    ctx.lineTo(x, 29 + len / 2)
+    ctx.stroke()
+  })
+  ctx.fillStyle = '#1f1b2e'
+  ctx.textBaseline = 'middle'
+  ctx.font = fontFor(15, true, false)
+  let name = element.name || 'Audio'
+  const room = AUDIO_W - 74
+  if (ctx.measureText(name).width > room) {
+    while (name.length > 1 && ctx.measureText(`${name}…`).width > room) name = name.slice(0, -1)
+    name = `${name}…`
+  }
+  ctx.fillText(name, 60, 29)
+  ctx.restore()
+}
+
+const audioTransform = (el, view) =>
+  `translate(${el.x * view.scale + view.x}px, ${el.y * view.scale + view.y}px) scale(${(view.scale * Math.abs(el.w)) / AUDIO_W})`
+
 function drawElement(ctx, element) {
   ctx.strokeStyle = inkOf(element.color)
   ctx.fillStyle = inkOf(element.color)
@@ -805,6 +859,7 @@ function drawElement(ctx, element) {
 
   if (element.type === 'image') return drawImageElement(ctx, element)
   if (element.type === 'sticker') return drawSticker(ctx, element)
+  if (element.type === 'audio') return drawAudioCard(ctx, element)
 
   if (element.type === 'path') {
     const points = element.points ?? []
@@ -1181,7 +1236,7 @@ async function prepareImage(file) {
   return { dataUrl, size: { w: canvas.width, h: canvas.height } }
 }
 
-const Whiteboard = forwardRef(function Whiteboard({ socketRef, boardId, title, subtitle, onClose, backLabel = '← Back', onStartCall, joinCallHref = null, onOpenWriting, canSpotlight = false, onUploadImage, onAssist, assistEnabled, wordPicker = false, saveAllMoves = false, focusElementId = null, onMistake, onMistakeRemoved, insertBlock = null, onInserted, onAddWords, onRecentWords, students = null, writingStudents = null }, ref) {
+const Whiteboard = forwardRef(function Whiteboard({ socketRef, boardId, title, subtitle, onClose, backLabel = '← Back', onStartCall, joinCallHref = null, onOpenWriting, canSpotlight = false, onUploadImage, onAssist, assistEnabled, wordPicker = false, saveAllMoves = false, focusElementId = null, onMistake, onMistakeRemoved, insertBlock = null, onInserted, onAddWords, onRecentWords, students = null, writingStudents = null, loadDriveAudio, onAddDriveAudio }, ref) {
   const [assisting, setAssisting] = useState(null)
   const [exporting, setExporting] = useState(false)
   const fileInputRef = useRef(null)
@@ -1460,6 +1515,35 @@ const Whiteboard = forwardRef(function Whiteboard({ socketRef, boardId, title, s
   // it back closed the list at once), so the caret is remembered here.
   const sizePickRef = useRef(null)
   const [, forceRender] = useState(0)
+  const audioLayerRef = useRef(null)
+  const audioSigRef = useRef('')
+  // Which popover of the side panel is open: 'style', 'more', 'audio' or none.
+  const [railPop, setRailPop] = useState(null)
+  const [fullscreen, setFullscreen] = useState(Boolean(document.fullscreenElement))
+  useEffect(() => {
+    const on = () => setFullscreen(Boolean(document.fullscreenElement))
+    document.addEventListener('fullscreenchange', on)
+    return () => document.removeEventListener('fullscreenchange', on)
+  }, [])
+  const toggleFullscreen = () => {
+    if (document.fullscreenElement) document.exitFullscreen?.().catch(() => {})
+    else document.documentElement.requestFullscreen?.().catch(() => {})
+  }
+  // A press anywhere outside the side panel closes its popover.
+  useEffect(() => {
+    if (!railPop) return
+    const close = (e) => { if (!e.target.closest?.('.board-rail')) setRailPop(null) }
+    document.addEventListener('pointerdown', close, true)
+    return () => document.removeEventListener('pointerdown', close, true)
+  }, [railPop])
+  // Drive audio is the teacher's (only staff of the Drive's school get a list).
+  const [driveAudioOn, setDriveAudioOn] = useState(false)
+  useEffect(() => {
+    if (!loadDriveAudio) return
+    let live = true
+    loadDriveAudio().then((r) => { if (live) setDriveAudioOn(Boolean(r?.available)) }).catch(() => {})
+    return () => { live = false }
+  }, [loadDriveAudio])
   const bump = () => forceRender((value) => value + 1)
   // For zoom and pan: refresh the toolbar at most once per frame, not per event.
   const bumpPending = useRef(false)
@@ -1554,6 +1638,20 @@ const Whiteboard = forwardRef(function Whiteboard({ socketRef, boardId, title, s
         ctx.fillRect(marquee.x, marquee.y, marquee.w, marquee.h)
         ctx.strokeRect(marquee.x, marquee.y, marquee.w, marquee.h)
         ctx.restore()
+      }
+    }
+
+    // The audio players over their cards: follow the board's pan and zoom.
+    const layer = audioLayerRef.current
+    if (layer) {
+      const audios = elementsRef.current.filter((e) => e.type === 'audio')
+      const sig = audios.map((a) => `${a.id}|${a.src}`).join(',')
+      if (sig !== audioSigRef.current) { audioSigRef.current = sig; forceRender((v) => v + 1) }
+      for (const node of layer.children) {
+        const el = audios.find((a) => a.id === node.dataset.id)
+        if (!el) continue
+        node.style.transform = audioTransform(el, view)
+        node.style.visibility = cropping || el.id === editingId ? 'hidden' : ''
       }
     }
   }, [])
@@ -1963,6 +2061,26 @@ const Whiteboard = forwardRef(function Whiteboard({ socketRef, boardId, title, s
     selectedRef.current = [element.id]
     setTool('select')
   }, [onUploadImage])
+
+  // A Drive recording as a player card in the middle of the current view.
+  const placeDriveAudio = async (item) => {
+    const { src, name } = await onAddDriveAudio(item.id)
+    const rect = canvasRef.current.getBoundingClientRect()
+    const view = viewRef.current
+    const w = AUDIO_W / Math.max(view.scale, 0.25)
+    const h = w * (AUDIO_H / AUDIO_W)
+    const element = {
+      id: newId(), type: 'audio', color: '#000000', width: 1,
+      x: (rect.width / 2 - view.x) / view.scale - w / 2,
+      y: (rect.height / 2 - view.y) / view.scale - h / 2,
+      w, h, src, name: (name ?? item.name).slice(0, 200)
+    }
+    commitRef.current?.(element)
+    selectedRef.current = [element.id]
+    setTool('select')
+    scheduleRender()
+    bump()
+  }
 
   // A picture dragged in from Finder or a fresh screenshot is caught anywhere
   // in the window, not only over the bare canvas: dropped on the toolbar or a
@@ -2853,7 +2971,7 @@ const Whiteboard = forwardRef(function Whiteboard({ socketRef, boardId, title, s
       pointer.moved = true
       // Images, text and any group keep proportions; hold Shift to stretch. A lone shape is free.
       const lone = pointer.originals.length === 1 ? pointer.originals[0] : null
-      const proportional = !lone || lone.type === 'image' || lone.type === 'text' || lone.type === 'sticker'
+      const proportional = !lone || lone.type === 'image' || lone.type === 'text' || lone.type === 'sticker' || lone.type === 'audio'
       const box = pointer.edge
         ? resizeBoxEdge(pointer.start, pointer.edge, point)
         : resizeBox(pointer.start, pointer.corner, point, proportional !== event.shiftKey)
@@ -3692,6 +3810,15 @@ const Whiteboard = forwardRef(function Whiteboard({ socketRef, boardId, title, s
           onContextMenu={(e) => e.preventDefault()}
         />
 
+        {/* Audio players over their cards; the empty parts let presses through to the board. */}
+        <div className="board-audio-layer" ref={audioLayerRef}>
+          {elementsRef.current.filter((e) => e.type === 'audio').map((el) => (
+            <div key={el.id} data-id={el.id} className="board-audio" style={{ transform: audioTransform(el, viewRef.current), height: AUDIO_W * (Math.abs(el.h) / Math.abs(el.w) || AUDIO_H / AUDIO_W) }}>
+              <AudioPlayer element={el} />
+            </div>
+          ))}
+        </div>
+
         {/* Corner chip with the board's name, like a Figma file tab. On a
             phone only the way back stays. */}
         {phone ? (
@@ -3937,17 +4064,23 @@ const Whiteboard = forwardRef(function Whiteboard({ socketRef, boardId, title, s
           <div className="board-following">{following.name} shared their view</div>
         )}
 
-        {!phone && <div className="board-corner-right">
-          <div className="dock-group">
-            <button className="tool" onClick={undo} disabled={!historyRef.current.undo.length} title="Undo (⌘Z)">↶</button>
-            <button className="tool" onClick={redo} disabled={!historyRef.current.redo.length} title="Redo (⌘⇧Z)">↷</button>
-          </div>
-          <div className="dock-group">
-            <button className="tool" onClick={() => zoomTo(view.scale / 1.25)} title="Zoom out">−</button>
-            <button className="tool" onClick={resetView} title="100%">{Math.round(view.scale * 100)}%</button>
-            <button className="tool" onClick={() => zoomTo(view.scale * 1.25)} title="Zoom in">+</button>
-            <button className="tool" onClick={() => fitAll(2)} title="Show everything">Fit</button>
-          </div>
+        {/* Bottom right: hand, undo/redo, zoom, show all, full screen. */}
+        {!phone && <div className="board-corner-right board-zoombar">
+          <button className={`tool icon ${tool === 'hand' ? 'active' : ''}`} onClick={() => { pickTool('hand'); scheduleRender(); bump() }} title="Hand: move around the board (H, or hold Space)" aria-label="Hand"><BoardIcon name="hand" /></button>
+          <span className="bar-sep" />
+          <button className="tool icon" onClick={undo} disabled={!historyRef.current.undo.length} title="Undo (⌘Z)" aria-label="Undo"><BoardIcon name="undo" /></button>
+          <button className="tool icon" onClick={redo} disabled={!historyRef.current.redo.length} title="Redo (⌘⇧Z)" aria-label="Redo"><BoardIcon name="redo" /></button>
+          <span className="bar-sep" />
+          <button className="tool icon" onClick={() => zoomTo(view.scale / 1.25)} title="Zoom out" aria-label="Zoom out">−</button>
+          <button className="tool zoom-value" onClick={resetView} title="Back to 100%">{Math.round(view.scale * 100)}%</button>
+          <button className="tool icon" onClick={() => zoomTo(view.scale * 1.25)} title="Zoom in" aria-label="Zoom in">+</button>
+          <button className="tool icon" onClick={() => fitAll(2)} title="Show everything" aria-label="Show everything"><BoardIcon name="fit" /></button>
+          {document.fullscreenEnabled && (
+            <>
+              <span className="bar-sep" />
+              <button className="tool icon" onClick={toggleFullscreen} title={fullscreen ? 'Leave full screen' : 'Full screen'} aria-label="Full screen"><BoardIcon name={fullscreen ? 'exitFullscreen' : 'fullscreen'} /></button>
+            </>
+          )}
         </div>}
 
         {cropping ? (
@@ -3957,77 +4090,99 @@ const Whiteboard = forwardRef(function Whiteboard({ socketRef, boardId, title, s
             <button className="tool" onClick={cancelCrop}>Cancel</button>
           </div>
         ) : !phone && (
-          <div className="board-dock" ref={dockRef}>
-            <div className="dock-group">
-              {TOOLS.map((item) => (
-                <button
-                  key={item.id}
-                  className={`tool icon ${(item.id === 'area' ? tool === 'select' && boxSelect : item.id === 'select' ? tool === 'select' && !boxSelect : tool === item.id) ? 'active' : ''}`}
-                  onClick={() => { pickTool(item.id); scheduleRender(); bump() }}
-                  title={item.title ?? `${item.label} (${item.key})`}
-                  aria-label={item.label}
-                >
-                  <BoardIcon name={item.id} />
-                </button>
-              ))}
-              {onMistake && (
-                <button
-                  className={`tool icon ${mistakesOpen ? 'active' : ''}`}
-                  onClick={() => setMistakesOpen((v) => !v)}
-                  title="Mistakes: what the student said and how it should be. Each goes on the board and into their notebook (X)"
-                  aria-label="Mistakes"
-                >
-                  <BoardIcon name="mistakes" />
-                </button>
-              )}
-              <button className={`tool icon ${dictionaryOpen ? 'active' : ''}`} onClick={() => setDictionaryOpen((v) => !v)} title="Dictionary: any word or phrase, Russian ⇄ English" aria-label="Dictionary"><BoardIcon name="dictionary" /></button>
-              {onUploadImage && (
-                <>
-                  <button className="tool icon" onClick={() => fileInputRef.current?.click()} title="Add an image" aria-label="Image"><BoardIcon name="image" /></button>
-                  <input
-                    ref={fileInputRef}
-                    type="file"
-                    accept="image/png,image/jpeg,image/gif,image/webp"
-                    hidden
-                    onChange={(e) => { placeImage(e.target.files?.[0]); e.target.value = '' }}
-                  />
-                </>
-              )}
-            </div>
-
-            <div className="dock-group">
-              {COLORS.map((value, index) => (
-                <button
-                  key={value}
-                  className={`swatch ${color === value ? 'active' : ''}`}
-                  style={{ background: swatchFor(tool, value, index) }}
-                  // Keeps an open text editor (a click elsewhere would close it).
-                  onMouseDown={(e) => e.preventDefault()}
-                  onClick={() => recolor(value)}
-                  title={value}
-                />
-              ))}
-              <input type="range" min="1" max="24" value={width} onChange={(e) => setWidth(Number(e.target.value))} title="Thickness" />
-            </div>
-
-            <div className="dock-group">
-              {onUploadImage && <button className="tool" onClick={startLesson} title="Add a dated heading where you last clicked on the board">New lesson</button>}
-              {onUploadImage && <button className="tool" onClick={startHomework} title="Add a Homework heading where you last clicked on the board">Homework</button>}
-              {onUploadImage && <button className="tool" onClick={addPlacementTest} disabled={addingTest} title="Put the trial lesson's placement test where you last clicked on the board">{addingTest ? 'Adding…' : 'Test'}</button>}
-              {onRecentWords && <button className="tool" onClick={addRecentWords} disabled={addingRecent} title="Put the student's words from the last week (Vocabulary) where you last clicked on the board">{addingRecent ? 'Adding…' : 'Words'}</button>}
+          // The tools down the left side, icons only; names in the tooltips.
+          <div className="board-rail" onPointerDown={(e) => e.stopPropagation()}>
+            {TOOLS.map((item) => (
               <button
-                className="tool"
-                disabled={exporting}
-                onClick={async () => {
-                  setExporting(true)
-                  try { await exportBoardPdf(elementsRef.current, title ?? 'Board') } finally { setExporting(false) }
-                }}
-                title="Save the whole board as a PDF, one section per lesson"
+                key={item.id}
+                className={`tool icon ${(item.id === 'area' ? tool === 'select' && boxSelect : item.id === 'select' ? tool === 'select' && !boxSelect : tool === item.id) ? 'active' : ''}`}
+                onClick={() => { pickTool(item.id); setRailPop(null); scheduleRender(); bump() }}
+                title={item.title ?? `${item.label} (${item.key})`}
+                aria-label={item.label}
               >
-                {exporting ? 'Exporting…' : 'PDF'}
+                <BoardIcon name={item.id} />
               </button>
-              {/* Wiping the board is the teacher's call (canSpotlight = staff); the server refuses students. */}
-              {canSpotlight && <button className="tool danger" onClick={handleClear}>Clear</button>}
+            ))}
+            <span className="rail-sep" />
+            {onUploadImage && (
+              <>
+                <button className="tool icon" onClick={() => fileInputRef.current?.click()} title="Add a picture or a photo of a drawing (or drop / paste it on the board)" aria-label="Image"><BoardIcon name="image" /></button>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/png,image/jpeg,image/gif,image/webp"
+                  hidden
+                  onChange={(e) => { placeImage(e.target.files?.[0]); e.target.value = '' }}
+                />
+              </>
+            )}
+            {driveAudioOn && onAddDriveAudio && (
+              <div className="rail-item">
+                <button className={`tool icon ${railPop === 'audio' ? 'active' : ''}`} onClick={() => setRailPop((v) => (v === 'audio' ? null : 'audio'))} title="Audio from Google Drive: a player everyone can start" aria-label="Audio"><BoardIcon name="audio" /></button>
+                {railPop === 'audio' && <DriveAudioPicker load={loadDriveAudio} onPick={placeDriveAudio} onClose={() => setRailPop(null)} />}
+              </div>
+            )}
+            {onMistake && (
+              <button
+                className={`tool icon ${mistakesOpen ? 'active' : ''}`}
+                onClick={() => setMistakesOpen((v) => !v)}
+                title="Mistakes: what the student said and how it should be. Each goes on the board and into their notebook (X)"
+                aria-label="Mistakes"
+              >
+                <BoardIcon name="mistakes" />
+              </button>
+            )}
+            <button className={`tool icon ${dictionaryOpen ? 'active' : ''}`} onClick={() => setDictionaryOpen((v) => !v)} title="Dictionary: any word or phrase, Russian ⇄ English" aria-label="Dictionary"><BoardIcon name="dictionary" /></button>
+            <span className="rail-sep" />
+            <div className="rail-item">
+              <button className={`tool icon ${railPop === 'style' ? 'active' : ''}`} onClick={() => setRailPop((v) => (v === 'style' ? null : 'style'))} title="Colour and thickness" aria-label="Colour">
+                <span className="rail-colour" style={{ background: swatchFor(tool, color, Math.max(0, COLORS.indexOf(color))) }} />
+              </button>
+              {railPop === 'style' && (
+                <div className="board-popover rail-style">
+                  <div className="rail-swatches">
+                    {COLORS.map((value, index) => (
+                      <button
+                        key={value}
+                        className={`swatch ${color === value ? 'active' : ''}`}
+                        style={{ background: swatchFor(tool, value, index) }}
+                        // Keeps an open text editor (a click elsewhere would close it).
+                        onMouseDown={(e) => e.preventDefault()}
+                        onClick={() => recolor(value)}
+                        title={value}
+                      />
+                    ))}
+                  </div>
+                  <label className="rail-width">
+                    <span className="muted">Thickness</span>
+                    <input type="range" min="1" max="24" value={width} onChange={(e) => setWidth(Number(e.target.value))} />
+                  </label>
+                </div>
+              )}
+            </div>
+            <div className="rail-item">
+              <button className={`tool icon ${railPop === 'more' ? 'active' : ''}`} onClick={() => setRailPop((v) => (v === 'more' ? null : 'more'))} title="More: lesson heading, homework, PDF…" aria-label="More"><BoardIcon name="more" /></button>
+              {railPop === 'more' && (
+                <div className="board-popover rail-more" onClick={() => setRailPop(null)}>
+                  {canSpotlight && onUploadImage && <button className="popover-item" onClick={startLesson} title="Add a dated heading where you last clicked on the board">New lesson</button>}
+                  {canSpotlight && onUploadImage && <button className="popover-item" onClick={startHomework} title="Add a Homework heading where you last clicked on the board">Homework</button>}
+                  {canSpotlight && onUploadImage && <button className="popover-item" onClick={addPlacementTest} disabled={addingTest} title="Put the trial lesson's placement test where you last clicked on the board">{addingTest ? 'Adding…' : 'Placement test'}</button>}
+                  {onRecentWords && <button className="popover-item" onClick={addRecentWords} disabled={addingRecent} title="Put the student's words from the last week (Vocabulary) where you last clicked on the board">{addingRecent ? 'Adding…' : 'Words of the week'}</button>}
+                  <button
+                    className="popover-item"
+                    disabled={exporting}
+                    onClick={async () => {
+                      setExporting(true)
+                      try { await exportBoardPdf(elementsRef.current, title ?? 'Board') } finally { setExporting(false) }
+                    }}
+                    title="Save the whole board as a PDF, one section per lesson"
+                  >
+                    {exporting ? 'Exporting…' : 'Save as PDF'}
+                  </button>
+                  {/* Wiping the board is the teacher's call (canSpotlight = staff); the server refuses students. */}
+                  {canSpotlight && <button className="popover-item danger" onClick={handleClear}>Clear the board</button>}
+                </div>
+              )}
             </div>
           </div>
         )}

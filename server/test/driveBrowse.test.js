@@ -118,3 +118,40 @@ test('a student is refused; another school does not have the panel', async () =>
   const other = await signedIn(server.base, school.people.teacherB)
   assert.deepEqual((await other.get('/api/drive')).body, { available: false })
 })
+
+test('a Drive recording goes on a board as a copy everyone on it can play', async () => {
+  const board = await prisma.board.create({ data: { classroomId: school.rooms.student.id } })
+  const teacher = await signedIn(server.base, school.people.teacher)
+  const res = await teacher.post('/api/drive/files/song/board', { boardId: board.id })
+  assert.equal(res.status, 201)
+  assert.equal(res.body.name, 'Track 01.mp3')
+  assert.match(res.body.src, new RegExp(`^/uploads/${board.id.toLowerCase()}/[a-f0-9]+\\.mp3$`))
+  // Not a PDF, not outside the folder, not someone else's board.
+  assert.equal((await teacher.post('/api/drive/files/book/board', { boardId: board.id })).status, 404)
+  assert.equal((await teacher.post('/api/drive/files/secret/board', { boardId: board.id })).status, 404)
+  const otherBoard = await prisma.board.create({ data: { classroomId: school.rooms.student2.id } })
+  assert.equal((await teacher.post('/api/drive/files/song/board', { boardId: otherBoard.id })).status, 404)
+  // The student on that board plays it from the uploads.
+  const student = await signedIn(server.base, school.people.student)
+  const login = await fetch(`${server.base}/api/auth/login`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ email: school.people.student.email, password: 'test-password-1' }) })
+  const played = await fetch(server.base + res.body.src, { headers: { cookie: login.headers.get('set-cookie').split(';')[0], range: 'bytes=0-3' } })
+  assert.equal(played.status, 206)
+  // The student cannot pull files from the Drive themselves.
+  assert.equal((await student.post('/api/drive/files/song/board', { boardId: board.id })).status, 403)
+})
+
+test('students put their own pictures on their board, not on another student\'s', async () => {
+  const board = await prisma.board.create({ data: { classroomId: school.rooms.student.id } })
+  const otherBoard = await prisma.board.create({ data: { classroomId: school.rooms.student2.id } })
+  const png = `data:image/png;base64,${Buffer.from('\x89PNG fake').toString('base64')}`
+  const student = await signedIn(server.base, school.people.student)
+  const ok = await student.post(`/api/boards/${board.id}/images`, { data: png })
+  assert.equal(ok.status, 201)
+  assert.match(ok.body.src, /^\/uploads\/[a-z0-9]+\/[a-f0-9]+\.png$/)
+  assert.equal((await student.post(`/api/boards/${otherBoard.id}/images`, { data: png })).status, 404)
+  assert.equal((await student.post(`/api/boards/${board.id}/images`, { data: 'data:text/html;base64,PGI+' })).status, 400)
+  const teacher = await signedIn(server.base, school.people.teacher)
+  assert.equal((await teacher.post(`/api/boards/${board.id}/images`, { data: png })).status, 201)
+  const teacherB = await signedIn(server.base, school.people.teacherB)
+  assert.equal((await teacherB.post(`/api/boards/${board.id}/images`, { data: png })).status, 404)
+})

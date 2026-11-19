@@ -16,6 +16,9 @@ import { isMobile, isHandheld, isLowPower, useNarrow } from '../utils/device'
 import { BACKGROUNDS } from '../backgrounds'
 import { createEchoMeter } from '../utils/echoMeter'
 
+// The teacher's Drive audio for the board's Audio button (stable: the board loads it once).
+const loadDriveAudio = () => api.driveAll('audio')
+
 // Older Safari cannot blur inside a canvas; there the layer is blurred by CSS.
 const SAFARI = typeof navigator !== 'undefined' && /Safari/i.test(navigator.userAgent) && !/Chrome|Chromium|CriOS|Edg/i.test(navigator.userAgent)
 const CANVAS_FILTER = typeof CanvasRenderingContext2D !== 'undefined' && 'filter' in CanvasRenderingContext2D.prototype && !SAFARI
@@ -2156,10 +2159,12 @@ export default function Call() {
                     return items
                   }
                 : undefined}
-              onUploadImage={isStaff && currentBoard
+              loadDriveAudio={isStaff ? loadDriveAudio : undefined}
+              onAddDriveAudio={isStaff ? (fileId) => api.driveAudioToBoard(fileId, boardId) : undefined}
+              onUploadImage={boardId
                 ? async (dataUrl) => {
                     try {
-                      const { src } = await api.uploadBoardImage(currentBoard.classroomId, boardId, dataUrl)
+                      const { src } = await api.uploadImageToBoard(boardId, dataUrl)
                       return src
                     } catch (err) {
                       // A banner, not the error page: the lesson goes on.

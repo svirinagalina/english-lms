@@ -9,7 +9,7 @@ const colour = z.string().regex(/^#[0-9a-fA-F]{6}$/)
 
 export const elementSchema = z.object({
   id: z.string().min(1).max(64),
-  type: z.enum(['path', 'rect', 'ellipse', 'arrow', 'text', 'image', 'note', 'sticker']),
+  type: z.enum(['path', 'rect', 'ellipse', 'arrow', 'text', 'image', 'note', 'sticker', 'audio']),
   // Which drawn sticker ("well-done", "great-job").
   kind: z.string().max(32).optional(),
   color: colour,
@@ -32,7 +32,9 @@ export const elementSchema = z.object({
     x: z.number().min(0).max(1), y: z.number().min(0).max(1),
     w: z.number().min(0.01).max(1), h: z.number().min(0.01).max(1)
   }).optional(),
-  src: z.string().regex(/^\/uploads\/[a-z0-9]+\/[a-z0-9]+\.(png|jpe?g|gif|webp)$/i).optional(),
+  src: z.string().regex(/^\/uploads\/[a-z0-9]+\/[a-z0-9]+\.(png|jpe?g|gif|webp|mp3|wav|m4a|aac|ogg|flac)$/i).optional(),
+  // An audio card's title (the Drive file's name).
+  name: z.string().max(200).optional(),
   authorId: z.string().max(64).optional(),
   // A note written with the Mistake tool points at its notebook record.
   mistakeId: z.string().max(64).optional(),

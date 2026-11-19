@@ -1,5 +1,10 @@
 import { Router } from 'express'
 import { Readable } from 'stream'
+import { randomBytes } from 'crypto'
+import { mkdir, writeFile, unlink } from 'fs/promises'
+import path from 'path'
+import { fileURLToPath } from 'url'
+import { mayUseBoard } from '../boardAccess.js'
 import { prisma } from '../db.js'
 import { requireAuth, requireRole, requirePaid } from '../auth.js'
 import { driveConfigured, driveCanRead, listFolder, listAll, pathInside, openDriveFile, kindOf } from '../drive.js'
@@ -95,6 +100,40 @@ driveRouter.get('/files/:id', async (req, res) => {
     if (abort.signal.aborted) return
     if (err.status === 416) return res.status(416).end()
     if (res.headersSent) return res.destroy()
+    failed(res, err)
+  }
+})
+
+// An audio file from the Drive put on a board as a player card. It is copied
+// next to the board's pictures (uploads/<board>/), so everyone on the board —
+// students included, who never reach the Drive routes — plays it from there,
+// with seeking, and it keeps playing even if the Drive file is moved later.
+const UPLOAD_ROOT = process.env.UPLOAD_DIR ?? path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../uploads')
+const MAX_BOARD_AUDIO = 80 * 1024 * 1024
+const AUDIO_EXT = { 'audio/mpeg': 'mp3', 'audio/mp3': 'mp3', 'audio/wav': 'wav', 'audio/x-wav': 'wav', 'audio/mp4': 'm4a', 'audio/x-m4a': 'm4a', 'audio/aac': 'aac', 'audio/ogg': 'ogg', 'audio/flac': 'flac' }
+
+driveRouter.post('/files/:id/board', async (req, res) => {
+  if (!(await ourSchool(req.user))) return res.status(404).json({ error: 'File not found' })
+  const board = await mayUseBoard(req.user, req.body?.boardId)
+  if (!board) return res.status(404).json({ error: 'Board not found' })
+  let target
+  try {
+    const trail = await pathInside(req.params.id)
+    const file = trail?.[trail.length - 1]
+    if (!file || kindOf(file.mimeType, file.name) !== 'audio') return res.status(404).json({ error: 'File not found' })
+    const fromName = file.name.split('.').pop()?.toLowerCase()
+    const ext = TYPES[fromName] && fromName !== 'pdf' ? fromName : (AUDIO_EXT[file.mimeType] ?? 'mp3')
+    const drive = await openDriveFile(file.id)
+    if (Number(drive.headers.get('content-length')) > MAX_BOARD_AUDIO) return res.status(413).json({ error: 'The recording is larger than 80 MB' })
+    const bytes = Buffer.from(await drive.arrayBuffer())
+    if (bytes.length > MAX_BOARD_AUDIO) return res.status(413).json({ error: 'The recording is larger than 80 MB' })
+    const directory = path.join(UPLOAD_ROOT, board.id.toLowerCase())
+    await mkdir(directory, { recursive: true })
+    target = path.join(directory, `${randomBytes(12).toString('hex')}.${ext}`)
+    await writeFile(target, bytes)
+    res.status(201).json({ src: `/uploads/${board.id.toLowerCase()}/${path.basename(target)}`, name: file.name })
+  } catch (err) {
+    if (target) unlink(target).catch(() => {})
     failed(res, err)
   }
 })

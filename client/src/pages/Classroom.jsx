@@ -21,6 +21,9 @@ import StudentSettings from '../components/StudentSettings'
 import StudentActivitySummary from '../components/StudentActivitySummary'
 import StudentTeachers from '../components/StudentTeachers'
 
+// The teacher's Drive audio for the board's Audio button (stable: the board loads it once).
+const loadDriveAudio = () => api.driveAll('audio')
+
 // A student from a trial lesson link has no email or password yet. The
 // teacher invites them as before — the invitation goes to the same account,
 // so the trial board, words and mistakes stay theirs.
@@ -380,17 +383,17 @@ export default function Classroom() {
             onInserted={() => { setInsertBlock(null); setSearchParams((p) => { p.delete('summary'); p.set('board', openBoard.id); return p }, { replace: true }) }}
             onMistake={isStaff && (!isPersonal || boardAssignees.length || myStudents.length) ? (body, chosen) => api.addMistake(isPersonal ? (chosen ?? singleAssignee) : id, { ...body, boardId: openBoard.id }) : undefined}
             onMistakeRemoved={isStaff && !isPersonal ? (elementId) => api.deleteMistakeByElement(elementId).catch(() => {}) : undefined}
-            onUploadImage={isStaff
-              ? async (dataUrl) => {
-                  try {
-                    const { src } = await api.uploadBoardImage(id, openBoard.id, dataUrl)
-                    return src
-                  } catch (err) {
-                    setError(err.message)
-                    return null
-                  }
-                }
-              : undefined}
+            onUploadImage={async (dataUrl) => {
+              try {
+                const { src } = await api.uploadImageToBoard(openBoard.id, dataUrl)
+                return src
+              } catch (err) {
+                setError(err.message)
+                return null
+              }
+            }}
+            loadDriveAudio={isStaff ? loadDriveAudio : undefined}
+            onAddDriveAudio={isStaff ? (fileId) => api.driveAudioToBoard(fileId, openBoard.id) : undefined}
             onAddWords={!isPersonal || boardAssignees.length || myStudents.length ? (words, chosen) => api.addBoardWords(words, isPersonal ? (chosen ?? singleAssignee) : id) : undefined}
             onRecentWords={!isPersonal || boardAssignees.length || myStudents.length ? (chosen) => api.recentBoardWords(isPersonal ? (chosen ?? singleAssignee) : id) : undefined}
             students={isPersonal && boardAssignees.length > 1

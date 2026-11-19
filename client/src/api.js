@@ -281,6 +281,11 @@ export const api = {
   createBoard: (id, title) => request(`/classrooms/${id}/boards`, { method: 'POST', body: { title } }),
   renameBoard: (id, boardId, title) =>
     request(`/classrooms/${id}/boards/${boardId}`, { method: 'PATCH', body: { title } }),
+  // Anyone who may draw on the board, students too.
+  uploadImageToBoard: (boardId, data) =>
+    request(`/boards/${boardId}/images`, { method: 'POST', body: { data } }),
+  driveAudioToBoard: (fileId, boardId) =>
+    request(`/drive/files/${encodeURIComponent(fileId)}/board`, { method: 'POST', body: { boardId } }),
   uploadBoardImage: (id, boardId, data) =>
     request(`/classrooms/${id}/boards/${boardId}/images`, { method: 'POST', body: { data } }),
   assignBoard: (id, boardId, targetClassroomId, attach) =>
