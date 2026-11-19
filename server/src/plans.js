@@ -98,3 +98,9 @@ export function startPlanSweep() {
   setTimeout(() => sweep().catch(() => {}), 60 * 1000)
   setInterval(() => sweep().catch(() => {}), 60 * 60 * 1000)
 }
+
+// The promo code: whoever signed up by themselves and enters it gets
+// Everything for good (planSource 'promo'). Case and spaces don't matter.
+export const PROMO_CODE = 'svirina'
+export const PROMO_UNTIL = new Date('2099-12-31T23:59:59Z')
+export const isPromo = (code) => String(code ?? '').trim().toLowerCase() === PROMO_CODE

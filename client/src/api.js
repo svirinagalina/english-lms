@@ -56,6 +56,7 @@ export const api = {
   subscribe: (plan, period) => request('/plans/subscribe', { method: 'POST', body: { plan, period } }),
   verifySubscription: (sessionId) => request(`/plans/verify?session_id=${encodeURIComponent(sessionId)}`),
   subscriptionPortal: () => request('/plans/portal', { method: 'POST' }),
+  applyPromo: (code) => request('/plans/promo', { method: 'POST', body: { code } }),
   subscriptionSetupStatus: () => request('/plans/setup'),
   setupSubscriptions: () => request('/plans/setup', { method: 'POST' }),
   setManualPlan: (userId, body) => request(`/plans/manual/${userId}`, { method: 'PUT', body }),

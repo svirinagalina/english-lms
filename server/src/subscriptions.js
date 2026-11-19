@@ -11,9 +11,9 @@ import express, { Router } from 'express'
 import { createHmac, timingSafeEqual } from 'crypto'
 import { prisma } from './db.js'
 import { stripeKey, encrypt, decrypt } from './settings.js'
-import { PLANS, PLAN_IDS, PERIODS, setPlan } from './plans.js'
+import { PLANS, PLAN_IDS, PERIODS, setPlan, isPromo, PROMO_UNTIL } from './plans.js'
 import { requireAuth, requireRole } from './auth.js'
-import { guardedFetch } from './resilience.js'
+import { guardedFetch, rateLimit } from './resilience.js'
 import { creditOfferPurchase } from './purchases.js'
 import { creditCoursePurchase } from './coursePurchases.js'
 
@@ -216,6 +216,15 @@ plansRouter.post('/subscribe', async (req, res) => {
   } catch (error) {
     res.status(502).json({ error: `Stripe: ${error.message}` })
   }
+})
+
+// A promo code opens Everything for good.
+plansRouter.post('/promo', rateLimit({ windowMs: 15 * 60_000, max: 10 }), async (req, res) => {
+  if (!isPromo(req.body?.code)) return res.status(400).json({ error: 'This promo code does not work' })
+  const user = await prisma.user.findUnique({ where: { id: req.user.id }, select: { free: true } })
+  if (!user.free) return res.status(400).json({ error: 'You study with a teacher — everything is already open' })
+  await setPlan(req.user.id, { plan: 'all', planUntil: PROMO_UNTIL, planSource: 'promo' })
+  res.json({ ok: true })
 })
 
 // Back from Checkout: apply the subscription now rather than wait for the webhook.

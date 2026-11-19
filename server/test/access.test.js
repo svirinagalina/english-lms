@@ -1,7 +1,7 @@
 // Who gets what, without a server: plans, the free tier, trial accounts.
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { entitlements, planActive, aiChecksLeft, useAiCheck, FREE_AI_CHECKS_PER_DAY } from '../src/plans.js'
+import { entitlements, planActive, isPromo, PROMO_UNTIL, aiChecksLeft, useAiCheck, FREE_AI_CHECKS_PER_DAY } from '../src/plans.js'
 import { freeCount } from '../src/freeTier.js'
 import { mustSignUp, trialOver } from '../src/auth.js'
 
@@ -66,4 +66,10 @@ test('trial access ends after its date unless lessons are paid', () => {
   assert.equal(trialOver({ role: 'STUDENT', trialAccessUntil: past(), lessonsPaid: 8 }), false)
   assert.equal(trialOver({ role: 'TEACHER', trialAccessUntil: past() }), false)
   assert.equal(trialOver({ role: 'STUDENT' }), false)
+})
+
+test('the promo code svirina gives Everything for good', () => {
+  assert.equal(isPromo(' Svirina '), true)
+  assert.equal(isPromo('svirin'), false)
+  assert.deepEqual(entitlements({ role: 'STUDENT', free: true, plan: 'all', planUntil: PROMO_UNTIL }), { practice: true, calls: true })
 })

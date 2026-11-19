@@ -25,6 +25,7 @@ export default function Plans() {
   const [busy, setBusy] = useState('')
   const [error, setError] = useState('')
   const [notice, setNotice] = useState('')
+  const [code, setCode] = useState('')
   const native = isNativeApp()
   const access = user.access ?? {}
 
@@ -54,6 +55,17 @@ export default function Plans() {
       setBusy('')
     }
   }
+  const applyPromo = async () => {
+    setBusy('promo'); setError('')
+    try {
+      await api.applyPromo(code)
+      await refreshUser()
+      setNotice('Promo code applied: everything is open to you for good, for free.')
+    } catch (e) {
+      setError(e.message)
+    }
+    setBusy('')
+  }
   const manage = async () => {
     setBusy('manage'); setError('')
     try {
@@ -77,11 +89,21 @@ export default function Plans() {
         <div className="notice">You study with a teacher — everything here is already open for you.</div>
       ) : current ? (
         <div className="free-plan">
-          <p><strong>Your plan: {plans.find((p) => p.id === current)?.name ?? current}</strong> <span className="muted">· until {until}{access.planSource === 'manual' ? ' (paid by card)' : ''}</span></p>
+          <p><strong>Your plan: {plans.find((p) => p.id === current)?.name ?? current}</strong> <span className="muted">· {access.planSource === 'promo' ? 'for good, by promo code' : `until ${until}${access.planSource === 'manual' ? ' (paid by card)' : ''}`}</span></p>
           {access.canManage && !native && <button type="button" className="ghost" onClick={manage} disabled={busy === 'manage'}>{busy === 'manage' ? 'Opening…' : 'Manage subscription'}</button>}
         </div>
       ) : (
         <p className="muted">You're on the free plan. Pick what you need — you can cancel any time.</p>
+      )}
+
+      {user.free && !current && (
+        <details className="plan-promo">
+          <summary>I have a promo code</summary>
+          <div className="row">
+            <input aria-label="Promo code" placeholder="Promo code" value={code} onChange={(e) => setCode(e.target.value)} autoComplete="off" autoCapitalize="none" spellCheck={false} />
+            <button type="button" className="ghost" onClick={applyPromo} disabled={Boolean(busy) || !code.trim()}>{busy === 'promo' ? 'Checking…' : 'Apply'}</button>
+          </div>
+        </details>
       )}
 
       {notice && <div className="notice">{notice}</div>}
