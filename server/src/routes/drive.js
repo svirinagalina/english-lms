@@ -7,10 +7,11 @@ import { fileURLToPath } from 'url'
 import { mayUseBoard } from '../boardAccess.js'
 import { prisma } from '../db.js'
 import { requireAuth, requireRole, requirePaid } from '../auth.js'
-import { driveConfigured, driveCanRead, listFolder, listAll, pathInside, openDriveFile, kindOf } from '../drive.js'
+import { driveConfigured, driveCanRead, listFolder, listAll, pathInside, audioAnywhere, openDriveFile, kindOf } from '../drive.js'
 
 // The «Google Drive» panel: the PDFs and audio the teacher keeps in the Drive
-// folder «English LMS» (and its subfolders), opened and played on the platform.
+// folder «English LMS» (and its subfolders), opened and played on the platform;
+// audio also from anywhere else in that Drive (the board's audio picker).
 // The Drive is one school's (see driveSchool); for everyone else the
 // panel does not exist. Students never see it: the files go out only to staff,
 // streamed through here, never as a Drive link.
@@ -70,7 +71,9 @@ driveRouter.get('/all', async (req, res) => {
     if (!(await driveCanRead())) return res.json({ available: true, needsAccess: true, items: [] })
     const kinds = req.query.kind === 'any' ? ['folder', 'pdf', 'audio'] : [req.query.kind === 'audio' ? 'audio' : 'pdf']
     const hidden = await mirroredIds()
-    res.json({ available: true, items: (await listAll(kinds, { fresh: req.query.fresh === '1' })).filter((i) => !hidden.has(i.id)) })
+    // Audio comes from the whole Drive; PDFs and the panel's search stay in the folder.
+    const anywhere = req.query.kind === 'audio'
+    res.json({ available: true, items: (await listAll(kinds, { fresh: req.query.fresh === '1', anywhere })).filter((i) => !hidden.has(i.id)) })
   } catch (err) { failed(res, err) }
 })
 
@@ -82,7 +85,7 @@ driveRouter.get('/files/:id', async (req, res) => {
   res.on('close', () => abort.abort())
   try {
     const trail = await pathInside(req.params.id)
-    const file = trail?.[trail.length - 1]
+    const file = trail?.[trail.length - 1] ?? await audioAnywhere(req.params.id)
     const kind = file && kindOf(file.mimeType, file.name)
     if (!file || (kind !== 'pdf' && kind !== 'audio')) return res.status(404).json({ error: 'File not found' })
     const range = /^bytes=\d*-\d*$/.test(req.headers.range ?? '') ? req.headers.range : undefined
@@ -119,7 +122,7 @@ driveRouter.post('/files/:id/board', async (req, res) => {
   let target
   try {
     const trail = await pathInside(req.params.id)
-    const file = trail?.[trail.length - 1]
+    const file = trail?.[trail.length - 1] ?? await audioAnywhere(req.params.id)
     if (!file || kindOf(file.mimeType, file.name) !== 'audio') return res.status(404).json({ error: 'File not found' })
     const fromName = file.name.split('.').pop()?.toLowerCase()
     const ext = TYPES[fromName] && fromName !== 'pdf' ? fromName : (AUDIO_EXT[file.mimeType] ?? 'mp3')

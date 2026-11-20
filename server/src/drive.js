@@ -171,7 +171,7 @@ export function kindOf(mimeType, name = '') {
   return null
 }
 
-const FIELDS = 'id,name,mimeType,size,modifiedTime,parents'
+const FIELDS = 'id,name,mimeType,size,modifiedTime,parents,trashed'
 // A short memory of what Drive said: the folder is opened again and again in a
 // lesson, and Drive allows only so many calls.
 const LIST_TTL_MS = 30_000
@@ -276,21 +276,31 @@ async function readTree() {
     }
     return null
   }
+  const elsewhere = (f) => {
+    const names = []
+    let current = byId.get(f.parents?.[0])
+    for (let depth = 0; current && depth < 20; depth++) { names.push(current.name); current = byId.get(current.parents?.[0]) }
+    return names.reverse()
+  }
   const items = []
   for (const f of files) {
     const path = where(f)
     if (f.mimeType === 'application/vnd.google-apps.folder') trail.set(f.id, path && [...path, f.name])
     const kind = kindOf(f.mimeType, f.name)
-    if (!path || !kind) continue
+    if (!kind) continue
+    // Audio is found anywhere in her Drive (Galina 2026-11-20: «искать по
+    // всему Drive»), with the folders above it as far as Drive shows them.
+    if (!path && kind !== 'audio') continue
     parentOf.set(f.id, f)
-    items.push({ id: f.id, name: f.name, kind, size: f.size ? Number(f.size) : null, modifiedTime: f.modifiedTime, folder: path.join(' / ') })
+    items.push({ id: f.id, name: f.name, kind, size: f.size ? Number(f.size) : null, modifiedTime: f.modifiedTime, folder: (path ?? elsewhere(f)).join(' / '), ...(path ? {} : { outside: true }) })
   }
   // Same order every time: by folder, folders before files, then by name.
   const key = (i) => `${i.folder}\u0000${i.kind === 'folder' ? 0 : 1}\u0000${i.name}`
   return items.sort((a, b) => key(a).localeCompare(key(b), undefined, { numeric: true }))
 }
 
-export async function listAll(kinds = ['pdf', 'audio'], { fresh = false } = {}) {
+// anywhere: audio outside the LMS folder too (the board's audio picker).
+export async function listAll(kinds = ['pdf', 'audio'], { fresh = false, anywhere = false } = {}) {
   if (fresh || !allCache || Date.now() - allCache.at > ALL_TTL_MS) {
     // Several people searching at once share one read of the Drive.
     const pending = readTree()
@@ -298,7 +308,16 @@ export async function listAll(kinds = ['pdf', 'audio'], { fresh = false } = {}) 
     try { allCache = { at: Date.now(), items: await pending } } catch (err) { allCache = null; throw err }
   }
   const items = allCache.items ?? await allCache.pending
-  return items.filter((i) => kinds.includes(i.kind))
+  return items.filter((i) => kinds.includes(i.kind) && (anywhere || !i.outside))
+}
+
+// An audio file anywhere in her Drive (only audio: PDFs and everything else
+// outside the LMS folder stay out of reach), or null.
+export async function audioAnywhere(id) {
+  let meta
+  try { meta = await fileMeta(id) } catch (err) { if (err.status === 404) return null; throw err }
+  if (!meta?.id || meta.trashed || kindOf(meta.mimeType, meta.name) !== 'audio') return null
+  return { id: meta.id, name: meta.name, mimeType: meta.mimeType, size: meta.size ? Number(meta.size) : null }
 }
 
 // The bytes of one file, as Drive sends them; a Range is passed through, so

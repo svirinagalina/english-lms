@@ -14,7 +14,9 @@ const files = {
   inUnit: { id: 'inUnit', name: 'Unit 2.pdf', mimeType: 'application/pdf', size: '20', parents: ['units'] },
   sheet: { id: 'sheet', name: 'Plan', mimeType: 'application/vnd.google-apps.spreadsheet', parents: ['root'] },
   copy: { id: 'copy', name: 'Mirrored.pdf', mimeType: 'application/pdf', size: '20', parents: ['root'] },
-  secret: { id: 'secret', name: 'Taxes.pdf', mimeType: 'application/pdf', size: '20', parents: ['myDrive'] }
+  secret: { id: 'secret', name: 'Taxes.pdf', mimeType: 'application/pdf', size: '20', parents: ['myDrive'] },
+  old: { id: 'old', name: 'New Headway - Advanced', mimeType: 'application/vnd.google-apps.folder', parents: ['myDrive'] },
+  faraway: { id: 'faraway', name: 'Unit_02_T_2.07.mp3', mimeType: 'audio/mpeg', size: '20', parents: ['old'] }
 }
 const BYTES = Buffer.from('%PDF-1.4 0123456789x')
 let fake, server, school, scope = 'https://www.googleapis.com/auth/drive.file https://www.googleapis.com/auth/drive.readonly'
@@ -90,6 +92,14 @@ test('the panel\'s search gets folders, PDFs and audio of the whole tree', async
   assert.deepEqual(res.body.items.map((i) => `${i.kind}:${i.folder}|${i.name}`).sort(), ['audio:Units|Track 01.mp3', 'folder:|Units', 'pdf:Units|Unit 2.pdf', 'pdf:|Solutions.pdf'].sort())
 })
 
+test('the board\'s audio picker finds audio anywhere in the Drive; PDFs stay in the folder', async () => {
+  const teacher = await signedIn(server.base, school.people.teacher)
+  const res = await teacher.get('/api/drive/all?kind=audio')
+  assert.deepEqual(res.body.items.map((i) => `${i.folder}|${i.name}`).sort(), ['New Headway - Advanced|Unit_02_T_2.07.mp3', 'Units|Track 01.mp3'].sort())
+  const pdfs = await teacher.get('/api/drive/all?kind=pdf')
+  assert.ok(!pdfs.body.items.some((i) => i.name === 'Taxes.pdf'))
+})
+
 test('a file is served in ranges; anything outside the folder is not found', async () => {
   const teacher = await signedIn(server.base, school.people.teacher)
   const cookie = teacher.cookie ?? (await (await fetch(`${server.base}/api/auth/login`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ email: school.people.teacher.email, password: 'test-password-1' }) })).headers.get('set-cookie').split(';')[0])
@@ -129,6 +139,8 @@ test('a Drive recording goes on a board as a copy everyone on it can play', asyn
   // Not a PDF, not outside the folder, not someone else's board.
   assert.equal((await teacher.post('/api/drive/files/book/board', { boardId: board.id })).status, 404)
   assert.equal((await teacher.post('/api/drive/files/secret/board', { boardId: board.id })).status, 404)
+  // Audio from elsewhere in the Drive is allowed.
+  assert.equal((await teacher.post('/api/drive/files/faraway/board', { boardId: board.id })).status, 201)
   const otherBoard = await prisma.board.create({ data: { classroomId: school.rooms.student2.id } })
   assert.equal((await teacher.post('/api/drive/files/song/board', { boardId: otherBoard.id })).status, 404)
   // The student on that board plays it from the uploads.
