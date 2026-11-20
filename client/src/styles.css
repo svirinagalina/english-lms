@@ -2074,3 +2074,31 @@ div.answer-key { margin-top: 4px; }
 .theme-option.on { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
 .theme-swatch { width: 22px; height: 22px; border-radius: 50%; border: 1px solid rgba(255, 255, 255, 0.35); }
 .theme-picker { gap: 0; }
+
+/* ---- Call controls over the board in the same light dress as the board's
+   side panel, name chip and text bar (2026-11-20, Galina: «перерисуй»). ---- */
+.lesson-page.board-mode .controls,
+.lesson-page.board-mode .more-menu {
+  background: #ffffff;
+  color: #1f1b2e;
+  border: 1px solid #e7e4ef;
+  box-shadow: 0 6px 24px rgba(30, 20, 70, 0.12);
+}
+.lesson-page.board-mode .controls { border-radius: 12px; }
+.lesson-page.board-mode .round,
+.lesson-page.board-mode .pill { background: #f4f2fa; color: #3b3650; border: none; }
+.lesson-page.board-mode .round:hover:not(:disabled),
+.lesson-page.board-mode .pill:hover:not(:disabled) { background: #ece6ff; color: #5b3fd0; }
+.lesson-page.board-mode .round.on,
+.lesson-page.board-mode .pill.on { background: #ece6ff; color: #5b3fd0; }
+.lesson-page.board-mode .round.off { background: #fde8e8; color: #c62828; }
+.lesson-page.board-mode .pill.leave { background: #ffffff; border: 1px solid #f1c4c4; color: #c62828; }
+.lesson-page.board-mode .pill.leave:hover { background: #fdecec; color: #b71c1c; }
+.lesson-page.board-mode select.pill { color-scheme: light; }
+.lesson-page.board-mode .more-menu .more-label,
+.lesson-page.board-mode .more-menu .more-status { color: #6f6a80; }
+.lesson-page.board-mode .more-tools { border-bottom-color: #ebe8f2; }
+.lesson-page.board-mode .bg-thumb { background-color: #f4f2fa; color: #3b3650; }
+.lesson-page.board-mode .bg-thumb.active { border-color: #6d4fd8; }
+.lesson-page.board-mode .bg-thumb.plain.active { background: #ece6ff; color: #5b3fd0; }
+.lesson-page.board-mode .more-menu input[type="range"] { accent-color: #6d4fd8; }
