@@ -563,3 +563,32 @@ select.tool { appearance: auto; padding: 5px 8px; }
 .audio-wave span.played { background: #6d4fd8; }
 .audio-time { font-size: 11px; color: #6f6a80; font-variant-numeric: tabular-nums; white-space: nowrap; margin-left: 6px; }
 .audio-controls svg { flex: none; }
+
+/* ---- Name chip and text bar in the same light dress as the side panel
+   (2026-11-20, Galina: «эти тоже сделать такие же»). ---- */
+.board-chip,
+.text-toolbar {
+  background: #ffffff;
+  color: #1f1b2e;
+  border: 1px solid #e7e4ef;
+  box-shadow: 0 6px 24px rgba(30, 20, 70, 0.12);
+}
+.board-chip { border-radius: 12px; }
+.board-chip .muted { color: #6f6a80; }
+.board-chip .chip-back { color: #3b3650; border-right-color: #ebe8f2; }
+.board-chip .chip-back:hover { color: #5b3fd0; }
+.board-chip .chip-call.ghost-chip { background: #ffffff; border: 1px solid #e2deec; color: #3b3650; }
+.board-chip .chip-call.ghost-chip:hover { background: #f1eff7; }
+.board-chip select.chip-call { color-scheme: light; }
+
+.text-toolbar { border-radius: 12px; }
+.text-toolbar-group + .text-toolbar-group { border-left-color: #ebe8f2; }
+.text-toolbar .tool { background: #f4f2fa; color: #3b3650; border: none; }
+.text-toolbar .tool:hover:not(:disabled) { background: #ece6ff; color: #5b3fd0; }
+.text-toolbar .tool.active { background: #ece6ff; color: #5b3fd0; }
+.text-toolbar select.tool { color-scheme: light; }
+.text-toolbar .tool.assist { background: #fde7f3; color: #b0367c; }
+.text-toolbar .tool.assist:hover:not(:disabled) { background: #fbd3ea; }
+.text-toolbar .small-hint { color: #8a859a; }
+.text-toolbar .swatch { border-color: #ffffff; }
+.text-toolbar .swatch.active { border-color: #ffffff; box-shadow: 0 0 0 2px #6d4fd8; }
