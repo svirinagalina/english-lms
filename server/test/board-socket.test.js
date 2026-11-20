@@ -110,3 +110,29 @@ test("a teacher's cursor reaches students only while Spotlight is on", async () 
     teacher.close()
   }
 })
+
+// Galina, 2026-11-20: the student never heard a track she played on the board.
+test("a teacher's play on an audio card plays for students; a student's stays theirs", async () => {
+  const teacher = await connect(school.people.teacher)
+  try {
+    await new Promise((resolve) => teacher.emit('board:open', board.id, {}, resolve))
+    const settle = () => new Promise((resolve) => setTimeout(resolve, 300))
+    const atStudent = new Promise((resolve) => student.once('board:audio', resolve))
+    teacher.emit('board:audio', { id: 'track-1', action: 'play', t: 12.5 })
+    const got = await atStudent
+    assert.equal(got.id, 'track-1')
+    assert.equal(got.action, 'play')
+    assert.equal(got.t, 12.5)
+
+    const seen = []
+    const onAudio = (msg) => seen.push(msg)
+    teacher.on('board:audio', onAudio)
+    student.emit('board:audio', { id: 'track-1', action: 'pause', t: 3 })
+    teacher.emit('board:audio', { id: 'track-1', action: 'explode', t: 1 })
+    await settle()
+    assert.equal(seen.length, 0, "a student's press reached the teacher")
+    teacher.off('board:audio', onAudio)
+  } finally {
+    teacher.close()
+  }
+})

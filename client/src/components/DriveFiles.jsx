@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { api } from '../api'
 import Panel from './Panel'
 import { fileSize } from '../utils/format'
+import { driveMatches, driveWhere } from './driveSearch'
 
 // The Google Drive folder «English LMS»: whatever PDFs and audio the teacher
 // puts there (from the phone, the computer, any subfolder) open and play here.
@@ -51,11 +52,7 @@ function DriveBrowser() {
     return <p className="muted">The platform can see only its own copies in Drive so far. Galina needs to sign in to Google once more to let it read the files you add to the folder.</p>
   }
 
-  // Every word must be in the name or in the folders it sits in: «unit 2
-  // speakout» finds «Unit 2.pdf» inside «Speakout».
-  const words = q.trim().toLowerCase().split(/\s+/).filter(Boolean)
-  const matches = (i) => words.every((w) => `${i.folder ?? ''} ${i.name}`.toLowerCase().includes(w))
-  const items = searching ? (all ?? []).filter(matches) : (data?.items ?? [])
+  const items = searching ? (all ?? []).filter((i) => driveMatches(i, q)) : (data?.items ?? [])
 
   return (
     <div className="drive-files" ref={listRef}>
@@ -88,7 +85,7 @@ function DriveBrowser() {
                 {item.kind === 'folder'
                   ? <button type="button" className="link-button" onClick={() => setFolder(item.id)}><strong>{item.name}</strong></button>
                   : <strong>{item.name}</strong>}
-                {searching && <div className="muted">in English LMS{item.folder ? ` / ${item.folder}` : ''}</div>}
+                {searching && <div className="muted">{driveWhere(item)}</div>}
                 {item.kind !== 'folder' && <div className="muted">{item.size ? `${fileSize(item.size)} · ` : ''}{item.modifiedTime ? `changed ${new Date(item.modifiedTime).toLocaleDateString()}` : ''}</div>}
               </div>
               <div className="row-actions">

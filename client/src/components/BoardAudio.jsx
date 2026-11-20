@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import BoardIcon from './BoardIcons'
-import { audioMatches, describeAudio } from './audioLabel'
+import { fileSize } from '../utils/format'
+import { driveMatches, driveWhere } from './driveSearch'
 
 // The audio card's size on the board at 100%: the canvas draws its frame and
 // title (so it moves, resizes and prints like anything else), this player
@@ -28,14 +29,18 @@ function barsFor(seed, count = 48) {
   return out
 }
 
-// Everyone plays the recording on their own device: the student presses
-// play, pauses, jumps back five seconds to hear it again.
-export function AudioPlayer({ element }) {
+// Everyone plays the recording on their own device, so it sounds clean, not
+// through the call. A teacher's (lead) play, pause and jumps go to everyone
+// with the board open; a student's own presses stay on their device, so they
+// can still go back five seconds to hear a bit again.
+export function AudioPlayer({ element, socketRef = null, lead = false }) {
   const audioRef = useRef(null)
   const [playing, setPlaying] = useState(false)
   const [time, setTime] = useState(0)
   const [duration, setDuration] = useState(0)
   const [failed, setFailed] = useState(false)
+  // The teacher started it but this browser refused to play without a press.
+  const [blocked, setBlocked] = useState(null)
   const bars = useMemo(() => barsFor(element.src ?? element.id), [element.src, element.id])
 
   useEffect(() => {
@@ -59,17 +64,44 @@ export function AudioPlayer({ element }) {
     }
   }, [element.src])
 
+  const tell = (action) => {
+    const audio = audioRef.current
+    if (lead && audio) socketRef?.current?.emit('board:audio', { id: element.id, action, t: audio.currentTime || 0 })
+  }
+
+  // The teacher's presses, heard here.
+  useEffect(() => {
+    const socket = socketRef?.current
+    if (!socket) return
+    const onAudio = (msg) => {
+      const audio = audioRef.current
+      if (!audio || msg?.id !== element.id) return
+      if (Math.abs((audio.currentTime || 0) - msg.t) > 0.4) audio.currentTime = msg.t
+      setTime(msg.t)
+      if (msg.action === 'play') {
+        audio.play().then(() => setBlocked(null)).catch(() => { setPlaying(false); setBlocked(msg.name || 'The teacher') })
+      } else if (msg.action === 'pause') {
+        audio.pause()
+        setBlocked(null)
+      }
+    }
+    socket.on('board:audio', onAudio)
+    return () => socket.off('board:audio', onAudio)
+  }, [socketRef, element.id])
+
   const toggle = () => {
     const audio = audioRef.current
     if (!audio) return
-    if (audio.paused) audio.play().catch(() => setPlaying(false))
-    else audio.pause()
+    setBlocked(null)
+    if (audio.paused) audio.play().then(() => tell('play')).catch(() => setPlaying(false))
+    else { audio.pause(); tell('pause') }
   }
   const skip = (by) => {
     const audio = audioRef.current
     if (!audio) return
     audio.currentTime = Math.max(0, Math.min(audio.duration || 0, audio.currentTime + by))
     setTime(audio.currentTime)
+    tell('seek')
   }
   const seekAt = (event) => {
     const audio = audioRef.current
@@ -106,6 +138,7 @@ export function AudioPlayer({ element }) {
         aria-valuenow={Math.round(time)}
         onPointerDown={(e) => { e.stopPropagation(); e.currentTarget.setPointerCapture?.(e.pointerId); seekAt(e) }}
         onPointerMove={(e) => { if (e.buttons) seekAt(e) }}
+        onPointerUp={() => tell('seek')}
         onWheel={own.onWheel}
       >
         {bars.map((v, i) => (
@@ -113,26 +146,33 @@ export function AudioPlayer({ element }) {
         ))}
       </div>
       <span className="audio-time">{failed ? 'Not available' : `${clock(time)} / ${clock(duration)}`}</span>
+      {blocked && <button type="button" className="audio-blocked" onClick={toggle} {...own}>{blocked} started the audio — press ▶ to listen</button>}
     </div>
   )
 }
 
-// The teacher's Drive audio, searchable; a click puts the file on the board.
+// The teacher's Drive audio, searched exactly like the cabinet's «Google
+// Drive» panel: the file names as Drive shows them, every typed word in the
+// name or its folders, then where it sits, its size and date. A click puts
+// the file on the board.
 export function DriveAudioPicker({ load, onPick, onClose }) {
   const [items, setItems] = useState(null)
   const [error, setError] = useState('')
   const [query, setQuery] = useState('')
   const [busy, setBusy] = useState(null)
+  const [fresh, setFresh] = useState(0)
   useEffect(() => {
     let live = true
-    load().then((r) => {
+    setItems(null)
+    load(fresh > 0).then((r) => {
       if (!live) return
       if (r?.needsAccess) setError('The platform has no access to the Google Drive folder yet.')
-      setItems(describeAudio(r?.items ?? []))
+      setItems(r?.items ?? [])
     }).catch((e) => live && setError(e.message))
     return () => { live = false }
-  }, [load])
-  const shown = (items ?? []).filter((i) => audioMatches(i, query))
+  }, [load, fresh])
+  const searching = query.trim().length > 0
+  const shown = (items ?? []).filter((i) => driveMatches(i, query))
   return (
     <div className="board-popover rail-audio" onPointerDown={(e) => e.stopPropagation()}>
       <div className="popover-head">
@@ -140,17 +180,21 @@ export function DriveAudioPicker({ load, onPick, onClose }) {
         <strong>Audio from Google Drive</strong>
         <button type="button" className="word-card-close" onClick={onClose} title="Close">×</button>
       </div>
-      <input autoFocus className="popover-search" placeholder="Unit and track, e.g. 7 3 or u7 r3…" value={query} onChange={(e) => setQuery(e.target.value)} />
+      <div className="audio-pick-bar">
+        <input type="search" autoFocus className="popover-search" placeholder="Search all folders" value={query} onChange={(e) => setQuery(e.target.value)} />
+        <button type="button" className="audio-pick-refresh" onClick={() => setFresh((n) => n + 1)} disabled={items === null} title="Show what was added in Drive just now">Refresh</button>
+      </div>
+      {searching && items && <div className="muted small-hint">{shown.length ? `Found ${shown.length} in all folders` : 'Nothing matches in any folder.'}</div>}
       <div className="popover-list">
-        {items === null && !error && <div className="muted small-hint">Loading…</div>}
+        {items === null && !error && <div className="muted small-hint">{searching ? 'Searching all folders…' : 'Loading…'}</div>}
         {error && <div className="error">{error}</div>}
-        {items && !shown.length && !error && <div className="muted small-hint">{items.length ? 'Nothing matches' : 'No audio in the «English LMS» Drive folder yet'}</div>}
+        {items && !items.length && !error && <div className="muted small-hint">No audio in Google Drive yet</div>}
         {shown.map((item) => (
           <button
             key={item.id}
             type="button"
             className="popover-item"
-            title={item.folder ? `${item.folder} / ${item.name}` : item.name}
+            title={`${driveWhere(item)} / ${item.name}`}
             disabled={Boolean(busy)}
             onClick={async () => {
               setBusy(item.id)
@@ -158,10 +202,11 @@ export function DriveAudioPicker({ load, onPick, onClose }) {
               try { await onPick(item); onClose() } catch (e) { setError(e.message) } finally { setBusy(null) }
             }}
           >
-            <span className="popover-item-icon"><BoardIcon name="audio" /></span>
+            <span className="popover-item-icon" aria-hidden="true">🎧</span>
             <span className="popover-item-text">
-              <span className="audio-pick-label">{item.label}</span>
-              {item.folder && <span className="muted">{item.folder}</span>}
+              <span className="audio-pick-label">{item.name}</span>
+              <span className="muted">{driveWhere(item)}</span>
+              {(item.size || item.modifiedTime) && <span className="muted">{item.size ? `${fileSize(item.size)} · ` : ''}{item.modifiedTime ? `changed ${new Date(item.modifiedTime).toLocaleDateString()}` : ''}</span>}
             </span>
             {busy === item.id && <span className="muted">Adding…</span>}
           </button>

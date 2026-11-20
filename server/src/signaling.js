@@ -786,6 +786,19 @@ const PARTNER_BLOCKED_EVENTS = new Set(['call:start', 'drawing', 'board:add', 'b
       emitToWatchers(boardWatchers, boardId, socket, 'board:view', payload)
     })
 
+    // An audio card played by the teacher plays for everyone with the board
+    // open: play, pause and jumps go to them all (Galina 2026-11-20 — the
+    // student never heard a track she played). A student's own presses stay
+    // on their device.
+    socket.on('board:audio', (msg) => {
+      const { boardId } = socket.data
+      if (!boardId || user.role === 'STUDENT') return
+      const action = ['play', 'pause', 'seek'].includes(msg?.action) ? msg.action : null
+      const t = Number(msg?.t)
+      if (!action || typeof msg?.id !== 'string' || msg.id.length > 100 || !Number.isFinite(t) || t < 0) return
+      emitToWatchers(boardWatchers, boardId, socket, 'board:audio', { id: msg.id, action, t, name: socket.data.name ?? null })
+    })
+
     // Wiping a board is the teacher's call; a student can undo their own strokes.
     socket.on('board:clear', async () => {
       const { boardId, roomId } = socket.data

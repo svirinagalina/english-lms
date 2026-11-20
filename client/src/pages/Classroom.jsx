@@ -22,7 +22,7 @@ import StudentActivitySummary from '../components/StudentActivitySummary'
 import StudentTeachers from '../components/StudentTeachers'
 
 // The teacher's Drive audio for the board's Audio button (stable: the board loads it once).
-const loadDriveAudio = () => api.driveAll('audio')
+const loadDriveAudio = (fresh = false) => api.driveAll('audio', fresh)
 
 // A student from a trial lesson link has no email or password yet. The
 // teacher invites them as before — the invitation goes to the same account,

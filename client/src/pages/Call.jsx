@@ -17,7 +17,7 @@ import { BACKGROUNDS } from '../backgrounds'
 import { createEchoMeter } from '../utils/echoMeter'
 
 // The teacher's Drive audio for the board's Audio button (stable: the board loads it once).
-const loadDriveAudio = () => api.driveAll('audio')
+const loadDriveAudio = (fresh = false) => api.driveAll('audio', fresh)
 
 // Older Safari cannot blur inside a canvas; there the layer is blurred by CSS.
 const SAFARI = typeof navigator !== 'undefined' && /Safari/i.test(navigator.userAgent) && !/Chrome|Chromium|CriOS|Edg/i.test(navigator.userAgent)

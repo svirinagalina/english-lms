@@ -563,6 +563,7 @@ select.tool { appearance: auto; padding: 5px 8px; }
 .audio-wave span.played { background: #6d4fd8; }
 .audio-time { font-size: 11px; color: #6f6a80; font-variant-numeric: tabular-nums; white-space: nowrap; margin-left: 6px; }
 .audio-controls svg { flex: none; }
+.audio-controls .audio-blocked { position: absolute; left: 0; right: 0; bottom: 48px; padding: 6px 10px; border-radius: 8px; background: #6d4fd8; color: #fff; font-family: inherit; font-size: 12px; font-weight: 600; line-height: 1.3; text-align: center; box-shadow: 0 2px 8px rgba(0,0,0,.18); }
 
 /* ---- Name chip and text bar in the same light dress as the side panel
    (2026-11-20, Galina: «эти тоже сделать такие же»). ---- */
@@ -593,3 +594,10 @@ select.tool { appearance: auto; padding: 5px 8px; }
 .text-toolbar .swatch { border-color: #ffffff; }
 .text-toolbar .swatch.active { border-color: #ffffff; box-shadow: 0 0 0 2px #6d4fd8; }
 .popover-item-text .audio-pick-label { font-weight: 600; }
+
+/* The audio picker's search bar, like the cabinet's Drive panel. */
+.audio-pick-bar { display: flex; gap: 6px; align-items: center; }
+.audio-pick-bar .popover-search { flex: 1; min-width: 0; }
+.audio-pick-refresh { flex: none; border: 1px solid #e7e4ef; background: #f6f5fa; color: #3b3650; border-radius: 8px; padding: 6px 10px; font: inherit; font-size: 12px; cursor: pointer; }
+.audio-pick-refresh:disabled { opacity: .5; cursor: default; }
+.popover-item-text .audio-pick-label { white-space: normal; overflow-wrap: anywhere; }
