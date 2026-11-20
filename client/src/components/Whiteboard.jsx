@@ -2073,7 +2073,7 @@ const Whiteboard = forwardRef(function Whiteboard({ socketRef, boardId, title, s
       id: newId(), type: 'audio', color: '#000000', width: 1,
       x: (rect.width / 2 - view.x) / view.scale - w / 2,
       y: (rect.height / 2 - view.y) / view.scale - h / 2,
-      w, h, src, name: (name ?? item.name).slice(0, 200)
+      w, h, src, name: (item.label && item.label !== item.name.replace(/\.[a-z0-9]{2,4}$/i, '') ? item.label : (name ?? item.name)).slice(0, 200)
     }
     commitRef.current?.(element)
     selectedRef.current = [element.id]

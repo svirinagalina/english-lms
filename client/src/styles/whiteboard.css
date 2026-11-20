@@ -592,3 +592,4 @@ select.tool { appearance: auto; padding: 5px 8px; }
 .text-toolbar .small-hint { color: #8a859a; }
 .text-toolbar .swatch { border-color: #ffffff; }
 .text-toolbar .swatch.active { border-color: #ffffff; box-shadow: 0 0 0 2px #6d4fd8; }
+.popover-item-text .audio-pick-label { font-weight: 600; }

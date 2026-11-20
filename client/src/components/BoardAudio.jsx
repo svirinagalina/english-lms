@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import BoardIcon from './BoardIcons'
+import { audioMatches, describeAudio } from './audioLabel'
 
 // The audio card's size on the board at 100%: the canvas draws its frame and
 // title (so it moves, resizes and prints like anything else), this player
@@ -127,11 +128,11 @@ export function DriveAudioPicker({ load, onPick, onClose }) {
     load().then((r) => {
       if (!live) return
       if (r?.needsAccess) setError('The platform has no access to the Google Drive folder yet.')
-      setItems(r?.items ?? [])
+      setItems(describeAudio(r?.items ?? []))
     }).catch((e) => live && setError(e.message))
     return () => { live = false }
   }, [load])
-  const shown = (items ?? []).filter((i) => `${i.folder ?? ''} ${i.name}`.toLowerCase().includes(query.trim().toLowerCase()))
+  const shown = (items ?? []).filter((i) => audioMatches(i, query))
   return (
     <div className="board-popover rail-audio" onPointerDown={(e) => e.stopPropagation()}>
       <div className="popover-head">
@@ -139,7 +140,7 @@ export function DriveAudioPicker({ load, onPick, onClose }) {
         <strong>Audio from Google Drive</strong>
         <button type="button" className="word-card-close" onClick={onClose} title="Close">×</button>
       </div>
-      <input autoFocus className="popover-search" placeholder="Search audio files…" value={query} onChange={(e) => setQuery(e.target.value)} />
+      <input autoFocus className="popover-search" placeholder="Unit and track, e.g. 7 3 or u7 r3…" value={query} onChange={(e) => setQuery(e.target.value)} />
       <div className="popover-list">
         {items === null && !error && <div className="muted small-hint">Loading…</div>}
         {error && <div className="error">{error}</div>}
@@ -149,16 +150,17 @@ export function DriveAudioPicker({ load, onPick, onClose }) {
             key={item.id}
             type="button"
             className="popover-item"
+            title={item.folder ? `${item.folder} / ${item.name}` : item.name}
             disabled={Boolean(busy)}
             onClick={async () => {
               setBusy(item.id)
               setError('')
-              try { await onPick(item) ; onClose() } catch (e) { setError(e.message) } finally { setBusy(null) }
+              try { await onPick(item); onClose() } catch (e) { setError(e.message) } finally { setBusy(null) }
             }}
           >
             <span className="popover-item-icon"><BoardIcon name="audio" /></span>
             <span className="popover-item-text">
-              <span>{item.name}</span>
+              <span className="audio-pick-label">{item.label}</span>
               {item.folder && <span className="muted">{item.folder}</span>}
             </span>
             {busy === item.id && <span className="muted">Adding…</span>}
