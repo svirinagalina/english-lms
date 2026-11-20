@@ -2,23 +2,28 @@
 // "SO_Adv_extra_plus_2e_CLCD_U07_R07.mp3" is Unit 7, track 7. The picker shows
 // that short label and lets the teacher search "7 7", "u7 r7", "unit 7 track 7".
 
+const squash = (s) => s.toLowerCase().replace(/[^\p{L}\p{N}]+/gu, '')
 const num = (s) => (s == null ? null : Number.parseInt(s, 10))
 
 export function parseAudioName(fileName) {
   const base = String(fileName ?? '').replace(/\.[a-z0-9]{2,4}$/i, '')
   let unit = num(base.match(/(?:^|[^a-z])(?:unit|u)[\s_.-]*0*(\d{1,3})(?!\d)/i)?.[1])
-  let track = num(base.match(/(?:^|[^a-z])(?:track|tr|t|r)[\s_.-]*0*(\d{1,3})(?!\d)/i)?.[1])
+  // "T_2.07" (Headway: CD 2, track 7) keeps its number as the book prints it.
+  const tm = base.match(/(?:^|[^a-z])(?:track|tr|t|r)[\s_.-]*(?:(\d{1,2})\.)?0*(\d{1,3})(?!\d)/i)
+  let track = num(tm?.[2])
+  let trackText = tm ? (tm[1] ? `${tm[1]}.${tm[2].padStart(2, '0')}` : String(track)) : null
   const cd = num(base.match(/(?:^|[^a-z])cd[\s_.-]*0*(\d{1,2})(?!\d)/i)?.[1])
   if (unit == null && track == null) {
     // "1.07", "1-07", "01_07" at the very end: unit and track.
     const pair = base.match(/(?:^|\D)(\d{1,2})[._-](\d{1,3})\s*$/)
     if (pair) { unit = num(pair[1]); track = num(pair[2]) }
     else track = num(base.match(/(\d{1,3})\D*$/)?.[1])
+    trackText = track == null ? null : String(track)
   }
   const parts = []
   if (cd != null && unit == null) parts.push(`CD ${cd}`)
   if (unit != null) parts.push(`Unit ${unit}`)
-  if (track != null) parts.push(`Track ${track}`)
+  if (track != null) parts.push(`Track ${trackText}`)
   return { unit, track, label: parts.length ? parts.join(' · ') : base }
 }
 
@@ -42,13 +47,15 @@ export function audioMatches(item, query) {
     if (b != null) return item.unit === a && item.track === b
     return item.unit != null ? item.unit === a : item.track === a
   }
-  const hay = `${item.label} ${item.name} ${item.folder ?? ''}`.toLowerCase()
+  // Like Drive: every word somewhere, any order; spaces, _ - . don't matter,
+  // so "headway intermediate" finds "HeadwayIntermediate".
+  const hay = squash(`${item.label} ${item.name} ${item.folder ?? ''}`)
   return tokens.every((t) => {
     const u = t.match(/^u0*(\d+)$/)
     if (u) return item.unit === Number(u[1])
     const tr = t.match(/^[tr]0*(\d+)$/)
     if (tr) return item.track === Number(tr[1])
     if (/^\d+$/.test(t) && (item.unit != null || item.track != null)) return item.unit === Number(t) || item.track === Number(t)
-    return hay.includes(t)
+    return hay.includes(squash(t))
   })
 }
