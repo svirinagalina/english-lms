@@ -228,7 +228,7 @@ export default function Classrooms() {
         <Panel id="home:boards" title="My boards" count={myBoards.length} forceOpen={Boolean(q)}>
           <p className="muted" style={{ marginBottom: 10 }}>
             Boards that belong to you rather than to a student — drafts, screenshots, reusable material.
-            Use <strong>Assign</strong> to give one of these to a student (or several, for a pair or group lesson) — it becomes their one board, replacing whatever they had before.
+            Use <strong>Assign</strong> to give one of these to a student (or several, for a pair or group lesson) — it is added to their cabinet next to any boards they already have.
           </p>
           <form className="inline-form" onSubmit={addBoard}>
             <input

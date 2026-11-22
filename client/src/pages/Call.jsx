@@ -1959,7 +1959,7 @@ export default function Call() {
   // Remembered so "Board" goes back to it after Writing, without a picker.
   const lastBoardRef = useRef(null)
   useEffect(() => { if (boardId) lastBoardRef.current = boardId }, [boardId])
-  const preferredBoardId = lastBoardRef.current ?? (call?.classroomId ? boards.find((b) => b.classroomId === call.classroomId)?.id : null)
+  const preferredBoardId = lastBoardRef.current ?? (call?.boardId && boards.some((b) => b.id === call.boardId) ? call.boardId : null) ?? (call?.classroomId ? boards.find((b) => b.classroomId === call.classroomId)?.id : null)
   const openBoard = (id) => { setBoardId(id); if (writingId) { setWritingId(null); socketRef.current?.emit('doc:close') } }
   const closeBoard = () => {
     setBoardId(null)

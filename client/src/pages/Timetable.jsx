@@ -51,14 +51,23 @@ export default function Timetable() {
       const [{ classrooms }, { boards }] = await Promise.all([api.listClassrooms(), api.allBoards()])
       const mineFirst = (list) => [...list].sort((a, b) => (a.teacherId === user.id ? -1 : 0) - (b.teacherId === user.id ? -1 : 0))
       const rowsOf = (studentId) => mineFirst(boards.filter((b) => b.studentId === studentId))
-      const shared = ids.length > 1
-        ? rowsOf(ids[0]).find((row) => ids.every((sid) => boards.some((b) => b.id === row.id && b.studentId === sid)))
-        : null
+      // A student may have several boards (a personal one, group ones): the
+      // lesson goes on the one whose name is in the lesson's title, else the
+      // one shared with exactly this lesson's students, else the latest used.
+      const title = (lesson.title ?? '').toLowerCase()
+      const named = (rows) => rows.find((row) => row.title && title.includes(row.title.toLowerCase().trim()))
+      const studentsOf = (boardId) => new Set(boards.filter((b) => b.id === boardId && b.studentId).map((b) => b.studentId))
+      const exact = (rows) => rows.find((row) => { const on = studentsOf(row.id); return on.size === ids.length && ids.every((sid) => on.has(sid)) })
+      const common = ids.length > 1
+        ? rowsOf(ids[0]).filter((row) => ids.every((sid) => boards.some((b) => b.id === row.id && b.studentId === sid)))
+        : []
+      const shared = ids.length > 1 ? (named(common) ?? exact(common) ?? common[0] ?? null) : null
       // A current cabinet, not one kept as history after a change of teacher.
       const classroom = ids.length === 1
         ? [...classrooms].filter((c) => c.student?.id === ids[0]).sort((a, b) => (a.former - b.former) || ((a.teacher?.id === user.id ? -1 : 0) - (b.teacher?.id === user.id ? -1 : 0)))[0]
         : null
-      const board = shared ?? (ids.length ? (rowsOf(ids[0]).find((b) => b.classroomId === classroom?.id) ?? rowsOf(ids[0])[0]) : null)
+      const ownRows = ids.length ? rowsOf(ids[0]).filter((b) => b.classroomId === classroom?.id) : []
+      const board = shared ?? (ids.length ? (named(ownRows) ?? exact(ownRows) ?? ownRows[0] ?? rowsOf(ids[0])[0]) : null)
       const started = await api.createCall({
         ...(classroom ? { classroomId: classroom.id } : {}),
         ...(board ? { boardId: board.id } : {}),

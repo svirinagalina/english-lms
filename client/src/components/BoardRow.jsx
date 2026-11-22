@@ -19,7 +19,7 @@ export default function BoardRow({ board, classroomId, targets, canEdit, onOpen,
       const { displaced } = await api.assignBoard(classroomId, board.id, target.id, checked)
       setNotice(
         checked
-          ? displaced?.length ? `Assigned to ${target.label} · replaced “${displaced.join(', ')}”` : `Assigned to ${target.label}`
+          ? displaced?.length ? `Assigned to ${target.label} · replaced “${displaced.join(', ')}”` : `Assigned to ${target.label} · their other boards stay`
           : `No longer with ${target.label}`
       )
       await onChanged()
@@ -70,7 +70,7 @@ export default function BoardRow({ board, classroomId, targets, canEdit, onOpen,
       {assigning && (
         <div className="link-editor">
           <span className="muted" style={{ display: 'block', marginBottom: 8 }}>
-            Who this board belongs to. Checking a student gives them this board and takes away whatever they had before — a student is only ever on one board.
+            Who this board belongs to. Checking a student adds this board to their cabinet; their other boards stay. Unchecking takes only this one away.
           </span>
           <input className="home-search" type="search" placeholder="Find a student…" value={find} onChange={(e) => setFind(e.target.value)} />
           <div className="assign-list">

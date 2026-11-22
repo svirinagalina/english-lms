@@ -262,6 +262,8 @@ export default function Classroom() {
   // name a board that lives in another of this person's cabinets now — the
   // student changed teacher, or it was assigned elsewhere. Go to the cabinet
   // that has it; failing that, open the student's own board instead of nothing.
+  // A student may have several boards: "their board" is the one used last.
+  const latestBoard = classroom?.boards?.reduce((best, b) => (!best || new Date(b.updatedAt) > new Date(best.updatedAt) ? b : best), null) ?? null
   const wanted = openBoardId && openBoardId !== 'default' && classroom?.id === id && !classroom.boards.some((b) => b.id === openBoardId) ? openBoardId : null
   useEffect(() => {
     if (!wanted) return
@@ -272,8 +274,8 @@ export default function Classroom() {
       const row = rows.find((b) => classroom.student && b.studentId === classroom.student.id) ?? rows.find((b) => b.studentId) ?? rows[0]
       if (row && row.classroomId !== id) {
         navigate(`/classroom/${row.classroomId}?${searchParams.toString()}`, { replace: true })
-      } else if (classroom.student && classroom.boards[0]) {
-        setOpenBoardId(classroom.boards[0].id)
+      } else if (classroom.student && latestBoard) {
+        setOpenBoardId(latestBoard.id)
       }
     }).catch(() => {})
     return () => { cancelled = true }
@@ -301,9 +303,9 @@ export default function Classroom() {
   // used to mean "the board this classroom owns outright", which broke the
   // moment a student's one board became normally a *shared* one (Assign
   // moved to sharing from the teacher's shelf rather than direct ownership)
-  // — the link silently did nothing. A student's classroom only ever has
-  // one board at all now, owned or shared, so 'default' is just that one.
-  const openBoard = classroom.boards.find((b) => b.id === openBoardId) ?? (openBoardId === 'default' ? classroom.boards[0] : undefined)
+  // — the link silently did nothing. A student may have several boards now
+  // (2026-11-22), so 'default' is the one used last.
+  const openBoard = classroom.boards.find((b) => b.id === openBoardId) ?? (openBoardId === 'default' ? latestBoard : undefined)
   // Who this board is actually shared with — shared with exactly one
   // student, no choice to make; several (a pair/group lesson), the choice
   // is just those; none (real material of my own), the whole roster.
@@ -445,11 +447,13 @@ export default function Classroom() {
       {isStaff && !isPersonal && <PendingTrialReports classroomId={id} refreshKey={searchParams.toString()} />}
       {!isStaff && <LiveLesson classroomId={id} />}
 
-      <Panel id={`room:boards:${id}`} title={isPersonal ? 'Boards' : 'Board'} count={classroom.boards.length} defaultOpen>
+      <Panel id={`room:boards:${id}`} title="Boards" count={classroom.boards.length} defaultOpen>
         <p className="muted" style={{ marginBottom: 10 }}>
           {isPersonal
             ? 'Your own boards. Open any time.'
-            : `One board for all lessons with ${user.role === 'STUDENT' ? 'your teacher' : 'the student'}: every lesson and its materials stay here. Open any time, not just during a call.`}
+            : user.role === 'STUDENT'
+              ? 'Your boards with your teacher: every lesson and its materials stay on them. Open any time, not just during a call.'
+              : 'The student\'s boards (a personal one, group ones…): add more with Assign in My boards. Open any time, not just during a call.'}
         </p>
 
         {isStaff && isPersonal && (

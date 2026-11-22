@@ -282,7 +282,9 @@ classroomsRouter.get('/boards', async (req, res) => {
   // whenever the owner's shelf classroom happened to be iterated first,
   // which meant a student's call could never find their own assigned board.
   const boards = classrooms.flatMap((classroom) =>
-    [...classroom.boards, ...classroom.sharedBoards].map((board) => ({
+    // Most recently used first, so "the student's board" without a choice
+    // means the one they worked on last.
+    [...classroom.boards, ...classroom.sharedBoards].sort((a, b) => b.updatedAt - a.updatedAt).map((board) => ({
       id: board.id,
       title: board.title,
       classroomId: classroom.id,
@@ -366,7 +368,7 @@ classroomsRouter.post('/:id/boards', requireRole('OWNER', 'TEACHER'), async (req
   const classroom = await accessibleClassroom(req.user, req.params.id)
   if (!classroom) return res.status(404).json({ error: 'Classroom not found' })
   // A student's board comes from the teacher's own shelf via Assign, never
-  // created directly here — a student stays on exactly one board.
+  // created directly here.
   if (classroom.student) return res.status(400).json({ error: 'Create the board in My boards and assign it here' })
 
   const parsed = boardSchema.safeParse(req.body)
@@ -401,10 +403,11 @@ const assignSchema = z.object({
   attach: z.boolean()
 })
 
-// A board goes to exactly one place per student. Checking a student's name
-// attaches this board to them and detaches whatever board they had before
-// (moved back to the teacher's own boards, not deleted); unchecking detaches
-// this one. One board can be checked for several students at once.
+// Checking a student's name attaches this board to them; unchecking detaches
+// it (their own board goes back to the teacher's shelf, never deleted). A
+// student may have several boards (Galina, 2026-11-22: Alina is on both
+// "wednesday" and "bookclub") — attaching one no longer takes the others away.
+// `displaced` stays in the answer, always empty, for older clients.
 classroomsRouter.post('/:id/boards/:boardId/assign', requireRole('OWNER', 'TEACHER'), async (req, res) => {
   const parsed = assignSchema.safeParse(req.body)
   if (!parsed.success) return res.status(400).json({ error: 'Invalid data' })
@@ -443,26 +446,10 @@ classroomsRouter.post('/:id/boards/:boardId/assign', requireRole('OWNER', 'TEACH
       return []
     }
 
-    // Whatever this student already has (besides this board) gets displaced first.
-    const others = await tx.board.findMany({
-      where: { id: { not: board.id }, OR: [{ classroomId: target.id }, { sharedWith: { some: { id: target.id } } }] },
-      select: { id: true, title: true, classroomId: true }
-    })
-    const displaced = []
-    for (const other of others) {
-      if (other.classroomId === target.id) {
-        await tx.board.update({ where: { id: other.id }, data: { classroomId: home.id } })
-        forgetBoard(other.id)
-      } else {
-        await tx.board.update({ where: { id: other.id }, data: { sharedWith: { disconnect: { id: target.id } } } })
-      }
-      displaced.push(other.title)
-    }
-
     if (board.classroomId !== target.id) {
       await tx.board.update({ where: { id: board.id }, data: { sharedWith: { connect: { id: target.id } } } })
     }
-    return displaced
+    return []
   })
 
   res.json({ ok: true, displaced })
