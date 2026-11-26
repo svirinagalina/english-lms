@@ -74,7 +74,8 @@ jobs:
   # Browser checks (e2e/): the production client build served by vite preview,
   # the real server on the test database, Chromium with a fake camera and mic.
   e2e:
-    runs-on: ubuntu-latest
+    # Pinned: ubuntu-latest became 26.04 (2026-11), which Playwright 1.56 cannot install Chromium on.
+    runs-on: ubuntu-24.04
     timeout-minutes: 20
     services:
       postgres:
